@@ -590,11 +590,11 @@ const readTools: AgentTool[] = [
 const writeTools: AgentTool[] = [
   {
     name: 'create_order',
-    description: 'Create a sales order with header + line matrix. Required: orderNo, buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}).',
+    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned. Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}).',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
-      orderNo: z.string(),
+      orderNo: z.string().optional(),
       buyerCode: z.string(),
       styleNo: z.string(),
       orderDate: z.string().optional(),
@@ -624,12 +624,27 @@ const writeTools: AgentTool[] = [
         return { colourId: colour?.id || '', sizeId: size?.id || '', qty: l.qty, rate: l.rate }
       }))
 
+      // Resolve a free order number (auto-increment if not provided / collision)
+      const resolvedOrderNo = await (async () => {
+        const desired = args.orderNo?.trim()
+        if (desired) {
+          const exists = await db.order.findUnique({ where: { orderNo: desired } })
+          if (!exists) return desired
+        }
+        // Find next free SO-####
+        const all = await db.order.findMany({ where: { orderNo: { startsWith: 'SO-' } } })
+        const used = new Set(all.map((o) => o.orderNo))
+        let n = 1001
+        while (used.has(`SO-${n}`)) n++
+        return `SO-${n}`
+      })()
+
       return {
-        text: `Proposed order ${args.orderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
+        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
         plan: {
-          summary: `Create order ${args.orderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
+          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
           creates: [
-            { table: 'order', data: { orderNo: args.orderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
+            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
             ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
           ],
           sideEffects: ['Stock reservation will be calculated when fabric is issued'],
@@ -637,7 +652,7 @@ const writeTools: AgentTool[] = [
         async commit() {
           const created = await db.order.create({
             data: {
-              orderNo: args.orderNo, buyerId: buyer.id, styleId: style.id,
+              orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id,
               orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
               deliveryDate: new Date(args.deliveryDate),
               finYear, totalPcs, totalValue, status: 'open', notes: args.notes,
@@ -651,11 +666,11 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_purchase_order',
-    description: 'Create a purchase order. Required: poNo, poType (yarn|fabric|accessory|general), partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}).',
+    description: 'Create a purchase order. poNo is optional — if omitted or already taken, the next free PO-{Y|F|A}-{seq} is auto-assigned based on poType. Required: poType (yarn|fabric|accessory|general), partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}).',
     domain: 'procurement',
     isWrite: true,
     schema: z.object({
-      poNo: z.string(),
+      poNo: z.string().optional(),
       poType: z.string(),
       partyCode: z.string(),
       orderDate: z.string().optional(),
@@ -686,12 +701,27 @@ const writeTools: AgentTool[] = [
         return { ...l, itemId: item.id, uomId: item.uomId, amount: l.qty * l.rate }
       }))
 
+      // Resolve a free PO number
+      const prefix = args.poType === 'yarn' ? 'PO-Y-' : args.poType === 'fabric' ? 'PO-F-' : args.poType === 'accessory' ? 'PO-A-' : 'PO-G-'
+      const resolvedPoNo = await (async () => {
+        const desired = args.poNo?.trim()
+        if (desired) {
+          const exists = await db.purchaseOrder.findUnique({ where: { poNo: desired } })
+          if (!exists) return desired
+        }
+        const all = await db.purchaseOrder.findMany({ where: { poNo: { startsWith: prefix } } })
+        const used = new Set(all.map((p) => p.poNo))
+        let n = 1
+        while (used.has(`${prefix}${String(n).padStart(3, '0')}`)) n++
+        return `${prefix}${String(n).padStart(3, '0')}`
+      })()
+
       return {
-        text: `Proposed PO ${args.poNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
+        text: `Proposed PO ${resolvedPoNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
         plan: {
-          summary: `Create PO ${args.poNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
+          summary: `Create PO ${resolvedPoNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
           creates: [
-            { table: 'purchaseOrder', data: { poNo: args.poNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
+            { table: 'purchaseOrder', data: { poNo: resolvedPoNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
             ...linesResolved.map((l) => ({ table: 'poLine', data: { ...l, poId: '<pending>' } })),
           ],
           sideEffects: ['Auto-submits for approval workflow; status=open until approved'],
@@ -699,7 +729,7 @@ const writeTools: AgentTool[] = [
         async commit() {
           const created = await db.purchaseOrder.create({
             data: {
-              poNo: args.poNo, poType: args.poType, partyId: party.id,
+              poNo: resolvedPoNo, poType: args.poType, partyId: party.id,
               orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
               deliveryDate: new Date(args.deliveryDate),
               finYear, totalQty, totalValue, status: 'open', notes: args.notes,
@@ -717,11 +747,11 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'receive_grn',
-    description: 'Receive a GRN against a PO. Required: grnNo, poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
+    description: 'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or colliding. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
     domain: 'procurement',
     isWrite: true,
     schema: z.object({
-      grnNo: z.string(),
+      grnNo: z.string().optional(),
       poNo: z.string(),
       godownCode: z.string(),
       partyDcRef: z.string().optional(),
@@ -744,14 +774,28 @@ const writeTools: AgentTool[] = [
       const totalValue = actualQty * line.rate
       const finYear = '26-27'
 
+      // Resolve a free GRN number
+      const resolvedGrnNo = await (async () => {
+        const desired = args.grnNo?.trim()
+        if (desired) {
+          const exists = await db.gRN.findUnique({ where: { grnNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.gRN.findMany({ where: { grnNo: { startsWith: 'GRN-' } } })
+        const used = new Set(all.map((g) => g.grnNo))
+        let n = 1
+        while (used.has(`GRN-${String(n).padStart(4, '0')}`)) n++
+        return `GRN-${String(n).padStart(4, '0')}`
+      })()
+
       return {
-        text: `Proposed GRN ${args.grnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
+        text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
         plan: {
-          summary: `Receive GRN ${args.grnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
+          summary: `Receive GRN ${resolvedGrnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
           creates: [
-            { table: 'grn', data: { grnNo: args.grnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
+            { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
             { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
-            { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: args.grnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
+            { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
             { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
           ],
           updates: [
@@ -764,7 +808,7 @@ const writeTools: AgentTool[] = [
           return await db.$transaction(async (tx) => {
             const grn = await tx.gRN.create({
               data: {
-                grnNo: args.grnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
+                grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
                 godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
                 finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
                 lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
@@ -773,7 +817,7 @@ const writeTools: AgentTool[] = [
             await tx.stockLedger.create({
               data: {
                 txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
-                godownId: godown.id, deptId: dept?.id, docNo: args.grnNo,
+                godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo,
                 docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
                 finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
                 inPcs: line.itemType === 'accessory' ? actualQty : 0,
@@ -824,11 +868,11 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_sales_invoice',
-    description: 'Create a sales invoice against an order. Required: invoiceNo, orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue, gstRate, gstType (cgst_sgst for intra-state OR igst for inter-state).',
+    description: 'Create a sales invoice against an order. invoiceNo is optional — auto-assigned INV-#### if omitted or colliding. Required: orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue, gstRate, gstType (cgst_sgst for intra-state OR igst for inter-state).',
     domain: 'accounting',
     isWrite: true,
     schema: z.object({
-      invoiceNo: z.string(),
+      invoiceNo: z.string().optional(),
       orderNo: z.string(),
       partyCode: z.string().describe('Customer party code'),
       billType: z.string(),
@@ -854,19 +898,33 @@ const writeTools: AgentTool[] = [
       const sgstAmt = (args.taxableValue * sgstRate) / 100
       const igstAmt = (args.taxableValue * igstRate) / 100
 
+      // Resolve a free invoice number
+      const resolvedInvoiceNo = await (async () => {
+        const desired = args.invoiceNo?.trim()
+        if (desired) {
+          const exists = await db.salesInvoice.findUnique({ where: { invoiceNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.salesInvoice.findMany({ where: { invoiceNo: { startsWith: 'INV-' } } })
+        const used = new Set(all.map((i) => i.invoiceNo))
+        let n = 1
+        while (used.has(`INV-${String(n).padStart(4, '0')}`)) n++
+        return `INV-${String(n).padStart(4, '0')}`
+      })()
+
       return {
-        text: `Proposed invoice ${args.invoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
+        text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
         plan: {
-          summary: `Create invoice ${args.invoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
+          summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
           creates: [
-            { table: 'salesInvoice', data: { invoiceNo: args.invoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+            { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
           ],
           sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
         },
         async commit() {
           const inv = await db.salesInvoice.create({
             data: {
-              invoiceNo: args.invoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
+              invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
               invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
               finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
               cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
@@ -879,11 +937,11 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_cut_order',
-    description: 'Create a cut order against an order. Required: cutNo, orderNo, fabricIssued (kgs), totalPcs, markerLength, noOfPlies, efficiency.',
+    description: 'Create a cut order against an order. cutNo is optional — auto-assigned CUT-#### if omitted or colliding. Required: orderNo, fabricIssued (kgs), totalPcs, markerLength, noOfPlies, efficiency.',
     domain: 'cutting',
     isWrite: true,
     schema: z.object({
-      cutNo: z.string(),
+      cutNo: z.string().optional(),
       orderNo: z.string(),
       fabricIssued: z.number(),
       totalPcs: z.number(),
@@ -895,24 +953,39 @@ const writeTools: AgentTool[] = [
     async execute(args) {
       const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
+
+      // Resolve a free cut number
+      const resolvedCutNo = await (async () => {
+        const desired = args.cutNo?.trim()
+        if (desired) {
+          const exists = await db.cutOrder.findUnique({ where: { cutNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.cutOrder.findMany({ where: { cutNo: { startsWith: 'CUT-' } } })
+        const used = new Set(all.map((c) => c.cutNo))
+        let n = 1
+        while (used.has(`CUT-${String(n).padStart(4, '0')}`)) n++
+        return `CUT-${String(n).padStart(4, '0')}`
+      })()
+
       return {
-        text: `Proposed cut order ${args.cutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
+        text: `Proposed cut order ${resolvedCutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
         plan: {
-          summary: `Create cut order ${args.cutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
-          creates: [{ table: 'cutOrder', data: { cutNo: args.cutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
+          summary: `Create cut order ${resolvedCutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
+          creates: [{ table: 'cutOrder', data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
           sideEffects: ['Auto-generates cut bundles with barcodes if efficiency provided'],
         },
         async commit() {
           const cut = await db.cutOrder.create({
-            data: { cutNo: args.cutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
+            data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
           })
           // Auto-generate bundles
           const bundles = Math.ceil(args.totalPcs / 100)
           for (let i = 1; i <= bundles; i++) {
             await db.cutBundle.create({
               data: {
-                cutOrderId: cut.id, bundleNo: `${args.cutNo}/B${i}`,
-                barcode: `*${args.cutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
+                cutOrderId: cut.id, bundleNo: `${resolvedCutNo}/B${i}`,
+                barcode: `*${resolvedCutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
                 qty: Math.min(100, args.totalPcs - (i - 1) * 100),
                 status: 'in_cutting',
               },

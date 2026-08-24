@@ -1,0 +1,2361 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<StiSerializer version="1.0" application="StiReport">
+  <Dictionary Ref="1" type="Dictionary" isKey="true">
+    <Databases isList="true" count="1">
+      <Connection Ref="2" type="Stimulsoft.Report.Dictionary.StiOleDbDatabase" isKey="true">
+        <Alias>Connection</Alias>
+        <ConnectionString>Provider=SQLOLEDB;Persist Security Info=False;User ID=SA;Initial Catalog=JK;Data Source=MACHINE-19</ConnectionString>
+        <Name>Connection</Name>
+        <PromptUserNameAndPassword>False</PromptUserNameAndPassword>
+      </Connection>
+    </Databases>
+    <DataSources isList="true" count="3">
+      <FabricsubReport Ref="3" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>FabricsubReport</Alias>
+        <Columns isList="true" count="15">
+          <value>ID,System.Int32</value>
+          <value>Clr,System.Int32</value>
+          <value>Gsm,System.Decimal</value>
+          <value>GG,System.Int32</value>
+          <value>LL,System.String</value>
+          <value>prog,System.Decimal</value>
+          <value>progMtr,System.Decimal</value>
+          <value>Dia,System.String</value>
+          <value>FinDiaID,System.Int32</value>
+          <value>ItemDesc,System.String</value>
+          <value>Uom,System.String</value>
+          <value>Dcrate,System.Decimal</value>
+          <value>Ratelbl,System.String</value>
+          <value>DesignDesc,System.String</value>
+          <value>Head,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>FabricsubReport</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>SELECT     Trs_Del3.ID, Trs_Del3.Clr, Trs_Del3.Gsm, Trs_Del3.GG, Trs_Del3.LL, SUM(Trs_Del3.Prog) AS prog, SUM(Trs_Del3.ProgMtr) AS progMtr, Mas_Dia.Dia, Trs_Del3.FinDiaID,
+	CASE WHEN Trs_Del3.Clr = 0 THEN Mas_Fabric.Fabdesc + '/' + Countname ELSE Mas_Fabric.Fabdesc + '/' + Countname + '/' + Mas_Color.ColorDesc END AS ItemDesc,
+                       CASE WHEN SUM(Trs_Del3.ProgMtr) &gt; 0 THEN Mas_Uom.Uom ELSE '' END AS Uom, CASE Preprint.DcRateReqd WHEN 1 THEN CASE Isnull(Trs_Del1.processType, 
+                      'P') WHEN 'P' THEN CASE WHEN SUM(jobno) &lt;&gt; 0 THEN CASE WHEN SUM(isnull(BudPodet.Rate, 0)) &lt;&gt; 0 THEN SUM(Trs_Del3.Prog * BudPoDet.rate) 
+                      / SUM(Trs_Del3.Prog) ELSE SUM(Trs_Del3.Prog * isnull(Pro_ReqKnitt2.rate, 0)) / SUM(Trs_Del3.Prog) END ELSE SUM(Trs_Del3.Prog * isnull(Trs_del3.GeneralRate, 0)) 
+                      / SUM(Trs_Del3.Prog) END ELSE 0 END ELSE 0 END AS Dcrate, CASE Preprint.DcRateReqd WHEN 1 THEN CASE Isnull(Trs_Del1.processType, 'P') 
+                      WHEN 'P' THEN 'Rate' ELSE '' END ELSE '' END AS Ratelbl, dbo.Mas_Design.DesignDesc,'PROGRAM DETAILS' as Head
+FROM         dbo.BudPoMas INNER JOIN
+                      dbo.BudPodet ON dbo.BudPoMas.Id = dbo.BudPodet.Id RIGHT OUTER JOIN
+                      dbo.Mas_Design RIGHT OUTER JOIN
+                      dbo.Mas_Dept INNER JOIN
+                      dbo.Trs_Del1 ON dbo.Mas_Dept.DeptID = dbo.Trs_Del1.Prs_Dept INNER JOIN
+                      dbo.Trs_Del3 AS Trs_Del3 INNER JOIN
+                      dbo.Mas_Fabric AS Mas_Fabric ON Trs_Del3.FabType = Mas_Fabric.FabID ON dbo.Trs_Del1.ID = Trs_Del3.ID ON 
+                      dbo.Mas_Design.DesignId = Trs_Del3.Print_DesignId ON dbo.BudPoMas.DeptId = dbo.Trs_Del1.Prs_Dept AND dbo.BudPoMas.PartyId = dbo.Trs_Del1.Party AND 
+                      dbo.BudPoMas.OrdId = Trs_Del3.OrdId AND dbo.BudPodet.DiaId = Trs_Del3.DiaID AND dbo.BudPodet.LL = Trs_Del3.LL AND dbo.BudPodet.GG = Trs_Del3.GG AND 
+                      dbo.BudPodet.GSM = Trs_Del3.Gsm AND dbo.BudPodet.FabId = Trs_Del3.FabType AND dbo.BudPodet.ColId = Trs_Del3.Clr AND 
+                      dbo.BudPodet.CntId = Trs_Del3.Cnt AND 
+                      dbo.BudPodet.Findiaid = Trs_Del3.Findiaid AND 
+                      dbo.BudPodet.fingsm= Trs_Del3.fingsm LEFT OUTER JOIN
+                      dbo.Mas_Dia AS Mas_Dia ON Trs_Del3.DiaID = Mas_Dia.DiaID LEFT OUTER JOIN
+                      dbo.Pro_ReqKnitt2 ON dbo.Trs_Del1.Prs_Dept = dbo.Pro_ReqKnitt2.DeptId AND Trs_Del3.OrdId = dbo.Pro_ReqKnitt2.OrdId AND 
+                      Trs_Del3.FabType = dbo.Pro_ReqKnitt2.FabId AND Trs_Del3.Clr = dbo.Pro_ReqKnitt2.ColId AND Trs_Del3.Cnt = dbo.Pro_ReqKnitt2.CntID AND 
+                      Trs_Del3.Gsm = dbo.Pro_ReqKnitt2.GSM AND Trs_Del3.GG = dbo.Pro_ReqKnitt2.GG AND Trs_Del3.LL = dbo.Pro_ReqKnitt2.LL AND 
+                      Trs_Del3.DiaID = dbo.Pro_ReqKnitt2.DiaID AND Trs_Del3.FinDiaID = dbo.Pro_ReqKnitt2.FinDiaId AND Trs_Del3.FinGSm = dbo.Pro_ReqKnitt2.FinGSM AND 
+                      Trs_Del3.DiaID = dbo.Pro_ReqKnitt2.DiaID LEFT OUTER JOIN
+                      dbo.Mas_Count AS Mas_Count ON Trs_Del3.Cnt = Mas_Count.CountID LEFT OUTER JOIN
+                      dbo.Mas_Color AS Mas_Color ON Trs_Del3.Clr = Mas_Color.ColID LEFT OUTER JOIN
+                      dbo.Mas_Uom AS Mas_Uom ON Mas_Fabric.PriUomID = Mas_Uom.UomID LEFT OUTER JOIN
+                      dbo.OrderMas ON dbo.OrderMas.OrdId = Trs_Del3.OrdId CROSS JOIN
+                      dbo.PrePrint
+WHERE     (dbo.Mas_Dept.ProgReqPrn = 'Y') AND (Trs_Del3.FabType &gt; 0) AND (Trs_Del3.ID =?) AND (dbo.PrePrint.Slno = 2)
+GROUP BY Mas_Fabric.Fabdesc, Mas_Count.CountName, Mas_Color.ColorDesc, Trs_Del3.Gsm, Trs_Del3.GG, Trs_Del3.LL, Mas_Dia.Dia,Trs_Del3.FinDiaID, Trs_Del3.ID, Trs_Del3.Clr, 
+                      Mas_Uom.Uom, dbo.PrePrint.DcRateReqd, dbo.Trs_Del1.ProcessType, dbo.Mas_Design.DesignDesc
+</SqlCommand>
+      </FabricsubReport>
+      <YarnDC Ref="4" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>YarnDC</Alias>
+        <Columns isList="true" count="50">
+          <value>ID,System.Int32</value>
+          <value>DcNo,System.String</value>
+          <value>Dt,System.DateTime</value>
+          <value>TrType,System.Int32</value>
+          <value>remark,System.String</value>
+          <value>delwgt,System.Decimal</value>
+          <value>OrderNo,System.String</value>
+          <value>StyleNo,System.String</value>
+          <value>Deptname,System.String</value>
+          <value>OutputType,System.String</value>
+          <value>DCFormat,System.String</value>
+          <value>BgRl,System.Int32</value>
+          <value>Kg,System.Decimal</value>
+          <value>Pname,System.String</value>
+          <value>BuyerName,System.String</value>
+          <value>Paddress,System.String</value>
+          <value>Phone,System.String</value>
+          <value>TIN,System.String</value>
+          <value>CST,System.String</value>
+          <value>ExporterName,System.String</value>
+          <value>ExporterAddress,System.String</value>
+          <value>Expr2,System.String</value>
+          <value>Expr3,System.String</value>
+          <value>Expr4,System.String</value>
+          <value>PAN,System.String</value>
+          <value>PartyDCref,System.String</value>
+          <value>grnwgt,System.Decimal</value>
+          <value>DcPre,System.String</value>
+          <value>ColorDesc,System.String</value>
+          <value>CountName,System.String</value>
+          <value>Mill,System.String</value>
+          <value>Heading,System.String</value>
+          <value>VName,System.String</value>
+          <value>Terms,System.String</value>
+          <value>Item,System.String</value>
+          <value>GPNo,System.Int32</value>
+          <value>GatePassFlg1,System.String</value>
+          <value>TarDt,System.DateTime</value>
+          <value>LotNo,System.String</value>
+          <value>Username,System.String</value>
+          <value>DcRate,System.Decimal</value>
+          <value>Ratelbl,System.String</value>
+          <value>GodName,System.String</value>
+          <value>PPAN,System.String</value>
+          <value>GSTNo,System.String</value>
+          <value>PGSTNo,System.String</value>
+          <value>HSNCode,System.String</value>
+          <value>EwayBillNo,System.String</value>
+          <value>EwayBillDt,System.DateTime</value>
+          <value>Amount,System.Decimal</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>YarnDC</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>SELECT Distinct    Trs_Del1.ID, CASE WHEN len(rtrim(mas_grp.dcpre))&lt; 1 or isnull(len(rtrim(mas_grp.dcpre)),'') ='' THEN RTRIM(CAST(Trs_Del1.DocNo AS varchar)) 
+                      + '/' + Trs_Del1.Finyear ELSE rtrim(mas_grp.dcpre) + '-' + RTRIM(CAST(Trs_Del1.DocNo AS varchar)) + '/' + Trs_Del1.Finyear END AS DcNo, 
+                      Trs_Del1.Dt, Trs_Del1.TrType, Trs_Del1.remark, Trs_Del1.delwgt, 
+                      CASE WHEN ordermas.jobno = 0 THEN '&lt;General&gt;' + '/' + OrderMas.Finyear + '-&gt;' + OrderMas.BuyOrdNo ELSE 
+					  RTRIM(CAST(OrderMas.Jobno AS varchar))
+                       + '/' + OrderMas.Finyear + '-&gt;' + OrderMas.BuyOrdNo END AS OrderNo, ''StyleNo, Mas_Dept.Deptname, Mas_Dept.OutputType, 
+                      Mas_Dept.DCFormat, Trs_Del2.BgRl, Trs_Del2.Kg, Mas_Party.Pname, dbo.Mas_Buyer.BuyerName, Mas_Party.Paddress, Mas_Party.Phone, 
+                      Mas_Party.TIN, Mas_Party.CST, Mas_Exporter.ExporterName, Mas_Exporter.ExporterAddress,
+					   Mas_Exporter.Phone AS Expr2, 
+                      Mas_Exporter.TIN AS Expr3, Mas_Exporter.CST AS Expr4,Mas_Exporter.pan AS PAN, Trs_Grn1.PartyDCref, Trs_Grn1.grnwgt, Mas_Grp.DcPre, Mas_Color.ColorDesc, 
+                      Mas_Count.CountName, Mas_Mill.Mill, 
+                      CASE Trtype WHEN 1 THEN 'PROCESS DELIVERY' WHEN 4 THEN 'PURCHASE RETURN' WHEN 13 THEN 'PARTY REJECTION RETURN' END AS Heading,
+                       dbo.Mas_Vehicle.VName, Mas_Terms.Terms, CASE WHEN Mas_Color.ColorDesc IS NOT NULL AND Mas_Mill.Mill IS NOT NULL 
+                      THEN Mas_Count.CountName + Mas_Color.ColorDesc + Mas_Mill.Mill WHEN Mas_Color.ColorDesc IS NULL AND Mas_Mill.Mill IS NULL 
+                      THEN Mas_Count.CountName WHEN Mas_Color.ColorDesc IS NULL AND Mas_Mill.Mill IS NOT NULL 
+                      THEN Mas_Count.CountName + Mas_Mill.Mill WHEN Mas_Color.ColorDesc IS NOT NULL AND Mas_Mill.Mill IS NULL 
+                      THEN Mas_Count.CountName + Mas_Color.ColorDesc END AS Item, Trs_Del1.GPNo, ISNULL(dbo.Options.GatePassFlg, 'N') AS GatePassFlg1, 
+                      Trs_Del1.TarDt, StockTable.LotNo, dbo.Mas_User.Username,  CASE Preprint.DcRateReqd WHEN 1 THEN CASE Isnull(Trs_Del1.ProcessType,'P') WHEN 'P' THEN  CASE Isnull(Mas_Dept.ProgFrm_Issue,'N') WHEN 'Y' then  CASE Ordermas.Jobno WHEN 0 THEN Trs_Del3.GeneralRate ELSE case Isnull(dbo.BudPodet.Rate,0) when 0 then dbo.Pro_ReqYarn2.Rate else dbo.BudPodet.Rate end  END  else 0 end else 0 end  ELSE 0 END AS DcRate ,CASE Preprint.DcRateReqd WHEN 1 THEN 
+					  CASE Isnull(Trs_Del1.ProcessType,'P') WHEN 'P' THEN 'Rate'  else '' end  ELSE '' END AS Ratelbl,GodName,Mas_Party.PAN As PPAN,IsNull(Mas_Exporter.GSTNo,'') As GSTNo,IsNull(Mas_Party.GSTNo,'') As PGSTNo,IsNull(Mas_HSN.HSNCode,'') As HSNCode,EwayBillNo,EwayBillDt,(Trs_Del2.Kg*Pro_ReqYarn2_2.Cost) As Amount
+ FROM         dbo.Mas_User RIGHT OUTER JOIN
+                      dbo.Trs_Del1 AS Trs_Del1 INNER JOIN
+                      dbo.Mas_Dept AS Mas_Dept ON Trs_Del1.Prs_Dept = Mas_Dept.DeptID INNER JOIN
+                      dbo.Trs_Del2 AS Trs_Del2 ON Trs_Del1.ID = Trs_Del2.ID INNER JOIN
+                      dbo.Mas_Party AS Mas_Party ON Trs_Del1.Party = Mas_Party.PID INNER JOIN
+                      dbo.Mas_Exporter AS Mas_Exporter ON Trs_Del1.Coycode = Mas_Exporter.ExpID INNER JOIN
+                      dbo.OrderMas AS OrderMas ON Trs_Del2.OrdId = OrderMas.OrdId 
+LEFT OUTER JOIN
+                      dbo.Trs_Grn1 AS Trs_Grn1 ON Trs_Del1.OurGRNID = Trs_Grn1.ID INNER JOIN
+                      dbo.StockTable AS StockTable ON Trs_Del2.StockID = StockTable.StockID LEFT OUTER JOIN
+                      dbo.Mas_Grp AS Mas_Grp ON Mas_Dept.Grp = Mas_Grp.GrpNo LEFT OUTER JOIN
+                      dbo.Mas_Buyer ON OrderMas.BuyerID = dbo.Mas_Buyer.BuyerID INNER JOIN
+                      dbo.Mas_Count AS Mas_Count ON StockTable.CntID = Mas_Count.CountID LEFT OUTER JOIN
+                      dbo.Trs_Del3 ON StockTable.PRINT_DESIGNID = dbo.Trs_Del3.Print_DesignId AND StockTable.PrgKnitDiaId = dbo.Trs_Del3.PrgKnitDiaId AND 
+                      StockTable.PrgKnitGsm = dbo.Trs_Del3.PrgKnitGSM AND StockTable.FinDiaID = dbo.Trs_Del3.FinDiaID AND StockTable.FinGsm = dbo.Trs_Del3.FinGSm AND 
+                      StockTable.ActDiaId = dbo.Trs_Del3.ActDiaId AND StockTable.ActGsm = dbo.Trs_Del3.ActGsm AND 
+					  StockTable.DiaID = dbo.Trs_Del3.DiaID AND 
+                      StockTable.ll = dbo.Trs_Del3.LL AND StockTable.GG = dbo.Trs_Del3.GG AND StockTable.Gsm = dbo.Trs_Del3.Gsm AND StockTable.FabID = dbo.Trs_Del3.FabType AND
+                       StockTable.ColID = dbo.Trs_Del3.Clr AND StockTable.CntID = dbo.Trs_Del3.Cnt AND
+					    Trs_Del2.OrdId = dbo.Trs_Del3.OrdId AND 
+                      Trs_Del1.ID = dbo.Trs_Del3.ID LEFT OUTER JOIN
+                      dbo.BudPoMas INNER JOIN
+                      dbo.BudPodet ON dbo.BudPoMas.Id = dbo.BudPodet.Id ON StockTable.ColID = dbo.BudPodet.ColId AND 
+					  StockTable.CntID = dbo.BudPodet.CntId AND 
+                      Trs_Del2.OrdId = dbo.BudPoMas.OrdId AND Trs_Del1.Party = dbo.BudPoMas.PartyId AND 
+					  Trs_Del1.Prs_Dept = dbo.BudPoMas.DeptId and stocktable.millid=dbo.BudPoMas.millid 
+					  LEFT OUTER JOIN
+                      dbo.Pro_ReqYarn2 ON Trs_Del2.OrdId = dbo.Pro_ReqYarn2.OrdId AND Trs_Del1.Prs_Dept = dbo.Pro_ReqYarn2.DeptId AND 
+                      StockTable.CntID = dbo.Pro_ReqYarn2.CountId AND StockTable.ColID = dbo.Pro_ReqYarn2.ColId 
+					  LEFT OUTER JOIN
+                      dbo.Pro_ReqYarn2 Pro_ReqYarn2_2 ON Trs_Del2.OrdId = Pro_ReqYarn2_2.OrdId AND 
+					  StockTable.Dept = Pro_ReqYarn2_2.DeptId AND 
+                      StockTable.CntID = Pro_ReqYarn2_2.CountId AND StockTable.ColID = Pro_ReqYarn2_2.ColId 
+					  LEFT OUTER JOIN
+                      dbo.Mas_Mill AS Mas_Mill ON StockTable.MillID = Mas_Mill.MillID LEFT OUTER JOIN
+                      dbo.Mas_Vehicle ON Trs_Del1.VehicleCode = dbo.Mas_Vehicle.Code LEFT OUTER JOIN
+                      dbo.Mas_Color AS Mas_Color ON StockTable.ColID = Mas_Color.ColID ON dbo.Mas_User.UserCode = Trs_Del1.PreparedBy LEFT OUTER JOIN
+                      dbo.Mas_Terms AS Mas_Terms ON Mas_Dept.DC_TermCode = Mas_Terms.ID LEFT OUTER JOIN Mas_Godown
+					   ON Trs_Del1.GodId = Mas_Godown.GodID
+					  Left Join Mas_HSN On Pro_ReqYarn2_2.HSNId=Mas_HSN.Id
+CROSS JOIN
+                      dbo.PrePrint CROSS JOIN
+                      dbo.Options
+WHERE  trs_del1.id= ? and dbo.PrePrint.Slno = 1</SqlCommand>
+      </YarnDC>
+      <YarnSubReport Ref="5" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>YarnSubReport</Alias>
+        <Columns isList="true" count="7">
+          <value>Prog,System.Decimal</value>
+          <value>ProgMtr,System.Decimal</value>
+          <value>ColorDesc,System.String</value>
+          <value>CountName,System.String</value>
+          <value>head,System.String</value>
+          <value>Dcrate,System.Decimal</value>
+          <value>RateLbl,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>YarnSubReport</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>SELECT     TOP 100 PERCENT SUM(Trs_Del3.Prog) AS Prog, SUM(Trs_Del3.ProgMtr) AS ProgMtr, CASE WHEN isnull(ShadeEntry.ShadeNo,'')='' then  Mas_Color.ColorDesc else RTRIM( Mas_Color.ColorDesc) +'/'+ ShadeEntry.ShadeNo end as ColorDesc , Mas_Count.CountName,'PROGRAM DETAILS' as head ,
+case Preprint.DcRateReqd when 1 then case Isnull(Trs_Del1.ProcessType,'P') when 'P'then  CASE WHEN SUM(jobno) &lt;&gt; 0 THEN      CASE WHEN SUM(isnull(BudPodet.Rate, 0)) &lt;&gt; 0 THEN SUM(Trs_Del3.Prog * BudPoDet.rate) / SUM(Trs_Del3.Prog) ELSE SUM(Trs_Del3.Prog * isnull(Pro_ReqYarn2.rate, 0)) / SUM(Trs_Del3.Prog) END  ELSE SUM(Trs_Del3.Prog * isnull(GeneralRate,0)) / SUM(Trs_Del3.Prog) END else 0 end else 0 end  AS Dcrate ,case Preprint.DcRateReqd when 1 then case Isnull(Trs_Del1.ProcessType,'P') when 'P'then  'Rate'  else '' end else '' end  AS RateLbl 
+FROM         dbo.Pro_ReqYarn2 RIGHT OUTER JOIN
+                      dbo.Trs_Del3 AS Trs_Del3 INNER JOIN
+                      dbo.Trs_Del1 ON Trs_Del3.ID = dbo.Trs_Del1.ID INNER JOIN
+                      dbo.Mas_Dept ON dbo.Trs_Del1.Prs_Dept = dbo.Mas_Dept.DeptID ON dbo.Pro_ReqYarn2.DeptId = dbo.Trs_Del1.Prs_Dept AND 
+                      dbo.Pro_ReqYarn2.OrdId = Trs_Del3.OrdId AND dbo.Pro_ReqYarn2.CountId = Trs_Del3.Cnt AND 
+                      dbo.Pro_ReqYarn2.ColId = Trs_Del3.Clr LEFT OUTER JOIN
+                      dbo.BudPodet INNER JOIN
+                      dbo.BudPoMas ON dbo.BudPodet.Id = dbo.BudPoMas.Id ON Trs_Del3.Clr = dbo.BudPodet.ColId AND Trs_Del3.Cnt = dbo.BudPodet.CntId AND 
+                      Trs_Del3.OrdId = dbo.BudPoMas.OrdId AND dbo.Trs_Del1.Party = dbo.BudPoMas.PartyId AND dbo.Trs_Del1.Prs_Dept = dbo.BudPoMas.DeptId  LEFT OUTER JOIN
+                      dbo.Mas_Count AS Mas_Count ON Trs_Del3.Cnt = Mas_Count.CountID LEFT OUTER JOIN
+                      dbo.Mas_Color AS Mas_Color ON Trs_Del3.Clr = Mas_Color.ColID
+                      LEFT OUTER JOIN OrderMas on ordermas.ordid=trs_del3.ordid CROSS JOIN Preprint
+					  left outer join ShadeEntry on trs_del3.ordid=ShadeEntry.OrdId and ShadeEntry.ColId=trs_del3.Clr and ShadeEntry.DeptId=trs_del1.Prs_Dept
+WHERE     (dbo.Mas_Dept.ProgReqPrn = 'Y') AND (Trs_Del3.FabType = 0) AND (Trs_Del3.ID = ?) and Preprint.Slno=2 
+GROUP BY Mas_Count.CountName, Mas_Color.ColorDesc,Preprint.DcRateReqd ,Trs_Del1.ProcessType,ShadeNo
+ORDER BY Mas_Count.CountName, Mas_Color.ColorDesc</SqlCommand>
+      </YarnSubReport>
+    </DataSources>
+    <Relations isList="true" count="0" />
+    <Report isRef="0" />
+    <Variables isList="true" count="11">
+      <value>,Buyer,Buyer,System.String,,False,False</value>
+      <value>,ExpAdd,ExpAdd,System.String,,False,False</value>
+      <value>,OrderNos,OrderNos,System.String,,False,False</value>
+      <value>,PAdd,PAdd,System.String,,False,False</value>
+      <value>,ProcessType,ProcessType,System.String,,False,False</value>
+      <value>,Terms,Terms,System.String,,False,False</value>
+      <value>,OrderType,OrderType,System.String,,False,False</value>
+      <value>,AuditFlg,AuditFlg,System.String,,False,False</value>
+      <value>,TimeFlg,TimeFlg,System.String,,False,False</value>
+      <value>,BillStatus,BillStatus,System.String,,False,False</value>
+      <value>,Dept,Dept,System.String,,False,False</value>
+    </Variables>
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <GlobalizationStrings isList="true" count="0" />
+  <Pages isList="true" count="3">
+    <Page1 Ref="6" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="10">
+        <PageHeader1 Ref="7" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,7.67,2.2</ClientRectangle>
+          <Components isList="true" count="38">
+            <Text1 Ref="8" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.69,0.1,4.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,10,Bold</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{ProcessType} DELIVERY CHALLAN - {Dept}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text1>
+            <Text4 Ref="9" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.5,3.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text4</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.ExporterName}</Text>
+              <TextBrush>[38:38:38]</TextBrush>
+            </Text4>
+            <Text5 Ref="10" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>-0.01,0.7,3.6,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text5</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.ExporterAddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text5>
+            <Text6 Ref="11" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.6,1.3,1.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text6</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.Expr2}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text6>
+            <Text7 Ref="12" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.6,1.5,1.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text7</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.GSTNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text7>
+            <Text8 Ref="13" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.Expr2)) &gt; 0)
+Text8.Enabled=true;
+else
+Text8.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.3,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text8</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>Phone</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text8>
+            <Text9 Ref="14" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.GSTNo)) &gt; 0)
+Text9.Enabled=true;
+else
+Text9.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.5,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>8038120fd9fd45cfafc6560a4f1a40b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text9</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>GST No :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text9>
+            <Text10 Ref="15" type="Text" isKey="true">
+              <BeforePrintEvent>//if (Length(Trim(YarnDC.Expr4)) &gt; 0)
+//Text10.Enabled=true;
+//else
+//Text10.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,1.5,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Enabled>False</Enabled>
+              <Font>Verdana,8</Font>
+              <Guid>4868b9917ef7438f81be1444d00f09ea</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text10</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Printable>False</Printable>
+              <Text>CST:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text10>
+            <Text11 Ref="16" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.9,1.5,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Enabled>False</Enabled>
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text11</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Printable>False</Printable>
+              <Text>{YarnDC.Expr4}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text11>
+            <Text12 Ref="17" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,0.5,3,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text12</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>M/s:{YarnDC.Pname}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text12>
+            <Text13 Ref="18" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.6,0.5,0.27,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text13</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>To:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text13>
+            <Text14 Ref="19" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,0.7,3.7,0.5</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text14</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.Paddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text14>
+            <Text15 Ref="20" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.Phone)) &gt; 0)
+Text15.Enabled=true;
+else
+Text15.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,1.3,0.58,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>147364318b98447c923ec9f5f7a19ba5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text15</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>Ph  :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text15>
+            <Text16 Ref="21" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.PGSTNo)) &gt; 0)
+Text16.Enabled=true;
+else
+Text16.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,1.5,0.58,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>44c78b40bd644d8da868f6b8714177b2</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text16</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>GST No :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text16>
+            <Text17 Ref="22" type="Text" isKey="true">
+              <BeforePrintEvent>//if (Length(Trim(YarnDC.CST)) &gt; 0)
+//Text17.Enabled=true;
+//else
+//Text17.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.6,1.5,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Enabled>False</Enabled>
+              <Font>Verdana,8</Font>
+              <Guid>c91be257981842b88ba452196965b845</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text17</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Printable>False</Printable>
+              <Text>CST:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text17>
+            <Text18 Ref="23" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.5,1.3,1.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text18</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.Phone}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text18>
+            <Text19 Ref="24" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.5,1.5,2.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text19</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.PGSTNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text19>
+            <Text20 Ref="25" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7,1.5,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Enabled>False</Enabled>
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text20</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Printable>False</Printable>
+              <Text>{YarnDC.CST}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text20>
+            <Text21 Ref="26" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.8,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>f844c3c61c17416ab9ea7304314dffae</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text21</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>Dc No:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text21>
+            <Text22 Ref="27" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,1.8,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text22</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.DcNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text22>
+            <Text23 Ref="28" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.4,1.8,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>9c55e920f6d84be780a33a515e89404c</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text23</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>Date :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text23>
+            <Text24 Ref="29" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.9,1.8,1.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text24</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.Dt}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="30" type="CustomFormat" isKey="true">
+                <StringFormat>dd-MMM-yy</StringFormat>
+              </TextFormat>
+            </Text24>
+            <Text25 Ref="31" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,2,7.45,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>8c6a2b54b63345bf9303ae3ff296b7b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text25</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{OrderType} : {OrderNos}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text25>
+            <Text80 Ref="32" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.Expr2)) &gt; 0)
+Text80.Enabled=true;
+else
+Text80.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,1.3,0.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>2a051e6f6fb04d4f9f2fb6ad2d0cbbbe</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text80</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text80>
+            <Text87 Ref="33" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,1.8,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text87</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Buyer}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text87>
+            <Text88 Ref="34" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3,1.8,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text88</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>BuyerName:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text88>
+            <Text63 Ref="35" type="Text" isKey="true">
+              <BeforePrintEvent>if(YarnDC.GatePassFlg1=="Y")
+{
+if ((YarnDC.GPNo) == 0)
+Text63.Enabled=false;
+else
+Text63.Enabled=true;
+}
+else
+Text63.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.7,1.8,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>6d6c768ba5ed486a820fb3e5c0bbcd6d</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text63</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>GP No:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text63>
+            <Text65 Ref="36" type="Text" isKey="true">
+              <BeforePrintEvent>if(YarnDC.GatePassFlg1=="Y")
+{
+Text65.Enabled=true;
+}
+else
+Text65.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.2,1.8,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>2823d0cec8934518a4e8436bf76408c7</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text65</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.GPNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text65>
+            <Text47 Ref="37" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.Expr4)) &gt; 0)
+Text10.Enabled=true;
+else
+Text10.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.2,1.3,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>adf2115c95f34bdb9d3b4b697138e070</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text47</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>PAN:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text47>
+            <Text100 Ref="38" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,1.3,1.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text100</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.PAN}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text100>
+            <Text101 Ref="39" type="Text" isKey="true">
+              <BeforePrintEvent>if (AuditFlg=="True")
+Text101.Enabled=false;
+else
+Text101.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.4,0.1,2.22,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text101</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Time}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text101>
+            <Text102 Ref="40" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.PPAN)) &gt; 0)
+Text102.Enabled=true;
+else
+Text102.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.9,1.3,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>05e29ede70c544f7ac3e166b377b40db</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text102</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>PAN:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text102>
+            <Text103 Ref="41" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.3,1.3,1.3,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>9e23b79e624f493988e38245db1fa749</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text103</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{YarnDC.PPAN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text103>
+            <Text112 Ref="42" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.9,0.3,1.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,9,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text112</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{BillStatus}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text112>
+            <HorizontalLine1 Ref="43" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,1.7,7.6,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Style>Dot</Style>
+            </HorizontalLine1>
+            <StartPointPrimitive1 Ref="44" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+              <ClientRectangle>3.6,0.5,0,0</ClientRectangle>
+              <Name>StartPointPrimitive1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </StartPointPrimitive1>
+            <EndPointPrimitive1 Ref="45" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+              <ClientRectangle>3.61,1.7,0,0</ClientRectangle>
+              <Name>EndPointPrimitive1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </EndPointPrimitive1>
+            <HorizontalLine5 Ref="46" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.1,0.5,7.6,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine5</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Style>Dot</Style>
+            </HorizontalLine5>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeader1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </PageHeader1>
+        <PageFooter1 Ref="47" type="PageFooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,10.4,7.67,1.09</ClientRectangle>
+          <Components isList="true" count="33">
+            <Text68 Ref="48" type="Text" isKey="true">
+              <BeforePrintEvent>//if (IsNull(YarnDC,"remark"))
+if (Length(Trim(YarnDC.remark)) &lt; 0)
+Text68.Enabled=false;
+else
+Text68.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.4,0.6,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>1769588167ea4c8c927fc4cd9c80fa20</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text68</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Remarks </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text68>
+            <Text69 Ref="49" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.8,0.4,6.9,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text69</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.remark}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text69>
+            <Text70 Ref="50" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,0.68,3.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,9,Bold</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text70</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>For {YarnDC.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text70>
+            <Text71 Ref="51" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.2,0.5,1.1,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text71</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.VName}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text71>
+            <Text72 Ref="52" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(YarnDC,"VName"))
+Text72.Enabled=false;
+else
+Text72.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.6,0.5,0.5,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text72</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Vehicle </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text72>
+            <Text78 Ref="53" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(YarnDC,"Terms"))
+Text78.Enabled=false;
+else
+Text78.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.6,0.25,1.2,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text78</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Terms &amp; Conditions </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text78>
+            <Text74 Ref="54" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.21,0.89,1.42,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>daa5647f03b34c3cbd90ddea6e54e783</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text74</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Receiver's Signature</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text74>
+            <Text75 Ref="55" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.87,0.89,1.31,0.19</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>5ce43f898d424c30a669177f513e22d0</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text75</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Prepared By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text75>
+            <Text76 Ref="56" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.39,0.89,1.14,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>5d5b46bda75f4035b092d8956b0c1cfc</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text76</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Verified By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text76>
+            <Text77 Ref="57" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.75,0.89,1.65,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>85719a8e52cf47eebcc1c6087a3dff4e</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text77</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Authorised Signatory</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text77>
+            <Text81 Ref="58" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.7,0.4,0.1,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>5496c524c813443bb5e59461b75fe08f</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text81</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text81>
+            <Text82 Ref="59" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(YarnDC,"Terms"))
+Text82.Enabled=false;
+else
+Text82.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.8,0.25,0.1,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>68bf0f562471469ab43b1193c00c1a7d</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text82</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text82>
+            <Text83 Ref="60" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(YarnDC,"VName"))
+Text83.Enabled=false;
+else
+Text83.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.1,0.5,0.1,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>34eeec8002e1492f83fbf9c1a36978a6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text83</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text83>
+            <Text79 Ref="61" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0,0.89,1.09,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text79</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.DCFormat}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+              <Type>Expression</Type>
+            </Text79>
+            <Text93 Ref="62" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.89,0.25,4.7,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text93</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.Terms}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text93>
+            <Text73 Ref="63" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4,0.5,1,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text73</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.TarDt}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="64" type="CustomFormat" isKey="true">
+                <StringFormat>dd-MMM-yy</StringFormat>
+              </TextFormat>
+            </Text73>
+            <Text94 Ref="65" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(YarnDC,"TarDt"))
+Text94.Enabled=false;
+else
+Text94.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.3,0.5,0.7,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text94</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Target Dt :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text94>
+            <Text97 Ref="66" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.97,0.77,1.01,0.17</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text97</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.Username}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text97>
+            <Text26 Ref="67" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.9,0.49,1.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text26</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.GodName}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text26>
+            <Text39 Ref="68" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5,0.49,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>1b8f5589191e42949aa9c4073a9e38d9</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text39</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Delivery From :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text39>
+            <Text105 Ref="69" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.EwayBillNo)) &lt;= 0)
+Text105.Enabled=false;
+else
+Text105.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.52,0.82,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text105</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Eway Bill Dt :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text105>
+            <Text106 Ref="70" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.8,0.27,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text106</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.EwayBillNo}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text106>
+            <Text107 Ref="71" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.EwayBillNo)) &lt;= 0)
+Text107.Enabled=false;
+else
+Text107.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.27,0.8,0.14</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text107</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>Eway Bill No :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text107>
+            <Text108 Ref="72" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(YarnDC.EwayBillNo)) &lt;= 0)
+Text108.Enabled=false;
+else
+Text108.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.8,0.52,0.8,0.17</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text108</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{YarnDC.EwayBillDt}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="73" type="DateFormat" isKey="true" />
+            </Text108>
+            <Text64 Ref="74" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.22,0.05,0.71,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text64</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{Sum(YarnDC.Kg)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text64>
+            <Text67 Ref="75" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.59,0.05,0.44,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text67</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{Sum(YarnDC.BgRl)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text67>
+            <Text66 Ref="76" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.89,0.05,0.7,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>046f67ad814d4d47b986c3a7d96709a4</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text66</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>TOTAL</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text66>
+            <Text109 Ref="77" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.99,0.04,0.77,0.15</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>c07ca209a6f940979c605fe1d3c26b3d</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text109</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Text>{Sum(YarnDC.Amount)}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="78" type="NumberFormat" isKey="true">
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseGroupSeparator>False</UseGroupSeparator>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text109>
+            <HorizontalLinePrimitive3 Ref="79" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.69,7.7,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive3</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <Style>Dot</Style>
+            </HorizontalLinePrimitive3>
+            <EndPointPrimitive2 Ref="80" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+              <ClientRectangle>7.6,1.1,0,0</ClientRectangle>
+              <Name>EndPointPrimitive2</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <ReferenceToGuid>80799902b8844cc2a7bb5da1354e75cc</ReferenceToGuid>
+            </EndPointPrimitive2>
+            <HorizontalLinePrimitive2 Ref="81" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>5.2,0.04,2.4,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive2</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+            </HorizontalLinePrimitive2>
+            <SubReport2 Ref="82" type="SubReport" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.3,0.19,7.5,0.04</ClientRectangle>
+              <Components isList="true" count="0" />
+              <Guid>158bf1e4d7d046f686f03e5e9d7d638e</Guid>
+              <Name>SubReport2</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <SubReportPageGuid>999d6459dbc24b43b074d62fa39c6317</SubReportPageGuid>
+            </SubReport2>
+            <SubReport1 Ref="83" type="SubReport" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.24,0.2,7.5,0.04</ClientRectangle>
+              <Components isList="true" count="0" />
+              <Guid>6f4a9224da3b4885ab33ea9849d7739a</Guid>
+              <Name>SubReport1</Name>
+              <Page isRef="6" />
+              <Parent isRef="47" />
+              <SubReportPageGuid>6bb3d0aca3c74490920d1507ca3871be</SubReportPageGuid>
+            </SubReport1>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageFooter1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </PageFooter1>
+        <GroupHeaderBand1 Ref="84" type="GroupHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,2.8,7.67,0.25</ClientRectangle>
+          <Components isList="true" count="11">
+            <Text27 Ref="85" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.01,0.02,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>7e92800a7da24037bf951a8d6563f814</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text27</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>S NO</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text27>
+            <Text28 Ref="86" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.41,0.02,1.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>47ecf532e880405693752411701df298</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text28</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>YARN COUNT</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text28>
+            <Text29 Ref="87" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.96,0.02,1.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>89015ca0941645cc8618f12714cd5efc</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text29</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>COLOR</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text29>
+            <Text30 Ref="88" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.1,0.02,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>1790b69557544a6c87e8a9df14f4c587</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text30</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>MILL</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text30>
+            <Text31 Ref="89" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.61,0.02,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>a6891c4de0444c31a5fbf0de24e27591</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text31</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>BAGS</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text31>
+            <Text32 Ref="90" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.13,0.02,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>5f0e992e2d9c40258ae64c59b365a411</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text32</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>KGS</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text32>
+            <Text95 Ref="91" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.11,0.02,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>4e2633ecb8e44dc9a8424482631df350</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text95</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>LOTNO</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text95>
+            <Text98 Ref="92" type="Text" isKey="true">
+              <BeforePrintEvent>if (YarnDC.TrType==1)
+{
+Text98.Enabled=true;
+Text99.Enabled=true;
+}
+else
+{
+Text98.Enabled=false;
+Text99.Enabled=false;
+}</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>6.85,0.02,1,0.3</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text98</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>Taxable Value</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+              <Type>Expression</Type>
+            </Text98>
+            <Text84 Ref="93" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.3,0.02,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>fda898e53c25465da7a8d9cb0a3d7cf7</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text84</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Text>HSN Code</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text84>
+            <HorizontalLinePrimitive1 Ref="94" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.01,0.02,7.7,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Guid>280e39875ecd4e60a9e990365a9e1124</Guid>
+              <Name>HorizontalLinePrimitive1</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Style>Dot</Style>
+            </HorizontalLinePrimitive1>
+            <HorizontalLine2 Ref="95" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.01,0.2,7.7,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine2</Name>
+              <Page isRef="6" />
+              <Parent isRef="84" />
+              <Style>Dot</Style>
+            </HorizontalLine2>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>GroupHeaderBand1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </GroupHeaderBand1>
+        <GroupHeaderBand2 Ref="96" type="GroupHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,3.45,7.67,0</ClientRectangle>
+          <Components isList="true" count="0" />
+          <Condition>{YarnDC.Item}{YarnDC.LotNo}</Condition>
+          <Conditions isList="true" count="0" />
+          <Name>GroupHeaderBand2</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </GroupHeaderBand2>
+        <Data1 Ref="97" type="DataBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,3.85,7.67,0</ClientRectangle>
+          <Components isList="true" count="2">
+            <Text110 Ref="98" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,1,0</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text110</Name>
+              <Page isRef="6" />
+              <Parent isRef="97" />
+              <Text>{FabricsubReport.Uom}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text110>
+            <Text111 Ref="99" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1,0,1,0</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Arial,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text111</Name>
+              <Page isRef="6" />
+              <Parent isRef="97" />
+              <Text>{FabricsubReport.Uom}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text111>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <DataRelationName isNull="true" />
+          <DataSourceName>YarnDC</DataSourceName>
+          <Filters isList="true" count="0" />
+          <Name>Data1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+          <Sort isList="true" count="0" />
+        </Data1>
+        <GroupFooterBand1 Ref="100" type="GroupFooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,4.25,7.67,0.2</ClientRectangle>
+          <Components isList="true" count="9">
+            <Text33 Ref="101" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text33</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{GroupLine}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>SystemVariables</Type>
+            </Text33>
+            <Text34 Ref="102" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0.4,0,1.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text34</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{YarnDC.CountName}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+              <Type>DataColumn</Type>
+            </Text34>
+            <Text35 Ref="103" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>3.05,0,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text35</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{YarnDC.ColorDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text35>
+            <Text36 Ref="104" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>4.09,0,0.98,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text36</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{YarnDC.Mill}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text36>
+            <Text37 Ref="105" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.63,0,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text37</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{Sum(YarnDC.BgRl)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text37>
+            <Text38 Ref="106" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.23,0,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text38</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{Sum(YarnDC.Kg)}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="107" type="NumberFormat" isKey="true">
+                <DecimalDigits>3</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseGroupSeparator>False</UseGroupSeparator>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text38>
+            <Text96 Ref="108" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.1,0,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Guid>ed519084d9f94199919d0a274c39c16a</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text96</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{YarnDC.LotNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text96>
+            <Text99 Ref="109" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.05,0,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text99</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{Sum(YarnDC.Amount)}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="110" type="NumberFormat" isKey="true">
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseGroupSeparator>False</UseGroupSeparator>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text99>
+            <Text104 Ref="111" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.3,-0.01,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text104</Name>
+              <Page isRef="6" />
+              <Parent isRef="100" />
+              <Text>{YarnDC.HSNCode}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text104>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>GroupFooterBand1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </GroupFooterBand1>
+        <FooterBand1 Ref="112" type="FooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,4.85,7.67,0.1</ClientRectangle>
+          <Components isList="true" count="0" />
+          <Conditions isList="true" count="0" />
+          <Name>FooterBand1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </FooterBand1>
+        <VerticalLine1 Ref="113" type="Stimulsoft.Report.Components.StiVerticalLinePrimitive" isKey="true">
+          <ClientRectangle>3.6,0.7,0.01,1.2</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>d341e55be8b149b59b51e91776f89712</Guid>
+          <Name>VerticalLine1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+          <Style>Dot</Style>
+        </VerticalLine1>
+        <Rectangle1 Ref="114" type="Stimulsoft.Report.Components.StiRectanglePrimitive" isKey="true">
+          <ClientRectangle>0,0.1,7.6,11.4</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>80799902b8844cc2a7bb5da1354e75cc</Guid>
+          <LeftSide>False</LeftSide>
+          <Name>Rectangle1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+          <RightSide>False</RightSide>
+          <Style>Dot</Style>
+          <TopSide>False</TopSide>
+        </Rectangle1>
+        <StartPointPrimitive2 Ref="115" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+          <ClientRectangle>0,0.1,0,0</ClientRectangle>
+          <Name>StartPointPrimitive2</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+          <ReferenceToGuid>80799902b8844cc2a7bb5da1354e75cc</ReferenceToGuid>
+        </StartPointPrimitive2>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>64e204640c8947788ec7d5f202e0beee</Guid>
+      <Margins>0.3,0.3,0.1,0.1</Margins>
+      <Name>Page1</Name>
+      <Page isRef="6" />
+      <PageHeight>11.69</PageHeight>
+      <PageWidth>8.27</PageWidth>
+      <PaperSize>A4</PaperSize>
+      <Report isRef="0" />
+      <Watermark Ref="116" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+    <Sub_Report_2 Ref="117" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="3">
+        <Header1 Ref="118" type="HeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,7.87,0.4</ClientRectangle>
+          <Components isList="true" count="7">
+            <Text40 Ref="119" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.2,2.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>369695cf612149379d8a3022f0e070c7</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text40</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Text>COUNT</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text40>
+            <Text41 Ref="120" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.3,0.2,2.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>300d782ecfb64f908f9c06a35e779975</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text41</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Text>COLOR</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text41>
+            <Text42 Ref="121" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.6,0.2,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>bf9d383118b949c09830e0ac97a13629</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text42</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Text>KGS</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text42>
+            <Text91 Ref="122" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.5,0.2,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>defdfcfbaef44b2fa721e35d9cb8d83c</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text91</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Text>{YarnSubReport.RateLbl}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text91>
+            <Text3 Ref="123" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.01,2.74,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text3</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Text>{YarnSubReport.head}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text3>
+            <HorizontalLine4 Ref="124" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.4,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine4</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Style>Dot</Style>
+            </HorizontalLine4>
+            <HorizontalLine6 Ref="125" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine6</Name>
+              <Page isRef="117" />
+              <Parent isRef="118" />
+              <Style>Dot</Style>
+            </HorizontalLine6>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>Header1</Name>
+          <Page isRef="117" />
+          <Parent isRef="117" />
+        </Header1>
+        <Data2 Ref="126" type="DataBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,1,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="4">
+            <Text43 Ref="127" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0,0,2.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text43</Name>
+              <Page isRef="117" />
+              <Parent isRef="126" />
+              <Text>{YarnSubReport.CountName}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text43>
+            <Text44 Ref="128" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>2.3,0,2.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text44</Name>
+              <Page isRef="117" />
+              <Parent isRef="126" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{YarnSubReport.ColorDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text44>
+            <Text45 Ref="129" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.4,0,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text45</Name>
+              <Page isRef="117" />
+              <Parent isRef="126" />
+              <Text>{YarnSubReport.Prog}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text45>
+            <Text92 Ref="130" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.5,0,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.88</Font>
+              <Guid>917c7b4f2e0347a8968b1152df54f1c8</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text92</Name>
+              <Page isRef="117" />
+              <Parent isRef="126" />
+              <Text>{YarnSubReport.Dcrate}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="131" type="NumberFormat" isKey="true">
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>DataColumn</Type>
+            </Text92>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <DataRelationName isNull="true" />
+          <DataSourceName>YarnSubReport</DataSourceName>
+          <Filters isList="true" count="0" />
+          <Name>Data2</Name>
+          <Page isRef="117" />
+          <Parent isRef="117" />
+          <Sort isList="true" count="0" />
+        </Data2>
+        <Footer2 Ref="132" type="FooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,1.6,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="2">
+            <Text46 Ref="133" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.4,0,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text46</Name>
+              <Page isRef="117" />
+              <Parent isRef="132" />
+              <Text>{Sum(YarnSubReport.Prog)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text46>
+            <HorizontalLine7 Ref="134" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine7</Name>
+              <Page isRef="117" />
+              <Parent isRef="132" />
+              <Style>Dot</Style>
+            </HorizontalLine7>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>Footer2</Name>
+          <Page isRef="117" />
+          <Parent isRef="117" />
+        </Footer2>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>6bb3d0aca3c74490920d1507ca3871be</Guid>
+      <Margins>0.2,0.2,0.1,0.1</Margins>
+      <Name>Sub_Report_2</Name>
+      <Page isRef="117" />
+      <PageHeight>6</PageHeight>
+      <PageWidth>7.9</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="135" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Sub_Report_2>
+    <Sub_Report_1 Ref="136" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="3">
+        <Header2 Ref="137" type="HeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,7.87,0.4</ClientRectangle>
+          <Components isList="true" count="11">
+            <Text48 Ref="138" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.2,2.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>38624610add64dd885d5acc695f460f2</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text48</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>FABRIC DESCRIPTION</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text48>
+            <Text49 Ref="139" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3,0.2,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>bc120c25b70b4c8b8aef9fafe550da6f</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text49</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>GSM</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text49>
+            <Text50 Ref="140" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.5,0.2,0.3,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>ee93303568e6487abd4734245d9f5601</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text50</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>GG</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text50>
+            <Text51 Ref="141" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.9,0.2,0.3,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>1fb1e69b04154bbc8223cfbe1bcc1a63</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text51</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>LL</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text51>
+            <Text52 Ref="142" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.2,0.2,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>ceececa96e4849d28795178e0adab37c</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text52</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>DIA/SIZE</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text52>
+            <Text53 Ref="143" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.7,0.2,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>65649a2fe1814465a6d7c34aab784063</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text53</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>KGS</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text53>
+            <Text54 Ref="144" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.7,0.2,0.8,0.3</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>999938c7a5d04c309baf618c02940558</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text54</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>OTHER UOM</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+              <Type>Expression</Type>
+            </Text54>
+            <Text85 Ref="145" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5,0.2,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>3065c02879ec47ee91f0f956e7bf1428</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text85</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>{FabricsubReport.Ratelbl}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text85>
+            <Text2 Ref="146" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.02,2.89,0.17</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text2</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Text>{FabricsubReport.Head}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text2>
+            <HorizontalLine8 Ref="147" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine8</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Style>Dot</Style>
+            </HorizontalLine8>
+            <HorizontalLine9 Ref="148" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.4,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine9</Name>
+              <Page isRef="136" />
+              <Parent isRef="137" />
+              <Style>Dot</Style>
+            </HorizontalLine9>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>Header2</Name>
+          <Page isRef="136" />
+          <Parent isRef="136" />
+        </Header2>
+        <Data3 Ref="149" type="DataBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,1,7.87,0.18</ClientRectangle>
+          <Components isList="true" count="9">
+            <Text55 Ref="150" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0,0,2.9,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text55</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{FabricsubReport.ItemDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text55>
+            <Text56 Ref="151" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3,0,0.4,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text56</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{FabricsubReport.Gsm}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="152" type="NumberFormat" isKey="true">
+                <DecimalDigits>0</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+            </Text56>
+            <Text57 Ref="153" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.5,0,0.3,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text57</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{FabricsubReport.GG}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text57>
+            <Text58 Ref="154" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.8,0,0.4,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text58</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{FabricsubReport.LL}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text58>
+            <Text59 Ref="155" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.3,0,0.6,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text59</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <Text>{FabricsubReport.Dia}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text59>
+            <Text62 Ref="156" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.1,0,0.5,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text62</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <Text>{FabricsubReport.Uom}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text62>
+            <Text60 Ref="157" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.5,-0.01,0.6,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text60</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <Text>{FabricsubReport.progMtr}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text60>
+            <Text61 Ref="158" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.6,0,0.7,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text61</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <Text>{FabricsubReport.prog}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text61>
+            <Text86 Ref="159" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.08,0,0.42,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>d47c66e7f01d4944b10ec822364f7e30</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text86</Name>
+              <Page isRef="136" />
+              <Parent isRef="149" />
+              <Text>{FabricsubReport.Dcrate}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="160" type="NumberFormat" isKey="true">
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text86>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <DataRelationName isNull="true" />
+          <DataSourceName>FabricsubReport</DataSourceName>
+          <Filters isList="true" count="0" />
+          <Name>Data3</Name>
+          <Page isRef="136" />
+          <Parent isRef="136" />
+          <Sort isList="true" count="0" />
+        </Data3>
+        <Footer3 Ref="161" type="FooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,1.58,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="3">
+            <Text89 Ref="162" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.39,0,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>26228f78d7b44fc78b6228d063932095</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text89</Name>
+              <Page isRef="136" />
+              <Parent isRef="161" />
+              <Text>{Sum(FabricsubReport.prog)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text89>
+            <Text90 Ref="163" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.48,-0.01,0.72,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>550988bd02ce406f94b5ae0570b38eec</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text90</Name>
+              <Page isRef="136" />
+              <Parent isRef="161" />
+              <Text>{Sum(FabricsubReport.progMtr)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text90>
+            <HorizontalLine10 Ref="164" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine10</Name>
+              <Page isRef="136" />
+              <Parent isRef="161" />
+              <Style>Dot</Style>
+            </HorizontalLine10>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>Footer3</Name>
+          <Page isRef="136" />
+          <Parent isRef="136" />
+        </Footer3>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>999d6459dbc24b43b074d62fa39c6317</Guid>
+      <Margins>0.2,0.2,0.1,0.1</Margins>
+      <Name>Sub_Report_1</Name>
+      <Page isRef="136" />
+      <PageHeight>6</PageHeight>
+      <PageWidth>7.9</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="165" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Sub_Report_1>
+  </Pages>
+  <PrinterSettings Ref="166" type="Stimulsoft.Report.Print.StiPrinterSettings" isKey="true" />
+  <ReferencedAssemblies isList="true" count="8">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <ReportAlias>Report</ReportAlias>
+  <ReportChanged>11/12/2022 11:44:48 AM</ReportChanged>
+  <ReportCreated>7/30/2009 5:28:18 PM</ReportCreated>
+  <ReportGuid>f75921f76ce04798b7b304c69132677b</ReportGuid>
+  <ReportName>Report</ReportName>
+  <ReportUnit>Inches</ReportUnit>
+  <ReportVersion>2009.1.400</ReportVersion>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    
+    public class Report : Stimulsoft.Report.StiReport
+    {
+        
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+        #region StiReport Designer generated code - do not modify#endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <Styles isList="true" count="0" />
+</StiSerializer>

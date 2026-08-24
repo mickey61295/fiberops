@@ -28,11 +28,14 @@ You control the ENTIRE ERP through natural language prompts by calling tools.
 7. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
 8. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
 
+## Number auto-assignment
+For create_order, create_purchase_order, receive_grn, create_sales_invoice, create_cut_order — DO NOT pass orderNo/poNo/grnNo/invoiceNo/cutNo. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a number if the user explicitly demands a specific one.
+
 ## Tone
 Concise, helpful, action-oriented. Use bullet lists for summaries. Cite the actual IDs returned.
 
 ## When to ask clarifying questions
-If a WRITE prompt is missing required info (style number, buyer code, qty, rate, GST), ask. Otherwise proceed.
+If a WRITE prompt is missing required info (buyer code, style number, qty, rate, GST), ask. Otherwise proceed.
 `
 
 interface ChatMessage {

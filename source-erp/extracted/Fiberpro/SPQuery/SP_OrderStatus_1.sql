@@ -1,0 +1,37 @@
+
+
+/*;=============================================   
+; Author           :  Global Software's    
+; Create date      :  23/08/2023    
+; Create By        :  SHAJAHAN
+; Description      :  QUERY
+; Change Person    :  SHAJAHAN
+; Last Change Date :  24/08/2023 09.00 AM 
+; =============================================  */  
+CREATE PROCEDURE SP_OrderStatus_1 (@Ordid nvarchar(max),@Dt AS VARCHAR(30),@Dt1 AS VARCHAR(30))
+AS
+BEGIN 
+select Jobno ,Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(Mill,'')Mill,sum(distinct orderqty)orderqty,sum(distinct yarnrec)yarnrec,sum(distinct dckgs)dckgs,sum(distinct
+ reckgs)reckgs,sum(distinct retkgs)retkgs,sum(distinct salesqty) as salesqty,orddate  from (select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'') as BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill ,sum(distinct ReqKgs) as orderqty,0 as  yarnrec,0 as  dckgs,0 as reckgs,0 as retkgs,0 as salesqty, orddate from Pro_ReqKnitt a inner join ordermas on ordermas.ordid =a.ordid   inner join Mas_Fabric on Mas_Fabric.FabID=a.FabId inner join 
+Mas_Color on Mas_Color.ColID=a.ColId inner join Mas_Count on mas_count.CountID=a.CntID inner join mas_buyer on OrderMas.BuyerID= mas_buyer.BuyerID  inner join Trs_Po2 on trs_po2.OrdId = a.OrdId and trs_po2.CntId = a.CntID and trs_po2.ClrId = a.ColId inner
+ join Trs_Del2 on Trs_Del2.ordid=a.ordid Inner Join Trs_Del1 On Trs_Del1.ID = Trs_Del2.id   left join trs_po1 on trs_po1.id=trs_po2.id  inner join mas_Mill on mas_Mill.MillID = Trs_Po1.MillID   where a.ordid in (Select ID From fnSplitter(@Ordid)) and a.DeptId=4  group by  OrderMas.Jobno ,OrderMas.Finyear ,BuyerName,ColorDesc,Fabdesc,CountName,mill,OrdDate
+union 
+select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill,0  as orderqty,0 as  yarnrec,0 as dckgs,0 as reckgs,sum(distinct 
+RecKgs) as  retkgs,0 as salesqty  , orddate from Trs_Grn1 Inner Join Trs_Grn2 On Trs_Grn1.ID = Trs_Grn2.id Inner Join OrderMas On OrderMas.OrdId = Trs_Grn2.OrdId   Inner Join Mas_Buyer On OrderMas.BuyerID = Mas_Buyer.BuyerID Inner Join StockTable On Trs_Grn2.StockID = StockTable.StockID inner join Trs_Del3 on Trs_Del3.OrdId=Trs_Grn2.ordid and StockTable.CntID =Trs_Del3.Cnt and StockTable.ColID =Trs_Del3.Clr Left join Mas_Fabric On Mas_Fabric.FabID = Trs_Del3.FabType  Left join Mas_Color On Mas_Color.ColID
+ = StockTable.ColID  Left join Mas_Count On Mas_Count.CountID = StockTable.CntID inner join Mas_Mill on Mas_Mill.MillID = StockTable.MillID    Where  Trs_Grn2.ordid in (Select ID From fnSplitter(@Ordid))    and GRNType='Process Return' and Trs_Grn1.Dept=4 group by
+BuyerName,OrderMas.Jobno ,OrderMas.Finyear,ColorDesc,Fabdesc,CountName,Mill,OrdDate
+union 
+select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill,0  as orderqty,0 as  yarnrec,0 as dckgs,sum(distinct RecKgs) as reckgs,0 as  retkgs,0 as salesqty, orddate  from Trs_Grn1 Inner Join Trs_Grn2 On Trs_Grn1.ID = Trs_Grn2.id Inner Join OrderMas On OrderMas.OrdId = Trs_Grn2.OrdId   Inner Join Mas_Buyer On OrderMas.BuyerID = Mas_Buyer.BuyerID   Inner Join StockTable On Trs_Grn2.StockID = StockTable.StockID  inner join Trs_Po2 on trs_po2.OrdId = StockTable.OrdId and trs_po2.CntId = StockTable.CntID and trs_po2.ClrId = StockTable.ColId left join trs_po1 on trs_po1.id=trs_po2.id  inner join mas_Mill on mas_Mill.MillID = Trs_Po1.MillID inner join Mas_Fabric On Mas_Fabric.FabID = StockTable.FabID  inner join Mas_Color On Mas_Color.ColID = StockTable.ColID  inner join Mas_Count On Mas_Count.CountID = StockTable.CntID    where Trs_Grn2.ordid in (Select ID From fnSplitter(@Ordid)) 
+ and GRNType='Process' and Trs_Grn1.Dept=4 and ProcessType ='P' group by  OrderMas.Jobno ,OrderMas.Finyear ,BuyerName,ColorDesc,Fabdesc,CountName,Mill,OrdDate
+union
+select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill,0  as orderqty,0 as  yarnrec,0 as dckgs,0 as reckgs,0 as  retkgs,sum(kg) as salesqty, orddate  from Trs_Del1 Inner Join Trs_Del2 On Trs_Del1.ID = Trs_Del2.id Inner Join stocktable Trs_Del3 On Trs_Del2.StockID = Trs_Del3.StockID  Inner Join OrderMas On OrderMas.OrdId = Trs_Del2.OrdId Left join Mas_Fabric On Mas_Fabric.
+FabID = Trs_Del3.FabID Left join Mas_Color On Mas_Color.ColID = Trs_Del3.ColID Left join Mas_Count On Mas_Count.CountID = Trs_Del3.CntID Inner Join Mas_Buyer On OrderMas.BuyerID = Mas_Buyer.BuyerID inner join Mas_Mill on Mas_Mill.MillID = Trs_Del3.MillID 
+where Trs_Del2.ordid in(Select ID From fnSplitter(@Ordid))    and TrType=2 and Trs_Del1.Prs_Dept=4  group by  OrderMas.Jobno ,OrderMas.Finyear ,BuyerName,ColorDesc,Fabdesc,CountName,Mill,OrdDate
+union  
+select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill,0 as orderqty ,sum(DISTINCT RecKgs)yarnrec,0 as   dckgs,0 as reckgs,0 as retkgs ,0 as salesqty, orddate from Trs_Grn2 a  inner join Trs_Grn1 on Trs_Grn1.id=a.id   inner join ordermas on ordermas.ordid =a.ordid  Inner Join StockTable On a.StockID = StockTable.StockID  inner join Trs_Del3 on Trs_Del3.OrdId=A.ordid and StockTable.CntID =Trs_Del3.Cnt and StockTable.ColID =Trs_Del3.Clr Left join Mas_Fabric On Mas_Fabric.FabID = Trs_Del3.FabType inner join Mas_Color On Mas_Color.ColID = StockTable.ColID  inner join Mas_Count On Mas_Count.CountID = StockTable.CntID    inner join Mas_Buyer on Mas_Buyer.BuyerID =OrderMas.BuyerID left join Mas_Mill on Mas_Mill.MillID = StockTable.MillID where a.ordid in (Select ID From fnSplitter(@Ordid))  and Trs_Grn1.dept in (1,2)  and GRNType='Purchase'   group by OrderMas.Jobno ,OrderMas.Finyear ,BuyerName,ColorDesc,Fabdesc,CountName,Mill,OrdDate
+union 
+select distinct OrderMas.Jobno ,OrderMas.Finyear,isnull(BuyerName,'')BuyerName,isnull(ColorDesc,'')ColorDesc,isnull(Fabdesc,'')Fabdesc,isnull(CountName,'')CountName,isnull(mill,'') as Mill,0  as orderqty,0 as  yarnrec,sum(distinct kg) as dckgs,0 as reckgs,0 as  retkgs
+,0 as salesqty, orddate  from Trs_Del1 Inner Join Trs_Del2 On Trs_Del1.ID = Trs_Del2.id Inner Join  StockTable a On Trs_Del2.StockID = a.StockID  Inner Join OrderMas On OrderMas.OrdId = Trs_Del2.OrdId   inner join Trs_Del3 on Trs_Del3.OrdId=Trs_Del2.ordid
+ and A.CntID =Trs_Del3.Cnt and A.ColID =Trs_Del3.Clr Left join Mas_Fabric On Mas_Fabric.FabID = Trs_Del3.FabType  inner join Mas_Color On Mas_Color.ColID = a.ColID inner join Mas_Count On Mas_Count.CountID = a.CntID  inner join Mas_Buyer on Mas_Buyer.BuyerID =OrderMas.BuyerID  inner join Mas_Mill on Mas_Mill.MillID = a.MillID  Where  ordermas.OrdId in (Select ID From fnSplitter(@Ordid))  and TrType=1 and Trs_Del1.Prs_Dept=4 group by OrderMas.Jobno ,OrderMas.Finyear,BuyerName,ColorDesc,Fabdesc,CountName,Mill,OrdDate
+)x   where Convert(datetime, OrdDate,102) >= '' + CAST(@Dt AS VARCHAR(30)) + '' and Convert(datetime,  OrdDate,102) <=  '' + CAST(@Dt1 AS VARCHAR(30)) + '' group by Jobno ,Finyear,isnull(BuyerName,''),isnull(ColorDesc,''),isnull(Fabdesc,''),isnull(CountName,'') ,x.Mill,OrdDate
+end 

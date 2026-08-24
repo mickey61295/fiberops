@@ -43,7 +43,7 @@ interface PendingApproval {
 const SUGGESTED_PROMPTS = [
   'List all open purchase orders',
   'Show me the stock position in the Main godown',
-  'Create a sales order for buyer B001, style S-1001, 5000 pcs (Red/M=1000, Red/L=1000, Blue/M=1500, Blue/L=1500), delivery 2026-10-15',
+  'Create a sales order for buyer B001, style S-1001, 5000 pcs at ₹350/pc (Red/M=1000, Red/L=1000, Blue/M=1500, Blue/L=1500), delivery 2026-10-15',
   'Show me production status for SO-1001',
   'Get dashboard KPIs',
   'Show me pending approvals',

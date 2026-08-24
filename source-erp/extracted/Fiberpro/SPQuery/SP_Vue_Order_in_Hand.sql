@@ -1,0 +1,51 @@
+/*;=============================================   
+
+; Author           :  Global Software's    
+
+; Create date      : 02/03/2023   
+
+; Create By        :  SHAJAHAN
+
+; Description      :  SP FOR ORDER IN HAND
+
+; Change Person    :  SWETHA
+
+; Last Change Date : 14/08/2024 16.15 PM 
+
+; =============================================  */  
+
+CREATE PROCEDURE SP_Vue_Order_in_Hand   AS 
+
+BEGIN 
+
+
+
+DECLARE @sql1 NVARCHAR(MAX);
+
+
+
+SET @sql1 = 'ALTER VIEW Vue_Rpt_OrderReg as SELECT Xy.*, isnull(VueDespatchStock2.DespatchPcs,0) as DespatchPcs, DespatchDt FROM (SELECT SeasonId,uom,Gsm, OrdId,Jobno, Finyear ,StyleDesc ,BuyOrdNo,BuyordDt,DelDt1,OrdDate,ActDelDt,Orderqty,ShortBuyer,BuyerName, MerchName,ShortExp,
+ExporterName,ExpID,BuyerID, MerchID,sum(StyleQty) as StyleQty,FcyName,avg(SaleRate) as SaleRate ,OrderType,grpref,Fabric,SeasonName,Deldt,CompFlg,sum(OrdValue) as OrdValue,StyleNo,EntryOption,StyleCompFlg,ForwardExRate, FctryID,FctryName,Style_DelDt,StyleWise_Despatch_Completion FROM (SELECT OrderMas2.Season1 AS SeasonId, OrderStyleDtl.uom, OrderMas2.Gsm, OrderMas.OrdId, OrderMas.Jobno, OrderMas.Finyear,Mas_StyleDesc.StyleDesc,OrderMas.BuyOrdNo, OrderMas.BuyordDt, OrderMas2.DelDt AS DelDt1, OrderMas.OrdDate, OrderMas2.ActDelDt,OrderMas.OrderQty, Mas_Buyer.ShortBuyer, Mas_Buyer.BuyerName, Mas_Merchandiser.MerchName, Mas_Exporter.ShortExp, Mas_Exporter.ExporterName, Mas_Exporter.ExpID,  Mas_Buyer.BuyerID, Mas_Merchandiser.MerchID, SUM(OrderQtyDtl.OrderQty) 
+AS StyleQty, Mas_Fcy.FcyName, OrderQtyDtl.SaleRate, OrderMas.OrderType, OrderMas.grpref, ISNULL(OrderStyleDtl.Fabric1,'''') AS Fabric, Mas_Season.SeasDesc AS SeasonName, OrderQtyDtl.Deldt, CASE WHEN completed = 1 THEN ''C'' WHEN completed = 0 THEN ''R'' WHEN completed <> 2 THEN ''A'' END AS CompFlg, CASE WHEN Ordermas.crate > 0 THEN ExsQty * Crate ELSE ExsQty * Exchangerate END AS OrdValue, OrderQtyDtl.StyleNo, ISNULL(OrderStyleDtl.EntryOption, 1) AS EntryOption,CASE WHEN IsNull(StyleWise_Completion_OrdHandRpt,0) = 1 THEN ''C'' WHEN IsNull(StyleWise_Completion_OrdHandRpt,0) = 0 THEN ''R'' WHEN IsNull(StyleWise_Completion_OrdHandRpt,0) = 3 THEN ''A'' END AS StyleCompFlg,IsNull(OrderMas2.FwdCtRate,0) As ForwardExRate,MasFactory.ExpID as FctryID ,MasFactory.
+ExporterName  as FctryName,OrderStyleDtl.DelDt as Style_DelDt,isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0) StyleWise_Despatch_Completion,OrderQtyDtl.ColID,OrderQtyDtl.SizeId,OrderQtyDtl.lotno  FROM OrderMas INNER JOIN Mas_Buyer ON OrderMas.BuyerID = Mas_Buyer.BuyerID INNER JOIN Mas_Merchandiser ON OrderMas.MerchID = Mas_Merchandiser.MerchID  INNER JOIN Mas_Exporter ON OrderMas.ExpID = Mas_Exporter.ExpID  INNER JOIN  Vue_Rpt_OrdExcessQtywithSaleRate ON OrderMas.OrdId = Vue_Rpt_OrdExcessQtywithSaleRate.OrdID  INNER JOIN  OrderQtyDtl ON OrderMas.OrdId = OrderQtyDtl.OrdID  INNER JOIN OrderStyleDtl  ON OrderStyleDtl.OrdId=OrderQtyDtl.OrdID and  OrderQtyDtl.StyleNo=OrderStyleDtl.styleNo and OrderQtyDtl.StyleId=OrderStyleDtl.StyleId and OrderStyleDtl.EntryOption=1 inner join Ordermas2 on Ordermas.OrdId=Ordermas2.Ordid  inner join mas_Styledesc on OrderQtyDtl.styleid = mas_Styledesc.styleid  LEFT OUTER JOIN Mas_Exporter as  MasFactory on MasFactory.ExpID = OrderQtyDtl.ProdUnit INNER JOIN Mas_Season ON OrderMas2.Season1 = Mas_Season.SeasID LEFT OUTER JOIN Mas_Fcy ON OrderMas.Fcy = Mas_Fcy.ID  where isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0) <>1 and isnull(OrderMas.Despatch_Completed,0)<>1 and Mas_Exporter.Active=''Y'' GROUP BY OrderMas2.Season1
+, OrderStyleDtl.uom, OrderMas2.Gsm, OrderMas.OrdId, OrderMas.Jobno, OrderMas.Finyear,  OrderMas.BuyOrdNo, OrderMas.BuyordDt,OrderMas2.DelDt, OrderMas.OrderQty, Mas_Buyer.ShortBuyer, Mas_Merchandiser.MerchName, Mas_Exporter.ShortExp, Mas_Exporter.ExpID, Mas_Buyer.BuyerID, Mas_Merchandiser.MerchID, OrderQtyDtl.StyleNo, OrderMas.Completed, OrderMas.Crate, Vue_Rpt_OrdExcessQtywithSaleRate.ExsQty, dbo.Mas_Fcy.ExchangeRate, Mas_Fcy.FcyName, OrderQtyDtl.SaleRate, OrderMas.OrderType, OrderMas.grpref, OrderMas.OrdDate, OrderMas2.ActDelDt, OrderStyleDtl.Fabric1, Mas_Season.SeasDesc, Mas_Exporter.ExporterName, Mas_Buyer.BuyerName, OrderQtyDtl.Deldt, OrderStyleDtl.EntryOption, StyleWise_Completion_OrdHandRpt, mas_Styledesc.StyleDesc, OrderMas2.FwdCtRate, MasFactory.ExpID, MasFactory.ExporterName,OrderStyleDtl.DelDt,isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0) ,OrderQtyDtl.ColID,OrderQtyDtl.SizeId,OrderQtyDtl.lotno   )X  GROUP by SeasonId,uom,Gsm, OrdId,Jobno, Finyear ,StyleDesc ,BuyOrdNo,BuyordDt,DelDt1,OrdDate,ActDelDt,ShortBuyer,BuyerName, MerchName,ShortExp,ExporterName,ExpID,BuyerID, MerchID,FcyName,OrderType,grpref,Fabric,SeasonName,Deldt,CompFlg,StyleNo,EntryOption,StyleCompFlg,ForwardExRate, FctryID,FctryName,Style_DelDt,StyleWise_Despatch_Completion,
+Orderqty  ) XY  LEFT JOIN VueDespatchStock2 ON XY.OrdId = VueDespatchStock2 .Ordjobno and  XY.StyleNo = VueDespatchStock2.StyleNo  UNION   SELECT Xy.*, VueDespatchStock2.DespatchPcs, DespatchDt FROM (SELECT SeasonId,uom,Gsm, OrdId,Jobno, Finyear ,StyleDesc ,BuyOrdNo,BuyordDt,DelDt1,OrdDate,ActDelDt,Orderqty,ShortBuyer,BuyerName, MerchName,ShortExp,ExporterName,ExpID,BuyerID, MerchID,sum(StyleQty) as StyleQty,FcyName,avg(SaleRate) as SaleRate ,OrderType,grpref,Fabric,SeasonName,Deldt,CompFlg,sum(OrdValue) 
+as OrdValue,StyleNo,EntryOption,StyleCompFlg,ForwardExRate, FctryID ,FctryName,Style_DelDt,StyleWise_Despatch_Completion  FROM ( SELECT OrderMas2.Season1 AS SeasonId, OrderStyleDtl.uom, OrderMas2.Gsm, OrderMas.OrdId, OrderMas.Jobno, OrderMas.Finyear ,Mas_StyleDesc.StyleDesc,OrderMas.BuyOrdNo,OrderMas.BuyordDt, OrderMas2.DelDt AS DelDt1, OrderMas.OrdDate, OrderMas2.ActDelDt,OrderMas.OrderQty, Mas_Buyer.ShortBuyer, Mas_Buyer.BuyerName, Mas_Merchandiser.MerchName, Mas_Exporter.ShortExp, Mas_Exporter.ExporterName, Mas_Exporter.ExpID, Mas_Buyer.BuyerID,Mas_Merchandiser.MerchID, SUM(OrdQtyClrDtl.SizeQty) AS StyleQty, Mas_Fcy.FcyName, OrdQtyClrDtl.SaleRate,  OrderMas.OrderType, OrderMas.grpref, ISNULL(OrderStyleDtl.Fabric1,'''') AS Fabric, Mas_Season.SeasDesc AS
+ SeasonName, OrdQtyClrDtl.Deldt,  CASE WHEN completed = 1 THEN ''C'' WHEN completed = 0 THEN ''R'' WHEN  completed <> 2 THEN ''A'' END AS CompFlg, CASE WHEN Ordermas.crate > 0 THEN ExsQty * Crate ELSE ExsQty * Exchangerate END AS OrdValue, OrdQtyClrDtl.StyleNo,ISNULL(OrderStyleDtl.EntryOption, 1) AS EntryOption, CASE WHEN IsNull(StyleWise_Despatch_Completion,0) = 1 THEN ''C'' WHEN IsNull(StyleWise_Despatch_Completion,0) = 0 THEN ''R'' WHEN IsNull(StyleWise_Despatch_Completion,0) = 3 THEN ''A'' END AS StyleCompFlg,IsNull(OrderMas2.FwdCtRate,0) As ForwardExRate ,MasFactory.ExpID as FctryID ,MasFactory.ExporterName as FctryName,OrderStyleDtl.DelDt as style_deldt,isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0) StyleWise_Despatch_Completion, OrdQtyClrDtl.CmbClrID,OrdQtyClrDtl.SizeId,OrdQtyClrDtl.LotNo FROM OrderMas inner join Ordermas2 on Ordermas.OrdId=Ordermas2.Ordid  INNER JOIN Mas_Buyer ON OrderMas.BuyerID = Mas_Buyer.BuyerID  INNER JOIN Mas_Merchandiser ON  OrderMas.MerchID = Mas_Merchandiser.MerchID INNER JOIN Mas_Exporter ON OrderMas.ExpID = Mas_Exporter.ExpID INNER JOIN Vue_Rpt_OrdExcessQtywithSaleRate  ON OrderMas.OrdId = Vue_Rpt_OrdExcessQtywithSaleRate.OrdID INNER JOIN OrdQtyClrDtl ON OrderMas.OrdId = OrdQtyClrDtl.OrdID /*And OrderMas.EntryOption=2 */INNER JOIN OrderStyleDtl ON OrderStyleDtl.OrdId=OrderMas.OrdId and OrdQtyClrDtl.Styleno=OrderStyleDtl.Styleno and OrdQtyClrDtl.StyleID=OrderStyleDtl.StyleId and OrderStyleDtl.EntryOption=2 LEFT OUTER JOIN Mas_Exporter as MasFactory on MasFactory.ExpID = OrdQtyClrDtl.Prod_Unit INNER JOIN Mas_Season ON OrderMas2.Season1 = Mas_Season.SeasID    LEFT OUTER JOIN Mas_Fcy ON OrderMas.Fcy = Mas_Fcy.ID inner join mas_Styledesc on  OrdQtyClrDtl.styleid=mas_Styledesc.styleid where isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0)<>1  and isnull(OrderMas.Despatch_Completed,0)<>1 and Mas_Exporter.Active=''Y'' GROUP BY OrderMas2.Season1, OrderStyleDtl.uom, OrderMas2.Gsm, OrderMas.OrdId, OrderMas.Jobno,OrderMas.Finyear,  OrderMas.BuyOrdNo, OrderMas.BuyordDt, 
+OrderMas2.DelDt, OrderMas.OrderQty, Mas_Buyer.ShortBuyer, Mas_Merchandiser.MerchName, Mas_Exporter.ShortExp, Mas_Exporter.ExpID, Mas_Buyer.BuyerID,Mas_Merchandiser.MerchID,  OrdQtyClrDtl.StyleNo, OrderMas.Completed,OrderMas.Crate,Vue_Rpt_OrdExcessQtywithSaleRate.ExsQty,Mas_Fcy.ExchangeRate, Mas_Fcy.FcyName, OrdQtyClrDtl.SaleRate, OrderMas.OrderType,OrderMas.grpref, OrderMas.OrdDate, OrderMas2.ActDelDt, OrderStyleDtl.Fabric1, Mas_Season.SeasDesc, Mas_Exporter.ExporterName, Mas_Buyer.BuyerName, OrdQtyClrDtl
+.Deldt, OrderStyleDtl.EntryOption, mas_Styledesc.StyleDesc,OrderMas2.FwdCtRate, MasFactory.ExpID ,MasFactory.ExporterName,OrderStyleDtl.DelDt,OrderStyleDtl.StyleWise_Despatch_Completion ,isnull(OrderStyleDtl.StyleWise_Despatch_Completion,0), OrdQtyClrDtl.
+CmbClrID,OrdQtyClrDtl.SizeId,OrdQtyClrDtl.lotno,StyleWise_Despatch_Completion  ) X GROUP by SeasonId,uom,Gsm, OrdId,Jobno, Finyear ,StyleDesc ,BuyOrdNo,BuyordDt,DelDt1,OrdDate,ActDelDt,ShortBuyer,BuyerName, MerchName,ShortExp,ExporterName,ExpID,BuyerID, MerchID,FcyName,OrderType,grpref,Fabric,SeasonName,Deldt,CompFlg,StyleNo,EntryOption,StyleCompFlg,ForwardExRate, Style_DelDt,StyleWise_Despatch_Completion,FctryID,FctryName,Orderqty ) XY  LEFT JOIN VueDespatchStock2 ON XY.OrdId = VueDespatchStock2 .Ordjobno and  XY.StyleNo = VueDespatchStock2.StyleNo '
+
+
+
+EXEC sp_executesql @sql1 
+
+
+
+END
+
+
+
+
+
+-- SP_Vue_Order_in_Hand 

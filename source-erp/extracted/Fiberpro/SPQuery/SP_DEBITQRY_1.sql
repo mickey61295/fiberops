@@ -1,0 +1,11 @@
+/*;=============================================   
+; Author           :  Global Software's    
+; Create date      :  17/08/2022    
+; Create By        :  ASLAM  
+; Description      :  QUERY
+; Change Person    :  ASLAM
+; Last Change Date :  25/11/2022 10.03 AM 
+; =============================================  */  
+CREATE PROCEDURE SP_DEBITQRY_1 (@Ordid int) as 
+SELECT DeptID,DEPTNAME, OutputType, OrderSno,SUM(Amount) Amount ,sum(Amt) Amt,sum(NetAmt) NetAmt FROM (
+SELECT DeptId,DeptName, outputtype,OrderSno,Case When IsNull(BillType,'')='Purchase' Then Case When IsNull(Fcy,0)>0 Then sum(Debkg * Rate) * IsNull(exchangeRate,0) else  SUM(Debkg * Rate)  end else SUM(Debkg * Rate)  end AS Amount,isnull(DebitValue,0) as Amt,Case When IsNull(BillType,'')='Purchase' Then Case When IsNull(Fcy,0)>0 Then IsNull(NetAmt,0)  * IsNull(exchangeRate,0)else IsNull(NetAmt,0) end else IsNull(NetAmt,0) end as NetAmt from (SELECT DISTINCT   Mas_Dept.DeptID, Mas_Dept.Deptname, mas_dept.OutputType, Mas_Dept.OrderSno, trs_deb2.DebKg,trs_deb2.Rate, isnull(Trs_Deb1.DebitValue,0) as Amt ,BillType,isnull(trs_po1.exchangeRate,0) as exchangerate ,trs_deb1.fcy,DebitValue,trs_deb2.NetAmt FROM Trs_Deb1 INNER JOIN Trs_Deb2 ON Trs_Deb1.ID = Trs_Deb2.ID  INNER JOIN Mas_Dept ON Trs_Deb1.Dept = Mas_Dept.DeptID INNER JOIN StockTable ON Trs_Deb2.StockID = StockTable.StockID INNER JOIN  (Select distinct Trs_Bills.id,PoID,BillType from Trs_Bills  INNER JOIN  Trs_BillRate ON Trs_BillRate.ID = Trs_Bills.ID Where ORdid = @Ordid ) Trs_Bills on Trs_Deb1.Brnid = Trs_Bills.ID  Left Join Trs_Po1 On Trs_Bills.PoId=Trs_Po1.Id LEFT JOIN (Select Distinct ID,Sum(Amt) as NEtAmt from Trs_DebAddDed Where AdddedCode=2 and ID in (Select Distinct a.ID from trs_Deb1 a  inner join trs_deb2 B ON a.id = b.id Where B.ORdid = @Ordid) Group by ID) X ON Trs_Deb1.ID = X.ID and Trs_Deb2.ID = X.ID  WHERE trs_deb2.Ordid=@Ordid  AND (DeptID <> 16 AND isnull(AccProsDept, 'N') = 'N') GROUP BY Mas_Dept.Deptname, mas_dept.OutputType,Mas_Dept.OrderSno,Trs_Deb1.DebitValue,IsNull(Trs_Deb2.NetAmt,0)  ,Trs_Bills.BillType,Trs_Po1.exchangeRate,Trs_Deb1.Fcy  ,trs_deb2.DebKg,trs_deb2.Rate,trs_deb2.NetAmt,Mas_Dept.DeptID ) XX Group BY  Deptname, OrderSno, DebitValue, IsNull(NetAmt, 0), BillType, exchangeRate, Fcy, NetAmt,outputtype,deptid) YYY GROUP BY DEPTNAME, OrderSno,OutputType,DeptID
