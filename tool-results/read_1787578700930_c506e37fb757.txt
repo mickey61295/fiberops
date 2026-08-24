@@ -1,0 +1,1189 @@
+     1→/* eslint-disable @typescript-eslint/no-explicit-any */
+     2→import { db } from '@/lib/db'
+     3→
+     4→// ============== Agent Tool Registry ==============
+     5→// Each tool has: name, description, parameters (zod), execute function.
+     6→// Read tools return data directly. Write tools return a "plan" (proposed mutations)
+     7→// that the user must approve before commit.
+     8→
+     9→import { z } from 'zod'
+    10→
+    11→export type ToolResult = {
+    12→  text?: string
+    13→  json?: any
+    14→  // For write tools: proposed mutations; if present, the UI shows an approval card.
+    15→  plan?: {
+    16→    summary: string
+    17→    creates: Array<{ table: string; data: any }>
+    18→    updates?: Array<{ table: string; id: string; data: any }>
+    19→    sideEffects?: string[]
+    20→    approvalId?: string
+    21→  }
+    22→  // For commit step: actually persist
+    23→  commit?: () => Promise<any>
+    24→}
+    25→
+    26→export interface AgentTool {
+    27→  name: string
+    28→  description: string
+    29→  domain: string
+    30→  isWrite: boolean
+    31→  schema: z.ZodObject<any, any>
+    32→  execute: (args: any) => Promise<ToolResult>
+    33→}
+    34→
+    35→// helper to safely query masters
+    36→async function listAll(model: string, where: any = {}) {
+    37→  const m = (db as any)[model]
+    38→  if (!m) throw new Error('Unknown model: ' + model)
+    39→  // Try orderBy code first, fallback to no orderBy
+    40→  try {
+    41→    return await m.findMany({ where, take: 100, orderBy: { code: 'asc' } })
+    42→  } catch {
+    43→    try {
+    44→      return await m.findMany({ where, take: 100 })
+    45→    } catch {
+    46→      return []
+    47→    }
+    48→  }
+    49→}
+    50→
+    51→// ───────────── READ TOOLS ─────────────
+    52→
+    53→const readTools: AgentTool[] = [
+    54→  {
+    55→    name: 'list_orders',
+    56→    description: 'List sales orders. Optional filter by status (open|in_progress|completed|cancelled) or buyerId.',
+    57→    domain: 'orders',
+    58→    isWrite: false,
+    59→    schema: z.object({
+    60→      status: z.string().optional().describe('Filter by status'),
+    61→      buyerId: z.string().optional(),
+    62→      limit: z.number().optional().default(50),
+    63→    }),
+    64→    async execute(args) {
+    65→      const orders = await db.order.findMany({
+    66→        where: { status: args.status },
+    67→        take: args.limit,
+    68→        orderBy: { orderDate: 'desc' },
+    69→        include: { buyer: true, style: true },
+    70→      })
+    71→      return {
+    72→        text: `Found ${orders.length} orders.`,
+    73→        json: orders.map((o) => ({
+    74→          id: o.id, orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
+    75→          totalPcs: o.totalPcs, totalValue: o.totalValue, status: o.status,
+    76→          deliveryDate: o.deliveryDate, orderDate: o.orderDate,
+    77→        })),
+    78→      }
+    79→    },
+    80→  },
+    81→  {
+    82→    name: 'get_order',
+    83→    description: 'Get a single sales order by orderNo (e.g. SO-1001) including all order lines.',
+    84→    domain: 'orders',
+    85→    isWrite: false,
+    86→    schema: z.object({
+    87→      orderNo: z.string().describe('Order number like SO-1001'),
+    88→    }),
+    89→    async execute(args) {
+    90→      const order = await db.order.findUnique({
+    91→        where: { orderNo: args.orderNo },
+    92→        include: {
+    93→          buyer: true, style: true,
+    94→          lines: { include: { style: true, colour: true, size: true } },
+    95→          poLines: true, cutOrders: { include: { bundles: true } },
+    96→          productionEntries: true, salesInvoices: true, costSheet: true,
+    97→        },
+    98→      })
+    99→      if (!order) return { text: `Order ${args.orderNo} not found.` }
+   100→      return { text: `Order ${order.orderNo} for ${order.buyer?.name}`, json: order }
+   101→    },
+   102→  },
+   103→  {
+   104→    name: 'list_purchase_orders',
+   105→    description: 'List purchase orders. Optional filter by status (open|partial|received|cancelled) or poType (yarn|fabric|accessory|general).',
+   106→    domain: 'procurement',
+   107→    isWrite: false,
+   108→    schema: z.object({
+   109→      status: z.string().optional(),
+   110→      poType: z.string().optional(),
+   111→    }),
+   112→    async execute(args) {
+   113→      const pos = await db.purchaseOrder.findMany({
+   114→        where: { status: args.status, poType: args.poType },
+   115→        orderBy: { orderDate: 'desc' },
+   116→        take: 50,
+   117→        include: { party: true, lines: true },
+   118→      })
+   119→      return {
+   120→        text: `Found ${pos.length} purchase orders.`,
+   121→        json: pos.map((p) => ({
+   122→          id: p.id, poNo: p.poNo, poType: p.poType, party: p.party?.name,
+   123→          orderDate: p.orderDate, deliveryDate: p.deliveryDate, status: p.status,
+   124→          totalQty: p.totalQty, totalValue: p.totalValue, lines: p.lines.length,
+   125→        })),
+   126→      }
+   127→    },
+   128→  },
+   129→  {
+   130→    name: 'get_purchase_order',
+   131→    description: 'Get a single PO by poNo with all lines.',
+   132→    domain: 'procurement',
+   133→    isWrite: false,
+   134→    schema: z.object({ poNo: z.string() }),
+   135→    async execute(args) {
+   136→      const po = await db.purchaseOrder.findUnique({
+   137→        where: { poNo: args.poNo },
+   138→        include: { party: true, lines: true, grns: { include: { lines: true } } },
+   139→      })
+   140→      if (!po) return { text: `PO ${args.poNo} not found.` }
+   141→      return { text: `PO ${po.poNo} - ${po.party?.name} - ${po.status}`, json: po }
+   142→    },
+   143→  },
+   144→  {
+   145→    name: 'get_stock',
+   146→    description: 'Get current stock by godown code (G1=Main, G2=FG, G3=Jobworker). Optional itemType filter (yarn|fabric|accessory|pcs).',
+   147→    domain: 'inventory',
+   148→    isWrite: false,
+   149→    schema: z.object({
+   150→      godownCode: z.string().optional().describe('Godown code. Defaults to all godowns.'),
+   151→      itemType: z.string().optional().describe('yarn|fabric|accessory|pcs'),
+   152→    }),
+   153→    async execute(args) {
+   154→      const where: any = {}
+   155→      if (args.itemType) where.itemType = args.itemType
+   156→      if (args.godownCode) {
+   157→        const g = await db.godown.findUnique({ where: { code: args.godownCode } })
+   158→        if (g) where.godownId = g.id
+   159→      }
+   160→      const stocks = await db.currentStock.findMany({
+   161→        where,
+   162→        include: { godown: true, colour: true, size: true, department: true },
+   163→      })
+   164→      return {
+   165→        text: `Found ${stocks.length} stock entries.`,
+   166→        json: stocks.map((s) => ({
+   167→          itemType: s.itemType,
+   168→          itemId: s.itemId,
+   169→          godown: s.godown?.code, dept: s.department?.code,
+   170→          kgs: s.kgs, mtrs: s.mtrs, pcs: s.pcs, bags: s.bags, rate: s.rate,
+   171→        })),
+   172→      }
+   173→    },
+   174→  },
+   175→  {
+   176→    name: 'get_stock_ledger',
+   177→    description: 'Get the stock ledger (all transactions) optionally filtered by item type, godown or date range.',
+   178→    domain: 'inventory',
+   179→    isWrite: false,
+   180→    schema: z.object({
+   181→      itemType: z.string().optional(),
+   182→      godownCode: z.string().optional(),
+   183→      limit: z.number().optional().default(50),
+   184→    }),
+   185→    async execute(args) {
+   186→      const where: any = {}
+   187→      if (args.itemType) where.itemType = args.itemType
+   188→      if (args.godownCode) {
+   189→        const g = await db.godown.findUnique({ where: { code: args.godownCode } })
+   190→        if (g) where.godownId = g.id
+   191→      }
+   192→      const ledger = await db.stockLedger.findMany({
+   193→        where, take: args.limit, orderBy: { docDate: 'desc' },
+   194→        include: { godown: true, party: true },
+   195→      })
+   196→      return {
+   197→        text: `Found ${ledger.length} ledger entries.`,
+   198→        json: ledger.map((l) => ({
+   199→          txnType: l.txnType, itemType: l.itemType,
+   200→          inKgs: l.inKgs, outKgs: l.outKgs, inPcs: l.inPcs, outPcs: l.outPcs,
+   201→          rate: l.rate, docNo: l.docNo, docDate: l.docDate,
+   202→          godown: l.godown?.code, party: l.party?.name,
+   203→        })),
+   204→      }
+   205→    },
+   206→  },
+   207→  {
+   208→    name: 'list_cut_orders',
+   209→    description: 'List cut orders with bundle counts.',
+   210→    domain: 'cutting',
+   211→    isWrite: false,
+   212→    schema: z.object({ status: z.string().optional() }),
+   213→    async execute(args) {
+   214→      const cuts = await db.cutOrder.findMany({
+   215→        where: { status: args.status },
+   216→        include: { order: { include: { buyer: true } }, bundles: true },
+   217→        orderBy: { cutDate: 'desc' },
+   218→      })
+   219→      return {
+   220→        text: `Found ${cuts.length} cut orders.`,
+   221→        json: cuts.map((c) => ({
+   222→          cutNo: c.cutNo, orderNo: c.order?.orderNo, buyer: c.order?.buyer?.name,
+   223→          cutDate: c.cutDate, fabricIssued: c.fabricIssued, totalPcs: c.totalPcs,
+   224→          bundles: c.bundles.length, status: c.status, efficiency: c.efficiency,
+   225→        })),
+   226→      }
+   227→    },
+   228→  },
+   229→  {
+   230→    name: 'get_line_status',
+   231→    description: 'Get production status by line/department for a given order (or all open orders).',
+   232→    domain: 'production',
+   233→    isWrite: false,
+   234→    schema: z.object({
+   235→      orderNo: z.string().optional().describe('Specific order number. If omitted, summarize all open orders.'),
+   236→    }),
+   237→    async execute(args) {
+   238→      if (args.orderNo) {
+   239→        const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+   240→        if (!order) return { text: `Order ${args.orderNo} not found` }
+   241→        const entries = await db.productionEntry.findMany({
+   242→          where: { orderId: order.id },
+   243→          include: { operator: true, department: true },
+   244→          orderBy: { prodDate: 'desc' },
+   245→        })
+   246→        const totalPcs = entries.reduce((s, e) => s + e.qty, 0)
+   247→        return {
+   248→          text: `Production for ${args.orderNo}: ${totalPcs} pcs across ${entries.length} entries.`,
+   249→          json: {
+   250→            orderNo: order.orderNo, totalOrdered: order.totalPcs, totalProduced: totalPcs,
+   251→            balance: order.totalPcs - totalPcs,
+   252→            byDepartment: groupBy(entries, 'department.code'),
+   253→            recentEntries: entries.slice(0, 10).map((e) => ({
+   254→              date: e.prodDate, dept: e.department?.code, operator: e.operator?.name,
+   255→              bundle: e.bundleNo, qty: e.qty, rework: e.rework,
+   256→            })),
+   257→          },
+   258→        }
+   259→      }
+   260→      // All open orders summary
+   261→      const orders = await db.order.findMany({
+   262→        where: { status: { in: ['open', 'in_progress'] } },
+   263→        include: { _count: { select: { productionEntries: true } } },
+   264→      })
+   265→      const result = []
+   266→      for (const o of orders) {
+   267→        const entries = await db.productionEntry.findMany({
+   268→          where: { orderId: o.id }, select: { qty: true }
+   269→        })
+   270→        const produced = entries.reduce((s, e) => s + e.qty, 0)
+   271→        result.push({
+   272→          orderNo: o.orderNo, ordered: o.totalPcs, produced, balance: o.totalPcs - produced,
+   273→          deliveryDate: o.deliveryDate,
+   274→        })
+   275→      }
+   276→      return {
+   277→        text: `${result.length} open orders with production tracking.`,
+   278→        json: result,
+   279→      }
+   280→    },
+   281→  },
+   282→  {
+   283→    name: 'list_invoices',
+   284→    description: 'List sales invoices. Optional filter by status (draft|issued|paid|cancelled) or invoiceType (domestic|export).',
+   285→    domain: 'accounting',
+   286→    isWrite: false,
+   287→    schema: z.object({
+   288→      status: z.string().optional(),
+   289→      invoiceType: z.string().optional(),
+   290→    }),
+   291→    async execute(args) {
+   292→      const invs = await db.salesInvoice.findMany({
+   293→        where: { status: args.status, invoiceType: args.invoiceType },
+   294→        include: { party: true, order: true },
+   295→        orderBy: { invoiceDate: 'desc' },
+   296→      })
+   297→      return {
+   298→        text: `Found ${invs.length} invoices.`,
+   299→        json: invs.map((i) => ({
+   300→          invoiceNo: i.invoiceNo, party: i.party?.name, order: i.order?.orderNo,
+   301→          billAmount: i.billAmount, taxable: i.taxableValue,
+   302→          igst: i.igstAmt, cgst: i.cgstAmt, sgst: i.sgstAmt,
+   303→          status: i.status, date: i.invoiceDate,
+   304→        })),
+   305→      }
+   306→    },
+   307→  },
+   308→  {
+   309→    name: 'get_party_ledger',
+   310→    description: 'Get party ledger (invoices + journals) by party code.',
+   311→    domain: 'accounting',
+   312→    isWrite: false,
+   313→    schema: z.object({ partyCode: z.string() }),
+   314→    async execute(args) {
+   315→      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+   316→      if (!party) return { text: `Party ${args.partyCode} not found` }
+   317→      const [invoices, journals, debitNotes] = await Promise.all([
+   318→        db.salesInvoice.findMany({ where: { partyId: party.id } }),
+   319→        db.journal.findMany({ where: { partyId: party.id } }),
+   320→        db.debitNote.findMany({ where: { partyId: party.id } }),
+   321→      ])
+   322→      const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
+   323→      const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
+   324→      const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
+   325→      return {
+   326→        text: `Party ${party.name}: billed=${totalBilled}, debit notes=${totalDebit}, journals=${totalJournal}`,
+   327→        json: {
+   328→          party: { code: party.code, name: party.name, opening: party.openingBalance },
+   329→          invoices: invoices.length, totalBilled, totalDebit, totalJournal,
+   330→          recentInvoices: invoices.slice(0, 5).map((i) => ({
+   331→            invoiceNo: i.invoiceNo, date: i.invoiceDate, amount: i.billAmount, status: i.status,
+   332→          })),
+   333→        },
+   334→      }
+   335→    },
+   336→  },
+   337→  {
+   338→    name: 'list_parties',
+   339→    description: 'List parties (suppliers/customers). Optional filter by partyType (supplier|customer|both).',
+   340→    domain: 'masters',
+   341→    isWrite: false,
+   342→    schema: z.object({ partyType: z.string().optional() }),
+   343→    async execute(args) {
+   344→      const parties = await db.party.findMany({
+   345→        where: args.partyType ? { partyType: args.partyType } : {},
+   346→        orderBy: { name: 'asc' },
+   347→      })
+   348→      return {
+   349→        text: `Found ${parties.length} parties.`,
+   350→        json: parties.map((p) => ({
+   351→          code: p.code, name: p.name, partyType: p.partyType, gstin: p.gstin, city: p.city, state: p.state,
+   352→        })),
+   353→      }
+   354→    },
+   355→  },
+   356→  {
+   357→    name: 'list_buyers',
+   358→    description: 'List buyers.',
+   359→    domain: 'masters',
+   360→    isWrite: false,
+   361→    schema: z.object({}),
+   362→    async execute() {
+   363→      const buyers = await db.buyer.findMany()
+   364→      return { text: `${buyers.length} buyers`, json: buyers }
+   365→    },
+   366→  },
+   367→  {
+   368→    name: 'list_styles',
+   369→    description: 'List styles with their buyer.',
+   370→    domain: 'masters',
+   371→    isWrite: false,
+   372→    schema: z.object({}),
+   373→    async execute() {
+   374→      const styles = await db.style.findMany({ include: { buyer: true } })
+   375→      return { text: `${styles.length} styles`, json: styles.map((s) => ({
+   376→        styleNo: s.styleNo, description: s.description, buyer: s.buyer?.name, sam: s.sam, hsn: s.hsn,
+   377→      })) }
+   378→    },
+   379→  },
+   380→  {
+   381→    name: 'list_fabrics',
+   382→    description: 'List fabric masters.',
+   383→    domain: 'masters',
+   384→    isWrite: false,
+   385→    schema: z.object({}),
+   386→    async execute() {
+   387→      const f = await listAll('fabric')
+   388→      return { text: `${f.length} fabrics`, json: f }
+   389→    },
+   390→  },
+   391→  {
+   392→    name: 'list_yarns',
+   393→    description: 'List yarn masters.',
+   394→    domain: 'masters',
+   395→    isWrite: false,
+   396→    schema: z.object({}),
+   397→    async execute() {
+   398→      const y = await listAll('yarn')
+   399→      return { text: `${y.length} yarns`, json: y }
+   400→    },
+   401→  },
+   402→  {
+   403→    name: 'list_accessories',
+   404→    description: 'List accessory masters.',
+   405→    domain: 'masters',
+   406→    isWrite: false,
+   407→    schema: z.object({}),
+   408→    async execute() {
+   409→      const a = await listAll('accessory')
+   410→      return { text: `${a.length} accessories`, json: a }
+   411→    },
+   412→  },
+   413→  {
+   414→    name: 'list_godowns',
+   415→    description: 'List godowns (warehouses).',
+   416→    domain: 'masters',
+   417→    isWrite: false,
+   418→    schema: z.object({}),
+   419→    async execute() {
+   420→      const g = await db.godown.findMany()
+   421→      return { text: `${g.length} godowns`, json: g }
+   422→    },
+   423→  },
+   424→  {
+   425→    name: 'list_departments',
+   426→    description: 'List departments.',
+   427→    domain: 'masters',
+   428→    isWrite: false,
+   429→    schema: z.object({}),
+   430→    async execute() {
+   431→      const d = await db.department.findMany({ orderBy: { orderSno: 'asc' } })
+   432→      return { text: `${d.length} departments`, json: d }
+   433→    },
+   434→  },
+   435→  {
+   436→    name: 'get_cost_sheet',
+   437→    description: 'Get cost sheet for an order by orderNo.',
+   438→    domain: 'costing',
+   439→    isWrite: false,
+   440→    schema: z.object({ orderNo: z.string() }),
+   441→    async execute(args) {
+   442→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+   443→      if (!order) return { text: `Order ${args.orderNo} not found` }
+   444→      const cs = await db.costSheet.findFirst({
+   445→        where: { orderId: order.id }, orderBy: { version: 'desc' },
+   446→      })
+   447→      if (!cs) return { text: `No cost sheet for ${args.orderNo}` }
+   448→      const margin = cs.sellingPrice - cs.totalCost
+   449→      return {
+   450→        text: `Cost sheet for ${args.orderNo}: cost=${cs.totalCost}, sell=${cs.sellingPrice}, margin=${margin}`,
+   451→        json: { ...cs, margin, marginPct: cs.sellingPrice ? (margin / cs.sellingPrice) * 100 : 0 },
+   452→      }
+   453→    },
+   454→  },
+   455→  {
+   456→    name: 'get_budget_vs_actual',
+   457→    description: 'Get budget vs actual for an order (PO + production cost).',
+   458→    domain: 'costing',
+   459→    isWrite: false,
+   460→    schema: z.object({ orderNo: z.string() }),
+   461→    async execute(args) {
+   462→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+   463→      if (!order) return { text: `Order ${args.orderNo} not found` }
+   464→      const [poLines, prodEntries, costs] = await Promise.all([
+   465→        db.pOLine.findMany({ where: { orderId: order.id } }),
+   466→        db.productionEntry.findMany({ where: { orderId: order.id } }),
+   467→        db.costSheet.findMany({ where: { orderId: order.id } }),
+   468→      ])
+   469→      const poValue = poLines.reduce((s, p) => s + (p.qty * p.rate), 0)
+   470→      const prodCost = prodEntries.reduce((s, e) => s + e.amount, 0)
+   471→      const shiftWages = prodEntries.reduce((s, e) => s + e.shiftWages, 0)
+   472→      const budgetedCost = costs.reduce((s, c) => s + c.totalCost, 0)
+   473→      const actualCost = poValue + prodCost + shiftWages
+   474→      return {
+   475→        text: `${args.orderNo}: budgeted=${budgetedCost}, actual=${actualCost}, variance=${budgetedCost - actualCost}`,
+   476→        json: {
+   477→          orderNo: args.orderNo,
+   478→          budget: { total: budgetedCost, poBudget: poValue, prodBudget: prodCost },
+   479→          actual: { total: actualCost, poValue, prodCost, shiftWages },
+   480→          variance: budgetedCost - actualCost,
+   481→          pctVariance: budgetedCost ? ((budgetedCost - actualCost) / budgetedCost) * 100 : 0,
+   482→        },
+   483→      }
+   484→    },
+   485→  },
+   486→  {
+   487→    name: 'get_pending_approvals',
+   488→    description: 'Get all pending approvals (PO/invoice/etc waiting for sign-off).',
+   489→    domain: 'workflow',
+   490→    isWrite: false,
+   491→    schema: z.object({}),
+   492→    async execute() {
+   493→      const approvals = await db.approval.findMany({
+   494→        where: { status: 'pending' },
+   495→        orderBy: { createdAt: 'desc' },
+   496→      })
+   497→      const enriched = await Promise.all(approvals.map(async (a) => {
+   498→        let entity: any = null
+   499→        if (a.entity === 'po') {
+   500→          entity = await db.purchaseOrder.findUnique({
+   501→            where: { id: a.entityId }, include: { party: true, lines: true },
+   502→          })
+   503→        }
+   504→        return { ...a, entity }
+   505→      }))
+   506→      return {
+   507→        text: `${enriched.length} pending approvals.`,
+   508→        json: enriched,
+   509→      }
+   510→    },
+   511→  },
+   512→  {
+   513→    name: 'list_employees',
+   514→    description: 'List employees with their department.',
+   515→    domain: 'hr',
+   516→    isWrite: false,
+   517→    schema: z.object({}),
+   518→    async execute() {
+   519→      const emps = await db.employee.findMany({ include: { department: true } })
+   520→      return {
+   521→        text: `${emps.length} employees`,
+   522→        json: emps.map((e) => ({
+   523→          code: e.code, name: e.name, dept: e.department?.name, role: e.role,
+   524→          pieceRate: e.pieceRate, dailyWage: e.dailyWage, active: e.active,
+   525→        })),
+   526→      }
+   527→    },
+   528→  },
+   529→  {
+   530→    name: 'get_dashboard_kpis',
+   531→    description: 'Get dashboard KPIs: open orders, pending POs, stock value, production today, pending approvals.',
+   532→    domain: 'meta',
+   533→    isWrite: false,
+   534→    schema: z.object({}),
+   535→    async execute() {
+   536→      const [openOrders, pendingPos, totalStock, todayProduction, pendingApprovals, openInvoices] = await Promise.all([
+   537→        db.order.count({ where: { status: { in: ['open', 'in_progress'] } } }),
+   538→        db.purchaseOrder.count({ where: { status: { in: ['open', 'partial'] } } }),
+   539→        db.currentStock.findMany(),
+   540→        db.productionEntry.findMany({
+   541→          where: { prodDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+   542→        }),
+   543→        db.approval.count({ where: { status: 'pending' } }),
+   544→        db.salesInvoice.count({ where: { status: 'issued' } }),
+   545→      ])
+   546→      const stockValue = totalStock.reduce((s, st) => {
+   547→        const v = (st.kgs + st.mtrs + st.pcs) * st.rate
+   548→        return s + v
+   549→      }, 0)
+   550→      const todayPcs = todayProduction.reduce((s, e) => s + e.qty, 0)
+   551→      return {
+   552→        text: `Dashboard: ${openOrders} open orders, ${pendingPos} pending POs, stock value ₹${stockValue.toFixed(0)}, ${todayPcs} pcs produced today, ${pendingApprovals} pending approvals, ${openInvoices} open invoices.`,
+   553→        json: {
+   554→          openOrders, pendingPos, stockValue, todayPcs, pendingApprovals, openInvoices,
+   555→        },
+   556→      }
+   557→    },
+   558→  },
+   559→  {
+   560→    name: 'summarize_open_orders',
+   561→    description: 'Summarize all open orders with buyer, style, qty, value, delivery.',
+   562→    domain: 'meta',
+   563→    isWrite: false,
+   564→    schema: z.object({}),
+   565→    async execute() {
+   566→      const orders = await db.order.findMany({
+   567→        where: { status: { in: ['open', 'in_progress'] } },
+   568→        include: { buyer: true, style: true, lines: true },
+   569→        orderBy: { deliveryDate: 'asc' },
+   570→      })
+   571→      const totalPcs = orders.reduce((s, o) => s + o.totalPcs, 0)
+   572→      const totalValue = orders.reduce((s, o) => s + o.totalValue, 0)
+   573→      return {
+   574→        text: `${orders.length} open orders, ${totalPcs} pcs total, ₹${totalValue.toLocaleString('en-IN')} total value.`,
+   575→        json: {
+   576→          summary: { count: orders.length, totalPcs, totalValue },
+   577→          orders: orders.map((o) => ({
+   578→            orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
+   579→            totalPcs: o.totalPcs, totalValue: o.totalValue, deliveryDate: o.deliveryDate,
+   580→            status: o.status,
+   581→          })),
+   582→        },
+   583→      }
+   584→    },
+   585→  },
+   586→]
+   587→
+   588→// ───────────── WRITE TOOLS (plan-then-commit) ─────────────
+   589→
+   590→const writeTools: AgentTool[] = [
+   591→  {
+   592→    name: 'create_order',
+   593→    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned. Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}).',
+   594→    domain: 'orders',
+   595→    isWrite: true,
+   596→    schema: z.object({
+   597→      orderNo: z.string().optional(),
+   598→      buyerCode: z.string(),
+   599→      styleNo: z.string(),
+   600→      orderDate: z.string().optional(),
+   601→      deliveryDate: z.string(),
+   602→      lines: z.array(z.object({
+   603→        colourName: z.string(),
+   604→        sizeName: z.string(),
+   605→        qty: z.number(),
+   606→        rate: z.number(),
+   607→      })).min(1),
+   608→      notes: z.string().optional(),
+   609→    }),
+   610→    async execute(args) {
+   611→      const buyer = await db.buyer.findUnique({ where: { code: args.buyerCode } })
+   612→      if (!buyer) return { text: `Buyer ${args.buyerCode} not found. Use list_buyers first.` }
+   613→      const style = await db.style.findUnique({ where: { styleNo: args.styleNo } })
+   614→      if (!style) return { text: `Style ${args.styleNo} not found. Use list_styles first.` }
+   615→
+   616→      const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
+   617→      const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
+   618→      const finYear = '26-27'
+   619→
+   620→      // Resolve colour/size ids
+   621→      const linesData = await Promise.all(args.lines.map(async (l) => {
+   622→        const colour = await db.colour.findUnique({ where: { name: l.colourName } })
+   623→        const size = await db.size.findUnique({ where: { name: l.sizeName } })
+   624→        return { colourId: colour?.id || '', sizeId: size?.id || '', qty: l.qty, rate: l.rate }
+   625→      }))
+   626→
+   627→      // Resolve a free order number (auto-increment if not provided / collision)
+   628→      const resolvedOrderNo = await (async () => {
+   629→        const desired = args.orderNo?.trim()
+   630→        if (desired) {
+   631→          const exists = await db.order.findUnique({ where: { orderNo: desired } })
+   632→          if (!exists) return desired
+   633→        }
+   634→        // Find next free SO-####
+   635→        const all = await db.order.findMany({ where: { orderNo: { startsWith: 'SO-' } } })
+   636→        const used = new Set(all.map((o) => o.orderNo))
+   637→        let n = 1001
+   638→        while (used.has(`SO-${n}`)) n++
+   639→        return `SO-${n}`
+   640→      })()
+   641→
+   642→      return {
+   643→        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
+   644→        plan: {
+   645→          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
+   646→          creates: [
+   647→            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
+   648→            ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
+   649→          ],
+   650→          sideEffects: ['Stock reservation will be calculated when fabric is issued'],
+   651→        },
+   652→        async commit() {
+   653→          const created = await db.order.create({
+   654→            data: {
+   655→              orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id,
+   656→              orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
+   657→              deliveryDate: new Date(args.deliveryDate),
+   658→              finYear, totalPcs, totalValue, status: 'open', notes: args.notes,
+   659→              lines: { create: linesData.map((l) => ({ ...l, styleId: style.id })) },
+   660→            },
+   661→          })
+   662→          return { id: created.id, orderNo: created.orderNo }
+   663→        },
+   664→      }
+   665→    },
+   666→  },
+   667→  {
+   668→    name: 'create_purchase_order',
+   669→    description: 'Create a purchase order. poNo is optional — if omitted or already taken, the next free PO-{Y|F|A}-{seq} is auto-assigned based on poType. Required: poType (yarn|fabric|accessory|general), partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}).',
+   670→    domain: 'procurement',
+   671→    isWrite: true,
+   672→    schema: z.object({
+   673→      poNo: z.string().optional(),
+   674→      poType: z.string(),
+   675→      partyCode: z.string(),
+   676→      orderDate: z.string().optional(),
+   677→      deliveryDate: z.string(),
+   678→      lines: z.array(z.object({
+   679→        itemType: z.string(),
+   680→        itemCode: z.string(),
+   681→        qty: z.number(),
+   682→        rate: z.number(),
+   683→      })).min(1),
+   684→      notes: z.string().optional(),
+   685→    }),
+   686→    async execute(args) {
+   687→      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+   688→      if (!party) return { text: `Party ${args.partyCode} not found` }
+   689→
+   690→      const totalQty = args.lines.reduce((s, l) => s + l.qty, 0)
+   691→      const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
+   692→      const finYear = '26-27'
+   693→
+   694→      // Resolve item ids
+   695→      const linesResolved = await Promise.all(args.lines.map(async (l) => {
+   696→        let item: any
+   697→        if (l.itemType === 'yarn') item = await db.yarn.findUnique({ where: { code: l.itemCode } })
+   698→        else if (l.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: l.itemCode } })
+   699→        else if (l.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: l.itemCode } })
+   700→        if (!item) throw new Error(`${l.itemType} ${l.itemCode} not found`)
+   701→        return { ...l, itemId: item.id, uomId: item.uomId, amount: l.qty * l.rate }
+   702→      }))
+   703→
+   704→      // Resolve a free PO number
+   705→      const prefix = args.poType === 'yarn' ? 'PO-Y-' : args.poType === 'fabric' ? 'PO-F-' : args.poType === 'accessory' ? 'PO-A-' : 'PO-G-'
+   706→      const resolvedPoNo = await (async () => {
+   707→        const desired = args.poNo?.trim()
+   708→        if (desired) {
+   709→          const exists = await db.purchaseOrder.findUnique({ where: { poNo: desired } })
+   710→          if (!exists) return desired
+   711→        }
+   712→        const all = await db.purchaseOrder.findMany({ where: { poNo: { startsWith: prefix } } })
+   713→        const used = new Set(all.map((p) => p.poNo))
+   714→        let n = 1
+   715→        while (used.has(`${prefix}${String(n).padStart(3, '0')}`)) n++
+   716→        return `${prefix}${String(n).padStart(3, '0')}`
+   717→      })()
+   718→
+   719→      return {
+   720→        text: `Proposed PO ${resolvedPoNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
+   721→        plan: {
+   722→          summary: `Create PO ${resolvedPoNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
+   723→          creates: [
+   724→            { table: 'purchaseOrder', data: { poNo: resolvedPoNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
+   725→            ...linesResolved.map((l) => ({ table: 'poLine', data: { ...l, poId: '<pending>' } })),
+   726→          ],
+   727→          sideEffects: ['Auto-submits for approval workflow; status=open until approved'],
+   728→        },
+   729→        async commit() {
+   730→          const created = await db.purchaseOrder.create({
+   731→            data: {
+   732→              poNo: resolvedPoNo, poType: args.poType, partyId: party.id,
+   733→              orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
+   734→              deliveryDate: new Date(args.deliveryDate),
+   735→              finYear, totalQty, totalValue, status: 'open', notes: args.notes,
+   736→              lines: { create: linesResolved },
+   737→            },
+   738→          })
+   739→          // auto-submit for approval
+   740→          await db.approval.create({
+   741→            data: { entity: 'po', entityId: created.id, step: 1, requestedBy: 'agent', status: 'pending' },
+   742→          })
+   743→          return { id: created.id, poNo: created.poNo }
+   744→        },
+   745→      }
+   746→    },
+   747→  },
+   748→  {
+   749→    name: 'receive_grn',
+   750→    description: 'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or colliding. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
+   751→    domain: 'procurement',
+   752→    isWrite: true,
+   753→    schema: z.object({
+   754→      grnNo: z.string().optional(),
+   755→      poNo: z.string(),
+   756→      godownCode: z.string(),
+   757→      partyDcRef: z.string().optional(),
+   758→      deptCode: z.string().optional(),
+   759→      receivedQty: z.number().describe('Qty received (uses PO rate).'),
+   760→      grnDate: z.string().optional(),
+   761→    }),
+   762→    async execute(args) {
+   763→      const po = await db.purchaseOrder.findUnique({
+   764→        where: { poNo: args.poNo }, include: { party: true, lines: true },
+   765→      })
+   766→      if (!po) return { text: `PO ${args.poNo} not found` }
+   767→      const godown = await db.godown.findUnique({ where: { code: args.godownCode } })
+   768→      if (!godown) return { text: `Godown ${args.godownCode} not found` }
+   769→      let dept: any = null
+   770→      if (args.deptCode) dept = await db.department.findUnique({ where: { code: args.deptCode } })
+   771→      const line = po.lines[0]
+   772→      if (!line) return { text: `PO has no lines` }
+   773→      const actualQty = args.receivedQty
+   774→      const totalValue = actualQty * line.rate
+   775→      const finYear = '26-27'
+   776→
+   777→      // Resolve a free GRN number
+   778→      const resolvedGrnNo = await (async () => {
+   779→        const desired = args.grnNo?.trim()
+   780→        if (desired) {
+   781→          const exists = await db.gRN.findUnique({ where: { grnNo: desired } }).catch(() => null)
+   782→          if (!exists) return desired
+   783→        }
+   784→        const all = await db.gRN.findMany({ where: { grnNo: { startsWith: 'GRN-' } } })
+   785→        const used = new Set(all.map((g) => g.grnNo))
+   786→        let n = 1
+   787→        while (used.has(`GRN-${String(n).padStart(4, '0')}`)) n++
+   788→        return `GRN-${String(n).padStart(4, '0')}`
+   789→      })()
+   790→
+   791→      return {
+   792→        text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
+   793→        plan: {
+   794→          summary: `Receive GRN ${resolvedGrnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
+   795→          creates: [
+   796→            { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
+   797→            { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
+   798→            { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
+   799→            { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
+   800→          ],
+   801→          updates: [
+   802→            { table: 'purchaseOrder', id: po.id, data: { status: actualQty >= po.totalQty ? 'received' : 'partial' } },
+   803→            { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
+   804→          ],
+   805→          sideEffects: ['Stock increases', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
+   806→        },
+   807→        async commit() {
+   808→          return await db.$transaction(async (tx) => {
+   809→            const grn = await tx.gRN.create({
+   810→              data: {
+   811→                grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
+   812→                godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+   813→                finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
+   814→                lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
+   815→              },
+   816→            })
+   817→            await tx.stockLedger.create({
+   818→              data: {
+   819→                txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
+   820→                godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo,
+   821→                docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+   822→                finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+   823→                inPcs: line.itemType === 'accessory' ? actualQty : 0,
+   824→                rate: line.rate, partyId: po.partyId, refId: grn.id,
+   825→              },
+   826→            })
+   827→            // Upsert current stock
+   828→            const csWhere = {
+   829→              itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: {
+   830→                itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+   831→                lotId: '', colourId: '', sizeId: '', deptId: dept?.id || '', orderId: '',
+   832→              },
+   833→            }
+   834→            const existing = await tx.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+   835→            if (existing) {
+   836→              await tx.currentStock.update({
+   837→                where: csWhere as any,
+   838→                data: {
+   839→                  kgs: { increment: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0 },
+   840→                  pcs: { increment: line.itemType === 'accessory' ? actualQty : 0 },
+   841→                },
+   842→              })
+   843→            } else {
+   844→              await tx.currentStock.create({
+   845→                data: {
+   846→                  itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+   847→                  deptId: dept?.id || '',
+   848→                  kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+   849→                  pcs: line.itemType === 'accessory' ? actualQty : 0,
+   850→                  rate: line.rate,
+   851→                },
+   852→              })
+   853→            }
+   854→            // Update PO + POLine
+   855→            await tx.purchaseOrder.update({
+   856→              where: { id: po.id },
+   857→              data: { status: actualQty >= po.totalQty ? 'received' : 'partial' },
+   858→            })
+   859→            await tx.pOLine.update({
+   860→              where: { id: line.id },
+   861→              data: { receivedQty: { increment: actualQty } },
+   862→            })
+   863→            return { id: grn.id, grnNo: grn.grnNo }
+   864→          })
+   865→        },
+   866→      }
+   867→    },
+   868→  },
+   869→  {
+   870→    name: 'create_sales_invoice',
+   871→    description: 'Create a sales invoice against an order. invoiceNo is optional — auto-assigned INV-#### if omitted or colliding. Required: orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue, gstRate, gstType (cgst_sgst for intra-state OR igst for inter-state).',
+   872→    domain: 'accounting',
+   873→    isWrite: true,
+   874→    schema: z.object({
+   875→      invoiceNo: z.string().optional(),
+   876→      orderNo: z.string(),
+   877→      partyCode: z.string().describe('Customer party code'),
+   878→      billType: z.string(),
+   879→      totalQty: z.number(),
+   880→      taxableValue: z.number(),
+   881→      gstRate: z.number().describe('e.g. 5 for 5%'),
+   882→      gstType: z.string().describe('cgst_sgst | igst'),
+   883→      invoiceDate: z.string().optional(),
+   884→      notes: z.string().optional(),
+   885→    }),
+   886→    async execute(args) {
+   887→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+   888→      if (!order) return { text: `Order ${args.orderNo} not found` }
+   889→      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+   890→      if (!party) return { text: `Party ${args.partyCode} not found` }
+   891→      const finYear = '26-27'
+   892→      const gstAmt = (args.taxableValue * args.gstRate) / 100
+   893→      const billAmount = args.taxableValue + gstAmt
+   894→      const cgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
+   895→      const sgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
+   896→      const igstRate = args.gstType === 'igst' ? args.gstRate : 0
+   897→      const cgstAmt = (args.taxableValue * cgstRate) / 100
+   898→      const sgstAmt = (args.taxableValue * sgstRate) / 100
+   899→      const igstAmt = (args.taxableValue * igstRate) / 100
+   900→
+   901→      // Resolve a free invoice number
+   902→      const resolvedInvoiceNo = await (async () => {
+   903→        const desired = args.invoiceNo?.trim()
+   904→        if (desired) {
+   905→          const exists = await db.salesInvoice.findUnique({ where: { invoiceNo: desired } }).catch(() => null)
+   906→          if (!exists) return desired
+   907→        }
+   908→        const all = await db.salesInvoice.findMany({ where: { invoiceNo: { startsWith: 'INV-' } } })
+   909→        const used = new Set(all.map((i) => i.invoiceNo))
+   910→        let n = 1
+   911→        while (used.has(`INV-${String(n).padStart(4, '0')}`)) n++
+   912→        return `INV-${String(n).padStart(4, '0')}`
+   913→      })()
+   914→
+   915→      return {
+   916→        text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
+   917→        plan: {
+   918→          summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
+   919→          creates: [
+   920→            { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+   921→          ],
+   922→          sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
+   923→        },
+   924→        async commit() {
+   925→          const inv = await db.salesInvoice.create({
+   926→            data: {
+   927→              invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
+   928→              invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
+   929→              finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
+   930→              cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
+   931→            },
+   932→          })
+   933→          return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount }
+   934→        },
+   935→      }
+   936→    },
+   937→  },
+   938→  {
+   939→    name: 'create_cut_order',
+   940→    description: 'Create a cut order against an order. cutNo is optional — auto-assigned CUT-#### if omitted or colliding. Required: orderNo, fabricIssued (kgs), totalPcs, markerLength, noOfPlies, efficiency.',
+   941→    domain: 'cutting',
+   942→    isWrite: true,
+   943→    schema: z.object({
+   944→      cutNo: z.string().optional(),
+   945→      orderNo: z.string(),
+   946→      fabricIssued: z.number(),
+   947→      totalPcs: z.number(),
+   948→      markerLength: z.number().optional(),
+   949→      noOfPlies: z.number().optional(),
+   950→      efficiency: z.number().optional(),
+   951→      cutDate: z.string().optional(),
+   952→    }),
+   953→    async execute(args) {
+   954→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+   955→      if (!order) return { text: `Order ${args.orderNo} not found` }
+   956→
+   957→      // Resolve a free cut number
+   958→      const resolvedCutNo = await (async () => {
+   959→        const desired = args.cutNo?.trim()
+   960→        if (desired) {
+   961→          const exists = await db.cutOrder.findUnique({ where: { cutNo: desired } }).catch(() => null)
+   962→          if (!exists) return desired
+   963→        }
+   964→        const all = await db.cutOrder.findMany({ where: { cutNo: { startsWith: 'CUT-' } } })
+   965→        const used = new Set(all.map((c) => c.cutNo))
+   966→        let n = 1
+   967→        while (used.has(`CUT-${String(n).padStart(4, '0')}`)) n++
+   968→        return `CUT-${String(n).padStart(4, '0')}`
+   969→      })()
+   970→
+   971→      return {
+   972→        text: `Proposed cut order ${resolvedCutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
+   973→        plan: {
+   974→          summary: `Create cut order ${resolvedCutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
+   975→          creates: [{ table: 'cutOrder', data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
+   976→          sideEffects: ['Auto-generates cut bundles with barcodes if efficiency provided'],
+   977→        },
+   978→        async commit() {
+   979→          const cut = await db.cutOrder.create({
+   980→            data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
+   981→          })
+   982→          // Auto-generate bundles
+   983→          const bundles = Math.ceil(args.totalPcs / 100)
+   984→          for (let i = 1; i <= bundles; i++) {
+   985→            await db.cutBundle.create({
+   986→              data: {
+   987→                cutOrderId: cut.id, bundleNo: `${resolvedCutNo}/B${i}`,
+   988→                barcode: `*${resolvedCutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
+   989→                qty: Math.min(100, args.totalPcs - (i - 1) * 100),
+   990→                status: 'in_cutting',
+   991→              },
+   992→            })
+   993→          }
+   994→          return { id: cut.id, cutNo: cut.cutNo, bundlesCreated: bundles }
+   995→        },
+   996→      }
+   997→    },
+   998→  },
+   999→  {
+  1000→    name: 'post_production_entry',
+  1001→    description: 'Post a production entry. Required: orderNo, deptCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: styleNo, colourName, sizeName, lineId.',
+  1002→    domain: 'production',
+  1003→    isWrite: true,
+  1004→    schema: z.object({
+  1005→      orderNo: z.string(),
+  1006→      deptCode: z.string(),
+  1007→      prodDate: z.string(),
+  1008→      bundleNo: z.string(),
+  1009→      operatorCode: z.string(),
+  1010→      qty: z.number(),
+  1011→      rate: z.number(),
+  1012→      styleNo: z.string().optional(),
+  1013→      colourName: z.string().optional(),
+  1014→      sizeName: z.string().optional(),
+  1015→      lineId: z.string().optional(),
+  1016→    }),
+  1017→    async execute(args) {
+  1018→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+  1019→      if (!order) return { text: `Order ${args.orderNo} not found` }
+  1020→      const dept = await db.department.findUnique({ where: { code: args.deptCode } })
+  1021→      if (!dept) return { text: `Dept ${args.deptCode} not found` }
+  1022→      const operator = await db.employee.findUnique({ where: { code: args.operatorCode } })
+  1023→      if (!operator) return { text: `Operator ${args.operatorCode} not found` }
+  1024→      const amount = args.qty * args.rate
+  1025→      return {
+  1026→        text: `Proposed production entry: ${args.qty} pcs by ${operator.name} on bundle ${args.bundleNo}, ₹${amount}.`,
+  1027→        plan: {
+  1028→          summary: `Post production | order ${args.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
+  1029→          creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo || order.styleId, qty: args.qty, rate: args.rate, amount, lineId: args.lineId } }],
+  1030→          sideEffects: ['WIP increases', 'Operator piece-rate earnings increase'],
+  1031→        },
+  1032→        async commit() {
+  1033→          const e = await db.productionEntry.create({
+  1034→            data: {
+  1035→              orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
+  1036→              bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
+  1037→              qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
+  1038→            },
+  1039→          })
+  1040→          return { id: e.id }
+  1041→        },
+  1042→      }
+  1043→    },
+  1044→  },
+  1045→  {
+  1046→    name: 'approve_pending',
+  1047→    description: 'Approve a pending approval. Required: approvalId (use get_pending_approvals first).',
+  1048→    domain: 'workflow',
+  1049→    isWrite: true,
+  1050→    schema: z.object({
+  1051→      approvalId: z.string(),
+  1052→      comments: z.string().optional(),
+  1053→    }),
+  1054→    async execute(args) {
+  1055→      const ap = await db.approval.findUnique({ where: { id: args.approvalId } })
+  1056→      if (!ap) return { text: `Approval ${args.approvalId} not found` }
+  1057→      if (ap.status !== 'pending') return { text: `Approval already ${ap.status}` }
+  1058→      return {
+  1059→        text: `Proposed approval of ${ap.entity} ${ap.entityId}.`,
+  1060→        plan: {
+  1061→          summary: `Approve ${ap.entity} (id: ${ap.entityId}) - requested by ${ap.requestedBy}`,
+  1062→          updates: [{ table: 'approval', id: ap.id, data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments: args.comments } }],
+  1063→          sideEffects: ['Entity becomes approved', 'If PO, status becomes "open" (already open) and ready to receive'],
+  1064→        },
+  1065→        async commit() {
+  1066→          await db.approval.update({
+  1067→            where: { id: ap.id },
+  1068→            data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments: args.comments },
+  1069→          })
+  1070→          return { id: ap.id, status: 'approved' }
+  1071→        },
+  1072→      }
+  1073→    },
+  1074→  },
+  1075→  {
+  1076→    name: 'adjust_stock',
+  1077→    description: 'Adjust stock (Add or Less). Required: godownCode, itemType, itemCode, qty (kgs), action (add|less), reason.',
+  1078→    domain: 'inventory',
+  1079→    isWrite: true,
+  1080→    schema: z.object({
+  1081→      godownCode: z.string(),
+  1082→      itemType: z.string(),
+  1083→      itemCode: z.string(),
+  1084→      qty: z.number().describe('Quantity to adjust (positive number, kgs for yarn/fabric, pcs for accessory'),
+  1085→      action: z.string().describe('add | less'),
+  1086→      reason: z.string(),
+  1087→      docNo: z.string().optional(),
+  1088→    }),
+  1089→    async execute(args) {
+  1090→      const godown = await db.godown.findUnique({ where: { code: args.godownCode } })
+  1091→      if (!godown) return { text: `Godown ${args.godownCode} not found` }
+  1092→      let item: any
+  1093→      if (args.itemType === 'yarn') item = await db.yarn.findUnique({ where: { code: args.itemCode } })
+  1094→      else if (args.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: args.itemCode } })
+  1095→      else if (args.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: args.itemCode } })
+  1096→      if (!item) return { text: `${args.itemType} ${args.itemCode} not found` }
+  1097→      const finYear = '26-27'
+  1098→      const isPcs = args.itemType === 'accessory'
+  1099→      const isAdd = args.action === 'add'
+  1100→      return {
+  1101→        text: `Proposed stock ${args.action === 'add' ? 'addition' : 'reduction'} of ${args.qty} ${isPcs ? 'pcs' : 'kgs'} of ${args.itemCode} at ${args.godownCode}.`,
+  1102→        plan: {
+  1103→          summary: `${isAdd ? 'Add to' : 'Reduce from'} stock | ${args.itemType} ${args.itemCode} | ${args.qty} ${isPcs ? 'pcs' : 'kgs'} | godown ${args.godownCode} | reason: ${args.reason}`,
+  1104→          creates: [
+  1105→            { table: 'stockLedger', data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason } },
+  1106→          ],
+  1107→          sideEffects: ['Current stock will be updated'],
+  1108→        },
+  1109→        async commit() {
+  1110→          const ledger = await db.stockLedger.create({
+  1111→            data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason },
+  1112→          })
+  1113→          // Upsert current stock
+  1114→          const csWhere = { itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: { itemType: args.itemType, itemId: item.id, godownId: godown.id, lotId: '', colourId: '', sizeId: '', deptId: '', orderId: '' } }
+  1115→          const existing = await db.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+  1116→          if (existing) {
+  1117→            await db.currentStock.update({
+  1118→              where: csWhere as any,
+  1119→              data: {
+  1120→                kgs: { increment: isAdd && !isPcs ? args.qty : !isAdd && !isPcs ? -args.qty : 0 },
+  1121→                pcs: { increment: isAdd && isPcs ? args.qty : !isAdd && isPcs ? -args.qty : 0 },
+  1122→              },
+  1123→            })
+  1124→          } else if (isAdd) {
+  1125→            await db.currentStock.create({
+  1126→              data: { itemType: args.itemType, itemId: item.id, godownId: godown.id, kgs: isPcs ? 0 : args.qty, pcs: isPcs ? args.qty : 0, rate: item.rate },
+  1127→            })
+  1128→          }
+  1129→          return { id: ledger.id }
+  1130→        },
+  1131→      }
+  1132→    },
+  1133→  },
+  1134→  {
+  1135→    name: 'cancel_order',
+  1136→    description: 'Cancel an order by orderNo (sets status=cancelled).',
+  1137→    domain: 'orders',
+  1138→    isWrite: true,
+  1139→    schema: z.object({
+  1140→      orderNo: z.string(),
+  1141→      reason: z.string().optional(),
+  1142→    }),
+  1143→    async execute(args) {
+  1144→      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+  1145→      if (!order) return { text: `Order ${args.orderNo} not found` }
+  1146→      return {
+  1147→        text: `Proposed cancellation of ${args.orderNo}.`,
+  1148→        plan: {
+  1149→          summary: `Cancel order ${args.orderNo} (was ${order.status}) | reason: ${args.reason || 'not specified'}`,
+  1150→          updates: [{ table: 'order', id: order.id, data: { status: 'cancelled', notes: args.reason } }],
+  1151→          sideEffects: ['POs linked to this order remain open', 'Production entries are not deleted'],
+  1152→        },
+  1153→        async commit() {
+  1154→          await db.order.update({ where: { id: order.id }, data: { status: 'cancelled', notes: args.reason } })
+  1155→          return { id: order.id, status: 'cancelled' }
+  1156→        },
+  1157→      }
+  1158→    },
+  1159→  },
+  1160→]
+  1161→
+  1162→export const allTools: AgentTool[] = [...readTools, ...writeTools]
+  1163→
+  1164→export function getTool(name: string): AgentTool | undefined {
+  1165→  return allTools.find((t) => t.name === name)
+  1166→}
+  1167→
+  1168→export function toolsForLlm() {
+  1169→  // Convert to AI SDK tool specs
+  1170→  return allTools.map((t) => ({
+  1171→    type: 'function' as const,
+  1172→    name: t.name,
+  1173→    description: t.description,
+  1174→    parameters: t.schema,
+  1175→  }))
+  1176→}
+  1177→
+  1178→function groupBy(arr: any[], path: string) {
+  1179→  const out: Record<string, number> = {}
+  1180→  for (const item of arr) {
+  1181→    const keys = path.split('.')
+  1182→    let val: any = item
+  1183→    for (const k of keys) val = val?.[k]
+  1184→    const key = String(val || 'unknown')
+  1185→    out[key] = (out[key] || 0) + (item.qty || 0)
+  1186→  }
+  1187→  return out
+  1188→}
+  1189→
