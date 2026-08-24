@@ -1,0 +1,1174 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<StiSerializer version="1.0" application="StiReport">
+  <Dictionary Ref="1" type="Dictionary" isKey="true">
+    <Databases isList="true" count="1">
+      <Connection Ref="2" type="Stimulsoft.Report.Dictionary.StiOleDbDatabase" isKey="true">
+        <Alias>Connection</Alias>
+        <ConnectionString>Provider=SQLOLEDB;Persist Security Info=False;User ID=sa;Initial Catalog=Raj;Data Source=MACHINE-58</ConnectionString>
+        <Name>Connection</Name>
+        <PromptUserNameAndPassword>False</PromptUserNameAndPassword>
+      </Connection>
+    </Databases>
+    <DataSources isList="true" count="1">
+      <AccGRN Ref="3" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>AccGRN</Alias>
+        <Columns isList="true" count="38">
+          <value>GRNNo,System.String</value>
+          <value>dt,System.DateTime</value>
+          <value>PartyDCref,System.String</value>
+          <value>PartyDcDate,System.DateTime</value>
+          <value>GRNType,System.String</value>
+          <value>remark,System.String</value>
+          <value>grnwgt,System.Decimal</value>
+          <value>Buyer,System.Int32</value>
+          <value>RecKgs,System.Decimal</value>
+          <value>OrderNo,System.String</value>
+          <value>TIN,System.String</value>
+          <value>CST,System.String</value>
+          <value>ExporterName,System.String</value>
+          <value>ExporterAddress,System.String</value>
+          <value>ExpPhone,System.String</value>
+          <value>ExpTIN,System.String</value>
+          <value>ExpCST,System.String</value>
+          <value>Deptname,System.String</value>
+          <value>GRNPre,System.String</value>
+          <value>BuyerName,System.String</value>
+          <value>ColorDesc,System.String</value>
+          <value>SizeDesc,System.String</value>
+          <value>SNo,System.Int32</value>
+          <value>Acc_Descr,System.String</value>
+          <value>AccDescription,System.String</value>
+          <value>Uom,System.String</value>
+          <value>RefNo,System.String</value>
+          <value>Pname,System.String</value>
+          <value>Padd,System.String</value>
+          <value>PPhone,System.String</value>
+          <value>LblTIN,System.String</value>
+          <value>LblCST,System.String</value>
+          <value>GRNFormat,System.String</value>
+          <value>Heading,System.String</value>
+          <value>ItemDesc,System.String</value>
+          <value>UserName,System.String</value>
+          <value>ProcessType,System.String</value>
+          <value>GatePass_SNo,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>AccGRN</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>SELECT CASE
+    WHEN len(rtrim(Mas_Grp.grnpre)) &lt; 1 or isnull(len(rtrim(Mas_Grp.grnpre)),'')=''  THEN RTRIM(CAST(Trs_Grn1.DocNo
+    AS VARCHAR)) + '/' + Trs_Grn1.Finyear
+    ELSE rtrim(Mas_Grp.grnpre) + '-' + RTRIM(CAST(Trs_Grn1.DocNo AS VARCHAR)) +
+    '/' + Trs_Grn1.Finyear
+  END AS GRNNo, Trs_Grn1.dt, Trs_Grn1.PartyDCref, Trs_Grn1.PartyDcDate,
+  Trs_Grn1.GRNType, Trs_Grn1.remark, Trs_Grn1.grnwgt, Trs_Grn1.Buyer,
+  Trs_GRN2.RecKgs, CASE WHEN OrderMas.jobno = 0 THEN '&lt;General&gt;'
+    ELSE RTRIM(CAST(OrderMas.Jobno AS VARCHAR)) + '/' + OrderMas.Finyear +
+    '-&gt;' + OrderMas.BuyOrdNo
+  END AS OrderNo, Mas_Party.TIN, Mas_Party.CST,
+  Mas_Exporter.ExporterName, Mas_Exporter.ExporterAddress,
+  Mas_Exporter.Phone AS ExpPhone, Mas_Exporter.TIN AS ExpTIN,
+  Mas_Exporter.CST AS ExpCST, Mas_Dept.Deptname, Mas_Grp.GRNPre,
+  Mas_Buyer.BuyerName, Mas_Color.ColorDesc, Mas_Size.SizeDesc, OrdSizeMas.SNo,
+  Mas_Acc.Acc_Descr, Mas_AccDes.AccDescription, Mas_Uom.Uom, RefNo = CASE
+    WHEN Trs_Grn1.PoID &gt; 0 THEN rtrim(CAST(Trs_Po1.DocNo AS VARCHAR)) + '/' +
+    Trs_Po1.Finyear
+    ELSE rtrim(CAST(Trs_Del1.DocNo AS VARCHAR)) + '/' + Trs_Del1.Finyear
+  END, Pname = CASE WHEN isnull(Trs_Grn1.buyer, 0) &gt; 0 THEN Mas_Buyer_1.BuyerName
+    ELSE Mas_Party.Pname END, Padd = CASE
+    WHEN isnull(Trs_Grn1.buyer, 0) &gt; 0 THEN Mas_Buyer_1.BuyerAddress
+    ELSE Mas_Party.Paddress END, PPhone = CASE
+    WHEN isnull(Trs_Grn1.buyer, 0) &gt; 0 THEN Mas_Buyer_1.Phone ELSE Mas_Party.Phone
+  END, LblTIN = CASE WHEN isnull(Trs_Grn1.buyer, 0) &gt; 0 THEN '' ELSE 'TIN:'
+  END, LblCST = CASE WHEN isnull(Trs_Grn1.buyer, 0) &gt; 0 THEN '' ELSE 'CST:'
+  END, CASE Trs_Grn1.Grntype WHEN 'Acc.Purch' THEN Mas_Dept.PurGrnFormat
+    WHEN 'Acc.Proc.Receipt' THEN Mas_Dept.GRNFormat
+  END AS GRNFormat, CASE Trs_Grn1.grntype
+    WHEN 'Acc.Purch' THEN 'GOODS RECEIVED NOTE'
+    WHEN 'Acc.Direct' THEN 'DIRECT GOODS RECEIVED NOTE'
+    WHEN 'Acc.Iss.Ret' THEN 'ISSUE RETURN'
+    WHEN 'Acc.Proc.Receipt'then case Trs_Del1.ProcessType when'P' THEN 'PROCESS GOODS RECEIPT NOTE' else 'REPROCESS GOODS RECEIPT NOTE'End
+    WHEN 'Acc.Proc.Return' THEN 'PROCESS RETURN' 
+ END as Heading , ItemDesc = CASE
+    WHEN isnull(Mas_AccDes.AccDescription, '') = '' THEN Mas_Acc.Acc_Descr
+    ELSE Mas_Acc.Acc_Descr + '(' + Mas_AccDes.AccDescription + ')'
+  END, Mas_User.UserName,  Trs_Del1.ProcessType, CASE WHEN GrnType = 'Acc.Proc.Receipt' THEN ISNULL(GatePass_SNo,'') ELSE '' END AS GatePass_SNo
+FROM dbo.Trs_Grn1 Trs_Grn1 INNER JOIN
+  dbo.Trs_GRN2 Trs_GRN2 ON Trs_Grn1.ID = Trs_GRN2.ID INNER JOIN
+  dbo.OrderMas OrderMas ON Trs_GRN2.OrdID = OrderMas.OrdId INNER JOIN
+  dbo.Mas_Exporter Mas_Exporter ON Trs_Grn1.Coycode = Mas_Exporter.ExpID
+  INNER JOIN
+  dbo.Mas_Dept Mas_Dept ON Trs_Grn1.Dept = Mas_Dept.DeptID LEFT OUTER JOIN
+  dbo.Trs_Del1 Trs_Del1 ON Trs_Grn1.DCID = Trs_Del1.ID LEFT OUTER JOIN
+  dbo.Trs_Po1 Trs_Po1 ON Trs_Grn1.PoID = Trs_Po1.ID LEFT OUTER JOIN
+  dbo.Mas_Buyer Mas_Buyer ON OrderMas.BuyerID = Mas_Buyer.BuyerID
+  LEFT OUTER JOIN
+  dbo.Mas_Party Mas_Party ON Trs_Grn1.SuppID = Mas_Party.PID INNER JOIN
+  dbo.StockTable StockTable ON Trs_GRN2.StockID = StockTable.StockID
+  LEFT OUTER JOIN
+  dbo.Mas_Grp Mas_Grp ON Mas_Dept.Grp = Mas_Grp.GrpNo LEFT OUTER JOIN
+  dbo.Mas_Size Mas_Size ON StockTable.Siz = Mas_Size.SizeID LEFT OUTER JOIN
+  dbo.OrdSizeMas OrdSizeMas ON StockTable.OrdID = OrdSizeMas.OrdID AND
+    StockTable.Siz = OrdSizeMas.SizeID 
+	and OrdSizeMas.StyleNo=Trs_GRN2.StyleNo
+	LEFT OUTER JOIN
+  dbo.Mas_Acc Mas_Acc ON StockTable.Atype = Mas_Acc.ID LEFT OUTER JOIN
+  dbo.Mas_AccDes Mas_AccDes ON StockTable.Ades = Mas_AccDes.ID LEFT OUTER JOIN
+  dbo.Mas_Color Mas_Color ON StockTable.ColID = Mas_Color.ColID LEFT OUTER JOIN
+  Mas_User ON Trs_Grn1.PreparedBy = Mas_User.UserCode LEFT OUTER JOIN
+  dbo.Mas_Uom Mas_Uom ON Mas_Acc.UomId = Mas_Uom.UomID
+ LEFT OUTER JOIN
+  dbo.Mas_Buyer Mas_Buyer_1 ON Trs_Grn1.Buyer = Mas_Buyer_1.BuyerID
+WHERE Trs_Grn1.id = ?
+ORDER BY Mas_Acc.Acc_Descr</SqlCommand>
+      </AccGRN>
+    </DataSources>
+    <Relations isList="true" count="0" />
+    <Report isRef="0" />
+    <Variables isList="true" count="2">
+      <value>,OrderNos,OrderNos,System.String,,False,False</value>
+      <value>,OrderType,OrderType,System.String,,False,False</value>
+    </Variables>
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <GlobalizationStrings isList="true" count="0" />
+  <Pages isList="true" count="1">
+    <Page1 Ref="4" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="6">
+        <PageHeader1 Ref="5" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,7.87,2.2</ClientRectangle>
+          <Components isList="true" count="42">
+            <Text1 Ref="6" type="Text" isKey="true">
+              <BeforePrintEvent>
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.6,0,4.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.Heading} - ACCESSORIES</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text1>
+            <Text4 Ref="7" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.2,3.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text4</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text4>
+            <Text5 Ref="8" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0,0.4,3.66,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text5</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.ExporterAddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+              <Type>Expression</Type>
+            </Text5>
+            <Text6 Ref="9" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,1.2,3.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text6</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.ExpPhone}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text6>
+            <Text7 Ref="10" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,1.4,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text7</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.ExpTIN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text7>
+            <Text8 Ref="11" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.ExpPhone)) &gt; 0)
+Text8.Enabled=true;
+else
+Text8.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.2,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text8</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Phone:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text8>
+            <Text9 Ref="12" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.ExpTIN)) &gt; 0)
+Text9.Enabled=true;
+else
+Text9.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.4,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>8038120fd9fd45cfafc6560a4f1a40b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text9</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>TIN  :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text9>
+            <Text10 Ref="13" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.ExpCST)) &gt; 0)
+Text10.Enabled=true;
+else
+Text10.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.6,1.4,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>4868b9917ef7438f81be1444d00f09ea</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text10</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>CST:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text10>
+            <Text11 Ref="14" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2,1.4,1.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text11</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.ExpCST}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text11>
+            <Text12 Ref="15" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.3,0.2,3.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text12</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.Pname}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text12>
+            <Text13 Ref="16" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.7,0.2,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text13</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>To:M/s</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text13>
+            <Text14 Ref="17" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.3,0.4,3.2,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text14</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.Padd}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text14>
+            <Text15 Ref="18" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.PPhone)) &gt; 0)
+Text15.Enabled=true;
+else
+Text15.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.3,1.2,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>147364318b98447c923ec9f5f7a19ba5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text15</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Phone:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text15>
+            <Text16 Ref="19" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.3,1.4,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>44c78b40bd644d8da868f6b8714177b2</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text16</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.LblTIN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text16>
+            <Text17 Ref="20" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.8,1.4,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>c91be257981842b88ba452196965b845</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text17</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.LblCST}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text17>
+            <Text18 Ref="21" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.8,1.2,2.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text18</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.PPhone}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text18>
+            <Text19 Ref="22" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.8,1.4,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text19</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.TIN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text19>
+            <Text20 Ref="23" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.3,1.4,1.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text20</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.CST}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text20>
+            <Text21 Ref="24" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.6,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>f844c3c61c17416ab9ea7304314dffae</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text21</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Grn No</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text21>
+            <Text22 Ref="25" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.83,1.59,0.86,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text22</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.GRNNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text22>
+            <Text23 Ref="26" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,1.6,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>9c55e920f6d84be780a33a515e89404c</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text23</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Date </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text23>
+            <Text24 Ref="27" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,1.6,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text24</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.dt}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="28" type="CustomFormat" isKey="true">
+                <StringFormat>dd-MMM-yy</StringFormat>
+              </TextFormat>
+              <Type>DataColumn</Type>
+            </Text24>
+            <Text25 Ref="29" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.5,1.6,4.01,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>8c6a2b54b63345bf9303ae3ff296b7b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text25</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{OrderType} No : {OrderNos}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text25>
+            <Text39 Ref="30" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.8,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>17274925a4e14c01943457c61b723485</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text39</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Party Dc:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text39>
+            <Text40 Ref="31" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,1.8,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>ed9c7a447881434faca9b966bca63631</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text40</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Dc Date:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text40>
+            <Text41 Ref="32" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.8,1.8,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text41</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.PartyDCref}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text41>
+            <Text42 Ref="33" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.5,1.8,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text42</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.PartyDcDate}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="34" type="CustomFormat" isKey="true">
+                <StringFormat>dd-MMM-yy</StringFormat>
+              </TextFormat>
+            </Text42>
+            <Text47 Ref="35" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.7,1.6,0.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>e1cb906c9c924fe1ba5e87b62a309390</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text47</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text47>
+            <Text43 Ref="36" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.7,1.8,0.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>97b96d865a2f4ec6867d5e4f6388c073</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text43</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text43>
+            <Text44 Ref="37" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.4,1.6,0.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>9b1097b62ab7443a8e1e8dc2215473d5</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text44</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text44>
+            <Text45 Ref="38" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.4,1.8,0.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10,Bold</Font>
+              <Guid>5b9634498da547009d699bb683104243</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text45</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text45>
+            <Text48 Ref="39" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.15,1.8,1.54,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text48</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.BuyerName}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text48>
+            <Text49 Ref="40" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.51,1.8,0.64,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text49</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Buyer :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text49>
+            <Text3 Ref="41" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.36,1.81,1.08,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text3</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.RefNo}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text3>
+            <Text26 Ref="42" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.74,1.81,0.61,0.18</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text26</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Dc No :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text26>
+            <Text46 Ref="43" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.GatePass_SNo))&gt;0 )
+Text46.Enabled = true;
+else
+Text46.Enabled = false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,2,1.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text46</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>GatePass SNo :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text46>
+            <Text53 Ref="44" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.2,2,2.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text53</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{AccGRN.GatePass_SNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text53>
+            <HorizontalLine1 Ref="45" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,1.6,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+            </HorizontalLine1>
+            <StartPointPrimitive1 Ref="46" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+              <ClientRectangle>3.7,0.2,0,0</ClientRectangle>
+              <Name>StartPointPrimitive1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </StartPointPrimitive1>
+            <EndPointPrimitive1 Ref="47" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+              <ClientRectangle>3.71,1.6,0,0</ClientRectangle>
+              <Name>EndPointPrimitive1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </EndPointPrimitive1>
+            <HorizontalLine5 Ref="48" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine5</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+            </HorizontalLine5>
+            <HorizontalLine2 Ref="49" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,2.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine2</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+            </HorizontalLine2>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeader1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </PageHeader1>
+        <PageHeader2 Ref="50" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,2.8,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="7">
+            <Text27 Ref="51" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>be2f6b1ca35c4ceeb613bfaecfd26c49</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text27</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>S No
+</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text27>
+            <Text28 Ref="52" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,0,3.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>4313d2de0bd74a33ab52cbe9bdc794fa</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text28</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>ACCESSORIES</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text28>
+            <Text29 Ref="53" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.7,0,1.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>f5f3ff1c6dff490593a07db5fa41c514</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text29</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>COLOR</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text29>
+            <Text30 Ref="54" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.9,0,0.9,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>699da47e53e04713b2ab4b957c7a359a</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text30</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>SIZE</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text30>
+            <Text31 Ref="55" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.8,0,0.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>38d266dbcf3e4740adedb511d40b13ff</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text31</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>QTY</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text31>
+            <Text32 Ref="56" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.7,0,0.5,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>28c154fc3354424d9a02c6e9fa132686</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text32</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+              <Text>UOM</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text32>
+            <HorizontalLine3 Ref="57" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine3</Name>
+              <Page isRef="4" />
+              <Parent isRef="50" />
+            </HorizontalLine3>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeader2</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </PageHeader2>
+        <PageFooter1 Ref="58" type="PageFooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,4.85,7.87,0.9</ClientRectangle>
+          <Components isList="true" count="10">
+            <Text68 Ref="59" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(AccGRN.remark)) &gt; 0)
+Text68.Enabled=true;
+else
+Text68.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>1769588167ea4c8c927fc4cd9c80fa20</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text68</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>Remarks :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text68>
+            <Text69 Ref="60" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.8,0,6.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text69</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>{AccGRN.remark}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text69>
+            <Text75 Ref="61" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.49,0.7,1.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>5ce43f898d424c30a669177f513e22d0</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text75</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>Prepared By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text75>
+            <Text76 Ref="62" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.49,0.7,1.42,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>5d5b46bda75f4035b092d8956b0c1cfc</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text76</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>Verified By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text76>
+            <Text77 Ref="63" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.3,0.7,1.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>85719a8e52cf47eebcc1c6087a3dff4e</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text77</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>Authorised Signatory</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text77>
+            <Text70 Ref="64" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.1,0.2,7.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11,Bold</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text70</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>{AccGRN.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text70>
+            <Text50 Ref="65" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.49,0.49,1.7,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text50</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>{AccGRN.UserName}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text50>
+            <Text2 Ref="66" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>0.07,0.6,1.25,0.29</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text2</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+              <Text>{AccGRN.GRNFormat}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+            </Text2>
+            <HorizontalLine13 Ref="67" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.2,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine13</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+            </HorizontalLine13>
+            <HorizontalLine4 Ref="68" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0,7.5,0.01</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine4</Name>
+              <Page isRef="4" />
+              <Parent isRef="58" />
+            </HorizontalLine4>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageFooter1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </PageFooter1>
+        <Data1 Ref="69" type="DataBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,3.4,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="6">
+            <Text33 Ref="70" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,0.4,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text33</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <Text>{Line}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text33>
+            <Text34 Ref="71" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.5,0,3.1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text34</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <Text>{AccGRN.ItemDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text34>
+            <Text35 Ref="72" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.6,0,1.3,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text35</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <ProcessingDuplicates>Merge</ProcessingDuplicates>
+              <Text>{AccGRN.ColorDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text35>
+            <Text36 Ref="73" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.9,0,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text36</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <Text>{AccGRN.SizeDesc}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text36>
+            <Text38 Ref="74" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.7,0,0.8,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text38</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <Text>{AccGRN.RecKgs}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="75" type="NumberFormat" isKey="true">
+                <DecimalDigits>3</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseGroupSeparator>False</UseGroupSeparator>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text38>
+            <Text37 Ref="76" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.6,0,0.6,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text37</Name>
+              <Page isRef="4" />
+              <Parent isRef="69" />
+              <Text>{AccGRN.Uom}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text37>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <DataRelationName isNull="true" />
+          <DataSourceName>AccGRN</DataSourceName>
+          <Filters isList="true" count="0" />
+          <Name>Data1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <Sort isList="true" count="0" />
+        </Data1>
+        <FooterBand1 Ref="77" type="FooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,4,7.87,0.2</ClientRectangle>
+          <Components isList="true" count="2">
+            <Text51 Ref="78" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.5,0,1,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,9.75,Bold,Point,False,0</Font>
+              <Guid>311788bb08974052a1e84558b83168ed</Guid>
+              <HideZeros>True</HideZeros>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text51</Name>
+              <Page isRef="4" />
+              <Parent isRef="77" />
+              <Text>{Sum(AccGRN.RecKgs)}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="79" type="NumberFormat" isKey="true">
+                <DecimalDigits>3</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseGroupSeparator>False</UseGroupSeparator>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>Expression</Type>
+            </Text51>
+            <Text52 Ref="80" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.4,0,1.2,0.2</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8.25,Bold,Point,False,0</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text52</Name>
+              <Page isRef="4" />
+              <Parent isRef="77" />
+              <Text>TOTAL</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text52>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>FooterBand1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </FooterBand1>
+        <VerticalLine1 Ref="81" type="Stimulsoft.Report.Components.StiVerticalLinePrimitive" isKey="true">
+          <ClientRectangle>3.7,0.4,0.01,1.4</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>d341e55be8b149b59b51e91776f89712</Guid>
+          <Name>VerticalLine1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </VerticalLine1>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>64e204640c8947788ec7d5f202e0beee</Guid>
+      <Margins>0.2,0.2,0.01,0.04</Margins>
+      <Name>Page1</Name>
+      <Page isRef="4" />
+      <PageHeight>5.8</PageHeight>
+      <PageWidth>8.27</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="82" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+  </Pages>
+  <PrinterSettings Ref="83" type="Stimulsoft.Report.Print.StiPrinterSettings" isKey="true" />
+  <ReferencedAssemblies isList="true" count="8">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <ReportAlias>Report</ReportAlias>
+  <ReportChanged>6/13/2024 2:29:48 PM</ReportChanged>
+  <ReportCreated>7/30/2009 5:28:18 PM</ReportCreated>
+  <ReportGuid>1c37d15bb4e247abb5dfd406c0345540</ReportGuid>
+  <ReportName>Report</ReportName>
+  <ReportUnit>Inches</ReportUnit>
+  <ReportVersion>2009.1.400</ReportVersion>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    
+    public class Report : Stimulsoft.Report.StiReport
+    {
+        
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+        #region StiReport Designer generated code - do not modify#endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <Styles isList="true" count="0" />
+</StiSerializer>

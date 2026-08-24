@@ -1,0 +1,2200 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<StiSerializer version="1.0" application="StiReport">
+  <Dictionary Ref="1" type="Dictionary" isKey="true">
+    <Databases isList="true" count="1">
+      <Connection Ref="2" type="Stimulsoft.Report.Dictionary.StiOleDbDatabase" isKey="true">
+        <Alias>Connection</Alias>
+        <ConnectionString>Provider=SQLOLEDB.1;Persist Security Info=False;User ID=sa;Initial Catalog=vivid;Data Source=MACHINE-18\SQL</ConnectionString>
+        <Name>Connection</Name>
+        <PromptUserNameAndPassword>False</PromptUserNameAndPassword>
+      </Connection>
+    </Databases>
+    <DataSources isList="true" count="1">
+      <PcsReceipt Ref="3" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>PcsReceipt</Alias>
+        <Columns isList="true" count="83">
+          <value>DCNO,System.String</value>
+          <value>DcFinyear,System.Int32</value>
+          <value>Date,System.DateTime</value>
+          <value>Bdl,System.Int32</value>
+          <value>WgtKg,System.Decimal</value>
+          <value>Remark,System.String</value>
+          <value>Jobno,System.Int32</value>
+          <value>OrdFinyear,System.Int32</value>
+          <value>OrderNo,System.String</value>
+          <value>StyleNo,System.String</value>
+          <value>ExporterName,System.String</value>
+          <value>GRNFormat,System.String</value>
+          <value>ExporterAddress,System.String</value>
+          <value>Phone,System.String</value>
+          <value>TIN,System.String</value>
+          <value>CST,System.String</value>
+          <value>PAN,System.String</value>
+          <value>Pname,System.String</value>
+          <value>Paddress,System.String</value>
+          <value>PPhone,System.String</value>
+          <value>PTIN,System.String</value>
+          <value>PCST,System.String</value>
+          <value>GSTNo,System.String</value>
+          <value>PGSTNo,System.String</value>
+          <value>Deptname,System.String</value>
+          <value>WorkComplDet,System.String</value>
+          <value>BuyerName,System.String</value>
+          <value>ColorDesc,System.String</value>
+          <value>StyleDesc,System.String</value>
+          <value>S1,System.String</value>
+          <value>S2,System.String</value>
+          <value>S3,System.String</value>
+          <value>S4,System.String</value>
+          <value>S5,System.String</value>
+          <value>S6,System.String</value>
+          <value>S7,System.String</value>
+          <value>S8,System.String</value>
+          <value>S9,System.String</value>
+          <value>S10,System.String</value>
+          <value>S11,System.String</value>
+          <value>S12,System.String</value>
+          <value>Q1,System.Int32</value>
+          <value>Q2,System.Int32</value>
+          <value>Q3,System.Int32</value>
+          <value>Q4,System.Int32</value>
+          <value>Q5,System.Int32</value>
+          <value>Q6,System.Int32</value>
+          <value>Q7,System.Int32</value>
+          <value>Q8,System.Int32</value>
+          <value>Q9,System.Int32</value>
+          <value>Q10,System.Int32</value>
+          <value>Q11,System.Int32</value>
+          <value>Q12,System.Int32</value>
+          <value>IPAddress,System.String</value>
+          <value>Total,System.Int32</value>
+          <value>BuyOrdNo,System.String</value>
+          <value>PartyDcRef,System.String</value>
+          <value>PartyDcDate,System.DateTime</value>
+          <value>PartName,System.String</value>
+          <value>UserName,System.String</value>
+          <value>Terms,System.String</value>
+          <value>PanelGrp,System.String</value>
+          <value>PcsType,System.String</value>
+          <value>OrderType,System.String</value>
+          <value>LotNo,System.String</value>
+          <value>HSNCode,System.String</value>
+          <value>S13,System.String</value>
+          <value>S14,System.String</value>
+          <value>S15,System.String</value>
+          <value>S16,System.String</value>
+          <value>S17,System.String</value>
+          <value>S18,System.String</value>
+          <value>S19,System.String</value>
+          <value>S20,System.String</value>
+          <value>Q13,System.Int32</value>
+          <value>Q14,System.Int32</value>
+          <value>Q15,System.Int32</value>
+          <value>Q16,System.Int32</value>
+          <value>Q17,System.Int32</value>
+          <value>Q18,System.Int32</value>
+          <value>Q19,System.Int32</value>
+          <value>Q20,System.Int32</value>
+          <value>GrnType,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>PcsReceipt</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_IpAddress,,12,100</value>
+        </Parameters>
+        <SqlCommand>Select * From TempPcsRecDtls Where IpAddress=?</SqlCommand>
+      </PcsReceipt>
+    </DataSources>
+    <Relations isList="true" count="0" />
+    <Report isRef="0" />
+    <Variables isList="true" count="2">
+      <value>,Heading,Heading,System.String,,False,False</value>
+      <value>,AuditFlg,AuditFlg,System.String,,False,False</value>
+    </Variables>
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <GlobalizationStrings isList="true" count="0" />
+  <Pages isList="true" count="1">
+    <Page1 Ref="4" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="10">
+        <PageHeader1 Ref="5" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.4,19.48,5.84</ClientRectangle>
+          <Components isList="true" count="40">
+            <Text1 Ref="6" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.54,0,11.43,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11,Bold</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{Heading} - {PcsReceipt.WorkComplDet}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text1>
+            <Text4 Ref="7" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.51,9.4,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text4</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text4>
+            <Text5 Ref="8" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.02,9.4,1.78</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text5</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.ExporterAddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text5>
+            <Text6 Ref="9" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.27,2.79,8.13,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text6</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.Phone}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text6>
+            <Text7 Ref="10" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.27,3.3,2.54,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text7</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.TIN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text7>
+            <Text8 Ref="11" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.Phone)) &gt; 0)
+Text8.Enabled=true;
+else
+Text8.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,2.79,1.52,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text8</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Phone:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text8>
+            <Text9 Ref="12" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.TIN)) &gt; 0)
+Text9.Enabled=true;
+else
+Text9.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,3.3,1.52,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>8038120fd9fd45cfafc6560a4f1a40b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text9</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>TIN  :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text9>
+            <Text10 Ref="13" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.CST)) &gt; 0)
+Text10.Enabled=true;
+else
+Text10.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.06,3.3,1.02,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>4868b9917ef7438f81be1444d00f09ea</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text10</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>CST:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text10>
+            <Text11 Ref="14" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.08,3.3,4.32,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text11</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.CST}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text11>
+            <Text12 Ref="15" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.92,0.51,8.13,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text12</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.Pname}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text12>
+            <Text13 Ref="16" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>9.4,0.51,1.52,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text13</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>To:M/s</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text13>
+            <Text14 Ref="17" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.92,1.02,8.13,1.78</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text14</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.Paddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text14>
+            <Text15 Ref="18" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.PPhone)) &gt; 0)
+Text15.Enabled=true;
+else
+Text15.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.92,2.79,1.27,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>147364318b98447c923ec9f5f7a19ba5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text15</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Phone:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text15>
+            <Text18 Ref="19" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.21,2.69,6.86,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text18</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.PPhone}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text18>
+            <Text19 Ref="20" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.19,3.3,2.79,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text19</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.PTIN}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text19>
+            <Text20 Ref="21" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16,3.3,3.05,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text20</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.PCST}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text20>
+            <Text21 Ref="22" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,3.81,1.52,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>f844c3c61c17416ab9ea7304314dffae</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text21</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Grn No:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text21>
+            <Text22 Ref="23" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.52,3.81,2.54,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text22</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.DCNO}/{PcsReceipt.DcFinyear}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text22>
+            <Text23 Ref="24" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,4.32,1.52,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>9c55e920f6d84be780a33a515e89404c</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text23</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Date  :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text23>
+            <Text25 Ref="25" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.83,3.81,13.97,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>8c6a2b54b63345bf9303ae3ff296b7b6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text25</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.OrderType} No  : {PcsReceipt.Jobno}/{PcsReceipt.OrdFinyear} -&gt;{PcsReceipt.BuyOrdNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text25>
+            <Text16 Ref="26" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.PTIN)) &gt; 0)
+Text16.Enabled=true;
+else
+Text16.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.92,3.3,1.27,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>d98677b215c94e3ca801452e4bbf4e4f</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text16</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>TIN  :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text16>
+            <Text17 Ref="27" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.PCST)) &gt; 0)
+Text17.Enabled=true;
+else
+Text17.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.99,3.3,1.02,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>df2afb9c46e34ec6b05557f536624a57</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text17</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>CST:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text17>
+            <Text39 Ref="28" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.83,4.32,2.54,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>d25fe208b0dd43e284a62d9e8cbe7dbf</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text39</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Party Dc No:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text39>
+            <Text26 Ref="29" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.37,4.32,4.83,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text26</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.PartyDcRef}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text26>
+            <Text33 Ref="30" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.95,4.32,3.05,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text33</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>Party DC Date:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text33>
+            <Text32 Ref="31" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16,4.32,2.79,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text32</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.PartyDcDate}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="32" type="DateFormat" isKey="true" />
+              <Type>Expression</Type>
+            </Text32>
+            <Text35 Ref="33" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.29,4.83,3.81,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text35</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.BuyerName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text35>
+            <Text36 Ref="34" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,4.83,2.29,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text36</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>BuyerName:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text36>
+            <Text24 Ref="35" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.52,4.32,3.3,0.53</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text24</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{PcsReceipt.Date}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="36" type="DateFormat" isKey="true" />
+              <Type>DataColumn</Type>
+            </Text24>
+            <Text2 Ref="37" type="Text" isKey="true">
+              <BeforePrintEvent>if (AuditFlg=="True")
+Text2.Enabled=false;
+else
+Text2.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.22,0,5.08,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,9</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text2</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>{Time}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text2>
+            <Text40 Ref="38" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.95,5.33,2.19,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>a7ac0525a5054e5e8dafdfd0c3519a8a</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text40</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>QTY DETAILS</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text40>
+            <Text41 Ref="39" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>18.12,5.33,1.27,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>f2e1bca26087442883be23a0bf94820c</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text41</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>TOTAL</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text41>
+            <Text115 Ref="40" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.14,5.36,2.19,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>b824191440cd4ec9be8f03f6f0a03d88</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text115</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Text>SNO</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text115>
+            <HorizontalLine1 Ref="41" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,3.81,19.56,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Style>Dot</Style>
+            </HorizontalLine1>
+            <StartPointPrimitive1 Ref="42" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+              <ClientRectangle>9.4,0.51,0,0</ClientRectangle>
+              <Name>StartPointPrimitive1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </StartPointPrimitive1>
+            <EndPointPrimitive1 Ref="43" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+              <ClientRectangle>9.42,3.81,0,0</ClientRectangle>
+              <Name>EndPointPrimitive1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <ReferenceToGuid>d341e55be8b149b59b51e91776f89712</ReferenceToGuid>
+            </EndPointPrimitive1>
+            <HorizontalLine5 Ref="44" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.51,19.05,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine5</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Style>Dot</Style>
+            </HorizontalLine5>
+            <HorizontalLinePrimitive1 Ref="45" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,5.33,19.56,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Guid>b1f7e8e22bb0461f879e1e33b846939b</Guid>
+              <Name>HorizontalLinePrimitive1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Style>Dot</Style>
+            </HorizontalLinePrimitive1>
+            <StartPointPrimitive2 Ref="46" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+              <ClientRectangle>0.04,0.41,0,0</ClientRectangle>
+              <Name>StartPointPrimitive2</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <ReferenceToGuid>80799902b8844cc2a7bb5da1354e75cc</ReferenceToGuid>
+            </StartPointPrimitive2>
+            <HorizontalLinePrimitive3 Ref="47" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,5.84,19.56,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Guid>0d3099c820594a06a04e49beda3051eb</Guid>
+              <Name>HorizontalLinePrimitive3</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <Style>Dot</Style>
+            </HorizontalLinePrimitive3>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeader1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </PageHeader1>
+        <PageFooter1 Ref="48" type="PageFooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,11.17,19.48,3.46</ClientRectangle>
+          <Components isList="true" count="41">
+            <Text68 Ref="49" type="Text" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.Remark)) &gt; 0)
+Text68.Enabled=true;
+else
+Text68.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.71,2.03,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>1769588167ea4c8c927fc4cd9c80fa20</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text68</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Remarks :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text68>
+            <Text69 Ref="50" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.03,0.71,17.02,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text69</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.Remark}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text69>
+            <Text75 Ref="51" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.87,3.05,3.3,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>5ce43f898d424c30a669177f513e22d0</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text75</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Prepared By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text75>
+            <Text76 Ref="52" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.18,3.05,3.56,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>5d5b46bda75f4035b092d8956b0c1cfc</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text76</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Verified By</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text76>
+            <Text77 Ref="53" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.48,3.05,4.32,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>85719a8e52cf47eebcc1c6087a3dff4e</Guid>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text77</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Authorised Signatory</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text77>
+            <Text70 Ref="54" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.76,1.72,18.03,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,11</Font>
+              <HorAlignment>Right</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text70</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text70>
+            <Text45 Ref="55" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.29,3.05,4.57,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>4ff4b592e09e4e3181bc901db0093f78</Guid>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text45</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Receiver's Signature</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text45>
+            <Text28 Ref="56" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.79,0.17,3.05,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>0ed7e9ba89224492917a827c61583dea</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text28</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.Bdl}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="57" type="NumberFormat" isKey="true">
+                <DecimalDigits>0</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>DataColumn</Type>
+            </Text28>
+            <Text29 Ref="58" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.67,0.17,3.05,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>7b565e64e6c049ec8ae5bcac423bfd5d</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text29</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.WgtKg}</Text>
+              <TextBrush>Black</TextBrush>
+              <TextFormat Ref="59" type="NumberFormat" isKey="true">
+                <DecimalDigits>3</DecimalDigits>
+                <GroupSeparator>,</GroupSeparator>
+                <NegativePattern>1</NegativePattern>
+                <UseLocalSetting>False</UseLocalSetting>
+              </TextFormat>
+              <Type>DataColumn</Type>
+            </Text29>
+            <Text27 Ref="60" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.17,2.79,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>1f5a8cd3ec0f41b6809ff2ec556e57c4</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text27</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>No of Bndls :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text27>
+            <Text30 Ref="61" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8.13,0.17,2.54,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>e11aba61f01b4e61b224685e8ba596b5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text30</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Weight Kgs :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text30>
+            <Text91 Ref="62" type="Text" isKey="true">
+              <BeforePrintEvent>if (IsNull(PcsReceipt,"Terms"))
+Text91.Enabled=false;
+else
+Text91.Enabled=true;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,1.22,4.32,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Guid>052d9979f6904ea58e7b5a7bf7c73423</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text91</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Terms &amp; Conditions : </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text91>
+            <Text34 Ref="63" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <CanGrow>True</CanGrow>
+              <ClientRectangle>4.32,1.22,14.73,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text34</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.Terms}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text34>
+            <Text31 Ref="64" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.08,3.02,2.13,0.53</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text31</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.GRNFormat}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text31>
+            <Text37 Ref="65" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.87,2.51,3.94,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Courier New,10</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text37</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{PcsReceipt.UserName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text37>
+            <Text92 Ref="66" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>18.45,-0.44,1,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text92</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <PrintOn>OnlyLastPage</PrintOn>
+              <Text>{Sum(PcsReceipt.Q1+PcsReceipt.Q2+PcsReceipt.Q3+PcsReceipt.Q4+PcsReceipt.Q5+PcsReceipt.Q6+PcsReceipt.Q7+PcsReceipt.Q8+PcsReceipt.Q9+PcsReceipt.Q10+PcsReceipt.Q11+PcsReceipt.Q12+PcsReceipt.Q13+PcsReceipt.Q14+PcsReceipt.Q15+PcsReceipt.Q16+PcsReceipt.Q17+PcsReceipt.Q18+PcsReceipt.Q19+PcsReceipt.Q20)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text92>
+            <Text73 Ref="67" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.03,-0.44,0.81,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,6,Bold</Font>
+              <Guid>96aa0f95d920420f9cf7cdb9e18bfda9</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text73</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>Sub 
+Total</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text73>
+            <Text74 Ref="68" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q1)&gt;0)
+Text74.Enabled=true;
+else
+Text74.Enabled=false;
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.08,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>6fe029e108b24a258ab1b0948ecd5bf0</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text74</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q1)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text74>
+            <Text78 Ref="69" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q2)&gt;0)
+Text78.Enabled=true;
+else
+Text78.Enabled=false;
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.93,-0.44,0.82,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>f8f4f8ad6cce4783805d206b711472f3</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text78</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q2)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text78>
+            <Text79 Ref="70" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q3)&gt;0)
+Text79.Enabled=true;
+else
+Text79.Enabled=false;
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.75,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>a5dab105aba54d3fad43ac7b4c176cd8</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text79</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q3)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text79>
+            <Text80 Ref="71" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q4)&gt;0)
+Text80.Enabled=true;
+else
+Text80.Enabled=false;
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.55,-0.44,0.79,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>4145a4012ad444c48eade5f90832a25d</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text80</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q4)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text80>
+            <Text81 Ref="72" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q5)&gt;0)
+Text81.Enabled=true;
+else
+Text81.Enabled=false;
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.34,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>7567ac64be104b2d8244a3c6721aefb0</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text81</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q5)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text81>
+            <Text82 Ref="73" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q6)&gt;0)
+Text82.Enabled=true;
+else
+Text82.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.12,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>862acddef2554f97abba6bd6bb647a03</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text82</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q6)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text82>
+            <Text83 Ref="74" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q7)&gt;0)
+Text83.Enabled=true;
+else
+Text83.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.92,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>71bf8b71f55545eda589405c6d2216f5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text83</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q7)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text83>
+            <Text84 Ref="75" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q8)&gt;0)
+Text84.Enabled=true;
+else
+Text84.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.7,-0.44,0.82,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>dafc198757674c40936a6e07f85ef9bc</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text84</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q8)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text84>
+            <Text85 Ref="76" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q9)&gt;0)
+Text85.Enabled=true;
+else
+Text85.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.52,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <GrowToHeight>True</GrowToHeight>
+              <Guid>827ed20e997947ccad4894919f0d0bd4</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text85</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q9)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text85>
+            <Text86 Ref="77" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q10)&gt;0)
+Text86.Enabled=true;
+else
+Text86.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8.37,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>750a7e4bd27642c2b8bfa3ec359b7612</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text86</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q10)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text86>
+            <Text87 Ref="78" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q11)&gt;0)
+Text87.Enabled=true;
+else
+Text87.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>9.24,-0.44,0.86,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>ae9e6085d80c43609b44592e8d557d9b</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text87</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q11)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text87>
+            <Text88 Ref="79" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.1,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>965f3120d442470ea060742d3e3d44f7</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text88</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q12)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text88>
+            <Text107 Ref="80" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.94,-0.44,0.81,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>d2fe6280413c4c678a2111332c334b89</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text107</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q13)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text107>
+            <Text108 Ref="81" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.75,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>15a7e383b5b54460a476dd3e414f8ed6</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text108</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q14)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text108>
+            <Text109 Ref="82" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.47,-0.44,0.82,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>e7cddd9b30a24f5c80c5e9f36517bcd5</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text109</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q15)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text109>
+            <Text110 Ref="83" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>13.26,-0.44,0.85,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>e57ad85a131f47b9921f96194ec35fd1</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text110</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q16)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text110>
+            <Text111 Ref="84" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.98,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>ec11d7a5197248058d1594bbf8a01134</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text111</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q18)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text111>
+            <Text112 Ref="85" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.09,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>a23330c87ce14be7b487e4262421cd95</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text112</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q17)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text112>
+            <Text113 Ref="86" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>15.84,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>dfa70b238149482fbc018a3ad8d8fa92</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text113</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q19)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text113>
+            <Text114 Ref="87" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text88.Enabled=true;
+else
+Text88.Enabled=false;
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16.84,-0.44,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>fb9b86bccc9944218bc6552d0a508bec</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text114</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Text>{Sum(DataBand1,PcsReceipt.Q20)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Totals</Type>
+            </Text114>
+            <HorizontalLine13 Ref="88" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,1.72,19.56,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine13</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Style>Dot</Style>
+            </HorizontalLine13>
+            <HorizontalLinePrimitive2 Ref="89" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <BeforePrintEvent>if (Length(Trim(PcsReceipt.Remark)) &gt; 0)
+HorizontalLinePrimitive2.Enabled=true;
+else
+HorizontalLinePrimitive2.Enabled=false;</BeforePrintEvent>
+              <ClientRectangle>0,0.71,19.56,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Guid>335750f9168145209c0ea74d38b0e785</Guid>
+              <Name>HorizontalLinePrimitive2</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Style>Dot</Style>
+            </HorizontalLinePrimitive2>
+            <HorizontalLine4 Ref="90" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,0.6,19.05,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLine4</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+              <Style>Dot</Style>
+            </HorizontalLine4>
+            <HorizontalLinePrimitive5 Ref="91" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.07,0.04,19.43,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive5</Name>
+              <Page isRef="4" />
+              <Parent isRef="48" />
+            </HorizontalLinePrimitive5>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageFooter1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <PrintOn>OnlyLastPage</PrintOn>
+        </PageFooter1>
+        <GroupHeaderBand1 Ref="92" type="GroupHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,7.04,19.48,0.6</ClientRectangle>
+          <Components isList="true" count="21">
+            <Text43 Ref="93" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.1,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>fbf5ba825eb24e30a65dcec30d44a86c</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text43</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S1}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text43>
+            <Text44 Ref="94" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.95,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>a44c7017dc5b4a6ea21ff59faf96411a</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text44</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S2}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text44>
+            <Text46 Ref="95" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.75,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>218a5af88aa44bfd8d5387bb348a2afc</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text46</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S3}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text46>
+            <Text47 Ref="96" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.54,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>e510f8b84a024acb8c53ec409ab27599</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text47</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S4}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text47>
+            <Text48 Ref="97" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.34,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>c364e67056e24b48a5a8d8c7065447d4</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text48</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S5}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text48>
+            <Text49 Ref="98" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.14,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>f5592c7883994677ae374e6caeb55369</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text49</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S6}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text49>
+            <Text50 Ref="99" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.94,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>cae2c18d3f86402da2d92d9f3a0dc6b9</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text50</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S7}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text50>
+            <Text51 Ref="100" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.74,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>e971ce1172a04372a0317602316108a7</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text51</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S8}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text51>
+            <Text52 Ref="101" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.54,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>aaafd0a75e334894bf362d9a97adbdc6</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text52</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S9}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text52>
+            <Text53 Ref="102" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8.37,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>69f47654e07943e4964f52617494a408</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text53</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S10}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text53>
+            <Text54 Ref="103" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>9.32,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>94f2a12c255a4cc8bd22f985184bc8e2</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text54</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S11}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text54>
+            <Text55 Ref="104" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.12,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>6785c06f6f0c40a0928450eec170b170</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text55</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S12}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text55>
+            <Text3 Ref="105" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.97,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>ffa3302dede3444aa46da9edfa1e0058</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text3</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S13}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text3>
+            <Text38 Ref="106" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.77,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>964c44e8438d47779385dd2d300ea4e4</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text38</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S14}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text38>
+            <Text93 Ref="107" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.51,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>b5c0967d602c4b5ba9dfebd7e7322a75</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text93</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S15}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text93>
+            <Text94 Ref="108" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>13.33,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>d53843c13adf4bd0affd9077326e6ef5</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text94</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S16}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text94>
+            <Text95 Ref="109" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.13,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>9cc3986470814a12bc9139c116d40c2e</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text95</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S17}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text95>
+            <Text96 Ref="110" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>15.02,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>34759913b67948b88799741c87385589</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text96</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S18}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text96>
+            <Text97 Ref="111" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>15.86,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>f410a05f95c749f08f5d9d590cdac46d</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text97</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S19}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text97>
+            <Text98 Ref="112" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16.84,-0.06,0.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Guid>c8f895c9bf6f42178aa56c74c1f31a91</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text98</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+              <Text>{PcsReceipt.S20}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text98>
+            <HorizontalLinePrimitive6 Ref="113" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.05,0.5,19.51,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive6</Name>
+              <Page isRef="4" />
+              <Parent isRef="92" />
+            </HorizontalLinePrimitive6>
+          </Components>
+          <Condition>{PcsReceipt.StyleNo}</Condition>
+          <Conditions isList="true" count="0" />
+          <Name>GroupHeaderBand1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </GroupHeaderBand1>
+        <GroupHeaderBand2 Ref="114" type="GroupHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,8.44,19.48,0.57</ClientRectangle>
+          <Components isList="true" count="3">
+            <Text116 Ref="115" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.11,-0.09,11.79,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7,Bold</Font>
+              <Guid>a4ee71e477f94ab6b81ad73bc6f92156</Guid>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text116</Name>
+              <Page isRef="4" />
+              <Parent isRef="114" />
+              <Text>PART :{PcsReceipt.PartName}/{PcsReceipt.ColorDesc}    STYLE NO : {PcsReceipt.StyleNo}/{PcsReceipt.StyleDesc}/{PcsReceipt.LotNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text116>
+            <Text117 Ref="116" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.05,-0.11,0.92,0.51</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text117</Name>
+              <Page isRef="4" />
+              <Parent isRef="114" />
+              <Text>{GroupLine}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text117>
+            <HorizontalLinePrimitive4 Ref="117" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0.09,0.21,19.43,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive4</Name>
+              <Page isRef="4" />
+              <Parent isRef="114" />
+            </HorizontalLinePrimitive4>
+          </Components>
+          <Condition>{PcsReceipt.ColorDesc}</Condition>
+          <Conditions isList="true" count="0" />
+          <Name>GroupHeaderBand2</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </GroupHeaderBand2>
+        <DataBand1 Ref="118" type="DataBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,9.81,19.48,0.42</ClientRectangle>
+          <Components isList="true" count="21">
+            <Text57 Ref="119" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q1)&gt;0)
+Text57.Enabled=true;
+else
+Text57.Enabled=false;
+
+
+
+</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.12,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text57</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q1}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text57>
+            <Text58 Ref="120" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q2)&gt;0)
+Text58.Enabled=true;
+else
+Text58.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.97,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text58</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q2}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text58>
+            <Text59 Ref="121" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q3)&gt;0)
+Text59.Enabled=true;
+else
+Text59.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>2.77,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text59</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q3}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text59>
+            <Text60 Ref="122" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q4)&gt;0)
+Text60.Enabled=true;
+else
+Text60.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>3.56,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text60</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q4}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text60>
+            <Text61 Ref="123" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q5)&gt;0)
+Text61.Enabled=true;
+else
+Text61.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>4.36,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text61</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q5}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text61>
+            <Text62 Ref="124" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q6)&gt;0)
+Text62.Enabled=true;
+else
+Text62.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.14,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text62</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q6}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text62>
+            <Text63 Ref="125" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q7)&gt;0)
+Text63.Enabled=true;
+else
+Text63.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>5.94,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text63</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q7}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text63>
+            <Text64 Ref="126" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q8)&gt;0)
+Text64.Enabled=true;
+else
+Text64.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>6.74,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text64</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q8}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text64>
+            <Text65 Ref="127" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q9)&gt;0)
+Text65.Enabled=true;
+else
+Text65.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>7.54,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text65</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q9}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text65>
+            <Text66 Ref="128" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q10)&gt;0)
+Text66.Enabled=true;
+else
+Text66.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>8.41,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text66</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q10}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text66>
+            <Text67 Ref="129" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q11)&gt;0)
+Text67.Enabled=true;
+else
+Text67.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>9.32,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text67</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q11}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text67>
+            <Text71 Ref="130" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.12,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text71</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q12}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text71>
+            <Text72 Ref="131" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>18.59,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text72</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{SumI(PcsReceipt.Q1+PcsReceipt.Q2+PcsReceipt.Q3+PcsReceipt.Q4+PcsReceipt.Q5+PcsReceipt.Q6+PcsReceipt.Q7+PcsReceipt.Q8+PcsReceipt.Q9+PcsReceipt.Q10+PcsReceipt.Q11+PcsReceipt.Q12+PcsReceipt.Q13+PcsReceipt.Q14+PcsReceipt.Q15+PcsReceipt.Q16+PcsReceipt.Q17+PcsReceipt.Q18+PcsReceipt.Q19+PcsReceipt.Q20)}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text72>
+            <Text99 Ref="132" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>10.97,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>ea9bedcc4e744e11a4d2ea03b5c48a9c</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text99</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q13}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text99>
+            <Text100 Ref="133" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.77,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>3800d66dfbf84067991c6bd9659c9bb2</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text100</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q14}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text100>
+            <Text101 Ref="134" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>12.51,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>af3fce5f11a143a1b9370194f68dd87c</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text101</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q15}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text101>
+            <Text102 Ref="135" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>13.33,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>1e88c083dda0414bbb448dff9eb29197</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text102</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q16}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text102>
+            <Text103 Ref="136" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.13,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>dfc62d651ede4deaa32836ca40f5542c</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text103</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q17}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text103>
+            <Text104 Ref="137" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>15.02,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>2420194112594dc8a4a22325dc22568e</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text104</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q18}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text104>
+            <Text105 Ref="138" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>15.86,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>0b7c0b1fbc2e4ef8afbfbc8964f49d72</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text105</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q19}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text105>
+            <Text106 Ref="139" type="Text" isKey="true">
+              <BeforePrintEvent>if ((PcsReceipt.Q12)&gt;0)
+Text71.Enabled=true;
+else
+Text71.Enabled=false;</BeforePrintEvent>
+              <Brush>Transparent</Brush>
+              <ClientRectangle>16.84,-0.14,0.8,0.8</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8</Font>
+              <Guid>1342c459eb154a729dbe24b7f0f7319e</Guid>
+              <HideZeros>True</HideZeros>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text106</Name>
+              <Page isRef="4" />
+              <Parent isRef="118" />
+              <Text>{PcsReceipt.Q20}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text106>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <DataRelationName isNull="true" />
+          <DataSourceName>PcsReceipt</DataSourceName>
+          <Filters isList="true" count="0" />
+          <Name>DataBand1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <Sort isList="true" count="0" />
+        </DataBand1>
+        <GroupFooterBand1 Ref="140" type="GroupFooterBand" isKey="true">
+          <BeforePrintEvent>if (CountDistinct(PcsReceipt.StyleNo,GroupHeaderBand1)&gt;1)
+GroupFooterBand1.Enabled=true;
+else
+GroupFooterBand1.Enabled=false;</BeforePrintEvent>
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,11.03,19.48,0.06</ClientRectangle>
+          <Components isList="true" count="0" />
+          <Conditions isList="true" count="0" />
+          <Name>GroupFooterBand1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </GroupFooterBand1>
+        <GroupFooterBand2 Ref="141" type="GroupFooterBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,11.89,19.48,0.4</ClientRectangle>
+          <Components isList="true" count="0" />
+          <Conditions isList="true" count="0" />
+          <Name>GroupFooterBand2</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </GroupFooterBand2>
+        <VerticalLine1 Ref="142" type="Stimulsoft.Report.Components.StiVerticalLinePrimitive" isKey="true">
+          <ClientRectangle>9.4,0.91,0.0254,3.3</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>d341e55be8b149b59b51e91776f89712</Guid>
+          <Name>VerticalLine1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <Style>Dot</Style>
+        </VerticalLine1>
+        <Rectangle1 Ref="143" type="Stimulsoft.Report.Components.StiRectanglePrimitive" isKey="true">
+          <ClientRectangle>0.04,0.81,20,13.64</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>80799902b8844cc2a7bb5da1354e75cc</Guid>
+          <LeftSide>False</LeftSide>
+          <Name>Rectangle1</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <RightSide>False</RightSide>
+          <Style>Dot</Style>
+          <TopSide>False</TopSide>
+        </Rectangle1>
+        <EndPointPrimitive2 Ref="144" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+          <ClientRectangle>20.04,14.45,0,0</ClientRectangle>
+          <Name>EndPointPrimitive2</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+          <ReferenceToGuid>80799902b8844cc2a7bb5da1354e75cc</ReferenceToGuid>
+        </EndPointPrimitive2>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>64e204640c8947788ec7d5f202e0beee</Guid>
+      <Margins>0.762,0.762,0.0254,0.0762</Margins>
+      <Name>Page1</Name>
+      <Page isRef="4" />
+      <PageHeight>14.73</PageHeight>
+      <PageWidth>21</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="145" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+  </Pages>
+  <PrinterSettings Ref="146" type="Stimulsoft.Report.Print.StiPrinterSettings" isKey="true" />
+  <ReferencedAssemblies isList="true" count="8">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <ReportAlias>Report</ReportAlias>
+  <ReportChanged>8/8/2019 12:06:51 PM</ReportChanged>
+  <ReportCreated>7/30/2009 5:28:18 PM</ReportCreated>
+  <ReportGuid>dd0a19112e92431c93a0c96920623e87</ReportGuid>
+  <ReportName>Report</ReportName>
+  <ReportUnit>Centimeters</ReportUnit>
+  <ReportVersion>2009.1.400</ReportVersion>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    
+    public class Report : Stimulsoft.Report.StiReport
+    {
+        
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+        #region StiReport Designer generated code - do not modify#endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <Styles isList="true" count="0" />
+</StiSerializer>

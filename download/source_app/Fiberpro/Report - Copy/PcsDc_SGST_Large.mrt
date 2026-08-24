@@ -1,0 +1,2228 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<StiSerializer version="1.0" application="StiReport">
+  <Dictionary Ref="1" type="Dictionary" isKey="true">
+    <Databases isList="true" count="1">
+      <Connection Ref="2" type="Stimulsoft.Report.Dictionary.StiOleDbDatabase" isKey="true">
+        <Alias>Connection</Alias>
+        <ConnectionString>Provider=SQLOLEDB.1;Persist Security Info=False;User ID=sa;Initial Catalog=Prime;Data Source=MACHINE-58</ConnectionString>
+        <Name>Connection</Name>
+        <PromptUserNameAndPassword>False</PromptUserNameAndPassword>
+      </Connection>
+    </Databases>
+    <DataSources isList="true" count="1">
+      <PcsDc Ref="3" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>PcsDc</Alias>
+        <Columns isList="true" count="113">
+          <value>DCNO,System.String</value>
+          <value>DcFinyear,System.Int32</value>
+          <value>Date,System.DateTime</value>
+          <value>DelType,System.String</value>
+          <value>NoBdl,System.Int32</value>
+          <value>Wgt,System.Decimal</value>
+          <value>Remark,System.String</value>
+          <value>Jobno,System.Int32</value>
+          <value>OrdFinyear,System.Int32</value>
+          <value>OrderNo,System.String</value>
+          <value>StyleNo,System.String</value>
+          <value>ExporterName,System.String</value>
+          <value>DcFormat,System.String</value>
+          <value>ExporterAddress,System.String</value>
+          <value>Phone,System.String</value>
+          <value>TIN,System.String</value>
+          <value>CST,System.String</value>
+          <value>PAN,System.String</value>
+          <value>Pname,System.String</value>
+          <value>Paddress,System.String</value>
+          <value>PPhone,System.String</value>
+          <value>PTIN,System.String</value>
+          <value>PCST,System.String</value>
+          <value>Deptname,System.String</value>
+          <value>WorkComplDet,System.String</value>
+          <value>PanelName,System.String</value>
+          <value>LotNo,System.String</value>
+          <value>BuyerName,System.String</value>
+          <value>ColorDesc,System.String</value>
+          <value>StyleDesc,System.String</value>
+          <value>PartName,System.String</value>
+          <value>Terms,System.String</value>
+          <value>Gpno,System.Int32</value>
+          <value>GatePassFlg,System.String</value>
+          <value>ProcessType,System.String</value>
+          <value>Tardt,System.DateTime</value>
+          <value>IoNoCaption,System.String</value>
+          <value>UserName,System.String</value>
+          <value>OrderType,System.String</value>
+          <value>RejectionType,System.String</value>
+          <value>GSTNo,System.String</value>
+          <value>PGSTNo,System.String</value>
+          <value>HSNCode,System.String</value>
+          <value>EwayBillNo,System.String</value>
+          <value>EwayBillDt,System.DateTime</value>
+          <value>Amount,System.Decimal</value>
+          <value>S1,System.String</value>
+          <value>S2,System.String</value>
+          <value>S3,System.String</value>
+          <value>S4,System.String</value>
+          <value>S5,System.String</value>
+          <value>S6,System.String</value>
+          <value>S7,System.String</value>
+          <value>S8,System.String</value>
+          <value>S9,System.String</value>
+          <value>S10,System.String</value>
+          <value>S11,System.String</value>
+          <value>S12,System.String</value>
+          <value>Q1,System.Int32</value>
+          <value>Q2,System.Int32</value>
+          <value>Q3,System.Int32</value>
+          <value>Q4,System.Int32</value>
+          <value>Q5,System.Int32</value>
+          <value>Q6,System.Int32</value>
+          <value>Q7,System.Int32</value>
+          <value>Q8,System.Int32</value>
+          <value>Q9,System.Int32</value>
+          <value>Q10,System.Int32</value>
+          <value>Q11,System.Int32</value>
+          <value>Q12,System.Int32</value>
+          <value>IPAddress,System.String</value>
+          <value>Total,System.Int32</value>
+          <value>BuyOrdNo,System.String</value>
+          <value>DelTo,System.String</value>
+          <value>INR,System.Decimal</value>
+          <value>InvNoDt,System.String</value>
+          <value>Rate,System.Decimal</value>
+          <value>ShortBuyer,System.String</value>
+          <value>DelAt,System.String</value>
+          <value>TargetStage,System.String</value>
+          <value>VehicleNo,System.String</value>
+          <value>DesignDesc,System.String</value>
+          <value>S13,System.String</value>
+          <value>S14,System.String</value>
+          <value>S15,System.String</value>
+          <value>Q13,System.Int32</value>
+          <value>Q14,System.Int32</value>
+          <value>Q15,System.Int32</value>
+          <value>Rate1,System.Decimal</value>
+          <value>HSNCode1,System.String</value>
+          <value>Amount1,System.Decimal</value>
+          <value>S16,System.String</value>
+          <value>S17,System.String</value>
+          <value>S18,System.String</value>
+          <value>S19,System.String</value>
+          <value>S20,System.String</value>
+          <value>Q16,System.Int32</value>
+          <value>Q17,System.Int32</value>
+          <value>Q18,System.Int32</value>
+          <value>Q19,System.Int32</value>
+          <value>Q20,System.Int32</value>
+          <value>Sample,System.String</value>
+          <value>MailId,System.String</value>
+          <value>SeasDesc,System.String</value>
+          <value>BuyerName1,System.String</value>
+          <value>TransportationMode,System.String</value>
+          <value>Parent_ExporterName,System.String</value>
+          <value>Parent_ExporterAddress,System.String</value>
+          <value>Unit_ParentConcernID,System.Int32</value>
+          <value>CompID,System.Int32</value>
+          <value>BatchNo,System.Int32</value>
+          <value>InvDt,System.DateTime</value>
+          <value>BrandName,System.String</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>PcsDc</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_IpAddress,,200,100</value>
+        </Parameters>
+        <SqlCommand>Select * From TempPcsDelDtls Where IpAddress=?</SqlCommand>
+      </PcsDc>
+    </DataSources>
+    <Relations isList="true" count="0" />
+    <Report isRef="0" />
+    <Variables isList="true" count="0" />
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <GlobalizationStrings isList="true" count="0" />
+  <Pages isList="true" count="2">
+    <Page1 Ref="4" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="1">
+        <PageHeaderBand2 Ref="5" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,11.22,7.56</ClientRectangle>
+          <Components isList="true" count="1">
+            <SubReport_1 Ref="6" type="SubReport" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.08,11.18,0.16</ClientRectangle>
+              <Components isList="true" count="0" />
+              <Name>SubReport_1</Name>
+              <Page isRef="4" />
+              <Parent isRef="5" />
+              <SubReportPageGuid>64e204640c8947788ec7d5f202e0beee</SubReportPageGuid>
+            </SubReport_1>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeaderBand2</Name>
+          <Page isRef="4" />
+          <Parent isRef="4" />
+        </PageHeaderBand2>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>3cef1c83b5b64bf48edf6b66c7626012</Guid>
+      <Margins>0.236220472440945,0.236220472440945,0.275590551181102,0.275590551181102</Margins>
+      <Name>Page1</Name>
+      <Orientation>Landscape</Orientation>
+      <Page isRef="4" />
+      <PageHeight>8.27</PageHeight>
+      <PageWidth>11.69</PageWidth>
+      <PaperSize>A4</PaperSize>
+      <Report isRef="0" />
+      <Watermark Ref="7" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+    <SubReport1 Ref="8" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="4">
+        <PageHeaderBand1 Ref="9" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.2,11.42,0.3</ClientRectangle>
+          <Components isList="true" count="1">
+            <Panel1 Ref="10" type="Stimulsoft.Report.Components.StiPanel" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,11.41,5.5</ClientRectangle>
+              <Components isList="true" count="6">
+                <GroupHeaderBand1 Ref="11" type="GroupHeaderBand" isKey="true">
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,0.2,11.41,1.62</ClientRectangle>
+                  <Components isList="true" count="33">
+                    <Text1 Ref="12" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.11,0.02,2.81,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10,Bold</Font>
+                      <Guid>50880f975fb64ad1b392b6fb60048430</Guid>
+                      <HorAlignment>Center</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text1</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.ProcessType} DC -</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text1>
+                    <Text4 Ref="13" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.96,0.28,3.79,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>c28275cb233e41f79332514d43fb9f06</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text4</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.ExporterName}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text4>
+                    <Text5 Ref="14" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.94,0.42,3.78,0.51</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>79b1fd5e45ef434689ff21f258f81ef8</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text5</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.ExporterAddress}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text5>
+                    <Text6 Ref="15" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>1.56,0.9,3.19,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>687d822a123147d7979f26c078a3d446</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text6</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Phone}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text6>
+                    <Text8 Ref="16" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Length(Trim(PcsDc.Phone)) &gt; 0)
+Text8.Enabled=true;
+else
+Text8.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.96,0.9,0.53,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>0b047f63caf040edbdcaac0e39d6466d</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text8</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>Phone:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text8>
+                    <Text12 Ref="17" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.82,0.28,3.23,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>73321e600f2e40dca6128f4707b9d4c9</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text12</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Pname}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text12>
+                    <Text13 Ref="18" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.24,0.28,0.59,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>4859f24a35244e3a8308a55409461c67</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text13</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>To:M/s</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text13>
+                    <Text14 Ref="19" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.82,0.42,3.23,0.52</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>fd186901edd54547930cc4ef5e6d1c52</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text14</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Paddress}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text14>
+                    <Text15 Ref="20" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Length(Trim(PcsDc.PPhone)) &gt; 0)
+Text15.Enabled=true;
+else
+Text15.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.82,0.9,0.51,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>24a77ae34c584ceea71591e56f0e1028</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text15</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>Phone:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text15>
+                    <Text18 Ref="21" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.33,0.9,2.65,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>e0c6fcb245cb49298a5544e80adafbeb</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text18</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.PPhone}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text18>
+                    <Text21 Ref="22" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.01,1.3,0.5,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>62a907dd5e7842c79665baa7ed17fb0f</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text21</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>Dc No:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text21>
+                    <Text23 Ref="23" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.7,1.3,0.5,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>2865e947ea66495a877e6d93148ccdec</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text23</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>Date:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text23>
+                    <Text24 Ref="24" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Trim(PcsDc.DelType)=="JobWork Delivery") 
+Text33.Enabled=true;
+else
+Text31.Enabled=true</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.2,1.3,1.01,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>7909eae7da5f4e1fbf7a5a7584b4c223</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text24</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Date}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextFormat Ref="25" type="CustomFormat" isKey="true">
+                        <StringFormat>dd-MMM-yy</StringFormat>
+                      </TextFormat>
+                      <Type>Expression</Type>
+                    </Text24>
+                    <Text25 Ref="26" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.01,1.45,0.5,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>6638c6cc20c94793ab154b0d76cca1d1</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text25</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>IO No:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text25>
+                    <Text40 Ref="27" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.75,1.45,4.79,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>1cb3ee3dd4ea4e22a7d6e33ac8985292</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text40</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.BuyOrdNo}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text40>
+                    <Text34 Ref="28" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.56,1.3,0.91,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>85cb0490065c433198648178fdd69d89</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text34</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.BuyerName}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text34>
+                    <Text35 Ref="29" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.65,1.3,0.91,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>ef9728bb42b7448c9e462fc05bdae757</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text35</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>BuyerName:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text35>
+                    <Text22 Ref="30" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.51,1.3,1.04,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>ab1cbb678cee4920b6bdf208458ac7a5</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text22</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.DCNO}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text22>
+                    <Text63 Ref="31" type="Text" isKey="true">
+                      <BeforePrintEvent>if(PcsDc.GatePassFlg=="Y")
+{
+if (PcsDc.Gpno == 0)
+Text63.Enabled=false;
+else
+Text63.Enabled=true;
+}
+else
+Text63.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.1,1.3,0.62,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>096c9b0e70f14ea5931cdf0fcd1b5a2f</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text63</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>GP No:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text63>
+                    <Text65 Ref="32" type="Text" isKey="true">
+                      <BeforePrintEvent>if(PcsDc.GatePassFlg=="Y")
+{
+Text65.Enabled=true;
+}
+else
+Text65.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.72,1.3,0.81,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>43711d26f2db4333a70d11e37e3d243e</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text65</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Gpno}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text65>
+                    <Text38 Ref="33" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.51,1.45,1.12,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>475ef74b878144559566b1dc53218242</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text38</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Jobno}/{PcsDc.OrdFinyear}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text38>
+                    <Text39 Ref="34" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>1.84,1.45,0.81,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>e023ea61e51c43b68a5d0325bcec006c</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text39</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>Order No:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text39>
+                    <Text33 Ref="35" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.88,0,1.07,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Enabled>False</Enabled>
+                      <Font>Verdana,10,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text33</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.WorkComplDet}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text33>
+                    <Text31 Ref="36" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.94,0.01,3,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Enabled>False</Enabled>
+                      <Font>Verdana,10,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text31</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.Deptname}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text31>
+                    <Text7 Ref="37" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>1.65,1.06,2.1,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text7</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.GSTNo}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text7>
+                    <Text9 Ref="38" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.94,1.06,0.7,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text9</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>GST No :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text9>
+                    <Text10 Ref="39" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.52,1.06,2,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text10</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>{PcsDc.PGSTNo}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text10>
+                    <Text11 Ref="40" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Length(Trim(PcsDc.PGSTNo)) &gt; 0)
+Text11.Enabled=true;
+else
+Text11.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.82,1.06,0.7,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text11</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <Text>GST No :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text11>
+                    <HorizontalLinePrimitive3 Ref="41" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0,0.24,11.4,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Name>HorizontalLinePrimitive3</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                    </HorizontalLinePrimitive3>
+                    <HorizontalLine1 Ref="42" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0,1.25,11.4,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Name>HorizontalLine1</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                    </HorizontalLine1>
+                    <StartPointPrimitive1 Ref="43" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+                      <ClientRectangle>5.85,0.25,0,0</ClientRectangle>
+                      <Name>StartPointPrimitive1</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <ReferenceToGuid>59f80e84744944fc9d4f25c36683c1ae</ReferenceToGuid>
+                    </StartPointPrimitive1>
+                    <EndPointPrimitive1 Ref="44" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+                      <ClientRectangle>5.86,1.25,0,0</ClientRectangle>
+                      <Name>EndPointPrimitive1</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                      <ReferenceToGuid>59f80e84744944fc9d4f25c36683c1ae</ReferenceToGuid>
+                    </EndPointPrimitive1>
+                    <HorizontalLinePrimitive1 Ref="45" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0,1.6,11.4,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Guid>b1f7e8e22bb0461f879e1e33b846939b</Guid>
+                      <Name>HorizontalLinePrimitive1</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="11" />
+                    </HorizontalLinePrimitive1>
+                  </Components>
+                  <Conditions isList="true" count="0" />
+                  <Name>GroupHeaderBand1</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                </GroupHeaderBand1>
+                <GroupHeaderBand3 Ref="46" type="GroupHeaderBand" isKey="true">
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,2.22,11.41,0.24</ClientRectangle>
+                  <Components isList="true" count="21">
+                    <Text71 Ref="47" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,-0.01,1.97,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>4cf5cb1ec55242909f4cc6340b6501bf</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text71</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>Style:{PcsDc.StyleNo}/{PcsDc.StyleDesc}/{PcsDc.LotNo}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+                      <Type>Expression</Type>
+                    </Text71>
+                    <Text101 Ref="48" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.01,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>1913ffa507c147f1a4f3e215f3ee2bc7</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text101</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S1}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text101>
+                    <Text102 Ref="49" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.44,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>206c46e96e2e47a5a9461f7cd2d60396</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text102</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S2}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text102>
+                    <Text103 Ref="50" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.87,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>fc9de32c615e488f880b7b317dbcb3ff</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text103</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S3}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text103>
+                    <Text104 Ref="51" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.31,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>e5e27ef1905345b1a19cfd18de29adda</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text104</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S4}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text104>
+                    <Text105 Ref="52" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.74,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>bcdaf13ee016477390430ec6250ed077</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text105</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S5}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text105>
+                    <Text106 Ref="53" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.17,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>a2798f3ca8cf487182371b948df804a3</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text106</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S6}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text106>
+                    <Text107 Ref="54" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.61,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>81c359b8d8da4021896cd03f14d55e2b</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text107</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S7}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text107>
+                    <Text108 Ref="55" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.04,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>316ad999121143f19bc3066cb49b4b05</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text108</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S8}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text108>
+                    <Text109 Ref="56" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.47,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>4faee58e195e4feb97c1dfdce2ce00d2</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text109</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S9}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text109>
+                    <Text110 Ref="57" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.94,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>08ea52a5da1b48a59de9a2e23bc517ae</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text110</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S10}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text110>
+                    <Text111 Ref="58" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.38,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>8fd1477c3a3b4354967f673b5006bffa</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text111</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S11}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text111>
+                    <Text112 Ref="59" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.81,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>e7d024c907634f28ac0edf66a070e242</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text112</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S12}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text112>
+                    <Text2 Ref="60" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.24,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text2</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S13}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text2>
+                    <Text3 Ref="61" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.64,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text3</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S14}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text3>
+                    <Text41 Ref="62" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.03,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text41</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S15}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text41>
+                    <Text42 Ref="63" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.43,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text42</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S16}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text42>
+                    <Text43 Ref="64" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.82,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text43</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S17}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text43>
+                    <Text44 Ref="65" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.21,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text44</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S18}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text44>
+                    <Text46 Ref="66" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.61,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text46</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S19}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text46>
+                    <Text47 Ref="67" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>10,-0.01,0.39,0.24</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text47</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="46" />
+                      <Text>{PcsDc.S20}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text47>
+                  </Components>
+                  <Condition>{PcsDc.StyleNo}</Condition>
+                  <Conditions isList="true" count="0" />
+                  <Name>GroupHeaderBand3</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                </GroupHeaderBand3>
+                <GroupHeaderBand4 Ref="68" type="GroupHeaderBand" isKey="true">
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,2.86,11.41,0</ClientRectangle>
+                  <Components isList="true" count="0" />
+                  <Condition>{PcsDc.ColorDesc}</Condition>
+                  <Conditions isList="true" count="0" />
+                  <Name>GroupHeaderBand4</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                </GroupHeaderBand4>
+                <DataBand1 Ref="69" type="DataBand" isKey="true">
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,3.26,11.41,0.16</ClientRectangle>
+                  <Components isList="true" count="23">
+                    <Text62 Ref="70" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,0,1,0</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text62</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.WorkComplDet}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text62>
+                    <Text113 Ref="71" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <CanGrow>True</CanGrow>
+                      <ClientRectangle>0,-0.01,1.97,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <GrowToHeight>True</GrowToHeight>
+                      <Guid>3f4fea212841438aa43b2660eeeef551</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text113</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>HSN:{PcsDc.HSNCode}/{PcsDc.PartName}/{PcsDc.ColorDesc}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+                      <Type>Expression</Type>
+                    </Text113>
+                    <Text114 Ref="72" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q1)&gt; 0)
+Text114.Enabled=true;
+else
+Text114.Enabled=false;
+
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.01,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>97476f425d0246769a95f30fb702cbcd</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text114</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q1}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text114>
+                    <Text115 Ref="73" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q2)&gt; 0)
+Text115.Enabled=true;
+else
+Text115.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.44,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>3d24b78a24404239855d47ac93fbb45b</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text115</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q2}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text115>
+                    <Text116 Ref="74" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q3)&gt; 0)
+Text116.Enabled=true;
+else
+Text116.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.87,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>edc0ba73b1a642fda9c2ca11050f0bfc</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text116</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q3}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text116>
+                    <Text117 Ref="75" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q4)&gt; 0)
+Text117.Enabled=true;
+else
+Text117.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.31,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>d3d108a6bef64a7c8785cb8a8102e9e8</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text117</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q4}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text117>
+                    <Text118 Ref="76" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q5)&gt; 0)
+Text118.Enabled=true;
+else
+Text118.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.74,0,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>28bbde4000184d5f8665dab54e38def0</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text118</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q5}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text118>
+                    <Text119 Ref="77" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q6)&gt; 0)
+Text119.Enabled=true;
+else
+Text119.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.17,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>c230d471402d4f6bbc1c7a97b5088114</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text119</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q6}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text119>
+                    <Text120 Ref="78" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q7)&gt; 0)
+Text120.Enabled=true;
+else
+Text120.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.61,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>36e575f6624545be8cb0f130bf5afa8f</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text120</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q7}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text120>
+                    <Text121 Ref="79" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q8)&gt; 0)
+Text121.Enabled=true;
+else
+Text121.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.04,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>2fb5e4fdf4d14352a173468ab58653bf</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text121</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q8}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>DataColumn</Type>
+                    </Text121>
+                    <Text122 Ref="80" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q9)&gt; 0)
+Text122.Enabled=true;
+else
+Text122.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.47,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>8f71b8e7facf4283a3f2cb6e3a6e4f5a</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text122</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q9}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text122>
+                    <Text123 Ref="81" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q10)&gt; 0)
+Text123.Enabled=true;
+else
+Text123.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.94,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>bbfdbdfdc3f54ccb8cf78e1671fb4d1c</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text123</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q10}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text123>
+                    <Text124 Ref="82" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q11)&gt; 0)
+Text124.Enabled=true;
+else
+Text124.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.38,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>876ed13dcd7e47d38cbca23356ef4468</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text124</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q11}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text124>
+                    <Text125 Ref="83" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q12)&gt; 0)
+Text125.Enabled=true;
+else
+Text125.Enabled=false;
+
+
+</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.81,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>5db5eed6a0fa4f39a700c9d05fda236e</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text125</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q12}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text125>
+                    <Text48 Ref="84" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.24,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text48</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q13}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text48>
+                    <Text49 Ref="85" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.64,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text49</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q14}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text49>
+                    <Text50 Ref="86" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.03,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text50</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q15}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text50>
+                    <Text51 Ref="87" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.43,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text51</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q16}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text51>
+                    <Text52 Ref="88" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.82,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text52</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q17}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text52>
+                    <Text53 Ref="89" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.21,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text53</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q18}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text53>
+                    <Text54 Ref="90" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.61,-0.01,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text54</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q19}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text54>
+                    <Text55 Ref="91" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>10,-0.01,0.47,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text55</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Q20}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text55>
+                    <Text126 Ref="92" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>10.55,-0.01,0.55,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>8036ac78ab5f4482a380d570baea8bb3</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text126</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="69" />
+                      <Text>{PcsDc.Total}</Text>
+                      <TextBrush>Black</TextBrush>
+                    </Text126>
+                  </Components>
+                  <Conditions isList="true" count="0" />
+                  <DataRelationName isNull="true" />
+                  <DataSourceName>PcsDc</DataSourceName>
+                  <Filters isList="true" count="0" />
+                  <Name>DataBand1</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                  <Sort isList="true" count="0" />
+                </DataBand1>
+                <GroupFooterBand1 Ref="93" type="GroupFooterBand" isKey="true">
+                  <BeforePrintEvent>if (CountDistinct(PcsDc.StyleNo,GroupHeaderBand3)&gt;1)
+GroupFooterBand1.Enabled=true;
+else
+GroupFooterBand1.Enabled=false</BeforePrintEvent>
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,3.82,11.41,0.04</ClientRectangle>
+                  <Components isList="true" count="22">
+                    <Text127 Ref="94" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.24,-0.13,0.87,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>d482b283f1be48f486e8093788d18517</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text127</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>SUB TOTAL :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text127>
+                    <Text128 Ref="95" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q1)&gt; 0)
+Text128.Enabled=true;
+else
+Text128.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.01,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>1d068a48152347eda964667f4ec1cc63</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text128</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q1)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text128>
+                    <Text129 Ref="96" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q2)&gt; 0)
+Text129.Enabled=true;
+else
+Text129.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.46,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>1c41ac89155d4ce8afc174b12c737399</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text129</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q2)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text129>
+                    <Text130 Ref="97" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q3)&gt; 0)
+Text130.Enabled=true;
+else
+Text130.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>2.9,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>edc95c50985b41e1895ba3e22746cd30</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text130</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q3)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text130>
+                    <Text131 Ref="98" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q5)&gt; 0)
+Text131.Enabled=true;
+else
+Text131.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.76,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>30275eedb5e94f3d9bf2768aea5d153d</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text131</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q5)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text131>
+                    <Text132 Ref="99" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q6)&gt; 0)
+Text132.Enabled=true;
+else
+Text132.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.19,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>59b42eb2f81e4ced8965f393f7a4126b</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text132</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q6)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text132>
+                    <Text133 Ref="100" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q7)&gt; 0)
+Text133.Enabled=true;
+else
+Text133.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.63,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>e68d87822bd74aefb752eb86654b86d4</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text133</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q7)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text133>
+                    <Text134 Ref="101" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q8)&gt; 0)
+Text134.Enabled=true;
+else
+Text134.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.06,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>77a4568b3cf842d6b787089f6e80d48b</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text134</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q8)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text134>
+                    <Text135 Ref="102" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q9)&gt; 0)
+Text135.Enabled=true;
+else
+Text135.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.49,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>8cc3917da9e9451391742a1ad0725a27</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text135</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q9)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text135>
+                    <Text136 Ref="103" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q10)&gt; 0)
+Text136.Enabled=true;
+else
+Text136.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.97,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>f16ff3c0284f4b46b5deaa18a695e7ae</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text136</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q10)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text136>
+                    <Text138 Ref="104" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q11)&gt; 0)
+Text138.Enabled=true;
+else
+Text138.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.4,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>63e713c63041444994951fed89e78153</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text138</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q11)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text138>
+                    <Text140 Ref="105" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q4)&gt; 0)
+Text140.Enabled=true;
+else
+Text140.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.33,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>3cd87b4c1d674e0f957cc84c416313b5</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text140</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q4)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text140>
+                    <Text137 Ref="106" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>10.55,-0.12,0.55,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>1768c78841bc4419a058c9a339cfdc5d</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text137</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Total)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text137>
+                    <Text139 Ref="107" type="Text" isKey="true">
+                      <BeforePrintEvent>if ((PcsDc.Q12)&gt; 0)
+Text139.Enabled=true;
+else
+Text139.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.83,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>b95e202b894d4d679fc611d46d017ee4</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text139</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q12)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text139>
+                    <Text56 Ref="108" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.24,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text56</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q13)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text56>
+                    <Text57 Ref="109" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>7.64,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text57</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q14)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text57>
+                    <Text58 Ref="110" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.03,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text58</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q15)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text58>
+                    <Text59 Ref="111" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.43,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text59</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q16)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text59>
+                    <Text60 Ref="112" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>8.82,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text60</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q17)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text60>
+                    <Text64 Ref="113" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.21,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text64</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q18)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text64>
+                    <Text66 Ref="114" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.61,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text66</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q19)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text66>
+                    <Text67 Ref="115" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>10,-0.12,0.39,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text67</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="93" />
+                      <Text>{Sum(DataBand1,PcsDc.Q20)}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Totals</Type>
+                    </Text67>
+                  </Components>
+                  <Conditions isList="true" count="0" />
+                  <Name>GroupFooterBand1</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                </GroupFooterBand1>
+                <FooterBand1 Ref="116" type="FooterBand" isKey="true">
+                  <Brush>Transparent</Brush>
+                  <ClientRectangle>0,4.26,11.41,1.35</ClientRectangle>
+                  <Components isList="true" count="24">
+                    <Text75 Ref="117" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.76,1.17,1.31,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>333292a9ab4243a898b7ca3c627d9654</Guid>
+                      <HorAlignment>Center</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text75</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Prepared By</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text75>
+                    <Text76 Ref="118" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.6,1.17,1.41,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>e9f80c1b070046cab688fca4d7cd5e13</Guid>
+                      <HorAlignment>Center</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text76</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Verified By</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text76>
+                    <Text77 Ref="119" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>9.34,1.17,1.71,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>bcf19de44521460fae6167d98c207237</Guid>
+                      <HorAlignment>Right</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text77</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Authorised Signatory</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text77>
+                    <Text70 Ref="120" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.72,0.78,7.33,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>0542d94922114c19894d6623f3ce6a79</Guid>
+                      <HorAlignment>Right</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text70</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.ExporterName}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text70>
+                    <Text45 Ref="121" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.8,1.17,1.81,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>a1411c73333b43878e3f8950838fad64</Guid>
+                      <HorAlignment>Center</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text45</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Receiver's Signature</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text45>
+                    <Text26 Ref="122" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,0,1.11,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>edc2576be03a42ccb949293cb58314d2</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text26</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>No of Bndls :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text26>
+                    <Text27 Ref="123" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.23,0,1,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>fad3d98a8d3c4e3bb7fde31660b2b556</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text27</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Weight Kgs :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text27>
+                    <Text28 Ref="124" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>1.11,0,1.21,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>391e6015c1164dc2ab4af282a38b2cd3</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text28</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.NoBdl}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextFormat Ref="125" type="NumberFormat" isKey="true">
+                        <DecimalDigits>0</DecimalDigits>
+                        <GroupSeparator>,</GroupSeparator>
+                        <NegativePattern>1</NegativePattern>
+                        <UseLocalSetting>False</UseLocalSetting>
+                      </TextFormat>
+                      <Type>DataColumn</Type>
+                    </Text28>
+                    <Text29 Ref="126" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.23,0,1.21,0.2</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>293b7b375cc246af8407aec4a6f758db</Guid>
+                      <HideZeros>True</HideZeros>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text29</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.Wgt}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextFormat Ref="127" type="NumberFormat" isKey="true">
+                        <DecimalDigits>3</DecimalDigits>
+                        <GroupSeparator>,</GroupSeparator>
+                        <NegativePattern>1</NegativePattern>
+                        <UseLocalSetting>False</UseLocalSetting>
+                      </TextFormat>
+                      <Type>DataColumn</Type>
+                    </Text29>
+                    <Text68 Ref="128" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Length(Trim(PcsDc.Remark)) &gt; 0)
+Text68.Enabled=true;
+else
+Text68.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,0.39,0.8,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>e321314fade64f0296139dca51d78cc7</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text68</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Remarks :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text68>
+                    <Text69 Ref="129" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.8,0.39,6.8,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>b7051c509ea04872b883f23f8239250d</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text69</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.Remark}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text69>
+                    <Text91 Ref="130" type="Text" isKey="true">
+                      <BeforePrintEvent>if (IsNull(PcsDc,"Terms"))
+Text91.Enabled=false;
+else
+Text91.Enabled=true;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,0.23,1.71,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>79e3d4dd1224452d9be846467df8c1cd</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text91</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Terms &amp; Conditions : </Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text91>
+                    <Text32 Ref="131" type="Text" isKey="true">
+                      <AutoWidth>True</AutoWidth>
+                      <Brush>Transparent</Brush>
+                      <CanGrow>True</CanGrow>
+                      <ClientRectangle>1.72,0.23,8.58,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,10</Font>
+                      <Guid>59f0a5d344fa4186904d26201a86c1a0</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text32</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.Terms}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextOptions>HotkeyPrefix=None, LineLimit=False, RightToLeft=False, Trimming=None, WordWrap=True, Angle=0, FirstTabOffset=40, DistanceBetweenTabs=20,</TextOptions>
+                    </Text32>
+                    <Text30 Ref="132" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,1.17,0.8,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>259195415dae436cb3ed284fdc7c0e0a</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text30</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.DcFormat}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text30>
+                    <Text36 Ref="133" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0.8,0.54,1.31,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>20275615d6af49169fc271ba79274f41</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text36</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.Tardt}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <TextFormat Ref="134" type="CustomFormat" isKey="true">
+                        <StringFormat>dd-MMM-yy</StringFormat>
+                      </TextFormat>
+                    </Text36>
+                    <Text37 Ref="135" type="Text" isKey="true">
+                      <BeforePrintEvent>if (IsNull(PcsDc,"Tardt"))
+Text37.Enabled=false;
+else
+Text37.Enabled=true;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>0,0.54,0.8,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8,Bold</Font>
+                      <Guid>943313f7ce684c9d9b87646f473bc902</Guid>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text37</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>Target Dt  :</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text37>
+                    <Text16 Ref="136" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>4.26,0.54,1.6,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text16</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.EwayBillNo}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text16>
+                    <Text17 Ref="137" type="Text" isKey="true">
+                      <BeforePrintEvent>if (Length(Trim(PcsDc.EwayBillNo)) &gt; 0)
+Text17.Enabled=true;
+else
+Text17.Enabled=false;</BeforePrintEvent>
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.36,0.54,0.9,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text17</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>EWayBillNo:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text17>
+                    <Text19 Ref="138" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>6.76,0.54,2.1,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text19</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.EwayBillDt}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text19>
+                    <Text20 Ref="139" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>5.86,0.54,0.9,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text20</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>EWayBillDt:</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text20>
+                    <Text182 Ref="140" type="Text" isKey="true">
+                      <Brush>Transparent</Brush>
+                      <ClientRectangle>3.78,1,1.4,0.16</ClientRectangle>
+                      <Conditions isList="true" count="0" />
+                      <Font>Verdana,8</Font>
+                      <Guid>d458ab3db6154ba795fa37f59f129962</Guid>
+                      <HorAlignment>Center</HorAlignment>
+                      <Margins>0,0,0,0</Margins>
+                      <Name>Text182</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                      <Text>{PcsDc.UserName}</Text>
+                      <TextBrush>Black</TextBrush>
+                      <Type>Expression</Type>
+                    </Text182>
+                    <HorizontalLine13 Ref="141" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0,0.74,11.4,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Name>HorizontalLine13</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                    </HorizontalLine13>
+                    <HorizontalLinePrimitive10 Ref="142" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0,0.21,11.4,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Name>HorizontalLinePrimitive10</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                    </HorizontalLinePrimitive10>
+                    <HorizontalLinePrimitive9 Ref="143" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+                      <ClientRectangle>0.01,0,11.41,0.01</ClientRectangle>
+                      <Color>Black</Color>
+                      <Name>HorizontalLinePrimitive9</Name>
+                      <Page isRef="8" />
+                      <Parent isRef="116" />
+                    </HorizontalLinePrimitive9>
+                  </Components>
+                  <Conditions isList="true" count="0" />
+                  <Name>FooterBand1</Name>
+                  <Page isRef="8" />
+                  <Parent isRef="10" />
+                  <PrintAtBottom>True</PrintAtBottom>
+                </FooterBand1>
+              </Components>
+              <Conditions isList="true" count="0" />
+              <Name>Panel1</Name>
+              <Page isRef="8" />
+              <Parent isRef="9" />
+            </Panel1>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeaderBand1</Name>
+          <Page isRef="8" />
+          <Parent isRef="8" />
+        </PageHeaderBand1>
+        <VerticalLinePrimitive1 Ref="144" type="Stimulsoft.Report.Components.StiVerticalLinePrimitive" isKey="true">
+          <ClientRectangle>5.85,0.65,0.01,1</ClientRectangle>
+          <Color>Black</Color>
+          <Guid>59f80e84744944fc9d4f25c36683c1ae</Guid>
+          <Name>VerticalLinePrimitive1</Name>
+          <Page isRef="8" />
+          <Parent isRef="8" />
+        </VerticalLinePrimitive1>
+        <StartPointPrimitive3 Ref="145" type="Stimulsoft.Report.Components.StiStartPointPrimitive" isKey="true">
+          <ClientRectangle>3.83,13.18,0,0</ClientRectangle>
+          <Name>StartPointPrimitive3</Name>
+          <Page isRef="8" />
+          <Parent isRef="8" />
+          <ReferenceToGuid>f7d2bd82826a45f49adf9e6a13a5806a</ReferenceToGuid>
+        </StartPointPrimitive3>
+        <EndPointPrimitive3 Ref="146" type="Stimulsoft.Report.Components.StiEndPointPrimitive" isKey="true">
+          <ClientRectangle>3.83,14.58,0,0</ClientRectangle>
+          <Name>EndPointPrimitive3</Name>
+          <Page isRef="8" />
+          <Parent isRef="8" />
+          <ReferenceToGuid>f7d2bd82826a45f49adf9e6a13a5806a</ReferenceToGuid>
+        </EndPointPrimitive3>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>64e204640c8947788ec7d5f202e0beee</Guid>
+      <Margins>0.236220472440945,0.236220472440945,0.196850393700787,0.275590551181102</Margins>
+      <Name>SubReport1</Name>
+      <Orientation>Landscape</Orientation>
+      <Page isRef="8" />
+      <PageHeight>6.3</PageHeight>
+      <PageWidth>11.89</PageWidth>
+      <PaperSize>A4</PaperSize>
+      <Report isRef="0" />
+      <Watermark Ref="147" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </SubReport1>
+  </Pages>
+  <PrinterSettings Ref="148" type="Stimulsoft.Report.Print.StiPrinterSettings" isKey="true" />
+  <ReferencedAssemblies isList="true" count="8">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <ReportAlias>Report</ReportAlias>
+  <ReportChanged>5/8/2024 10:59:27 AM</ReportChanged>
+  <ReportCreated>7/30/2009 5:28:18 PM</ReportCreated>
+  <ReportGuid>d55f953c17374d9883c7c385426897e5</ReportGuid>
+  <ReportName>Report</ReportName>
+  <ReportUnit>Inches</ReportUnit>
+  <ReportVersion>2009.1.400</ReportVersion>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    
+    public class Report : Stimulsoft.Report.StiReport
+    {
+        
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+        #region StiReport Designer generated code - do not modify#endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <Styles isList="true" count="0" />
+</StiSerializer>

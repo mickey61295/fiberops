@@ -1,0 +1,5 @@
+Dtacc.ExecNonQuery("ALTER TABLE dbo.trs_infabdel2  WITH CHECK ADD  CONSTRAINT Fk_Trs_InFabDel222 FOREIGN KEY(Id) REFERENCES(dbo.trs_infabdel1(Id))")
+        Dtacc.ExecNonQuery("ALTER TABLE dbo.trs_infabdel2 CHECK CONSTRAINT Fk_Trs_InFabDel222 ")
+        Dtacc.ExecNonQuery("CREATE TABLE dbo.Trs_InFabDel_Ret1(id int NOT NULL,coycode int NULL,finyear char(2) NULL,docno int NULL,dt datetime NULL,ordid int NULL,Godid int NULL,Preparedby int NULL,	Remarks varchar(200) NULL,	Recwgt numeric(18, 3) NULL,PRIMARY KEY CLUSTERED (id ASC)) ")
+        Dtacc.ExecNonQuery("CREATE TABLE dbo.Trs_InFabDel_Ret2(	id int NULL,stockid int NULL,Rls int NULL,Kg numeric(18, 3) NULL,Mtr numeric(18, 3) NULL,styleno varchar(50) NULL) ")
+        Dtacc.ExecNonQuery("ALTER TABLE dbo.Trs_InFabDel_Ret2  WITH CHECK ADD FOREIGN KEY(id)REFERENCES dbo.Trs_InFabDel_Ret1 (id)")

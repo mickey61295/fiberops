@@ -1,0 +1,15 @@
+  /*                  
+;=============================================                  
+; Author  :  Global Software's                  
+; Create date  :  01/Nov/2019                  
+; Create By  :  ASLAM                  
+; Description  :  Stored Procedure for Posting the Production Details for commando cloud
+; Change Person  :  ASLAM                
+; Last Change Date :  26/May/2021 9.25 AM                  
+; =============================================   */ 
+
+CREATE VIEW  Vue_TrsDcAbs AS SELECT Vue_TrsDc.TrType, Vue_TrsDc.Coycode, Vue_TrsDc.OrdId, Vue_TrsDc.DcNo, Vue_TrsDc.Finyear, Vue_TrsDc.DcDate, Vue_TrsDc.Pname, Vue_TrsDc.PID, Vue_TrsDc.Deptname, Vue_TrsDc.DeptID, Mas_Count.CountName,Case TransType when 1 
+then case Vue_TrsDc.DeptID when 8 then  DyeColor.ColorDesc else Case isnull(DeptGrpCode,0) when 8 then DyeColor.ColorDesc  Else Mas_Color.ColorDesc  End End Else Mas_Color.ColorDesc    end ColorDesc , Mas_Mill.ShortMill, Mas_Fabric.Fabdesc, Mas_Uom.Uom, StockTable.YF, SUM(Vue_TrsDc.BgRl) AS BgRl, SUM(Vue_TrsDc.Kg) AS Kg,	 SUM(Vue_TrsDc.mtr) AS mtr, Mas_Acc.Acc_Descr, AccUom.Uom AS AccUom, Mas_AccDes.AccDescription, Vue_TrsDc.Clos, Vue_TrsDc.ProcessType,  Vue_TrsDc.PartyUnit , case when Vue_TrsDc.DeptID = 
+10 then design.DesignDesc else  Mas_Design.DesignDesc end DesignDesc ,Vue_TrsDc.ID,MultiGRN,Vue_TrsDc.Remark,Vue_TrsDc.name ,vue_trsdc.unit ,ISNull(SubProcess,'') as SubProcess FROM   Vue_TrsDc INNER JOIN StockTable ON Vue_TrsDc.StockID = StockTable.StockID	  LEFT OUTER JOIN Mas_Design ON StockTable.PRINT_DESIGNID  = Mas_Design.DesignId LEFT OUTER JOIN Mas_Design AS Design on Vue_TrsDc .designid = Design .DesignId  LEFT OUTER JOIN Mas_Color AS Dyecolor ON Vue_TrsDc.DyeColId = Dyecolor.ColID LEFT OUTER JOIN Mas_Uom RIGHT OUTER JOIN Mas_Fabric ON Mas_Uom.UomID = Mas_Fabric.PriUomID ON StockTable.FabID = Mas_Fabric.FabID LEFT OUTER JOIN Mas_Acc ON StockTable.Atype = Mas_Acc.ID LEFT OUTER JOIN Mas_Uom AS AccUom ON  Mas_Acc.UomId = AccUom.UomID LEFT OUTER JOIN Mas_AccDes ON Mas_Acc.ID = Mas_AccDes.AccTypeID AND StockTable.Ades = Mas_AccDes.ID LEFT OUTER  JOIN Mas_Mill ON StockTable.MillID = Mas_Mill.MillID LEFT OUTER JOIN  Mas_Color ON StockTable.ColID = Mas_Color.ColID LEFT OUTER JOIN Mas_Count ON StockTable.CntID = Mas_Count.CountID  LEFT OUTER JOIN Mas_Dept ON vue_trsDc.DeptID = Mas_Dept.DeptID 
+ LEFT JOIN Mas_SubProcess ON Vue_TrsDc.SubPrsID = Mas_SubProcess.Id 
+ GROUP BY Vue_TrsDc.TrType, Vue_TrsDc.Coycode, Vue_TrsDc.OrdId, Vue_TrsDc.DcNo, Vue_TrsDc.Finyear, Vue_TrsDc.DcDate, Vue_TrsDc.Pname, Vue_TrsDc.PID, Vue_TrsDc.Deptname, Vue_TrsDc.DeptID,isnull(DeptGrpCode,0) , Mas_Count.CountName, Mas_Color.ColorDesc, Mas_Mill.ShortMill, Mas_Fabric.Fabdesc, Mas_Uom.Uom, StockTable.YF, Mas_Acc.Acc_Descr, AccUom.Uom, Mas_AccDes.AccDescription, Vue_TrsDc.Clos, Vue_TrsDc.ProcessType, Vue_TrsDc.PartyUnit, Vue_TrsDc.TransType,  Dyecolor.ColorDesc, design.DesignDesc,Mas_Design.DesignDesc,Vue_TrsDc.ID,MultiGRN,Vue_TrsDc.Remark ,Vue_TrsDc.name ,vue_trsdc.unit,ISNull(SubProcess,'')

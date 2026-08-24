@@ -1,0 +1,70 @@
+21-Feb-2013
+
+4584-CFC-	Order history -> Process wise total needed,Reprocess and Reprocesswise sub total needed.
+
+4583-CFC-     	ACC Opening stock -> Balance PO Qty is wrong both in form and Accessories requirement report. (Ref.. image)
+
+In Dc Print (Spencer)  main heading comes in prg entries
+
+4656-Commercial Inv- Modify time msg comes it should not..
+    	Commercial Bill Entry write in Lost Focus Event Bcas user uses Mouse, InvNo Not Refreshed.refer Image
+
+-------------------------------------------
+23-Feb-2013
+-----------
+Approval Feedback entry-- 1)correction done in feed back entry -duplication in Plan Entry. 
+                          2)slow access, Order No listing query changed
+Approval Sent entry--  2)slow access, Order No listing query changed
+-------------------------------------------
+25-Feb-2013
+AccStockOrderwise 
+----------------
+RptStockReportAcc-- Stored procedure changed--Styleno Missing
+Mail communication updation done
+Image Added on Cutting QtyBreak up
+-------------------------------------------
+26-Feb-2013
+
+Budget And Actual Comparision-->Actual Rate taken from Gpay. here error occur when gpay db not available.
+-------------------------------------------
+28-Feb-2013
+
+cutting qty breakup - pcs wgt displays for particuar even size qty not available(Multiple lot -same color and style) 
+Job Ord Calculation Wrong-FabCalculation(Program functions)
+Process Invoice (FrmPartyInv)- Deletion Pblm- correction made
+
+-----------------------------------------------------------
+01-Mar-2013
+
+cutting Job order-preview shows duplication-correction done
+
+FrmFabDel-SEarch grid Ord No  loaded improperly..correction done
+
+-------------------------------------------------------------
+02-MAr-2013
+Cutting Qty Break up(Frmprognew)- Pcs wgt taken for sizes but qty not entered for that sizes  (Assorted)
+
+FrmBudget-Preview Sales Amt(Expenses) =ORderQty * convRate* SAlesAmt-Correction done in that formulae
+
+(Frmprognew)-PrintChecklist -ExcessQty Wrong- Correction done
+
+FrmPrsDelMulti(PRocess Issue)- Knitting Dept ShortageQty added twice in program details-Correction done
+
+FrmIohistoryReg-Process Vs Actual Loss- Knitting Dept GRn And Ret Qty wrong- Correction made
+--------------------------------------------------
+08-Mar-2013
+
+BudgetAbstract Report-Sales commisiion and DDB values are not come if commercial values are not given- correction done
+
+Opening stock- For roll printing ,duplication not allowed msg come while program details are loaded .
+shortage-Yarn/Fabric- Dept loaded in Process plan wise.
+
+
+
+
+
+
+
+
+
+

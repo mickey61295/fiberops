@@ -1,0 +1,1071 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<StiSerializer version="1.0" application="StiReport">
+  <Dictionary Ref="1" type="Dictionary" isKey="true">
+    <Databases isList="true" count="1">
+      <Connection Ref="2" type="Stimulsoft.Report.Dictionary.StiOleDbDatabase" isKey="true">
+        <Alias>Connection</Alias>
+        <ConnectionString>Provider=SQLOLEDB.1;Persist Security Info=False;User ID=sa;Initial Catalog=majestic;Data Source=MACHINE-29\MSSQL2012</ConnectionString>
+        <Name>Connection</Name>
+        <PromptUserNameAndPassword>False</PromptUserNameAndPassword>
+      </Connection>
+    </Databases>
+    <DataSources isList="true" count="3">
+      <DataSource1 Ref="3" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>DataSource1</Alias>
+        <Columns isList="true" count="8">
+          <value>CTNNo,System.String</value>
+          <value>ColorDesc,System.String</value>
+          <value>SizeDesc,System.String</value>
+          <value>Pcs,System.Int32</value>
+          <value>Noofcartons,System.Int32</value>
+          <value>Totpcs,System.Int32</value>
+          <value>netwt,System.Decimal</value>
+          <value>grosswt,System.Decimal</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>DataSource1</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>select Rtrim(Trs_Packinglist_Det.ctn_From)+'-'+Rtrim(Trs_Packinglist_Det.ctn_To) As CTNNo,Mas_Color.ColorDesc,Mas_Size.SizeDesc,Trs_Packinglist_Det.Pcs,Trs_Packinglist_Det.Noofcartons,Trs_Packinglist_Det.Totpcs,Trs_Packinglist_Det.netwt,Trs_Packinglist_Det.grosswt  From Trs_Packinglist_Mas 
+	INNER JOIN Trs_Packinglist_Det ON Trs_Packinglist_Det.Id=Trs_Packinglist_Mas.Id INNER JOIN Mas_Color ON Mas_Color.ColID=Trs_Packinglist_Det.Colorid 
+INNER JOIN Mas_Size ON Mas_Size.SizeID=Trs_Packinglist_Det.Sizeid  Where Trs_Packinglist_Mas.Id=?</SqlCommand>
+      </DataSource1>
+      <Details Ref="4" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>Details</Alias>
+        <Columns isList="true" count="13">
+          <value>IONo,System.Int32</value>
+          <value>Buyername,System.String</value>
+          <value>id,System.Int32</value>
+          <value>ordid,System.Int32</value>
+          <value>styleno,System.String</value>
+          <value>OrderQty,System.Decimal</value>
+          <value>DelQty,System.Decimal</value>
+          <value>NettWt,System.Decimal</value>
+          <value>GrossWt,System.Decimal</value>
+          <value>ExporterName,System.String</value>
+          <value>ExporterAddress,System.String</value>
+          <value>CTNNo,System.Int32</value>
+          <value>OrderNo,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>Details</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,,5,0</value>
+        </Parameters>
+        <SqlCommand>select RTRIM(ordermas.Jobno) + '/' + RTrim(Trs_Packinglist_Mas.Finyear) As IONo,Ordermas.Jobno As OrderNo,Mas_Buyer.Buyername, Trs_Packinglist_Mas.id,Trs_Packinglist_Mas.ordid,Trs_Packinglist_Mas.styleno,Trs_Packinglist_Mas.OrderQty,Trs_Packinglist_Mas.DelQty,
+	Sum(Trs_Packinglist_Det.NetWt) As NettWt,Sum(Trs_Packinglist_Det.GrossWt) As GrossWt,Mas_Exporter.ExporterName,ExporterAddress,Sum(Trs_Packinglist_Det.Noofcartons) As CTNNo  
+	from Trs_Packinglist_Mas INNER JOIN Trs_Packinglist_Det ON Trs_Packinglist_Det.Id=Trs_Packinglist_Mas.Id INNER JOIN Mas_Buyer 
+ON Mas_Buyer.Buyerid=Trs_Packinglist_Mas.Buyer INNER JOIN ordermas On Ordermas.OrdId=Trs_Packinglist_Mas.Ordid INNER JOIN OrderStyleDtl 
+ON OrderStyleDtl.ordid=Trs_Packinglist_Mas.ordid AND Orderstyledtl.StyleNo=Trs_Packinglist_Mas.Styleno INNER JOIN Mas_Exporter 
+ON Mas_Exporter.Expid=Trs_Packinglist_Mas.Coycode Where Trs_Packinglist_Mas.Id=? Group By Ordermas.Jobno,Mas_Buyer.Buyername, Trs_Packinglist_Mas.id,Trs_Packinglist_Mas.ordid,Trs_Packinglist_Mas.styleno,Trs_Packinglist_Mas.OrderQty,Trs_Packinglist_Mas.DelQty,Mas_Exporter.ExporterName,ExporterAddress ,Trs_Packinglist_Mas.finyear</SqlCommand>
+      </Details>
+      <ColorDetails Ref="5" type="Stimulsoft.Report.Dictionary.StiOleDbSource" isKey="true">
+        <Alias>ColorDetails</Alias>
+        <Columns isList="true" count="4">
+          <value>ColorDesc,System.String</value>
+          <value>SizeDesc,System.String</value>
+          <value>Pcs,System.Int32</value>
+          <value>totPcs,System.Int32</value>
+        </Columns>
+        <CommandTimeout>30</CommandTimeout>
+        <Dictionary isRef="1" />
+        <Name>ColorDetails</Name>
+        <NameInSource>Connection</NameInSource>
+        <Parameters isList="true" count="1">
+          <value>_x0040_Id,_x0030_,5,0</value>
+        </Parameters>
+        <SqlCommand>select Mas_Color.ColorDesc,Mas_Size.SizeDesc,Trs_Packinglist_Det.Pcs,Trs_Packinglist_Det.totPcs From Trs_Packinglist_Det 
+INNER JOIN Mas_Color On Mas_Color.COlid=Trs_Packinglist_Det.Colorid INNER JOIN Mas_Size ON Mas_Size.Sizeid=Trs_Packinglist_Det.Sizeid 
+Where Trs_Packinglist_Det.Id=?</SqlCommand>
+      </ColorDetails>
+    </DataSources>
+    <Relations isList="true" count="0" />
+    <Report isRef="0" />
+    <Variables isList="true" count="9">
+      <value>,Buyer,Buyer,System.String,,False,False</value>
+      <value>,ExpAdd,ExpAdd,System.String,,False,False</value>
+      <value>,OrderNos,OrderNos,System.String,,False,False</value>
+      <value>,PAdd,PAdd,System.String,,False,False</value>
+      <value>,ProcessType,ProcessType,System.String,,False,False</value>
+      <value>,Terms,Terms,System.String,,False,False</value>
+      <value>,OrderType,OrderType,System.String,,False,False</value>
+      <value>,Rupees,Rupees,System.String,,False,False</value>
+      <value>,Bdl,Bdl,System.Int32,,False,False</value>
+    </Variables>
+  </Dictionary>
+  <EngineVersion>EngineV2</EngineVersion>
+  <GlobalizationStrings isList="true" count="0" />
+  <Pages isList="true" count="2">
+    <Page1 Ref="6" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="1">
+        <PageHeaderBand1 Ref="7" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.4,19,10.4</ClientRectangle>
+          <Components isList="true" count="24">
+            <Text1 Ref="8" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,19,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.ExporterName}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text1>
+            <Text2 Ref="9" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0.4,19,1.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text2</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.ExporterAddress}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text2>
+            <Text3 Ref="10" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,3,1.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text3</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>IO.NO:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text3>
+            <Text6 Ref="11" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,3.6,1.4,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text6</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>BUYER </Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text6>
+            <Text7 Ref="12" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,4.2,1.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text7</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>ORDER NO</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text7>
+            <Text8 Ref="13" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,4.8,1.8,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text8</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>STYLE NO</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text8>
+            <Text15 Ref="14" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.6,3,2.2,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text15</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>ORDER QTY :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text15>
+            <Text16 Ref="15" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.6,3.6,2.2,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text16</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>OFFER QTY:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text16>
+            <Text17 Ref="16" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.6,4.2,2.2,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text17</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>GROSS WETT:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text17>
+            <Text18 Ref="17" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.6,4.8,2.2,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text18</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>NETT WETT:</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text18>
+            <Text19 Ref="18" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>11.6,5.4,2.2,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,7.5,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text19</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>CTN :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text19>
+            <Text20 Ref="19" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,3,3.4,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text20</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.IONo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text20>
+            <Text21 Ref="20" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,3.6,7.6,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text21</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.Buyername}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text21>
+            <Text4 Ref="21" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,2.2,19,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <HorAlignment>Center</HorAlignment>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text4</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>PACKING LIST</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text4>
+            <Text5 Ref="22" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,4.8,7.2,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text5</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.styleno}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>DataColumn</Type>
+            </Text5>
+            <Text9 Ref="23" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.2,3,4.2,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text9</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.OrderQty}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text9>
+            <Text10 Ref="24" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.2,3.6,4.4,0.4</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text10</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.DelQty}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text10>
+            <Text22 Ref="25" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.2,4.8,4.2,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text22</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.NettWt}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text22>
+            <Text23 Ref="26" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.2,4.2,4.2,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text23</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.GrossWt}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text23>
+            <Text24 Ref="27" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>14.2,5.4,4.4,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text24</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.CTNNo}</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text24>
+            <Text12 Ref="28" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.8,4.2,6.2,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text12</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Text>{Details.OrderNo}</Text>
+              <TextBrush>Black</TextBrush>
+            </Text12>
+            <HorizontalLinePrimitive1 Ref="29" type="Stimulsoft.Report.Components.StiHorizontalLinePrimitive" isKey="true">
+              <ClientRectangle>0,2.8,19,0.0254</ClientRectangle>
+              <Color>Black</Color>
+              <Name>HorizontalLinePrimitive1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+            </HorizontalLinePrimitive1>
+            <CrossTab1 Ref="30" type="Stimulsoft.Report.CrossTab.StiCrossTab" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>1.4,6.8,13.6,1.8</ClientRectangle>
+              <Components isList="true" count="23">
+                <CrossTab1_ColTotal1 Ref="31" type="Stimulsoft.Report.CrossTab.StiCrossColumnTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>9.65,0.45,0.8,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>0ef247060cfd46689cf2b76f6c3787c7</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_ColTotal1</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_ColTotal1>
+                <CrossTab1_Row1_Title Ref="32" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0.45,1.2,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>0ee1ecd0f2bc48bfb82242d8e16ab273</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row1_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>CTNNo</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>Row:CrossTab1_Row1</TypeOfComponent>
+                </CrossTab1_Row1_Title>
+                <CrossTab1_LeftTitle Ref="33" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0,8.2,0.4</ClientRectangle>
+                  <Font>Arial,8</Font>
+                  <Guid>776071a9997548029e3c9e7498ee40e8</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_LeftTitle</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <Type>Expression</Type>
+                  <TypeOfComponent>LeftTitle</TypeOfComponent>
+                </CrossTab1_LeftTitle>
+                <CrossTab1_Row2_Title Ref="34" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>1.2,0.45,1.4,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>555bb62dab7b42d7aa3b56246c0dd255</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row2_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>ColorDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>Row:CrossTab1_Row2</TypeOfComponent>
+                </CrossTab1_Row2_Title>
+                <CrossTab1_Row3_Title Ref="35" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>2.6,0.45,2,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>62ea5c91db064efcbad3e092bd244949</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row3_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>No Of Cartons
+</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <Type>Expression</Type>
+                  <TypeOfComponent>Row:CrossTab1_Row3</TypeOfComponent>
+                </CrossTab1_Row3_Title>
+                <CrossTab1_RowTotal3 Ref="36" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>2.6,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>ef8c8891c61f4c0683b9754265550cb0</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal3</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal3>
+                <CrossTab1_Row4_Title Ref="37" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>4.6,0.45,1.4,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>3c848d977984421581010169724a92a8</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row4_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Gross Wt</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <Type>Expression</Type>
+                  <TypeOfComponent>Row:CrossTab1_Row4</TypeOfComponent>
+                </CrossTab1_Row4_Title>
+                <CrossTab1_RowTotal6 Ref="38" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>7.2,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>0c83c53c74144ee3bde86deab29e5a12</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal6</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal6>
+                <CrossTab1_Row5_Title Ref="39" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>6,0.45,1.2,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>028c56fa3ad746dda99fe9e7e0a5b6c7</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row5_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Nett Wt</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <Type>Expression</Type>
+                  <TypeOfComponent>Row:CrossTab1_Row5</TypeOfComponent>
+                </CrossTab1_Row5_Title>
+                <CrossTab1_RowTotal5 Ref="40" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>6,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>d5c8cc2ea7294c08824ea81d585ed49c</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal5</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal5>
+                <CrossTab1_Row6_Title Ref="41" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>7.2,0.45,1,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>a33fcfcfedff4572add01aef4acce68e</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row6_Title</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Totpcs</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>Row:CrossTab1_Row6</TypeOfComponent>
+                </CrossTab1_Row6_Title>
+                <CrossTab1_RowTotal4 Ref="42" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>4.6,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>1030cfe3cfd1499da2b8d0f4197e9986</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal4</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal4>
+                <CrossTab1_RowTotal1 Ref="43" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>0,1.3,8.2,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>d2bc85a61dda4adc9b99f298f18cd709</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal1</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal1>
+                <CrossTab1_RowTotal2 Ref="44" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>1.2,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>3a65141ad8e640e7bfb35d07b837585c</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RowTotal2</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab1_RowTotal2>
+                <CrossTab1_Row1 Ref="45" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>CTNNo</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0.9,1.2,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.CTNNo}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>e9462aff2cf34320b70bdeea050e8efc</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row1</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>CTNNo</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>d2bc85a61dda4adc9b99f298f18cd709</TotalGuid>
+                  <Value>{DataSource1.CTNNo}</Value>
+                </CrossTab1_Row1>
+                <CrossTab1_Row2 Ref="46" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>ColorDesc</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>1.2,0.9,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.ColorDesc}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>6b1084985f66444d8d5bef784a41cafb</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row2</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>ColorDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>3a65141ad8e640e7bfb35d07b837585c</TotalGuid>
+                  <Value>{DataSource1.ColorDesc}</Value>
+                </CrossTab1_Row2>
+                <CrossTab1_Row3 Ref="47" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>Noofcartons</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>2.6,0.9,2,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.Noofcartons}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>012ec6e6e0bf42bbb801abdd3dc4f955</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row3</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>Noofcartons</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>ef8c8891c61f4c0683b9754265550cb0</TotalGuid>
+                  <Value>{DataSource1.Noofcartons}</Value>
+                </CrossTab1_Row3>
+                <CrossTab1_Row4 Ref="48" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>grosswt</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>4.6,0.9,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.grosswt}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>d368595e5c5143c7b72f862b8d6bee68</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row4</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>grosswt</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>1030cfe3cfd1499da2b8d0f4197e9986</TotalGuid>
+                  <Value>{DataSource1.grosswt}</Value>
+                </CrossTab1_Row4>
+                <CrossTab1_Row5 Ref="49" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>netwt</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>6,0.9,1.2,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.netwt}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>3f20ba636a484e65bc124bb4fc19c33f</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row5</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>netwt</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>d5c8cc2ea7294c08824ea81d585ed49c</TotalGuid>
+                  <Value>{DataSource1.netwt}</Value>
+                </CrossTab1_Row5>
+                <CrossTab1_Row6 Ref="50" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>Totpcs</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>7.2,0.9,1,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.Totpcs}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>8527756fe5d6475eaa43d4e0cafb293e</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Row6</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>Totpcs</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>0c83c53c74144ee3bde86deab29e5a12</TotalGuid>
+                  <Value>{DataSource1.Totpcs}</Value>
+                </CrossTab1_Row6>
+                <CrossTab1_Column1 Ref="51" type="Stimulsoft.Report.CrossTab.StiCrossColumn" isKey="true">
+                  <Alias>SizeDesc</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>8.25,0.45,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{DataSource1.SizeDesc}</DisplayValue>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>4d5471abb6784998aceec6e47aed63aa</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Column1</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>SizeDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>0ef247060cfd46689cf2b76f6c3787c7</TotalGuid>
+                  <Type>Expression</Type>
+                  <Value>{DataSource1.SizeDesc}</Value>
+                </CrossTab1_Column1>
+                <CrossTab1_Sum1 Ref="52" type="Stimulsoft.Report.CrossTab.StiCrossSummary" isKey="true">
+                  <Alias>Pcs</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>8.25,0.9,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>3ac4f1a73f4c4ca9a40b06ba96581cc5</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_Sum1</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>0</Text>
+                  <TextBrush>Black</TextBrush>
+                  <Type>Expression</Type>
+                  <Value>{DataSource1.Pcs}</Value>
+                </CrossTab1_Sum1>
+                <CrossTab1_RightTitle Ref="53" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>8.25,0,2.2,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>985bf414d2f945f49fae7d28f0ca96aa</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab1_RightTitle</Name>
+                  <Page isRef="6" />
+                  <Parent isRef="30" />
+                  <Text>SizeDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>RightTitle</TypeOfComponent>
+                </CrossTab1_RightTitle>
+              </Components>
+              <Conditions isList="true" count="0" />
+              <DataRelationName />
+              <DataSourceName>DataSource1</DataSourceName>
+              <EmptyValue />
+              <Filters isList="true" count="0" />
+              <Name>CrossTab1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <Sort isList="true" count="0" />
+            </CrossTab1>
+            <SubReport1 Ref="54" type="SubReport" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.2,8.8,18,1.2</ClientRectangle>
+              <Components isList="true" count="0" />
+              <Name>SubReport1</Name>
+              <Page isRef="6" />
+              <Parent isRef="7" />
+              <SubReportPageGuid>4bdf7610b6c643079b60f27f73311b14</SubReportPageGuid>
+            </SubReport1>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeaderBand1</Name>
+          <Page isRef="6" />
+          <Parent isRef="6" />
+        </PageHeaderBand1>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>74af835296c8414caba5d98307a7d0d8</Guid>
+      <Margins>1,1,1,1</Margins>
+      <Name>Page1</Name>
+      <Page isRef="6" />
+      <PageHeight>29.7</PageHeight>
+      <PageWidth>21</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="55" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </Page1>
+    <subReport_1 Ref="56" type="Page" isKey="true">
+      <Border>None;Black;2;Solid;False;4;Black</Border>
+      <Brush>Transparent</Brush>
+      <Components isList="true" count="1">
+        <PageHeaderBand2 Ref="57" type="PageHeaderBand" isKey="true">
+          <Brush>Transparent</Brush>
+          <ClientRectangle>0,0.4,18,4.8</ClientRectangle>
+          <Components isList="true" count="2">
+            <Text11 Ref="58" type="Text" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0,0,4.6,0.6</ClientRectangle>
+              <Conditions isList="true" count="0" />
+              <Font>Verdana,8,Bold</Font>
+              <Margins>0,0,0,0</Margins>
+              <Name>Text11</Name>
+              <Page isRef="56" />
+              <Parent isRef="57" />
+              <Text>COLORWISE DETAILS :</Text>
+              <TextBrush>Black</TextBrush>
+              <Type>Expression</Type>
+            </Text11>
+            <CrossTab2 Ref="59" type="Stimulsoft.Report.CrossTab.StiCrossTab" isKey="true">
+              <Brush>Transparent</Brush>
+              <ClientRectangle>0.2,0.8,13.8,2.2</ClientRectangle>
+              <Components isList="true" count="11">
+                <CrossTab2_RowTotal1 Ref="60" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>0,1.3,2.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>466b29ba2ae84b4699408c5512c20366</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_RowTotal1</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab2_RowTotal1>
+                <CrossTab2_Row1_Title Ref="61" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0.45,1.4,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>3bfe2eecaa574a99be204f54efcd5ddb</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Row1_Title</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>ColorDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>Row:CrossTab2_Row1</TypeOfComponent>
+                </CrossTab2_Row1_Title>
+                <CrossTab2_ColTotal1 Ref="62" type="Stimulsoft.Report.CrossTab.StiCrossColumnTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>3.85,0.45,0.8,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>f7731d7272494e059d10be4c2ad7d42d</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_ColTotal1</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab2_ColTotal1>
+                <CrossTab2_LeftTitle Ref="63" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0,2.4,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>dda98c9f4a7f4def9f6edf22e50e9ddc</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_LeftTitle</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>ColorDetails</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>LeftTitle</TypeOfComponent>
+                </CrossTab2_LeftTitle>
+                <CrossTab2_RowTotal2 Ref="64" type="Stimulsoft.Report.CrossTab.StiCrossRowTotal" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>1.4,1.3,0,0</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>76c64c4368034c298eb96cba34342e43</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_RowTotal2</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>Total</Text>
+                  <TextBrush>Black</TextBrush>
+                </CrossTab2_RowTotal2>
+                <CrossTab2_Row2_Title Ref="65" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>1.4,0.45,1,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>631e7b701d9d405a99e52042aba2b699</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Row2_Title</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>totPcs</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>Row:CrossTab2_Row2</TypeOfComponent>
+                </CrossTab2_Row2_Title>
+                <CrossTab2_Row1 Ref="66" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>ColorDesc</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>0,0.9,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{ColorDetails.ColorDesc}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>9fdb6aa14829469090fe759764965dd4</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Row1</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>ColorDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>466b29ba2ae84b4699408c5512c20366</TotalGuid>
+                  <Value>{ColorDetails.ColorDesc}</Value>
+                </CrossTab2_Row1>
+                <CrossTab2_Row2 Ref="67" type="Stimulsoft.Report.CrossTab.StiCrossRow" isKey="true">
+                  <Alias>totPcs</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>1.4,0.9,1,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{ColorDetails.totPcs}</DisplayValue>
+                  <Font>Arial,8</Font>
+                  <Guid>cd3c9b18952d48ad900b137ab7898d87</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Row2</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <ShowTotal>False</ShowTotal>
+                  <Text>totPcs</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>76c64c4368034c298eb96cba34342e43</TotalGuid>
+                  <Value>{ColorDetails.totPcs}</Value>
+                </CrossTab2_Row2>
+                <CrossTab2_Column1 Ref="68" type="Stimulsoft.Report.CrossTab.StiCrossColumn" isKey="true">
+                  <Alias>SizeDesc</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>2.45,0.45,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <DisplayValue>{ColorDetails.SizeDesc}</DisplayValue>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>90b83f06e9c543b081661a6e79183dda</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Column1</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>SizeDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TotalGuid>f7731d7272494e059d10be4c2ad7d42d</TotalGuid>
+                  <Value>{ColorDetails.SizeDesc}</Value>
+                </CrossTab2_Column1>
+                <CrossTab2_Sum1 Ref="69" type="Stimulsoft.Report.CrossTab.StiCrossSummary" isKey="true">
+                  <Alias>Pcs</Alias>
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>[255:255:255]</Brush>
+                  <ClientRectangle>2.45,0.9,1.4,0.4</ClientRectangle>
+                  <Conditions isList="true" count="0" />
+                  <Font>Arial,8</Font>
+                  <Guid>4943fc2ad1564c38bc564cc55ead1ef4</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_Sum1</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>0</Text>
+                  <TextBrush>Black</TextBrush>
+                  <Value>{ColorDetails.Pcs}</Value>
+                </CrossTab2_Sum1>
+                <CrossTab2_RightTitle Ref="70" type="Stimulsoft.Report.CrossTab.StiCrossTitle" isKey="true">
+                  <Border>All;[155:155:155];1;Solid;False;4;Black</Border>
+                  <Brush>White</Brush>
+                  <ClientRectangle>2.45,0,2.2,0.4</ClientRectangle>
+                  <Font>Verdana,8.25,Bold,Point,False,0</Font>
+                  <Guid>9cb9867889e14075b46c17b435d9cc9e</Guid>
+                  <Margins>0,0,0,0</Margins>
+                  <Name>CrossTab2_RightTitle</Name>
+                  <Page isRef="56" />
+                  <Parent isRef="59" />
+                  <Text>SizeDesc</Text>
+                  <TextBrush>[105:105:105]</TextBrush>
+                  <TypeOfComponent>RightTitle</TypeOfComponent>
+                </CrossTab2_RightTitle>
+              </Components>
+              <Conditions isList="true" count="0" />
+              <DataRelationName />
+              <DataSourceName>ColorDetails</DataSourceName>
+              <EmptyValue />
+              <Filters isList="true" count="0" />
+              <Name>CrossTab2</Name>
+              <Page isRef="56" />
+              <Parent isRef="57" />
+              <Sort isList="true" count="0" />
+            </CrossTab2>
+          </Components>
+          <Conditions isList="true" count="0" />
+          <Name>PageHeaderBand2</Name>
+          <Page isRef="56" />
+          <Parent isRef="56" />
+        </PageHeaderBand2>
+      </Components>
+      <Conditions isList="true" count="0" />
+      <Guid>4bdf7610b6c643079b60f27f73311b14</Guid>
+      <Margins>1,1,1,1</Margins>
+      <Name>subReport_1</Name>
+      <Page isRef="56" />
+      <PageHeight>29.7</PageHeight>
+      <PageWidth>20</PageWidth>
+      <Report isRef="0" />
+      <Watermark Ref="71" type="Stimulsoft.Report.Components.StiWatermark" isKey="true">
+        <Font>Arial,100</Font>
+        <TextBrush>[50:0:0:0]</TextBrush>
+      </Watermark>
+    </subReport_1>
+  </Pages>
+  <PrinterSettings Ref="72" type="Stimulsoft.Report.Print.StiPrinterSettings" isKey="true" />
+  <ReferencedAssemblies isList="true" count="8">
+    <value>System.Dll</value>
+    <value>System.Drawing.Dll</value>
+    <value>System.Windows.Forms.Dll</value>
+    <value>System.Data.Dll</value>
+    <value>System.Xml.Dll</value>
+    <value>Stimulsoft.Controls.Dll</value>
+    <value>Stimulsoft.Base.Dll</value>
+    <value>Stimulsoft.Report.Dll</value>
+  </ReferencedAssemblies>
+  <ReportAlias>Report</ReportAlias>
+  <ReportChanged>7/10/2018 12:42:26 PM</ReportChanged>
+  <ReportCreated>7/2/2018 2:45:23 PM</ReportCreated>
+  <ReportGuid>e66d7423d28546968bdcf340738d6bd2</ReportGuid>
+  <ReportName>Report</ReportName>
+  <ReportUnit>Centimeters</ReportUnit>
+  <ReportVersion>2009.1.400</ReportVersion>
+  <Script>using System;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Data;
+using Stimulsoft.Controls;
+using Stimulsoft.Base.Drawing;
+using Stimulsoft.Report;
+using Stimulsoft.Report.Dialogs;
+using Stimulsoft.Report.Components;
+
+namespace Reports
+{
+    
+    public class Report : Stimulsoft.Report.StiReport
+    {
+        
+        public Report()
+        {
+            this.InitializeComponent();
+        }
+        #region StiReport Designer generated code - do not modify#endregion StiReport Designer generated code - do not modify
+    }
+}
+</Script>
+  <ScriptLanguage>CSharp</ScriptLanguage>
+  <Styles isList="true" count="0" />
+</StiSerializer>

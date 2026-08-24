@@ -1,0 +1,1403 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CrystalDecisions.Web</name>
+    </assembly>
+    <members>
+        <member name="T:CrystalDecisions.Web.ViewerEventArgs">
+            <summary>
+            Provides data for the Viewer events.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewerEventArgs.Handled">
+            <summary>
+            Gets or sets whether the event was handled. Set to True if you do not want the default action to occur.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.NavigateEventArgs">
+            <summary>
+            Provides data for the Navigate event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.NavigateEventArgs.CurrentPageNumber">
+            <summary>
+            Gets the current page number.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.NavigateEventArgs.NewPageNumber">
+            <summary>
+            Gets the page that is being navigated to.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.NavigateEventArgs.GroupPath">
+            <summary>
+            Gets the group path.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.SearchEventArgs">
+            <summary>
+            Provides data for the Search event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.SearchEventArgs.TextToSearch">
+            <summary>
+            Gets the text to search for in the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.SearchEventArgs.PageNumberToBeginSearch">
+            <summary>
+            Gets the page number to start searching from.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.SearchEventArgs.Direction">
+            <summary>
+            SearchDirection. Gets or sets the direction in which to search. The search direction can be either backward or forward.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ZoomEventArgs">
+            <summary>
+            Provides data for the ViewZoom event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ZoomEventArgs.NewZoomFactor">
+            <summary>
+            Gets the new magnification factor of the viewer.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ZoomEventArgs.CurrentZoomFactor">
+            <summary>
+            Gets current the magnification factor of the viewer.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.DrillSubreportEventArgs">
+            <summary>
+            Provides data for the DrillDownSubreport event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.NewSubreportName">
+            <summary>
+            Gets the new page number of the subreport.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.NewSubreportPosition">
+            <summary>
+            Gets the subreport name that was drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.NewSubreportPageNumber">
+            <summary>
+            Gets the new location of the subreport in the viewer.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.CurrentSubreportName">
+            <summary>
+            Gets the subreport name that was drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.CurrentSubreportPosition">
+            <summary>
+            Gets the current location of the subreport in the viewer.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillSubreportEventArgs.CurrentSubreportPageNumber">
+            <summary>
+            Gets the current page number of the subreport.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.DrillEventArgs">
+            <summary>
+            Provides data for the Drill event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.NewGroupLevel">
+            <summary>
+            Gets the new group level that is being drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.NewGroupName">
+            <summary>
+            Gets the new group name that is being drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.NewGroupPath">
+            <summary>
+            Gets the group number and group level that is being drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.NewGroupNamePath">
+            <summary>
+            For future use.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.CurrentGroupLevel">
+            <summary>
+            Gets the group level that was drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.CurrentGroupName">
+            <summary>
+            Gets the group name that was drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.CurrentGroupPath">
+            <summary>
+            Gets the group number and the current group level that was drilled into.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillEventArgs.CurrentGroupNamePath">
+            <summary>
+            For future use.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ReportPartBookmarkNavigationEventArgs">
+            <summary>
+            Provides data for the ReportPartBookMarkNavagation event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartBookmarkNavigationEventArgs.ReportPartBookmark">
+            <summary>
+            ReportPartBookmark. This is the report part bookmark information attached to the report object that the user clicked. The report part navigation will go to the report object, ObjectName, in the data context, DataContext, in the report specified by ReportUri. If the ReportUri is "", the navigation will jump to a report part within the same report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartBookmarkNavigationEventArgs.NavigationResult">
+            <summary>
+            ReportPartNavigationResult. The page number, section number, and drill-down context to which the Web Forms viewer will jump in the report part navigation. 
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ErrorEventArgs">
+            <summary>
+            Provides data for the Error event in the CrystalReportViewerBase class.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ErrorEventArgs.AspNetLifeCycleStage">
+            <summary>
+            EnumAspNetLifeCycleStage. Gets the ASP.NET life cycle stage.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ErrorEventArgs.AspNetLifeCycleException">
+            <summary>
+            System.Exception. Gets the exception that is thrown by the ASP.NET life cycle.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ErrorEventArgs.ErrorMessage">
+            <summary>
+            String. Gets or sets the error message.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerToolbar.CreatePostBack(System.String,System.String)">
+            <summary>
+            Recreates the post data sent to this page as a URL encoded string.  This string
+            is used by ActiveX print control to simulate a postback of the original request.
+            </summary>
+            <param name="target"></param>
+            <param name="argument"></param>
+            <returns></returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerToolbar.CreatePostBackFormFields(System.String,System.String)">
+            <summary>
+            Recreates the post data sent to this page as HTML form fields.  This is used by
+            the export/print dialog to simulate a postback of the original request.
+            </summary>
+            <param name="target"></param>
+            <param name="argument"></param>
+            <returns></returns>
+        </member>
+        <member name="T:CrystalDecisions.Web.CrystalReportViewer">
+            <summary>
+            Provides properties, methods, and events that give control over how the web forms viewer appears and functions.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.CrystalReportViewerBase">
+            <summary>
+            Base class for the CrystalReportViewer class and the CrystalReportPartsViewer class.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewerBase.ResetReportPartNavigation">
+            <summary>
+            Resets the report part navigation viewing mode.  After a report part navigation, the
+            report source may be different and will be persisted in the viewstate.  The new
+            report source will be used for subsequent postback requests regardless of the report
+            source set in the viewer.  The ResetReportPartNavigation method will reset this behavior
+            and use the report source set in the viewer.
+            <seealso cref="P:CrystalDecisions.Web.CrystalReportViewerBase.ReportSource"/>
+            </summary>
+            <remarks>
+            The scenarios to consider are:
+            <list type="number">
+            <item>
+            Initial report source is set in Page_Load.  After navigation, the new report source
+            is persisted in the viewstate.  On subsequent requests, the new report source is reloaded during
+            LoadViewState.  The call to set initial report source in Page_Load is ignored.
+            </item>
+            <item>
+            Initial report source is set in OnInit.  After navigation, the new report source is
+            persisted in the viewstate.  On subsequent requests, the new report source is reloaded during
+            LoadViewState.  However, the report source is changed to something else in a event handler.
+            </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewerBase.NavigateTo(System.String,System.String)">
+            <summary>
+            Navigates to a specific report object that satisfies the data context for the current report source.
+            </summary>
+            <param name="sDataContext">The data context that is used to filter the report object.</param>
+            <param name="sObjectName">The report object name.</param>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.EnableToolTips">
+            <summary>
+            Gets or sets whether the tooltips will be displayed.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ReportSourceID">
+            <summary>
+            The ID of the ReportSourceControl that this Report viewing control should use to retrieve
+            the report information and report content.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ReportSource">
+            <summary>
+            Sets or gets the report source.
+            <seealso cref="M:CrystalDecisions.Web.CrystalReportViewerBase.ResetReportPartNavigation"/>
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ReportSourceClassFactoryName">
+            <summary>
+            Gets or sets the information needed to create an internal Reportsource object. This object determines how the viewer uses the report source.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.EnterpriseLogon">
+            <summary>
+            Gets or sets the logon information for an enterprise report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ParameterFieldInfo">
+            <summary>
+            Gets or sets the parameter fields collection object.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.LogOnInfo">
+            <summary>
+            Gets or sets the TableLogOnInfos collection.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.SelectionFormula">
+            <summary>
+            Gets or sets the record selection formula of the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ViewTimeSelectionFormula">
+            <summary>
+            String. Gets or sets the record selection formula to filter the data that are currently used in the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ClientTarget">
+            <summary>
+            String. Gets or sets the target rendering for different browsers. Valid values are 'ie4', 'ie5', 'Uplevel', 'Downlevel', and 'Auto'.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.CssFilename">
+            <summary>
+            String. Gets or sets the file path of the cascading style sheet (CSS) file.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.BeforeRender">
+            <summary>
+            Event fires when the report rendering process starts.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.AfterRender">
+            <summary>
+            Event fires when the report rendering process is finished.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.OnRenderScript">
+            <summary>
+            Event fires when the HTML script generation starts.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.OnRenderStyle">
+            <summary>
+            Event fires when the HTML style class generation starts.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.BeforeRenderContent">
+            <summary>
+            Event fires when the report content rendering process starts.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.AfterRenderContent">
+            <summary>
+            Event fires when the report content rendering process is finished.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.BeforeRenderObject">
+            <summary>
+            Event fires when the report content rendering process starts.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.AfterRenderObject">
+            <summary>
+            Event fires when the report object rendering process is finished.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.ReportPartBookmarkNavigation">
+            <summary>
+            Event fires after navigation to a report part in the same report or another report is finished.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.AutoDataBind">
+            <summary>
+            Boolean. Gets or sets whether automatic data binding to a report source is used. If the value is set to True, the DataBind() method is called after OnInit() or Page_Init().
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.EnableDatabaseLogonPrompt">
+            <summary>
+            Boolean. Gets or sets whether the CrystalReportViewer control prompts for database logon if required.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.EnableParameterPrompt">
+            <summary>
+            Boolean. Gets or sets whether the CrystalReportViewer control prompts for report parameters if required.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewerBase.ReuseParameterValuesOnRefresh">
+            <summary>
+            Gets or sets whether the current parameter values are used when the report is refreshed.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportViewerBase.Error">
+            <summary>
+            Event fires when the report object throws an error.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.ShowFirstPage">
+            <summary>
+            Shows the first page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.ShowNextPage">
+            <summary>
+            Shows the next page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.ShowPreviousPage">
+            <summary>
+            Shows the previous page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.ShowLastPage">
+            <summary>
+            Shows the last page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.ShowNthPage(System.Int32)">
+            <summary>
+            Shows the specified page of the report.
+            </summary>
+            <param name="PageNumber">Indicates the page number to show in the CrystalReportViewer control. </param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.SearchAndHighlightText(System.String,CrystalDecisions.Shared.SearchDirection)">
+            <summary>
+            Searches the report for the given text.
+            </summary>
+            <param name="strTextToSearch">Represents the string to search for. </param>
+            <param name="direction">Represents the direction to search for the text. </param>
+            <returns>Returns True if the text was found, or False if the text was not found. </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.Zoom(System.Int32)">
+            <summary>
+            Changes the magnification level of the viewer.
+            </summary>
+            <param name="zoomFactor">Indicates the percentage at which to magnify the CrystalReportViewer. </param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.PageDrillUp">
+            <summary>
+            Brings the view up one level after you perform one or more drilldown actions.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.RefreshReport">
+            <summary>
+            Refreshes the report displayed in the viewer.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnDrill(System.Object,CrystalDecisions.Web.DrillEventArgs)">
+            <summary>
+            Synchronizes the Drill event between two Crystal Report Web Viewers by acting as the default event handler for the second viewer.
+            </summary>
+            <param name="source"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnDrillDownSubreport(System.Object,CrystalDecisions.Web.DrillSubreportEventArgs)">
+            <summary>
+            Synchronizes the DrillDownSubreport event between two Crystal Report Web Viewers by acting as the default event handler for the second viewer.
+            </summary>
+            <param name="source"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnNavigate(System.Object,CrystalDecisions.Web.NavigateEventArgs)">
+            <summary>
+            Synchronizes the Navigate event between two Crystal Report Web Viewers by acting as the default event handler for the second viewer.
+            </summary>
+            <param name="source"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnRefresh(System.Object,CrystalDecisions.Web.ViewerEventArgs)">
+            <summary>
+            Synchronizes the ReportRefresh event between two Crystal Report Web Viewers by acting as the default event handler for the second viewer.
+            </summary>
+            <param name="source"></param>
+            <param name="e"></param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnExport">
+            <summary>
+            Export event is raised.  This event is used by the export/print dialog to request
+            export.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportViewer.OnPrint">
+            <summary>
+            Print event is raised.  This event is used by the ActiveX print control to
+            request pages.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.BorderStyle">
+            <summary>
+               <para>Gets or sets the border style of the Web control.</para>
+            </summary>
+            <value>
+            <para>One of the <see cref="T:System.Web.UI.WebControls.BorderStyle"/> enum values. The default is
+            <see langword="NotSet"/> .</para>
+            </value>
+            <remarks>
+               <para>This property works only in uplevel browsers (IE4+).</para>
+            </remarks>
+            <seealso cref="T:System.Web.UI.WebControls.Style"/>
+            <seealso cref="T:System.Web.UI.WebControls.BorderStyle"/>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.PageToTreeRatio">
+            <summary>
+            Sets the size ratio between the group tree and the report view.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.PageZoomFactor">
+            <summary>
+            Gets or sets the magnification factor for the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.DisplayGroupTree">
+            <summary>
+            Gets or sets whether the tree view is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.DisplayPage">
+            <summary>
+            Gets or sets whether the page view is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.BestFitPage">
+            <summary>
+            Gets or sets whether the page view is best fit to its size or clipped with scrollbars.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.EnableDrillDown">
+            <summary>
+            Gets or sets whether drilling down to a page/chart/summary is enabled.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.DrilldownTarget">
+            <summary>
+            Gets or sets the frame target that drilldown will post back to.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.DisplayToolbar">
+            <summary>
+            Gets or sets whether the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.SeparatePages">
+            <summary>
+            Gets or sets whether the report pages are separated or concatenated.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.ShowAllPageIds">
+            <summary>
+            Gets or sets whether the report object ids are given in the HTML.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasPageNavigationButtons">
+            <summary>
+            Gets or sets whether the page navigation buttons on the toolbar are visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasGotoPageButton">
+            <summary>
+            Gets or sets whether the goto page button on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasSearchButton">
+             <summary>
+            
+             </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasZoomFactorList">
+            <summary>
+            Gets or sets whether the zoom factor list on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasDrillUpButton">
+            <summary>
+            Gets or sets the visibility of the drill up button. The drill up button is used to bring the view up one level after you perform one or more drilldown actions.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasToggleGroupTreeButton">
+            <summary>
+            Gets or sets whether the show/hide group tree button on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasExportButton">
+            <summary>
+            Gets or sets whether the export button on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasPrintButton">
+            <summary>
+            Gets or sets whether the print button on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.HasRefreshButton">
+            <summary>
+            Gets or sets whether the refresh button on the toolbar is visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.TabIndex">
+            <summary>
+            Specifies the tab order of the control.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportViewer.ClientTarget">
+            <summary>
+            Gets or sets the target rendering for different browsers. Valid values are 'ie4', 'ie5', 'Uplevel', 'Downlevel', and 'Auto'.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerSysDisplayNameAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewerSysDisplayNameAttribute.DisplayName">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerSysCategoryAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerSysCategoryAttribute.GetLocalizedString(System.String)">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.ViewerSysDescriptionAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewerSysDescriptionAttribute.Description">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="T:CrystalDecisions.Web.ViewerSys">
+             <summary>
+                AutoGenerated resource class. Usage:
+            
+                    string s = ViewerSys.GetString(ViewerSys.MyIdenfitier);
+             </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ShowGroupTreeBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.SeparatePagesBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.PageToTreeRatioBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ShowToolbarBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ShowToolbarButtonBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.BestFitPageBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ShowToolbarPageRelatedButtonBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.BorderStyleBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportAgentBase.ReportSource">
+            <remarks>
+            Setting ReportSource more than once clears the report state (e.g. ParameterFieldInfo, 
+            LogOnInfo, and SelectionFormula).  The report state is accumulated from user code, 
+            viewer prompting, and user interaction.  Some types of report source such 
+            as report file string are persisted in the viewstate.  Setting ReportSource again
+            after LoadViewState will also clear the report state.
+            </remarks>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ClientTargetBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.CrystalReportPartsViewer">
+            <summary>
+            Provides properties, methods, and events that give control over how the report part viewer appears and functions.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportPartsViewer.NextPage">
+            <summary>
+            Displays the next page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportPartsViewer.PrevPage">
+            <summary>
+            Displays the previous page of the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportPartsViewer.IsFirstPage">
+            <summary>
+            Specifies whether the current page is the first page in the report.
+            </summary>
+            <returns>Returns True if the report is on the first page, or False if the report is on another page. </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportPartsViewer.IsLastPage">
+            <summary>
+            Specifies whether the current page is the last page in the report.
+            </summary>
+            <returns>Returns True if the report is on the last page, or False if the report is on another page. </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportPartsViewer.Refresh">
+            <summary>
+            Refreshes the report displayed in the viewer.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.ReportParts">
+            <summary>
+            Gets or sets the list of report parts to be viewed in the report part viewer. The list of report parts can be defined using the ReportPartsDefinition class.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.BatchSize">
+            <summary>
+            Gets or sets the number of records being displayed in the report part viewer.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.EnableDrillDown">
+            <summary>
+            Gets or sets whether drilling down to a page/chart/summary is enabled.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.RotateSections">
+            <summary>
+            Gets or sets whether the report part's list is rotated. This means that columns become rows, and rows become columns.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.HasBorder">
+            <summary>
+            Gets or sets whether the border is visible.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.ReportTitle">
+            <summary>
+            Gets or sets the title of the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.IsDisplayTitle">
+            <summary>
+            Gets or sets whether the report title is shown.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.IsDisplayHeadings">
+            <summary>
+            Gets or sets whether the report object names are shown at the top of each column.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.HasPageNavigationLinks">
+            <summary>
+            Gets or sets whether the page navigation links are visible or hidden.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.ZoomFactor">
+            <summary>
+            Gets or sets the zoom level of the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportPartsViewer.PreserveLayout">
+            <summary>
+            Gets or sets whether the report parts persist the layout in the original report.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportPartsViewer.FieldDrillDown">
+            <summary>
+            Event fires after a group drilldown is finished.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Web.CrystalReportPartsViewer.ChartDrillDown">
+            <summary>
+            Event fires after a graph drilldown is finished.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ReportPartNode">
+            <summary>
+            Provides properties to identify a report object in the report and contains enough information for the report engine to find this report object.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartNode.Name">
+            <summary>
+            Gets or sets the name of the report object to identify as a report part node.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartNode.DrillDownPath">
+            <summary>
+            Gets or sets the path to the drilldown information. Use this property to add the collection of child ReportNodes containing the information on the next level of drilldown.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ReportPartNodes">
+            <summary>
+            Provides properties and methods to add and retrieve ReportPartNode objects to the collection.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.ReportPartNodes.Add(CrystalDecisions.Web.ReportPartNode)">
+            <summary>
+            Adds a ReportPartNode object to the collection.
+            </summary>
+            <param name="node">The ReportNode object to add to the collection. </param>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartNodes.Count">
+            <summary>
+            Gets the number of elements actually contained in the ArrayList.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.DrillDownEventArgs">
+            <summary>
+            Provides data for the ChartDrillDown event and the FieldDrillDown event.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillDownEventArgs.ObjectName">
+            <summary>
+            Gets the name of the object the user has drilled down on. By default, Crystal Reports generates names like "Field3" or "Text5", but you can rename them in the report designer. The name can only use alphanumeric characters and must start with an alphabetical character. No spaces are allowed.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillDownEventArgs.DataContext">
+            <summary>
+            Gets the data sub tree of the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillDownEventArgs.GroupName">
+            <summary>
+            Gets the name of the group that the user has drilled down on. For example, "USA". 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DrillDownEventArgs.GroupPath">
+            <summary>
+            Gets the path of the group the user has drilled down on. The path is displayed as a zero based array. For example "1-2" would indicate the second item in the first group and the third item in the second group. 
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ReportPartsDefinition">
+            <summary>
+            Provides properties for defining the report parts to display.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartsDefinition.DataContext">
+            <summary>
+            Gets or sets the data sub tree of the report. 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartsDefinition.Title">
+            <summary>
+            Gets or sets the display title of the report. The CrystalReportPartViewer.IsDisplayTitle must be set to True. 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ReportPartsDefinition.ReportPartNodes">
+            <summary>
+            Gets or sets the path to the drill down information. Use this property to add the parent collection of ReportNodes containing the information representing all the levels of drill down.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.CrystalImageCleaner">
+            <summary>
+            Provides methods to delete dynamically generated images by the Web application.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalImageCleaner.Start(System.Int32,System.Int64,System.Web.HttpApplicationState)">
+            <summary>
+            Starts a thread to delete images in the viewers' virtual directory.
+            </summary>
+            <param name="sleep">The time between each image deletion process, when the thread is inactive. </param>
+            <param name="age">The time at which the image file has been last modified. </param>
+            <param name="application">The state of the ASP.NET application. </param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalImageCleaner.Stop(System.Web.HttpApplicationState)">
+            <summary>
+            Stops the thread that handles the image deletion process and removes the CrystalImageCleaner instance that exists in the Web application state.
+            </summary>
+            <param name="application">The state of the ASP.NET application. </param>
+        </member>
+        <member name="T:CrystalDecisions.Web.ViewInfo">
+            <summary>
+            Provides properties for retrieving information about the report that binds to the CrystalReportViewer class.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.IsSubreportView">
+            <summary>
+            Boolean. Gets whether the report is in a subreport view.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.IsMainReportDrillDownView">
+            <summary>
+            Boolean. Gets whether the report is in a main report drill down view.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.IsMainReportView">
+            <summary>
+            Boolean. Gets whether the report is in a main report view.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.IsSubreportDrillDownView">
+            <summary>
+            Boolean. Gets whether the report is in a subreport drill down view.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.PageNumber">
+            <summary>
+            Integer. Gets the current page number of the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.LastPageNumber">
+            <summary>
+            Integer. Gets the last page number for the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.ViewInfo.IsLastPageNumberKnown">
+            <summary>
+            Boolean. Gets whether the last page number is known for the report.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Design.ExportFormatTypeBehaviorConverter">
+            <summary>
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Reporting.WebControls.ParameterList">
+            <summary>
+            A control that prompts the user for parameter information.
+            </summary>
+            <remarks>
+            The list of ParameterField to be prompted is specified by the ParameterFieldInfo property. The 
+            CurrentValues property will be modified during a postback if the user has changed the value.
+            
+            The following table lists the actions performed in each of the ASP server control stages.
+            <list type="table">
+            <listheader>
+                <term>Stage</term>
+                <description>Action</description>
+            </listheader>
+            <item>
+                <term>Initialize</term>
+                <description>Creates and initializes the renderer.</description>
+            </item>
+            <item>
+                <term>Load view state</term>
+                <description>Restores ParameterFieldInfo from viewstate.</description>
+            </item>
+            <item>
+                <term>Process postback data</term>
+                <description>Modifies ParameterFieldInfo using postback data.</description>
+            </item>
+            <item>
+                <term>Load</term>
+            </item>
+            <item>
+                <term>Send postback change notifications</term>
+                <description>Raises ParameterChanged event.</description>
+            </item>
+            <item>
+                <term>Handle postback events</term>
+                <description>Raises ParameterSubmit event.</description>
+            </item>
+            <item>
+                <term>Prerender</term>
+            </item>
+            <item>
+                <term>Save state</term>
+                <description>Saves ParameterFieldInfo to viewstate.</description>
+            </item>
+            <item>
+                <term>Render</term>
+                <description>Renders parameter prompt.</description>
+            </item>
+            <item>
+                <term>Dispose</term>
+            </item>
+            <item>
+                <term>Unload</term>
+            </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.AddText">
+            <summary>
+            Gets or sets the text associated with the add button.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.AddButtonImageURL">
+            <summary>
+            Gets or sets the image url associated with the add button if add button is of ImageButton type
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.AddButtonType">
+            <summary>
+            Gets or sets the button type associated with the add button 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.RemoveText">
+            <summary>
+            Gets or sets the text associated with the remove button.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.RemoveButtonImageURL">
+            <summary>
+            Gets or sets the image url associated with the remove button if add button is of ImageButton type
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.RemoveButtonType">
+            <summary>
+            Gets or sets the button type associated with the remove button 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.SubmitVisible">
+            <summary>
+            Gets or sets a value that indicates whether the submit button is visible.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.SubmitText">
+            <summary>
+            Gets or sets the text associated with the submit button.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.SubmitButtonType">
+            <summary>
+            Gets or sets the button type associated with the submit button 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.SubmitButtonImageURL">
+            <summary>
+            Gets or sets the image url associated with the submit button if add button is of ImageButton type
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.SubmitButtonAlignment">
+            <summary>
+            Gets or sets button alignment
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.ShowHeader">
+            <summary>
+            show header
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.LabelAlignment">
+            <summary>
+            label alignment
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.ParameterList.ParameterFieldInfo">
+            <summary>
+            Gets or sets the collection of ParameterField to be prompted by this control.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Reporting.WebControls.ParameterList.ParameterChanged">
+            <summary>
+            Occurs when any parameter value is changed upon server postback.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Reporting.WebControls.ParameterList.ParameterSubmit">
+            <summary>
+            Occurs when the submit button is clicked.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList">
+            <summary>
+            A control that prompts the user for database logon information. 
+            </summary>
+            <remarks>
+            The list of TableLogOnInfo to be prompted is specified by the LogOnInfos property. The UserID
+            and Password properties of ConnectionInfo will be modified during a postback if the user has
+            changed the value.
+            
+            The following table lists the actions performed in each of the ASP server control stages.
+            <list type="table">
+            <listheader>
+                <term>Stage</term>
+                <description>Action</description>
+            </listheader>
+            <item>
+                <term>Initialize</term>
+                <description>Creates and initializes the renderer.</description>
+            </item>
+            <item>
+                <term>Load view state</term>
+                <description>Restores LogOnInfos from viewstate.</description>
+            </item>
+            <item>
+                <term>Process postback data</term>
+                <description>Modifies LogOnInfos using postback data.</description>
+            </item>
+            <item>
+                <term>Load</term>
+            </item>
+            <item>
+                <term>Send postback change notifications</term>
+                <description>Raises LogOnChanged event.</description>
+            </item>
+            <item>
+                <term>Handle postback events</term>
+                <description>Raises LogOnSubmit event.</description>
+            </item>
+            <item>
+                <term>Prerender</term>
+            </item>
+            <item>
+                <term>Save state</term>
+                <description>Saves LogOnInfos to viewstate.</description>
+            </item>
+            <item>
+                <term>Render</term>
+                <description>Renders log on prompt.</description>
+            </item>
+            <item>
+                <term>Dispose</term>
+            </item>
+            <item>
+                <term>Unload</term>
+            </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.SubmitButtonVisible">
+            <summary>
+            Gets or sets a value that indicates whether the submit button is visible.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.SubmitButtonText">
+            <summary>
+            Gets or sets the text associated with the submit button.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.SubmitButtonType">
+            <summary>
+            Gets or sets the button type associated with the submit button 
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.SubmitButtonImageURL">
+            <summary>
+            Gets or sets the image url associated with the submit button if add button is of ImageButton type
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.SubmitButtonAlignment">
+            <summary>
+            Gets or sets button alignment
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.ServerNameLabelText">
+            <summary>
+            Gets or sets the text associated with the Server name label
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.DatabaseNameLabelText">
+            <summary>
+            Gets or sets the text associated with the database name label
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.UserNameLabelText">
+            <summary>
+            Gets or sets the text associated with the user name label
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.PasswordLabelText">
+            <summary>
+            Gets or sets the text associated with the password label
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.LabelAlignment">
+            <summary>
+            Gets or sets the alignment for labels
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.ShowHeader">
+            <summary>
+             show header or not
+             </summary>
+        </member>
+        <member name="P:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.LogOnInfos">
+            <summary>
+            Gets or sets the collection of LogOnInfo to be prompted by this control.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.LogOnChanged">
+            <summary>
+            Occurs when any user ID or password is changed upon server postback.
+            </summary>
+        </member>
+        <member name="E:CrystalDecisions.Reporting.WebControls.DatabaseLogOnList.LogOnSubmit">
+            <summary>
+            Occurs when the submit button is clicked.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.WebServicesSysDisplayNameAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="P:CrystalDecisions.Web.Services.WebServicesSysDisplayNameAttribute.DisplayName">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.WebServicesSysCategoryAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.WebServicesSysCategoryAttribute.GetLocalizedString(System.String)">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.WebServicesSysDescriptionAttribute.#ctor(System.String)">
+            <summary>
+                Constructs a new sys description.
+            </summary>
+            <param name='description'>
+                description text.
+            </param>
+        </member>
+        <member name="P:CrystalDecisions.Web.Services.WebServicesSysDescriptionAttribute.Description">
+            <summary>
+                Retrieves the description text.
+            </summary>
+            <returns>
+                description
+            </returns>
+        </member>
+        <member name="T:CrystalDecisions.Web.Services.WebServicesSys">
+             <summary>
+                AutoGenerated resource class. Usage:
+            
+                    string s = WebServicesSys.GetString(WebServicesSys.MyIdenfitier);
+             </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Services.ServerFileReportManager">
+            <summary>
+            Enumerates the server files on the server machine.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.ServerFileReportManager.TestListChildObjects(System.String)">
+            <summary>
+            Lists the server files on the server machine.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.ServerFileReportManager.ListChildObjects(CrystalDecisions.Shared.ReportManagerRequest)">
+            <summary>
+            Lists the Enterprise reports on the server machine.
+            </summary>
+            <param name="request">Use to pass the parent folders whose children you want to list. </param>
+        </member>
+        <member name="T:CrystalDecisions.Web.Services.Enterprise.EnterpriseReportManager">
+            <summary>
+            Enumerates the Enterprise reports on the server machine.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.Enterprise.EnterpriseReportManager.TestListChildObjectsEnterprise(System.String,System.String)">
+            <summary>
+            Lists the Enterprise reports on the server machine.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.Services.Enterprise.EnterpriseReportManager.ListChildObjects(CrystalDecisions.Shared.ReportManagerRequest)">
+            <summary>
+            Lists the Enterprise reports on the server machine.
+            </summary>
+            <param name="request">Use to pass the parent folders whose children you want to list. </param>
+        </member>
+        <member name="T:CrystalDecisions.Web.DataSourceRef">
+            <summary>
+            Provides properties to modify or retrieve data binding information about the data source that is used by the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DataSourceRef.DataSourceID">
+            <summary>
+            String. Gets or sets the data source ID.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DataSourceRef.TableName">
+            <summary>
+            String. Gets or sets the name of the table from the data source.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.DataSourceRef.ReportName">
+            <summary>
+            String. Gets or sets the name of the report object that binds to the data source.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.DataSources">
+            <summary>
+            Provides methods and properties to modify or retrieve information about the data sources that are used in the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.DataSources.Add(CrystalDecisions.Web.DataSourceRef)">
+            <summary>
+            Adds a DataSourceRef object to the collection of data sources that are used in the report.
+            </summary>
+            <param name="dataSource">The DataSourceRef object to be added to the collection of data sources.</param>
+        </member>
+        <member name="T:CrystalDecisions.Web.Report">
+            <summary>
+            Provides properties that modify or retrieve information about the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.Report.FileName">
+            <summary>
+            String. Gets or sets the report's file name.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.Report.DataSources">
+            <summary>
+            DataSources. Gets the collection of data sources that are used in the report.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.Report.Parameters">
+            <summary>
+            ParameterCollection. Gets the collection of parameters that are used in the report.
+            </summary>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportSource.BindControlParameter(CrystalDecisions.Web.Parameter)">
+            <summary>
+            Binds the value of the specified control property to the discrete 
+            parameter.  If the parameter is incompatible with the value, the 
+            current value collection of the parameter is cleared.
+            </summary>
+            <param name="parameter"></param>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportSource.ConvertSpecialControlValue(System.Object)">
+            <summary>
+            Converts special object types to simple value types or array of simple
+            value types so they may be added to current value collection.
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportSource.ConvertToValue(CrystalDecisions.Shared.ParameterValueKind,System.Object,System.Boolean)">
+            <summary>
+            Converts an object to a value compatible with the parameter value type.
+            If the object is an empty string and convertEmptyStringToNull is true,
+            null is returned.  FormatException is thrown if convertEmptyStringToNull 
+            is false and the parameter type is not string.
+            </summary>
+            <param name="type"></param>
+            <param name="valueObj"></param>
+            <param name="convertEmptyStringToNull"></param>
+            <returns></returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportSource.GetParameterValue(CrystalDecisions.Web.Parameter)">
+            <summary>
+            Gets a parameter value.
+            </summary>
+            <param name="parameter"></param>
+            <returns></returns>
+        </member>
+        <member name="M:CrystalDecisions.Web.CrystalReportSource.GetControlParameterValue(CrystalDecisions.Web.ControlParameter)">
+            <summary>
+            Gets the value of the control property.  If there is no control
+            with the same ID specified by ControlID, or the control does not 
+            have a property specified by PropertyName, the default value will be
+            returned.
+            </summary>
+            <param name="parameter"></param>
+            <returns></returns>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportSource.CacheDuration">
+            <summary>
+            Integer. Gets or sets the length of time that the cached report data is stored.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportSource.EnableCaching">
+            <summary>
+            Boolean. Gets or sets whether caching is enabled for the report data.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportSource.ReportDocument">
+            <summary>
+            ReportDocument. Gets the ReportDocument object.
+            </summary>
+        </member>
+        <member name="P:CrystalDecisions.Web.CrystalReportSource.Report">
+            <summary>
+            Report. Gets or sets the Report object.
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ControlParameter">
+            <summary>
+            Summary description for Class1
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.Parameter">
+            <summary>
+            Summary description for Parameter
+            </summary>
+        </member>
+        <member name="T:CrystalDecisions.Web.ParameterCollection">
+            <summary>
+            Summary description for ParameterCollection
+            </summary>
+        </member>
+    </members>
+</doc>
