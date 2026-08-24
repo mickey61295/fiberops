@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 // that the user must approve before commit.
 
 import { z } from 'zod'
+import { listUploadDir, extractDocument } from './docExtract'
 
 export type ToolResult = {
   text?: string
@@ -262,7 +263,7 @@ const readTools: AgentTool[] = [
         where: { status: { in: ['open', 'in_progress'] } },
         include: { _count: { select: { productionEntries: true } } },
       })
-      const result = []
+      const result: Array<{ orderNo: string; ordered: number; produced: number; balance: number; deliveryDate: Date | null }> = []
       for (const o of orders) {
         const entries = await db.productionEntry.findMany({
           where: { orderId: o.id }, select: { qty: true }
@@ -814,6 +815,49 @@ const readTools: AgentTool[] = [
       }
     },
   },
+
+  // ───────────── DOCUMENT INGESTION TOOLS ─────────────
+  // These let the agent read files the user uploaded via the chat panel
+  // (paperclip button → /api/upload → /home/z/my-project/upload/), extract
+  // their text, and then create ERP records via the normal create_* tools.
+
+  {
+    name: 'list_documents',
+    description: 'List uploaded documents available for ingestion (PDF, CSV, TXT, MD, JSON) with file sizes. Call this before extract_document to discover exact file names.',
+    domain: 'documents',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const files = await listUploadDir()
+      if (files.length === 0) {
+        return { text: 'No documents in the upload folder. Attach a file via the paperclip button in the chat panel.' }
+      }
+      return {
+        text: `${files.length} document(s) in upload folder`,
+        json: files,
+      }
+    },
+  },
+  {
+    name: 'extract_document',
+    description: 'Extract the raw text of an uploaded document (PDF via OCR-free text layer, plus CSV/TXT/MD/JSON) so it can be parsed and ingested. Returns the full text plus metadata (pages/size/truncated flag). Optional maxChars (default 50000). Use list_documents first to get the exact file name.',
+    domain: 'documents',
+    isWrite: false,
+    schema: z.object({
+      fileName: z.string().describe('Exact file name from list_documents, e.g. "PO_696GJ_revised 21-04-25.pdf"'),
+      maxChars: z.number().optional().describe('Max characters to extract (default 50000)'),
+    }),
+    async execute(args) {
+      const r = await extractDocument(args.fileName, args.maxChars || 50000)
+      const text = r.text && r.text.trim().length > 0
+        ? r.text
+        : '(no text layer found — the PDF is likely scanned images; OCR is not available)'
+      return {
+        text,
+        json: r.meta,
+      }
+    },
+  },
 ]
 
 // ───────────── WRITE TOOLS (plan-then-commit) ─────────────
@@ -821,7 +865,7 @@ const readTools: AgentTool[] = [
 const writeTools: AgentTool[] = [
   {
     name: 'create_order',
-    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned. Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}).',
+    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), notes.',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
@@ -837,23 +881,29 @@ const writeTools: AgentTool[] = [
         rate: z.number(),
       })).min(1),
       notes: z.string().optional(),
+      finYear: z.string().optional(),
     }),
     async execute(args) {
-      const buyer = await db.buyer.findUnique({ where: { code: args.buyerCode } })
-      if (!buyer) return { text: `Buyer ${args.buyerCode} not found. Use list_buyers first.` }
+      // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
+      const buyer = (await db.buyer.findUnique({ where: { code: args.buyerCode } }))
+        || (await db.buyer.findFirst({ where: { name: args.buyerCode } }))
+      if (!buyer) return { text: `Buyer ${args.buyerCode} not found (tried code and name). Use list_buyers first.` }
       const style = await db.style.findUnique({ where: { styleNo: args.styleNo } })
       if (!style) return { text: `Style ${args.styleNo} not found. Use list_styles first.` }
 
       const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
       const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-      const finYear = '26-27'
+      const finYear = args.finYear || '26-27'
 
-      // Resolve colour/size ids
-      const linesData = await Promise.all(args.lines.map(async (l) => {
-        const colour = await db.colour.findUnique({ where: { name: l.colourName } })
-        const size = await db.size.findUnique({ where: { name: l.sizeName } })
+      // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy")
+      const [allColours, allSizes] = await Promise.all([db.colour.findMany(), db.size.findMany()])
+      const colourByName = new Map(allColours.map((c) => [c.name.toLowerCase(), c]))
+      const sizeByName = new Map(allSizes.map((s) => [s.name.toLowerCase(), s]))
+      const linesData = args.lines.map((l) => {
+        const colour = colourByName.get(String(l.colourName).toLowerCase())
+        const size = sizeByName.get(String(l.sizeName).toLowerCase())
         return { colourId: colour?.id || '', sizeId: size?.id || '', qty: l.qty, rate: l.rate }
-      }))
+      })
 
       // Resolve a free order number (auto-increment if not provided / collision)
       const resolvedOrderNo = await (async () => {
@@ -1497,8 +1547,10 @@ const writeTools: AgentTool[] = [
     async execute(args) {
       let buyer: any = null
       if (args.buyerCode) {
-        buyer = await db.buyer.findUnique({ where: { code: args.buyerCode } })
-        if (!buyer) return { text: `Buyer ${args.buyerCode} not found` }
+        // Accept either the buyer code (B-0001) or the buyer name ("LPP SA")
+        buyer = (await db.buyer.findUnique({ where: { code: args.buyerCode } }))
+          || (await db.buyer.findFirst({ where: { name: args.buyerCode } }))
+        if (!buyer) return { text: `Buyer ${args.buyerCode} not found (tried code and name). Use list_buyers first.` }
       }
       const resolvedStyleNo = await (async () => {
         const desired = args.styleNo?.trim()
@@ -1832,6 +1884,46 @@ const writeTools: AgentTool[] = [
         async commit() {
           const s = await db.size.create({ data: { name: args.name, sort: args.sort || 0 } })
           return { id: s.id }
+        },
+      }
+    },
+  },
+  {
+    name: 'create_sizes',
+    description: 'Batch-create a full size scale in ONE call (preferred over repeated create_size when ingesting documents). Pass every size name of the scale via "names", e.g. names=["104","110","116","122","128","134","140"] or names=["XS","S","M","L","XL"]. Sizes that already exist are skipped automatically.',
+    domain: 'masters',
+    isWrite: true,
+    schema: z.object({
+      names: z.array(z.string()).min(1).optional().describe('All size names of the scale, in sort order'),
+      sizes: z.array(z.string()).min(1).optional().describe('Alias for names'),
+    }),
+    async execute(args) {
+      const requested = (args.names || args.sizes || []) as string[]
+      if (requested.length === 0) {
+        return { text: 'No sizes provided. Pass names=[...] with at least one size name.' }
+      }
+      const all = await db.size.findMany()
+      const existingNames = new Set(all.map((s) => s.name))
+      const maxSort = all.reduce((m, s) => Math.max(m, s.sort), 0)
+      const missing = requested.filter((n) => n && !existingNames.has(n))
+      if (missing.length === 0) {
+        return { text: `All ${requested.length} sizes already exist.` }
+      }
+      let sort = maxSort
+      const toCreate = missing.map((n) => {
+        sort += 1
+        return { name: n, sort }
+      })
+      return {
+        text: `Proposed ${toCreate.length} new sizes: ${toCreate.map((s) => s.name).join(', ')} (${requested.length - toCreate.length} already exist).`,
+        plan: {
+          summary: `Create ${toCreate.length} size masters | ${toCreate.map((s) => s.name).join(', ')}`,
+          creates: toCreate.map((s) => ({ table: 'size', data: s })),
+          sideEffects: ['Sizes can now be used on order lines, stock, cut bundles'],
+        },
+        async commit() {
+          await db.size.createMany({ data: toCreate })
+          return { created: toCreate.length, names: toCreate.map((s) => s.name) }
         },
       }
     },

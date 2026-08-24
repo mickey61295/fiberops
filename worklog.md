@@ -26,3 +26,28 @@ Stage Summary:
 - User's original complaint ("I thought we decided everything in the app should be able to be done through ai chat") is resolved — creating buyers, suppliers, styles, fabrics, employees, colours, sizes, UOMs, etc. is now done directly in chat.
 - Files changed: src/lib/agent/tools.ts, src/app/api/agent/route.ts.
 - No DB migration needed (no schema changes — only added agent tools).
+
+---
+Task ID: document-ingestion
+Agent: main
+Task: User uploaded "PO_696GJ_revised 21-04-25.pdf" and asked what it is and how to ingest it. The ERP had NO document ingestion capability — agent tools could only operate on DB data.
+
+Work Log:
+- Analyzed the PDF (26 pages, 3.4 MB): a revised formal Purchase Order from LPP SA (Poland — Sinsay brand) to Baalaji Export (Tirupur), model 696GJ "BOYS' T-SHIRT", season AW 2025. Contains 5 order entities (11135903/5196 pcs, 11136041 E-COMM/738, 11136133/3264, 11111841/11340, 11136129 E-COMM/9468) = 30,006 pcs total, colour 59X NAVY, sizes 104-140, USD 1.05/pc, FOB Tuticorin → Gdynia, Sea, TT 180 days, shipments 2025-05-19 and 2025-06-02, plus LPP commercial terms/AQL/packing annexes.
+- Freed 1.4 GB disk (disk was 100% full — dev server had died; removed 3 duplicated copies of the source-erp archive, npm cache, .next cache).
+- Built the ingestion pipeline:
+  * src/lib/agent/docExtract.ts — sanitized upload-dir file listing + text extraction (PDF via pdftotext UTF-8 with stdout recovery, plus txt/csv/md/json/tsv). Path traversal blocked.
+  * src/lib/agent/tools.ts — new read tools: list_documents, extract_document (returns full text + metadata); new write tool create_sizes (batch size-scale creation, accepts names/sizes alias); create_order/create_style now accept buyer code OR name; create_order colour/size resolution is case-insensitive; create_order takes optional finYear for historical documents.
+  * src/app/api/upload/route.ts — multipart upload endpoint (25 MB cap, sanitized names) into /home/z/my-project/upload/.
+  * src/app/api/agent/route.ts — MAX_STEPS 8→12; extract_document tool results may carry up to 80K chars to the model (others 8K); added zod schema validation with automatic type coercion for common LLM mistakes (numeric strings, boolean strings) via parseWithCoercion; rewrote SYSTEM_PROMPT with a DOCUMENT INGESTION section (two-phase masters→orders protocol, direction rule: buyer PO = OUR sales order, never create item masters for buyer SKUs, map colour codes to existing colour names).
+  * src/components/agent/agent-panel.tsx — Attach (paperclip) button + hidden file input + upload → attached-file chip; sending prepends "[Attached document: X]" to the prompt; new suggested prompt for ingestion.
+- Fixed all pre-existing TS errors in agent code (TurnEvent union, zodToJsonSchema cast, get_line_status typing, erp route PurchaseOrder include).
+- E2E tested with the real PDF (scripts/test_ingest.mjs): Phase 1 extracted the doc and proposed buyer/style/sizes; approvals committed them. Phase 2 ("continue") proposed all 5 orders with exact per-size quantities; approvals committed them. Verified via /api/erp: orders 11135903/11136041/11136133/11111841/11136129 in DB with finYear 24-25, orderDate 2025-03-03, correct deliveries and totals (30,006 pcs / USD 31,506.30).
+- Cleaned test junk from DB (scripts/inspect_and_clean.js): duplicate "59X NAVY" colour remapped to Navy, 7 junk accessories deleted, 3 duplicate Baalaji Export parties deleted. Buyer B-0001 (LPP SA), style STY-0001, sizes 104-140 kept.
+- Verified homepage 200 and chat query "Summarize orders from LPP SA" returns the correct table (30,006 pcs, 31,506.30).
+
+Stage Summary:
+- The ERP now has full document ingestion: attach PDF/CSV in chat → agent extracts text → proposes masters → user approves → user says "continue" → agent proposes orders per document entity → user approves → committed.
+- Files changed: src/lib/agent/docExtract.ts (new), src/app/api/upload/route.ts (new), src/lib/agent/tools.ts, src/app/api/agent/route.ts, src/components/agent/agent-panel.tsx, src/app/api/erp/route.ts (pre-existing TS fix).
+- Tool count now ~77 (41 read + 36 write).
+- Known minor gap for future: scanned/image-only PDFs have no OCR; ₹ symbol shown for USD values until a currency field is added to Order.

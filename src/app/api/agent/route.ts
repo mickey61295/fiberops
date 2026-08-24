@@ -13,6 +13,7 @@ You control the ENTIRE ERP through natural language prompts by calling tools. **
 ## Capabilities
 
 READ tools (no approval needed):
+- Documents: list_documents, extract_document (uploaded PDFs/CSVs — for ingestion)
 - Orders / POs / GRNs: list_orders, get_order, list_purchase_orders, get_purchase_order
 - Inventory: get_stock, get_stock_ledger
 - Cutting / Production: list_cut_orders, get_line_status
@@ -34,6 +35,20 @@ WRITE tools (plan + user-approval + commit):
 1. If the prompt is missing required fields, ask one focused clarifying question (e.g. "What's the GSTIN?" or "Which city?").
 2. Otherwise, immediately call the matching create_* tool — it returns a plan that the user will Approve/Reject in the panel.
 3. Auto-numbered fields (code, orderNo, poNo, etc.) should be OMITTED unless the user explicitly demands a specific value.
+
+## DOCUMENT INGESTION (buyer POs, supplier POs, CSVs)
+Users can attach files via the paperclip button; they land in the upload folder. Tools: list_documents, extract_document.
+When asked to "ingest" / "import" / "book" a document:
+1. Call extract_document with the exact file name (use list_documents if unsure).
+2. Read the extracted text carefully. It is a REAL buyer purchase order (or similar). Identify: buyer, model/style no, season, colour(s), size scale, per-entity order numbers, quantities per colour×size, unit price & currency, order date, shipment/delivery dates, Incoterms, payment terms.
+3. DIRECTION RULE — critical: a "Purchase Order" sent TO us BY a buyer (e.g. LPP SA ordering from our factory) is a SALES order for us → use create_order with the buyer's order number as orderNo. create_purchase_order is ONLY for orders WE place on OUR suppliers (yarn/fabric/accessories). Buyer SKU indexes like "696GJ-59X-104" are NOT items — NEVER create accessory/yarn/fabric masters to represent them; they decompose into style + colour + size on sales order lines. Map buyer colour codes to existing colour names where equivalent (e.g. "59X NAVY" → "Navy") instead of creating duplicate colours.
+4. Work in TWO PHASES because write plans only commit after user approval:
+   - PHASE 1 — masters: check list_buyers / list_styles / list_colours / list_sizes, then propose create_buyer (buyer) FIRST, then create_style (model no as styleNo — only pass fields that are actually in the document, e.g. skip sam/category if unknown), then create_sizes (the WHOLE size scale in one batched call), create_colour only if truly missing. Then STOP and tell the user: "Approve the pending masters above, then type 'continue' and I'll book the orders."
+   - PHASE 2 — transactions (when the user says continue / after approvals): re-extract the document if the details are no longer in context, verify masters now exist via list_* tools, then propose ONE ORDER PER order entity / order number in the document. Pass orderNo = the buyer's own order number, buyerCode, styleNo, orderDate, deliveryDate = shipment date, lines = one line per colour×size with qty and rate, notes capturing currency (e.g. "USD"), Incoterms, payment terms, transport, port, and channel (e.g. E-COMM) since the ERP stores values as plain numbers.
+5. If the document's dates belong to a different financial year, pass finYear accordingly (format "YY-YY", e.g. "24-25" for order date 2025-03-03).
+6. Batch independent tool calls in the same step (e.g. all the list_* checks at once, or several create_order calls at once) to stay within the step budget.
+7. Present a summary table of what will be created and remind the user each plan needs approval. Quantities must sum exactly to the document totals — double-check before proposing.
+8. NEVER invent quantities, prices or dates that are not in the document. If a field is absent (e.g. E-COMM entities without prices), use rate 0 and say so in notes.
 
 ## CRITICAL SAFETY RULES
 1. For READ prompts, call read tools immediately. Synthesize a concise bullet-point answer.
@@ -70,7 +85,10 @@ interface ChatMessage {
 interface TurnEvent {
   type:
     | 'start'
+    | 'step-start'
+    | 'text-start'
     | 'text-delta'
+    | 'text-end'
     | 'tool-call-start'
     | 'tool-call-args-delta'
     | 'tool-call-end'
@@ -81,7 +99,7 @@ interface TurnEvent {
   [key: string]: any
 }
 
-const MAX_STEPS = 8
+const MAX_STEPS = 12
 
 function encodeEvent(ev: TurnEvent): string {
   return `data: ${JSON.stringify(ev)}\n\n`
@@ -114,7 +132,7 @@ function buildToolSpecs() {
   // OpenAI function-calling schema — convert Zod schemas to JSON Schema.
   // Strip the $schema key which OpenAI doesn't accept.
   return allTools.map((t) => {
-    const jsonSchema = zodToJsonSchema(t.schema, 'parameters') as any
+    const jsonSchema = zodToJsonSchema(t.schema as any, 'parameters') as any
     // zod-to-json-schema adds $schema; OpenAI rejects it
     if (jsonSchema.$schema) delete jsonSchema.$schema
     return {
@@ -151,6 +169,64 @@ function normalizeArgs(args: any): any {
     }
   }
   return out
+}
+
+// LLMs sometimes pass numbers as strings ("4.5") or booleans as "true".
+// After a zod failure, patch only the flagged paths and re-validate.
+function setByPath(obj: any, path: (string | number)[], value: any) {
+  let cur = obj
+  for (let i = 0; i < path.length - 1; i++) {
+    const k = path[i]
+    cur = cur?.[k as any]
+  }
+  const last = path[path.length - 1]
+  if (cur != null && last !== undefined) {
+    ;(cur as any)[last as any] = value
+  }
+}
+
+function getByPath(obj: any, path: (string | number)[]): any {
+  let cur = obj
+  for (const k of path) cur = cur?.[k as any]
+  return cur
+}
+
+function parseWithCoercion(schema: any, args: any): { ok: true; value: any } | { ok: false; error: any } {
+  try {
+    return { ok: true, value: schema.parse(args) }
+  } catch (first: any) {
+    const issues = first?.issues || []
+    if (issues.length === 0) return { ok: false, error: first }
+    let fixed: any
+    try {
+      fixed = JSON.parse(JSON.stringify(args))
+    } catch {
+      return { ok: false, error: first }
+    }
+    let applied = 0
+    for (const issue of issues) {
+      const path: (string | number)[] = issue.path || []
+      if (path.length === 0) continue
+      const current = getByPath(fixed, path)
+      if (issue.code === 'invalid_type' && (issue.expected === 'number' || issue.expected === 'integer')) {
+        if (typeof current === 'string' && current.trim() !== '' && Number.isFinite(Number(current))) {
+          setByPath(fixed, path, Number(current))
+          applied++
+        }
+      } else if (issue.code === 'invalid_type' && issue.expected === 'boolean') {
+        if (current === 'true' || current === 'false') {
+          setByPath(fixed, path, current === 'true')
+          applied++
+        }
+      }
+    }
+    if (applied === 0) return { ok: false, error: first }
+    try {
+      return { ok: true, value: schema.parse(fixed) }
+    } catch (second: any) {
+      return { ok: false, error: second }
+    }
+  }
 }
 
 export async function POST(req: Request) {
@@ -299,30 +375,41 @@ export async function POST(req: Request) {
             if (!t) {
               result = { error: `Unknown tool: ${toolName}` }
             } else {
-              try {
-                result = await t.execute(args)
-                // Persist audit log
-                await db.agentTurn
-                  .create({
-                    data: {
-                      prompt: userText,
-                      plan: result.plan
-                        ? JSON.stringify(result.plan)
-                        : null,
-                      toolCalls: JSON.stringify([
-                        { name: toolName, args, isWrite: t.isWrite },
-                      ]),
-                      result: (
-                        result.text ||
-                        JSON.stringify(result.json || '')
-                      ).slice(0, 2000),
-                      approved: !t.isWrite,
-                      userId: 'admin',
-                    },
-                  })
-                  .catch(() => {})
-              } catch (err: any) {
-                result = { error: err.message || String(err) }
+              // Validate arguments against the tool's zod schema (with type
+              // coercion for common LLM string/number mixups) so the model
+              // gets a clean, actionable error instead of a runtime crash.
+              const parsed = parseWithCoercion(t.schema, args)
+              if (!parsed.ok) {
+                const issues = (parsed.error?.issues || [])
+                  .map((i: any) => `${(i.path || []).join('.') || '(root)'}: ${i.message}`)
+                  .join('; ')
+                result = { error: `Invalid arguments for ${toolName}: ${issues || parsed.error?.message || 'validation failed'}` }
+              } else {
+                try {
+                  result = await t.execute(parsed.value)
+                  // Persist audit log
+                  await db.agentTurn
+                    .create({
+                      data: {
+                        prompt: userText,
+                        plan: result.plan
+                          ? JSON.stringify(result.plan)
+                          : null,
+                        toolCalls: JSON.stringify([
+                          { name: toolName, args: parsed.value, isWrite: t.isWrite },
+                        ]),
+                        result: (
+                          result.text ||
+                          JSON.stringify(result.json || '')
+                        ).slice(0, 2000),
+                        approved: !t.isWrite,
+                        userId: 'admin',
+                      },
+                    })
+                    .catch(() => {})
+                } catch (err: any) {
+                  result = { error: err.message || String(err) }
+                }
               }
             }
 
@@ -348,11 +435,14 @@ export async function POST(req: Request) {
               ),
             )
 
-            // 4. Send tool result back to the model in OpenAI format
+            // 4. Send tool result back to the model in OpenAI format.
+            // extract_document results carry whole documents — allow much
+            // larger payloads than regular tool results.
+            const resultLimit = toolName === 'extract_document' ? 80000 : 8000
             messages.push({
               role: 'tool',
               tool_call_id: tc.id,
-              content: JSON.stringify(toolOutput).slice(0, 8000),
+              content: JSON.stringify(toolOutput).slice(0, resultLimit),
             })
           }
 

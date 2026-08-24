@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface AgentPanelProps {
@@ -46,7 +46,7 @@ const SUGGESTED_PROMPTS = [
   'Create a sales order for buyer B001, style S-1001, 5000 pcs at ₹350/pc (Red/M=1000, Red/L=1000, Blue/M=1500, Blue/L=1500), delivery 2026-10-15',
   'Show me production status for SO-1001',
   'Get dashboard KPIs',
-  'Show me pending approvals',
+  'List the documents I uploaded, then ingest the purchase order into the ERP',
 ]
 
 export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps) {
@@ -57,6 +57,9 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
   const [pendingApprovals, setPendingApprovals] = useState<Record<string, PendingApproval>>({})
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({})
   const abortRef = useRef<AbortController | null>(null)
+  const [attachedFile, setAttachedFile] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -70,8 +73,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
   }, [])
 
   const sendPrompt = useCallback(async (promptText?: string) => {
-    const text = (promptText ?? input).trim()
-    if (!text || streaming) return
+    const rawText = (promptText ?? input).trim()
+    if ((!rawText && !attachedFile) || streaming) return
+    // If a document is attached, tell the agent which file to work on.
+    const text = attachedFile ? `[Attached document: ${attachedFile}]\n${rawText || 'Ingest this document into the ERP.'}` : rawText
+    if (!text) return
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -88,6 +94,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
     }
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setInput('')
+    setAttachedFile(null)
     setStreaming(true)
 
     const controller = new AbortController()
@@ -219,11 +226,32 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
       setStreaming(false)
       abortRef.current = null
     }
-  }, [input, messages, streaming])
+  }, [input, messages, streaming, attachedFile])
 
   const stop = () => {
     abortRef.current?.abort()
     setStreaming(false)
+  }
+
+  const uploadFile = async (file: File) => {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.success) {
+        setAttachedFile(data.fileName)
+        toast.success(`Attached ${data.fileName} (${(data.sizeBytes / 1024).toFixed(0)} KB). Now say "ingest this" or ask a question about it.`)
+      } else {
+        toast.error('Upload failed: ' + (data.error || 'unknown'))
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const approve = async (toolCallId: string) => {
@@ -426,11 +454,20 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (!input.trim()) return
+            if (!input.trim() && !attachedFile) return
             sendPrompt()
           }}
           className="border-t border-slate-200 p-3 space-y-2"
         >
+          {attachedFile && (
+            <div className="flex items-center gap-2 text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md px-2 py-1.5">
+              <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate flex-1 font-medium">{attachedFile}</span>
+              <button type="button" onClick={() => setAttachedFile(null)} className="text-emerald-600 hover:text-emerald-800">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -448,12 +485,33 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
               {messages.length} msgs · {streaming ? 'streaming' : 'idle'}
             </div>
             <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.csv,.txt,.md,.json,.tsv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadFile(f)
+                }}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                disabled={uploading || streaming}
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach a document (PDF/CSV/TXT) for the agent to read & ingest"
+              >
+                {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Paperclip className="h-3.5 w-3.5 mr-1" />}
+                Attach
+              </Button>
               {streaming && (
                 <Button size="sm" variant="outline" onClick={stop} type="button">
                   Stop
                 </Button>
               )}
-              <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!input.trim() || streaming}>
+              <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={(!input.trim() && !attachedFile) || streaming}>
                 <Send className="h-3.5 w-3.5 mr-1" />
                 Send
               </Button>

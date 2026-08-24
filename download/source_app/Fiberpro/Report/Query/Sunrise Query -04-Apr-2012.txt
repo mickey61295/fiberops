@@ -1,1 +1,0 @@
-Insert into PartDefine (Ordid,StyleNo,PartId) Values (1674,'SKW121-LH01-TOD ADV',0)

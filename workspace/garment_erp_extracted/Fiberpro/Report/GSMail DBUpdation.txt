@@ -1,3 +1,0 @@
-CREATE TABLE Mail_Communication(Coycode int ,finyear char(2) ,Id int NOT NULL primary key,Date datetime NULL,MailTime datetime NULL,Buyerid int NULL,Ordid int NULL,	InOut int NULL,	Remarks varchar(250))
-
- CREATE TABLE Mailcomm_Dtl(	id int ,Sno int ,Descr [varchar](25),AttachPath varchar(250)) 

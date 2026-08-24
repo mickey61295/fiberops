@@ -1,2 +1,0 @@
-Insert Into OrdStyle (ordid, styleno) Select distinct ordid, styleno from orderqtydtl where not exists(Select * from ordstyle Where Ordid=OrderQtyDtl.Ordid AND styleno = OrderQtyDtl.StyleNo)
-Update OrdStyle Set CopyGsm=1

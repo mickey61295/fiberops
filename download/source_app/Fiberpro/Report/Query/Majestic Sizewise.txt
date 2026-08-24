@@ -1,9 +1,0 @@
-NOTE : After Make Budget_Sizewise = "YES" in options
-Bakup before doing as not as before sizewise backup
-------------------------------------------------------
-
-Insert into Bud_InhRateclw  Select A.Ordid,wrkid,B.StyleID,0,A.Rate,A.Styleno,Addrate,A.PartId,jobwrkrate,JobWrkAddRate, B.SizeId  from Pro_Prod_PartwiseRate A INNER JOIN (Select Distinct ORdid,Styleno,Styleid,SizeID From OrderQtyDtl ) B ON A.OrdID = B.OrdID and A.Styleno = B.StyleNo 
-
-Select * Into Pro_Prod_PartwiseRate_Cpy from Pro_Prod_PartwiseRate
-
-Delete from Pro_Prod_PartwiseRate
