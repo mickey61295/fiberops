@@ -1,7 +1,6 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -17,7 +16,24 @@ interface AgentPanelProps {
   onCommitted: () => void
 }
 
+interface ToolCall {
+  toolCallId: string
+  toolName: string
+  args: any
+  output?: any
+  status: 'calling' | 'result' | 'error'
+  isWrite?: boolean
+}
+
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  toolCalls: ToolCall[]
+}
+
 interface PendingApproval {
+  toolCallId: string
   toolName: string
   args: any
   plan: any
@@ -35,63 +51,180 @@ const SUGGESTED_PROMPTS = [
 
 export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
+  const [streaming, setStreaming] = useState(false)
   const [pendingApprovals, setPendingApprovals] = useState<Record<string, PendingApproval>>({})
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({})
-
-  const { messages, input, setInput, handleSubmit, handleInputChange, status, stop, error } = useChat({
-    api: '/api/agent',
-    onError: (e) => {
-      console.error('chat error', e)
-      toast.error('Agent error: ' + e.message)
-    },
-    onFinish: () => {
-      // scroll to bottom
-    },
-  })
-
-  // Defensive: AI SDK may return undefined input during SSR
-  const safeInput = typeof input === 'string' ? input : ''
-  const safeHandleInputChange = (e: any) => {
-    // Prefer the AI SDK's handler when available
-    if (typeof handleInputChange === 'function') {
-      handleInputChange(e)
-      return
-    }
-    // Fallback: update state directly via setInput
-    if (typeof setInput === 'function' && e?.target?.value !== undefined) {
-      setInput(e.target.value)
-    }
-  }
+  const abortRef = useRef<AbortController | null>(null)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, status])
+  }, [messages, streaming])
 
-  // Extract pending approvals from tool results in messages
-  useEffect(() => {
-    const newPending: Record<string, PendingApproval> = {}
-    for (const m of messages) {
-      if (m.role === 'assistant' && m.parts) {
-        for (const part of m.parts as any[]) {
-          if (part.type === 'tool-invocation' && part.state === 'result') {
-            const result = part.result
-            if (result?.isWrite && result?.plan && (result?.hasCommitFn || result?._commitFn)) {
-              newPending[part.toolCallId] = {
-                toolName: result.toolName,
-                args: part.args,
-                plan: result.plan,
-                messageId: m.id,
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedResults((prev) => ({ ...prev, [id]: !prev[id] }))
+  }, [])
+
+  const sendPrompt = useCallback(async (promptText?: string) => {
+    const text = (promptText ?? input).trim()
+    if (!text || streaming) return
+
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      text,
+      toolCalls: [],
+    }
+    const assistantMsgId = `a-${Date.now()}`
+    const assistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      text: '',
+      toolCalls: [],
+    }
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    setInput('')
+    setStreaming(true)
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map((m) => ({
+            role: m.role,
+            content: m.text,
+          })),
+        }),
+        signal: controller.signal,
+      })
+
+      if (!res.body) {
+        toast.error('No response stream')
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let currentTextBuffer = ''
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // SSE: events separated by \n\n
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+        for (const evt of events) {
+          const line = evt.trim()
+          if (!line.startsWith('data:')) continue
+          const json = line.slice(5).trim()
+          if (!json || json === '[DONE]') continue
+          let payload: any
+          try {
+            payload = JSON.parse(json)
+          } catch {
+            continue
+          }
+          switch (payload.type) {
+            case 'text-delta': {
+              currentTextBuffer += payload.delta || ''
+              setMessages((prev) => {
+                const next = [...prev]
+                const idx = next.findIndex((m) => m.id === assistantMsgId)
+                if (idx >= 0) {
+                  next[idx] = { ...next[idx], text: currentTextBuffer }
+                }
+                return next
+              })
+              break
+            }
+            case 'tool-call-start': {
+              currentTextBuffer = '' // reset for next text segment
+              setMessages((prev) => {
+                const next = [...prev]
+                const idx = next.findIndex((m) => m.id === assistantMsgId)
+                if (idx >= 0) {
+                  next[idx] = {
+                    ...next[idx],
+                    toolCalls: [
+                      ...next[idx].toolCalls,
+                      {
+                        toolCallId: payload.toolCallId,
+                        toolName: payload.toolName,
+                        args: payload.args,
+                        status: 'calling',
+                        isWrite: payload.isWrite,
+                      },
+                    ],
+                  }
+                }
+                return next
+              })
+              break
+            }
+            case 'tool-call-end': {
+              const { toolCallId, output, toolName, args } = payload
+              setMessages((prev) => {
+                const next = [...prev]
+                const idx = next.findIndex((m) => m.id === assistantMsgId)
+                if (idx >= 0) {
+                  const tcs = [...next[idx].toolCalls]
+                  const tcIdx = tcs.findIndex((t) => t.toolCallId === toolCallId)
+                  if (tcIdx >= 0) {
+                    tcs[tcIdx] = {
+                      ...tcs[tcIdx],
+                      output,
+                      status: output?.error ? 'error' : 'result',
+                    }
+                  }
+                  next[idx] = { ...next[idx], toolCalls: tcs }
+                }
+                return next
+              })
+              // If write + has plan + has commit fn → pending approval
+              if (output?.isWrite && output?.plan && output?.hasCommitFn) {
+                setPendingApprovals((prev) => ({
+                  ...prev,
+                  [toolCallId]: {
+                    toolCallId,
+                    toolName,
+                    args,
+                    plan: output.plan,
+                    messageId: assistantMsgId,
+                  },
+                }))
               }
+              break
+            }
+            case 'error': {
+              toast.error('Agent error: ' + (payload.error || 'unknown'))
+              break
             }
           }
         }
       }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        toast.error(err?.message || 'Network error')
+      }
+    } finally {
+      setStreaming(false)
+      abortRef.current = null
     }
-    setPendingApprovals(newPending) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [messages])
+  }, [input, messages, streaming])
+
+  const stop = () => {
+    abortRef.current?.abort()
+    setStreaming(false)
+  }
 
   const approve = async (toolCallId: string) => {
     const pending = pendingApprovals[toolCallId]
@@ -104,14 +237,12 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
       })
       const data = await res.json()
       if (data.success) {
-        toast.success(`Approved: ${pending.plan.summary.slice(0, 60)}...`)
-        // Remove from pending
+        toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)
         setPendingApprovals((prev) => {
           const next = { ...prev }
           delete next[toolCallId]
           return next
         })
-        // Trigger refresh
         onCommitted()
       } else {
         toast.error('Approval failed: ' + (data.error || ''))
@@ -130,10 +261,6 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
     toast.info('Plan rejected')
   }
 
-  const toggleExpand = (id: string) => {
-    setExpandedResults((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
@@ -150,31 +277,20 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
           </Button>
         </SheetHeader>
 
-        {/* Messages */}
-        <ScrollArea className="flex-1 min-h-0" ref={scrollRef as any}>
-          <div className="p-4 space-y-4">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-4 space-y-4" ref={scrollRef}>
             {messages.length === 0 && (
               <div className="space-y-4">
                 <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <p className="font-medium text-slate-900 mb-2">I'm your AI agent for the Fiberpro Garment ERP.</p>
-                  <p className="text-xs">I can read & write data across all modules — orders, procurement, inventory, cutting, production, accounting, costing, HR, and approvals. Write actions show you a plan first; you approve before anything commits.</p>
+                  <p className="font-medium text-slate-900 mb-2">I&apos;m your AI agent for the Fiberpro Garment ERP.</p>
+                  <p className="text-xs">I can read &amp; write data across all modules — orders, procurement, inventory, cutting, production, accounting, costing, HR, and approvals. Write actions show you a plan first; you approve before anything commits.</p>
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Try these</div>
                   {SUGGESTED_PROMPTS.map((p, i) => (
                     <button
                       key={i}
-                      onClick={() => {
-                        // 1. Update input state
-                        if (typeof setInput === 'function') {
-                          setInput(p)
-                        }
-                        // 2. Wait for state flush, then submit form
-                        setTimeout(() => {
-                          const form = document.querySelector('form')
-                          if (form) (form as HTMLFormElement).requestSubmit()
-                        }, 150)
-                      }}
+                      onClick={() => sendPrompt(p)}
                       className="w-full text-left text-xs px-3 py-2 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
                     >
                       {p}
@@ -187,37 +303,35 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
             {messages.map((m) => (
               <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
                 {m.role === 'user' ? (
-                  <div className="max-w-[80%] bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm">
-                    {m.content}
+                  <div className="max-w-[80%] bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm whitespace-pre-wrap">
+                    {m.text}
                   </div>
                 ) : (
                   <div className="space-y-2 w-full">
-                    {/* Render assistant text */}
-                    {m.content && (
-                      <div className="text-sm text-slate-800 whitespace-pre-wrap">{m.content}</div>
+                    {m.text && (
+                      <div className="text-sm text-slate-800 whitespace-pre-wrap">{m.text}</div>
                     )}
-                    {/* Render tool calls */}
-                    {(m.parts as any[])?.filter((p) => p.type === 'tool-invocation').map((part: any, i: number) => {
+                    {m.toolCalls.map((tc, i) => {
                       const isExpanded = expandedResults[`${m.id}-${i}`]
-                      const result = part.result
-                      const isPending = result?.isWrite && result?.plan && pendingApprovals[part.toolCallId]
-                      const isError = result?.error
+                      const result = tc.output
+                      const isPending = !!pendingApprovals[tc.toolCallId]
+                      const isError = tc.status === 'error' || result?.error
                       return (
-                        <Card key={i} className={`p-3 border ${isError ? 'border-red-300 bg-red-50' : isPending ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+                        <Card key={tc.toolCallId} className={`p-3 border ${isError ? 'border-red-300 bg-red-50' : isPending ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
                           <div className="flex items-start gap-2">
                             <div className="h-6 w-6 rounded-md bg-slate-200 flex items-center justify-center flex-shrink-0">
                               <Wrench className="h-3.5 w-3.5 text-slate-700" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-mono font-semibold text-slate-900">{part.toolName}</span>
-                                {part.state === 'call' && <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300"><Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />calling</Badge>}
-                                {part.state === 'result' && !isError && !isPending && <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-300">ok</Badge>}
+                                <span className="text-xs font-mono font-semibold text-slate-900">{tc.toolName}</span>
+                                {tc.status === 'calling' && <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300"><Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />calling</Badge>}
+                                {tc.status === 'result' && !isError && !isPending && <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-300">ok</Badge>}
                                 {isError && <Badge variant="outline" className="text-[10px] text-red-700 border-red-300"><AlertCircle className="h-2.5 w-2.5 mr-1" />error</Badge>}
                                 {isPending && <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">pending approval</Badge>}
                               </div>
-                              {/* Args */}
-                              {part.args && (
+
+                              {tc.args && Object.keys(tc.args).length > 0 && (
                                 <div className="mt-1.5">
                                   <button
                                     onClick={() => toggleExpand(`${m.id}-${i}-args`)}
@@ -228,19 +342,19 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
                                   </button>
                                   {expandedResults[`${m.id}-${i}-args`] && (
                                     <pre className="mt-1 text-[10px] bg-white border border-slate-200 rounded p-2 overflow-x-auto max-h-40 overflow-y-auto">
-                                      {JSON.stringify(part.args, null, 2)}
+                                      {JSON.stringify(tc.args, null, 2)}
                                     </pre>
                                   )}
                                 </div>
                               )}
-                              {/* Result preview */}
+
                               {result?.text && (
                                 <div className="mt-1.5 text-xs text-slate-700">{result.text}</div>
                               )}
                               {result?.error && (
                                 <div className="mt-1.5 text-xs text-red-700">{result.error}</div>
                               )}
-                              {/* JSON result, collapsible */}
+
                               {result?.json && (
                                 <div className="mt-1.5">
                                   <button
@@ -258,7 +372,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
                                   )}
                                 </div>
                               )}
-                              {/* Approval card */}
+
                               {isPending && (
                                 <div className="mt-2 p-2 bg-white rounded border border-amber-300">
                                   <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-1">Plan awaiting approval</div>
@@ -282,10 +396,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
                                     </div>
                                   )}
                                   <div className="flex gap-2">
-                                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(part.toolCallId)}>
-                                      <Check className="h-3 w-3 mr-1" /> Approve & Commit
+                                    <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(tc.toolCallId)}>
+                                      <Check className="h-3 w-3 mr-1" /> Approve &amp; Commit
                                     </Button>
-                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => reject(part.toolCallId)}>
+                                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => reject(tc.toolCallId)}>
                                       <X className="h-3 w-3 mr-1" /> Reject
                                     </Button>
                                   </div>
@@ -301,53 +415,45 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
               </div>
             ))}
 
-            {status === 'streaming' && (
+            {streaming && (
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> thinking…
-              </div>
-            )}
-            {error && (
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
-                Error: {error.message}
+                <Loader2 className="h-3 w-3 animate-spin" /> working…
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* Input */}
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (!safeInput.trim()) return
-            handleSubmit(e)
+            if (!input.trim()) return
+            sendPrompt()
           }}
           className="border-t border-slate-200 p-3 space-y-2"
         >
           <Textarea
-            value={safeInput}
-            onChange={safeHandleInputChange}
-            placeholder="Ask the agent to do anything in the ERP — e.g. 'Create a yarn PO for SUP001, 500 kg of 30s cotton at ₹180/kg, delivery 2026-09-05'"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask the agent — e.g. 'Create a yarn PO for SUP001, 500 kg of 30s cotton at ₹180/kg, delivery 2026-09-05'"
             className="min-h-[60px] max-h-[120px] resize-y text-sm"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
-                if (safeInput.trim()) {
-                  handleSubmit(e as any)
-                }
+                if (input.trim()) sendPrompt()
               }
             }}
           />
           <div className="flex justify-between items-center">
             <div className="text-[10px] text-slate-500">
-              {messages.length} msgs · {status}
+              {messages.length} msgs · {streaming ? 'streaming' : 'idle'}
             </div>
             <div className="flex gap-2">
-              {status === 'streaming' && (
-                <Button size="sm" variant="outline" onClick={stop}>
+              {streaming && (
+                <Button size="sm" variant="outline" onClick={stop} type="button">
                   Stop
                 </Button>
               )}
-              <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!safeInput.trim() || status === 'streaming'}>
+              <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={!input.trim() || streaming}>
                 <Send className="h-3.5 w-3.5 mr-1" />
                 Send
               </Button>

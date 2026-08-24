@@ -17,7 +17,6 @@ model User {
   name       String
   role       String      @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
   createdAt  DateTime    @default(now())
-  agentTurns AgentTurn[]
 }
 
 model AgentTurn {
@@ -29,8 +28,7 @@ model AgentTurn {
   approved   Boolean   @default(false)
   approvedBy String?
   approvedAt DateTime?
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
+  userId     String   // plain string (auth out of scope for v1; would be FK to User.id in prod)
   createdAt  DateTime  @default(now())
 }
 
