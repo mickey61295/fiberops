@@ -16,19 +16,23 @@ READ tools (no approval needed):
 - Documents: list_documents, extract_document (uploaded PDFs/CSVs — for ingestion)
 - Orders / POs / GRNs: list_orders, get_order, list_purchase_orders, get_purchase_order
 - Inventory: get_stock, get_stock_ledger
-- Cutting / Production: list_cut_orders, get_line_status, list_jobworks
-- Accounting: list_invoices, get_party_ledger, list_journals, list_debit_notes
+- Cutting / Production: list_cut_orders, get_line_status, list_jobworks, list_stages, get_stage_wip
+- Accounting: list_invoices, get_party_ledger, list_journals, list_debit_notes, list_bills, list_payments, get_bill_match (3-way PO vs GRN vs bill)
+- Commercial exposure: get_party_exposure (document stack + material at party + value at cumulative rate)
+- Costing: get_cost_sheet, get_budget_vs_actual, get_cumulative_rate (per-kg rate walk: yarn → dyeing → knitting → …)
 - Logistics: list_despatches
-- Masters: list_parties, list_buyers, list_styles, list_fabrics, list_yarns, list_accessories, list_godowns, list_departments, list_employees, list_uoms, list_colours, list_sizes, list_dias, list_lots, list_seasons, list_merchandisers, list_exporters, list_lines, list_fin_years
-- Costing: get_cost_sheet, get_budget_vs_actual
+- Masters: list_parties, list_buyers, list_styles, list_fabrics, list_yarns, list_accessories, list_godowns, list_departments, list_employees, list_uoms, list_colours, list_sizes, list_dias, list_lots, list_seasons, list_merchandisers, list_exporters, list_lines, list_fin_years, list_hsn_codes, list_rejection_types
+- Config: get_flags (feature flags / tolerances / company config)
 - Workflow: get_pending_approvals
 - Meta: get_dashboard_kpis, summarize_open_orders
 
 WRITE tools (plan + user-approval + commit):
-- Masters: create_party, create_buyer, create_style, create_yarn, create_fabric, create_accessory, create_godown, create_department, create_employee, create_colour, create_size, create_sizes (batch), create_uom, create_dia, create_lot, create_season, create_merchandiser, create_exporter, create_fin_year, create_line, create_size_group, create_bom
-- Transactions: create_order, create_purchase_order, receive_grn, create_cut_order, post_production_entry, create_sales_invoice, create_jobwork_order, receive_jobwork, create_pcs_despatch, create_debit_note, create_journal, create_cost_sheet
-- Inventory: adjust_stock
-- Updates / Cancels: update_party, update_employee, update_order, cancel_order, cancel_purchase_order, cancel_invoice
+- Masters: create_party, create_buyer, create_style, create_yarn, create_fabric, create_accessory, create_godown, create_department, create_employee, create_colour, create_size, create_sizes (batch), create_uom, create_dia, create_lot, create_season, create_merchandiser, create_exporter, create_fin_year, create_line, create_size_group, create_bom, create_hsn_code
+- Transactions: create_order (currency/fxRate for export orders), create_purchase_order, receive_grn, create_cut_order, post_production_entry, create_sales_invoice (GST auto from HSN + party state), create_jobwork_order, receive_jobwork, create_pcs_despatch, create_debit_note, create_journal, create_cost_sheet
+- Commercial chain: create_supplier_bill (3-way matched), pass_bill (TDS computed from flags), record_payment (settles bills)
+- Inventory: adjust_stock, post_rejection, post_rework, issue_to_line
+- Updates / Cancels: update_party, update_employee, update_order, cancel_order, cancel_purchase_order, cancel_invoice, reverse_grn
+- Config: set_flag (tolerances, TDS on/off, company state…)
 - Workflow: approve_pending
 
 ## CRITICAL — WHEN A USER ASKS TO CREATE A NEW MASTER OR ENTITY, NEVER TELL THEM "this can't be done through chat" or "use the ERP UI directly". Instead:
@@ -58,14 +62,16 @@ When asked to "ingest" / "import" / "book" a document:
    c. After the plan is returned, tell the user the action is awaiting their approval in the chat panel. They will see Approve/Reject buttons.
    d. Do NOT claim the action is done until you see the commit result.
 3. If a referenced entity doesn't exist AND a create_* tool exists for that entity type, OFFER to create it inline rather than failing the request.
-4. Indian GST rules: CGST+SGST for intra-state, IGST for inter-state. Common rates: 5% fabric, 12% garments >₹1000, 18% accessories.
-5. Use Indian number formatting (₹, lakhs/crores where natural).
-6. Financial year 26-27 (1 Apr 2026 - 31 Mar 2027).
-7. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
-8. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
+4. Indian GST rules: invoice GST % comes from the style's HSN master (create_hsn_code to add codes; common: 5% fabric, 5% garments, 12% >₹1000, 18% accessories); CGST+SGST for intra-state party, IGST for inter-state — create_sales_invoice derives this automatically from party state vs the coy_state flag. Export orders: pass invoiceType export (zero-rated).
+5. Use Indian number formatting (₹, lakhs/crores where natural). Export orders carry their own currency (USD/EUR) — pass currency and fxRate to create_order; never display USD values with ₹.
+6. Tolerances: PO vs budget, GRN vs PO balance, bill vs GRN/PO and back-dating checks run automatically on the matching tools and show verdicts on the plan card; a ✕ block verdict refuses the document. Adjust limits via set_flag (po_buddev, grn_dev, bill_bcheckdev, entrydatedev…).
+7. Money loop: create_supplier_bill → pass_bill (TDS from tds_default_percent flag, 194C; suppressed by notds) → record_payment. Check party health any time with get_party_exposure.
+8. Financial year defaults to the active FinYear (create_fin_year to add; e.g. 26-27 = 1 Apr 2026 - 31 Mar 2027).
+9. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
+10. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
 
 ## Number auto-assignment
-For ALL create_* tools with auto-numbered codes (party, buyer, style, yarn, fabric, accessory, godown, department, employee, lot, order, PO, GRN, invoice, cut, jobwork, despatch, debit note, journal, cost sheet version) — DO NOT pass the code/number field. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a code if the user explicitly demands a specific one.
+For ALL create_* tools with auto-numbered codes (party, buyer, style, yarn, fabric, accessory, godown, department, employee, lot, order, PO, GRN, invoice, cut, jobwork, despatch, debit note, journal, bill, payment, cost sheet version) — DO NOT pass the code/number field. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a code if the user explicitly demands a specific one.
 
 ## Tone
 Concise, helpful, action-oriented. Use bullet lists for summaries. Cite the actual IDs returned.
@@ -172,62 +178,9 @@ function normalizeArgs(args: any): any {
 }
 
 // LLMs sometimes pass numbers as strings ("4.5") or booleans as "true".
-// After a zod failure, patch only the flagged paths and re-validate.
-function setByPath(obj: any, path: (string | number)[], value: any) {
-  let cur = obj
-  for (let i = 0; i < path.length - 1; i++) {
-    const k = path[i]
-    cur = cur?.[k as any]
-  }
-  const last = path[path.length - 1]
-  if (cur != null && last !== undefined) {
-    ;(cur as any)[last as any] = value
-  }
-}
-
-function getByPath(obj: any, path: (string | number)[]): any {
-  let cur = obj
-  for (const k of path) cur = cur?.[k as any]
-  return cur
-}
-
-function parseWithCoercion(schema: any, args: any): { ok: true; value: any } | { ok: false; error: any } {
-  try {
-    return { ok: true, value: schema.parse(args) }
-  } catch (first: any) {
-    const issues = first?.issues || []
-    if (issues.length === 0) return { ok: false, error: first }
-    let fixed: any
-    try {
-      fixed = JSON.parse(JSON.stringify(args))
-    } catch {
-      return { ok: false, error: first }
-    }
-    let applied = 0
-    for (const issue of issues) {
-      const path: (string | number)[] = issue.path || []
-      if (path.length === 0) continue
-      const current = getByPath(fixed, path)
-      if (issue.code === 'invalid_type' && (issue.expected === 'number' || issue.expected === 'integer')) {
-        if (typeof current === 'string' && current.trim() !== '' && Number.isFinite(Number(current))) {
-          setByPath(fixed, path, Number(current))
-          applied++
-        }
-      } else if (issue.code === 'invalid_type' && issue.expected === 'boolean') {
-        if (current === 'true' || current === 'false') {
-          setByPath(fixed, path, current === 'true')
-          applied++
-        }
-      }
-    }
-    if (applied === 0) return { ok: false, error: first }
-    try {
-      return { ok: true, value: schema.parse(fixed) }
-    } catch (second: any) {
-      return { ok: false, error: second }
-    }
-  }
-}
+// parseWithCoercion lives in lib/agent/parse-with-coercion so the proposal
+// step AND /api/agent/approve (commit step) share identical coercion.
+import { parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder()

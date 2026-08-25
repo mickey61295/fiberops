@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
 import { getTool } from '@/lib/agent/tools'
+import { parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 
 // Approval endpoint - client posts { toolName, args } and we execute commit()
 export async function POST(req: Request) {
@@ -10,8 +11,19 @@ export async function POST(req: Request) {
     if (!t) return Response.json({ error: 'Unknown tool' }, { status: 400 })
     if (!t.isWrite) return Response.json({ error: 'Tool is read-only' }, { status: 400 })
 
+    // SAME validation + coercion as the proposal step (/api/agent): the model
+    // may have passed numbers as strings; the plan was proposed on the coerced
+    // values, so the commit must run on identical coerced values.
+    const parsed = parseWithCoercion(t.schema, args)
+    if (!parsed.ok) {
+      const issues = (parsed.error?.issues || [])
+        .map((i: any) => `${(i.path || []).join('.') || '(root)'}: ${i.message}`)
+        .join('; ')
+      return Response.json({ error: `Invalid arguments for ${toolName}: ${issues || parsed.error?.message || 'validation failed'}` }, { status: 400 })
+    }
+
     // Re-execute to get the plan + commit fn
-    const result = await t.execute(args)
+    const result = await t.execute(parsed.value)
     if (!result.commit) return Response.json({ error: 'No commit function' }, { status: 500 })
 
     const committed = await result.commit()

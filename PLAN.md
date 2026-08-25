@@ -83,15 +83,15 @@ Ref: LLD 03 §4.5, §6, §9; 07 Part 2; 04 §9.
 
 | ID | Task | Size | Exit criteria |
 |---|---|---|---|
-| 3.1 | **Flag system v1**: `Flag` model + `flags.ts` registry (~25 names: `po_buddev`, `po_budrtdev`, `grn_dev`, `i_scheck`, `dyeinggamtper`, `knittinggamtper`, `need_rate_conf_for_dc`, `rateconfirmcheck`, `saledcagainstpgmbalchk`, `bill_bcheck`, `trankgs_dev`, `entrydatedev`, …) + `/api/config` + agent tool `get_flags`/`set_flag` | M | flags stored per company, served typed, agent-editable |
-| 3.2 | **Tolerance service**: warn/block deviation checks wired into the approval flow (PO vs budget, GRN vs DC balance, issue shortage, process loss %) — the plan card shows the deviation verdict | M | over-budget PO triggers warn plan; >dev% blocks |
-| 3.3 | **HSN master + GST from HSN** (replaces hardcoded rates); state on Party drives CGST/SGST vs IGST | S | invoice GST split sourced from HSN master |
-| 3.4 | **Bill register + bill-pass + TDS + payments** chain: models (`Bill`, `BillPass`) + agent tools (`create_supplier_bill`, `pass_bill` with TDS preview, `record_payment`); 3-way match vs PO & GRN | L | bill→pass→payment chain via chat; TDS computed |
-| 3.5 | **Cumulative rate engine v1** (LLD 03 §4.5): walk depts in Sno order — yarn base + dyeing + knitting + own rate; NO legacy hardcoded-filter defects | M | rate/kg per order-style reproducible on golden order |
-| 3.6 | **Party exposure views**: absolute (document stack), program-wise, and value-at-cumulative-rate; agent tool `get_party_exposure` | M | "how much value is at Anand dyeing?" answers in ₹ |
-| 3.7 | **FCY currency field on Order** + display fix (kills the ₹-vs-USD bug found in ingestion) | S | LPP orders show USD |
+| 3.1 ✅ | **Flag system v1**: `Flag` model + `flags.ts` registry (28 names: `po_buddev`, `po_budrtdev`, `grn_dev`, `i_scheck`, `dyeinggamtper`, `knittinggamtper`, `need_rate_conf_for_dc`, `notds`, `gstenable`, `coy_state`, `tds_default_percent`, …) + `/api/config` + agent tool `get_flags`/`set_flag` | M | flags stored per company, served typed, agent-editable |
+| 3.2 ✅ | **Tolerance service**: warn/block deviation checks wired into the approval flow (PO vs budget, GRN vs DC balance, issue shortage, process loss %) — the plan card shows the deviation verdict | M | over-budget PO triggers warn plan; >dev% blocks |
+| 3.3 ✅ | **HSN master + GST from HSN** (18 garment codes seeded); state on Party drives CGST/SGST vs IGST; `create_sales_invoice` auto-sources GST + auto-splits + active finYear | S | invoice GST split sourced from HSN master |
+| 3.4 ✅ | **Bill register + bill-pass + TDS + payments** chain: models (`Bill`, `BillPass`, `Payment`) + agent tools (`create_supplier_bill` with 3-way match verdicts on the plan card, `pass_bill` with TDS preview, `record_payment` with pay-in-full default); 3-way match vs PO & GRN + `get_bill_match` | L | bill→pass→payment chain via chat; TDS computed |
+| 3.5 ✅ | **Cumulative rate engine v1** (LLD 03 §4.5): `cumrate.ts` walks depts in Sno order — yarn base (actual ledger rate ?? BOM ?? master) + dyeing + knitting + own rates (postings ?? budget); `Department.prs` discriminator; NO legacy hardcoded-filter defects | M | rate/kg per order-style reproducible on golden order |
+| 3.6 ✅ | **Party exposure views**: absolute (document stack), program-wise, and value-at-cumulative-rate; agent tool `get_party_exposure` with DC aging | M | "how much value is at Anand dyeing?" answers in ₹ |
+| 3.7 ✅ | **FCY currency field on Order** (`currency`/`fxRate`) + display fix everywhere (per-currency totals in summaries; ₹ never mixed with USD); 5 LPP orders backfilled to USD | S | LPP orders show USD |
 
-**Phase exit:** the money loop is real — bills pass with TDS, party exposure is valued, tolerances gate writes.
+**Phase exit:** ✅ the money loop is real — bills pass with TDS, party exposure is valued, tolerances gate writes. E2E verified: BILL-0001 → TDS 2% ₹6,720 → net ₹329,280 → paid via RTGS; exposure reads zero after settlement.
 
 ## Phase 4 — AI CONVERGENCE (P1, ~3-4 days)
 
@@ -165,3 +165,4 @@ DC family TrType completeness + gate pass/e-way · multi-process GRN chains · r
 | 2026-08-25 | Phase 1.1+1.2 COMPLETE: enums.ts (LLD 03 §1 ports + Movement type), numbering.ts (22-sequence NumberingService), create_order refactored onto it. |
 | 2026-08-25 | Phase 1.3-1.7 COMPLETE: movement-matrix.ts + posting-engine.ts (sole stock writer, one-tx) + projectors.ts (ProgBalance live) + receive_grn/adjust_stock refactored + reverse_grn tool + 6/6 golden tests (G1/G2/G3). Fixed NULL-key upsert bug + projector netting bug found by tests. |
 | 2026-08-25 | Phase 2 COMPLETE (2.1-2.6): Stage master (17 Tirupur stages), PcsStock third ledger, Good/'M' buckets, rejection/rework/line tools, get_stage_wip. 89 tools total. 12/12 tests green incl. live-agent E2E production posting. |
+| 2026-08-25 | Phase 3 COMPLETE (3.1-3.7): flag registry (28 flags + /api/config + get_flags/set_flag), tolerance service wired into PO/GRN/bill tools with ✕/⚠/✓ chips on plan cards, HSN master (18 codes) + state-driven GST split, Bill/BillPass/Payment money loop (3-way matched, TDS from flags, pay-in-full default), cumulative rate engine (yarn→knit→dye walk, Department.prs), party exposure views (absolute/program/value-at-cum-rate + DC aging), FCY currency fix (5 LPP orders → USD). 102 tools. 30/30 tests. E2E: BILL-0001 ₹336,000 → TDS ₹6,720 → net ₹329,280 → paid. Fixed approve-route coercion gap (string args crashed commit). |

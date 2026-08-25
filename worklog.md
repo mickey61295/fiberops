@@ -67,3 +67,24 @@ Work Log:
 Stage Summary:
 - Phases 0, 1, 2 COMPLETE. 5 commits on main (push still pending credentials). 12/12 tests green. 89 agent tools. Production is now a stage pipeline with Good/'M' buckets — the largest semantic gap vs the LLD is closed.
 - Next: Phase 3 (Commercial & Flags): flag registry + tolerance service, HSN/GST, bill+bill-pass+TDS chain, cumulative rate engine, party exposure, FCY fix.
+
+---
+Task ID: phase3-commercial-and-flags
+Agent: main
+Task: Continue convergence plan — Phase 3 (Commercial & Flags), tasks 3.1-3.7.
+
+Work Log:
+- 3.1 Flag system: Flag model + src/lib/erp/flags.ts — 28-flag registry (legacy names verbatim: po_buddev/grn_dev/bill_bcheckdev/dyeinggamtper/notds/gstenable/coy_state/tds_default_percent...), typed coercion on read, idempotent seed, GET /api/config (FlagsProvider parity), tools get_flags/set_flag (agent-editable config through chat).
+- 3.2 Tolerance service: src/lib/erp/tolerance.ts — checkPoVsBudget/checkGrnVsPo/checkIssueShortage/checkBillQty/checkProcessLoss/checkEntryDate/threeWayMatch; severity ok/warn/block with allow-flag flips (po_allowadd, grn_alladd); verdicts ride the plan as `tolerances` and render as ✕/⚠/✓ chips in agent-panel; receive_grn refuses on block; wired into create_purchase_order, receive_grn, create_sales_invoice, create_supplier_bill.
+- 3.3 HSN: HsnCode model + 18 garment codes seeded (6109/6110/6006/5205...); create_sales_invoice auto-sources GST % from style.hsn, auto-derives CGST/SGST vs IGST from party state vs coy_state flag, export = zero-rated, active FinYear (killed hardcoded '26-27').
+- 3.4 Money loop: Bill/BillPass/Payment models; tools create_supplier_bill (3-way match PO vs GRN vs bill, matchVerdict stored), pass_bill (TDS from tds_default_percent flag, notds suppression, doublebillpassreqd note), record_payment (pay-in-full default, overpay guard, bill → paid); get_bill_match read tool; get_party_ledger now includes bills/payments.
+- 3.5 Cumulative rate: src/lib/erp/cumrate.ts — dept walk in orderSno, Department.prs discriminator (D1=4 knitting, D2=2 dyeing seeded), yarn base from actual ledger rates ?? BOM ?? master, own rates from postings ?? budget; legacy FTY hardcoded-filter defect NOT ported (R6/R2).
+- 3.6 Exposure: src/lib/erp/exposure.ts + get_party_exposure — absolute document stack (open POs, unbilled GRNs, bills payable/paid, payments, receivables, debit notes), material-at-party kgs from process DC−GRN netting with DC aging (gendcdays), program-wise value at cumulative rate.
+- 3.7 FCY: Order.currency/fxRate; create_order accepts currency/fxRate; list_orders/get_order/summarize_open_orders display per-currency (₹ never mixed with USD); seed backfilled 5 LPP orders to USD.
+- CRITICAL FIX found by E2E: /api/agent/approve executed raw args without zod coercion — model-passed "55" string crashed Prisma at commit. Extracted parseWithCoercion to src/lib/agent/parse-with-coercion.ts, shared by both routes (proposal and commit now coerce identically). Also added refNo alias to create_supplier_bill.
+- Tests: tests/commercial/commercial.test.ts — C1-C6 (flags, tolerances, GST split, bill→pass→TDS→payment, cumrate walk 220+12+15=247, exposure incl. program value). Suite 30/30. src/ typechecks clean.
+- E2E (scripts/test_money_loop.mjs): agent created BILL-0001 (Acme Fabric Mills, 3-way match flagged −20% PO deviation as ⚠), passed with TDS 2% ₹6,720 → net ₹329,280, paid in full via RTGS; exposure read shows ₹0 payable after settlement; set_flag round-trip grn_dev 5→3→5 through chat. Dev server restart required for new Prisma models.
+- Cleanup scripts: seed_commercial.ts (flags/HSN/prs/FCY backfill), cleanup_stale_t3.ts, cleanup_e2e_bills.ts, verify_money_loop.ts.
+
+Stage Summary:
+- Phases 0, 1, 2, 3 COMPLETE. 102 agent tools. 30/30 tests. Money loop real end-to-end via chat. Next: Phase 4 (AI convergence) — rollback watchdog, per-field confidence chips, golden-set eval harness, daily digest, audit enrichment. Push to GitHub still pending credentials.

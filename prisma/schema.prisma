@@ -59,6 +59,8 @@ model Party {
   debitNotes     DebitNote[]
   jobworkOrders  JobworkOrder[]
   stockLedgers   StockLedger[]
+  bills          Bill[]
+  payments       Payment[]
 }
 
 model Buyer {
@@ -186,6 +188,9 @@ model Department {
   name              String
   orderSno          Int               @default(0)
   isProcess         Boolean           @default(false)
+  // Legacy Mas_Dept.Prs — cumulative-rate engine discriminator:
+  // 1 = yarn base · 2 = dyeing · 4 = knitting · -4 = yarn twist · null = plain own-rate dept
+  prs               Int?
   employees         Employee[]
   productionEntries ProductionEntry[]
   lines             Line[]
@@ -254,6 +259,11 @@ model Order {
   status            String            @default("open") // open | in_progress | completed | cancelled
   totalPcs          Int               @default(0)
   totalValue        Float             @default(0)
+  // FCY support (kills the ₹-vs-USD ingestion bug): currency of totalValue.
+  // INR rows behave exactly as before; USD/EUR rows render with their symbol
+  // and are converted at fxRate for INR views (party exposure, dashboards).
+  currency          String            @default("INR")
+  fxRate            Float             @default(1)
   notes             String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
@@ -755,4 +765,95 @@ model FinYear {
   start  DateTime
   end    DateTime
   active Boolean  @default(false)
+}
+
+// ============== CONFIG / FEATURE FLAGS (LLD 07 Part 2 port, subset-first) ==============
+// ~25 load-bearing flags of the legacy 189. Stored per company (single-tenant
+// v1), typed via valueType, editable through the agent (set_flag) — the
+// enforcement points live in tolerance.ts / the tools that consult it.
+model Flag {
+  id           String   @id @default(cuid())
+  name         String   @unique // legacy name, unchanged (po_buddev, grn_dev, ...)
+  value        String   // stored as string, coerced on read by valueType
+  valueType    String   @default("number") // number | boolean | string
+  category     String   @default("general") // tolerance | numbering | module | commercial | company
+  defaultValue String   @default("")
+  description  String   @default("")
+  updatedAt    DateTime @updatedAt
+}
+
+// ============== HSN MASTER (LLD FrmHSN port) ==============
+// GST % source of truth: invoices take tax % from here by style.hsn,
+// overriding with explicit line values when present (INV-004).
+model HsnCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String   @default("")
+  gstRate     Float    @default(5)
+  active      Boolean  @default(true)
+}
+
+// ============== BILLS REGISTER (LLD Trs_Bills / frmBillPass port) ==============
+// Supplier/job-work bill register: bill -> pass (TDS) -> payment chain.
+// 3-way match (PO vs GRN vs bill) runs at create time via tolerance.ts.
+model Bill {
+  id           String     @id @default(cuid())
+  billNo       String     @unique
+  partyId      String
+  party        Party      @relation(fields: [partyId], references: [id])
+  billType     String     @default("fab") // yarn | fab | acc | cm | prd (LLD SP_BillsRegView_* variants)
+  refType      String     @default("grn") // po | grn | jobwork | order | none
+  refNo        String? // PO no / GRN no / JW DC no the bill references
+  refId        String?
+  billDate     DateTime   @default(now())
+  finYear      String
+  qty          Float      @default(0)
+  rate        Float      @default(0)
+  taxableValue Float     @default(0)
+  gstRate      Float      @default(0)
+  gstAmount    Float      @default(0)
+  billAmount   Float      @default(0) // taxable + gst + additions - deductions at entry
+  tdsPercent   Float      @default(0)
+  tdsAmount    Float      @default(0)
+  netPayable   Float      @default(0)
+  status       String     @default("received") // received | passed | paid | cancelled
+  matchVerdict String? // JSON of the 3-way match result (PO vs GRN vs bill)
+  remarks      String?
+  passDate     DateTime?
+  createdAt    DateTime   @default(now())
+  passes       BillPass[]
+  payments     Payment[]
+}
+
+// Bill pass (LLD frmBillPass): PassFlg + TDS_Percent + TDSAmount + add/ded heads
+model BillPass {
+  id          String   @id @default(cuid())
+  billId      String
+  bill        Bill     @relation(fields: [billId], references: [id])
+  passDate    DateTime @default(now())
+  tdsPercent  Float    @default(0)
+  tdsAmount   Float    @default(0)
+  deductions  Float    @default(0) // Mas_AddDed negative heads applied at pass
+  additions   Float    @default(0) // Mas_AddDed positive heads applied at pass
+  netPayable  Float    @default(0)
+  passedBy    String   @default("agent")
+  remarks     String?
+  createdAt   DateTime @default(now())
+}
+
+// Payment register (LLD FrmPaymentReg) — settles bills / parties
+model Payment {
+  id        String   @id @default(cuid())
+  voucherNo String   @unique
+  partyId   String
+  party     Party    @relation(fields: [partyId], references: [id])
+  billId    String?
+  bill      Bill?    @relation(fields: [billId], references: [id])
+  payDate   DateTime @default(now())
+  finYear   String
+  amount    Float    @default(0)
+  mode      String   @default("bank") // cash | bank | cheque | rtgs | upi
+  reference String? // cheque/UTR no
+  notes     String?
+  createdAt DateTime @default(now())
 }

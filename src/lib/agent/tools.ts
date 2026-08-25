@@ -8,9 +8,13 @@ import { db } from '@/lib/db'
 
 import { z } from 'zod'
 import { listUploadDir, extractDocument } from './docExtract'
-import { resolveNumber } from '../erp/numbering'
+import { resolveNumber, activeFinYear } from '../erp/numbering'
 import { apply as applyMovements, applyReversal } from '../erp/posting-engine'
 import * as Matrix from '../erp/movement-matrix'
+import { getFlags, setFlag, flagRegistry } from '../erp/flags'
+import { checkPoVsBudget, checkGrnVsPo, checkBillQty, checkProcessLoss, checkEntryDate, threeWayMatch, worstSeverity, type Verdict } from '../erp/tolerance'
+import { computeCumulativeRate } from '../erp/cumrate'
+import { getPartyExposure } from '../erp/exposure'
 
 export type ToolResult = {
   text?: string
@@ -22,6 +26,8 @@ export type ToolResult = {
     updates?: Array<{ table: string; id: string; data: any }>
     sideEffects?: string[]
     approvalId?: string
+    // Tolerance verdicts ride the plan card: ⚠ amber / ✕ red chips (Phase 3.2)
+    tolerances?: Verdict[]
   }
   // For commit step: actually persist
   commit?: () => Promise<any>
@@ -52,6 +58,26 @@ async function listAll(model: string, where: any = {}) {
   }
 }
 
+/** Extract a GST state code from free-text state: 'Tamil Nadu (33)' | 'TN' | '33' → '33'. */
+function extractStateCode(state: string | null | undefined): string | null {
+  if (!state) return null
+  const m = String(state).match(/\((\d{2})\)/)
+  if (m) return m[1]
+  if (/^\d{2}$/.test(String(state).trim())) return String(state).trim()
+  const named: Record<string, string> = {
+    'tamil nadu': '33', 'tn': '33', 'kerala': '32', 'karnataka': '29', 'andhra pradesh': '37',
+    'telangana': '36', 'maharashtra': '27', 'gujarat': '24', 'delhi': '07', 'west bengal': '19',
+    'punjab': '03', 'haryana': '06', 'rajasthan': '08', 'uttar pradesh': '09', 'madhya pradesh': '23',
+  }
+  return named[String(state).trim().toLowerCase()] ?? null
+}
+
+const CURRENCY_SYMBOL: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' }
+function money(order: { currency?: string; totalValue: number }): string {
+  const cur = order.currency || 'INR'
+  return `${CURRENCY_SYMBOL[cur] ?? cur} ${order.totalValue}`
+}
+
 // ───────────── READ TOOLS ─────────────
 
 const readTools: AgentTool[] = [
@@ -76,7 +102,7 @@ const readTools: AgentTool[] = [
         text: `Found ${orders.length} orders.`,
         json: orders.map((o) => ({
           id: o.id, orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
-          totalPcs: o.totalPcs, totalValue: o.totalValue, status: o.status,
+          totalPcs: o.totalPcs, totalValue: o.totalValue, currency: o.currency, valueDisplay: money(o), status: o.status,
           deliveryDate: o.deliveryDate, orderDate: o.orderDate,
         })),
       }
@@ -101,7 +127,8 @@ const readTools: AgentTool[] = [
         },
       })
       if (!order) return { text: `Order ${args.orderNo} not found.` }
-      return { text: `Order ${order.orderNo} for ${order.buyer?.name}`, json: order }
+      const { currency, fxRate, totalValue, ...rest } = order as any
+      return { text: `Order ${order.orderNo} for ${order.buyer?.name} — ${order.totalPcs} pcs, ${money(order)}`, json: { ...rest, currency, fxRate, totalValue, valueDisplay: money(order) } }
     },
   },
   {
@@ -311,28 +338,40 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_party_ledger',
-    description: 'Get party ledger (invoices + journals) by party code.',
+    description: 'Get party ledger (invoices + bills + payments + journals + debit notes) by party code.',
     domain: 'accounting',
     isWrite: false,
     schema: z.object({ partyCode: z.string() }),
     async execute(args) {
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
+        || (await db.party.findFirst({ where: { name: args.partyCode } }))
       if (!party) return { text: `Party ${args.partyCode} not found` }
-      const [invoices, journals, debitNotes] = await Promise.all([
+      const [invoices, journals, debitNotes, bills, payments] = await Promise.all([
         db.salesInvoice.findMany({ where: { partyId: party.id } }),
         db.journal.findMany({ where: { partyId: party.id } }),
         db.debitNote.findMany({ where: { partyId: party.id } }),
+        db.bill.findMany({ where: { partyId: party.id } }),
+        db.payment.findMany({ where: { partyId: party.id } }),
       ])
       const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
       const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
       const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
+      const unpaidBills = bills.filter((b) => b.status === 'received' || b.status === 'passed')
+      const billsPayable = unpaidBills.reduce((s, b) => s + b.netPayable, 0)
+      const paidToParty = payments.reduce((s, p) => s + p.amount, 0)
       return {
-        text: `Party ${party.name}: billed=${totalBilled}, debit notes=${totalDebit}, journals=${totalJournal}`,
+        text: `Party ${party.name}: billed(receivable)=₹${totalBilled}, bills payable=₹${billsPayable}, paid=₹${paidToParty}, debit notes=₹${totalDebit}, journals=₹${totalJournal}`,
         json: {
           party: { code: party.code, name: party.name, opening: party.openingBalance },
-          invoices: invoices.length, totalBilled, totalDebit, totalJournal,
+          invoices: invoices.length, totalBilled,
+          bills: bills.length, billsPayable,
+          payments: payments.length, paidToParty,
+          totalDebit, totalJournal,
           recentInvoices: invoices.slice(0, 5).map((i) => ({
             invoiceNo: i.invoiceNo, date: i.invoiceDate, amount: i.billAmount, status: i.status,
+          })),
+          recentBills: bills.slice(0, 5).map((b) => ({
+            billNo: b.billNo, billType: b.billType, refNo: b.refNo, netPayable: b.netPayable, status: b.status,
           })),
         },
       }
@@ -573,14 +612,20 @@ const readTools: AgentTool[] = [
         orderBy: { deliveryDate: 'asc' },
       })
       const totalPcs = orders.reduce((s, o) => s + o.totalPcs, 0)
-      const totalValue = orders.reduce((s, o) => s + o.totalValue, 0)
+      // per-currency totals (FCY fix — never sum ₹ with USD)
+      const byCurrency = new Map<string, number>()
+      for (const o of orders) {
+        const cur = o.currency || 'INR'
+        byCurrency.set(cur, (byCurrency.get(cur) || 0) + o.totalValue)
+      }
+      const totalsStr = [...byCurrency.entries()].map(([cur, v]) => `${CURRENCY_SYMBOL[cur] ?? cur} ${Math.round(v).toLocaleString('en-IN')}`).join(' + ')
       return {
-        text: `${orders.length} open orders, ${totalPcs} pcs total, ₹${totalValue.toLocaleString('en-IN')} total value.`,
+        text: `${orders.length} open orders, ${totalPcs} pcs total, ${totalsStr} total value.`,
         json: {
-          summary: { count: orders.length, totalPcs, totalValue },
+          summary: { count: orders.length, totalPcs, totalsByCurrency: Object.fromEntries(byCurrency) },
           orders: orders.map((o) => ({
             orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
-            totalPcs: o.totalPcs, totalValue: o.totalValue, deliveryDate: o.deliveryDate,
+            totalPcs: o.totalPcs, totalValue: o.totalValue, currency: o.currency || 'INR', valueDisplay: money(o), deliveryDate: o.deliveryDate,
             status: o.status,
           })),
         },
@@ -861,6 +906,186 @@ const readTools: AgentTool[] = [
       }
     },
   },
+  // ───────────── CONFIG / FLAG READS (Phase 3.1) ─────────────
+  {
+    name: 'get_flags',
+    description: 'Read feature flags / system configuration (tolerances, commercial switches, company config). Optional category filter (tolerance|numbering|module|commercial|company) or names array for specific flags. Values are typed (numbers/booleans/strings).',
+    domain: 'config',
+    isWrite: false,
+    schema: z.object({
+      category: z.string().optional(),
+      names: z.array(z.string()).optional().describe('Specific flag names, e.g. ["po_buddev", "grn_dev"]'),
+    }),
+    async execute(args) {
+      const defs = flagRegistry().filter((f) => !args.category || f.category === args.category)
+      const names = args.names?.length ? args.names : defs.map((f) => f.name)
+      const values = await getFlags(names)
+      const rows = await db.flag.findMany({ where: { name: { in: names } } })
+      const meta = new Map(rows.map((r) => [r.name, r]))
+      return {
+        text: `${names.length} flag(s): ${names.map((n) => `${n}=${JSON.stringify(values[n])}`).join(', ')}`,
+        json: names.map((n) => {
+          const d = defs.find((x) => x.name === n) || flagRegistry().find((x) => x.name === n)
+          return { name: n, value: values[n], type: d?.valueType, category: d?.category, description: d?.description, defaultValue: d?.value, custom: meta.get(n)?.value !== meta.get(n)?.defaultValue }
+        }),
+      }
+    },
+  },
+  // ───────────── HSN MASTER READS (Phase 3.3) ─────────────
+  {
+    name: 'list_hsn_codes',
+    description: 'List HSN master codes with GST rates (source of truth for invoice GST).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.hsnCode.findMany({ orderBy: { code: 'asc' } })
+      return {
+        text: `${rows.length} HSN codes. ${rows.slice(0, 10).map((h) => `${h.code}=${h.gstRate}%`).join(', ')}${rows.length > 10 ? ' …' : ''}`,
+        json: rows,
+      }
+    },
+  },
+  // ───────────── COMMERCIAL READS (Phase 3.4-3.6) ─────────────
+  {
+    name: 'list_bills',
+    description: 'List supplier/job-work bills from the bills register. Optional filter by partyCode, status (received|passed|paid|cancelled), or billType (yarn|fab|acc|cm|prd).',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      partyCode: z.string().optional(),
+      status: z.string().optional(),
+      billType: z.string().optional(),
+    }),
+    async execute(args) {
+      const party = args.partyCode ? await db.party.findUnique({ where: { code: args.partyCode } }) : null
+      if (args.partyCode && !party) return { text: `Party ${args.partyCode} not found` }
+      const bills = await db.bill.findMany({
+        where: {
+          ...(party ? { partyId: party.id } : {}),
+          ...(args.status ? { status: args.status } : {}),
+          ...(args.billType ? { billType: args.billType } : {}),
+        },
+        include: { party: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      })
+      const total = bills.reduce((s, b) => s + b.netPayable, 0)
+      return {
+        text: `${bills.length} bill(s), net payable ₹${Math.round(total * 100) / 100}.`,
+        json: bills.map((b) => ({
+          billNo: b.billNo, party: b.party.name, billType: b.billType, refType: b.refType, refNo: b.refNo,
+          qty: b.qty, rate: b.rate, taxableValue: b.taxableValue, gstRate: b.gstRate, tdsPercent: b.tdsPercent,
+          netPayable: b.netPayable, status: b.status, billDate: b.billDate,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_bill_match',
+    description: 'Run a 3-way match (PO qty vs GRN qty vs bill qty/rate) for a reference document. Pass poNo or grnNo plus the billed qty/rate to see deviation verdicts against tolerance flags (bill_bcheck / bill_bcheckdev).',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      poNo: z.string().optional(),
+      grnNo: z.string().optional(),
+      billedQty: z.number(),
+      billedRate: z.number().optional(),
+    }),
+    async execute(args) {
+      let poQty: number | undefined
+      let poRate: number | undefined
+      let grnQty: number | undefined
+      if (args.poNo) {
+        const po = await db.purchaseOrder.findUnique({ where: { poNo: args.poNo }, include: { lines: true } })
+        if (!po) return { text: `PO ${args.poNo} not found` }
+        poQty = po.totalQty
+        poRate = po.lines[0]?.rate
+      }
+      if (args.grnNo) {
+        const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo } })
+        if (!grn) return { text: `GRN ${args.grnNo} not found` }
+        grnQty = grn.totalQty
+      }
+      const match = await threeWayMatch({ poQty, grnQty, billQty: args.billedQty, poRate, billRate: args.billedRate })
+      return {
+        text: match.matched
+          ? `3-way match OK: bill qty ${args.billedQty} agrees with references (PO ${poQty ?? '—'}, GRN ${grnQty ?? '—'}).`
+          : `3-way match deviations:\n${match.verdicts.filter((v) => v.severity !== 'ok').map((v) => `⚠ ${v.message}`).join('\n') || 'within tolerance'}`,
+        json: match,
+      }
+    },
+  },
+  {
+    name: 'get_party_exposure',
+    description: 'Party exposure in three views: absolute document stack (open POs, unbilled GRNs, unpaid bills, payments), material at the party in kgs with DC aging, and value at cumulative rate per order. Answers "how much value is at Anand dyeing?" in ₹.',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({ partyCode: z.string() }),
+    async execute(args) {
+      const exposure = await getPartyExposure(args.partyCode)
+      const a = exposure.absolute
+      return {
+        text: [
+          `Party ${exposure.party.name} (${exposure.party.code}) exposure:`,
+          `• Open POs: ${a.openPoCount} worth ₹${a.openPoValue}`,
+          `• Unbilled GRNs: ₹${a.unbilledGrnValue}`,
+          `• Bills payable: ₹${a.billsPayable} (net now ₹${a.netPayableNow} after payments ₹${a.paymentsMade} / debits ₹${a.debitNotes})`,
+          `• Material at party: ${exposure.material.kgsAtParty} kgs ≈ ₹${exposure.material.valueAtCumRate} at cumulative rate${exposure.material.dcAgingDays != null ? ` (oldest DC ${exposure.material.dcAgingDays} days old)` : ''}`,
+          exposure.program.length ? `• Program-wise: ${exposure.program.map((p) => `${p.orderNo} ${p.kgsAtParty}kgs ₹${p.valueAtCumRate}`).join('; ')}` : '• No material at party',
+        ].join('\n'),
+        json: exposure,
+      }
+    },
+  },
+  {
+    name: 'get_cumulative_rate',
+    description: 'Cumulative rate per kg for an order (Tgr_StockRatePost parity): walks departments in Sno order — yarn base + dyeing + knitting + own rates from actual postings, falling back to budgets. Shows each leg with basis and the running cumulative.',
+    domain: 'costing',
+    isWrite: false,
+    schema: z.object({ orderNo: z.string() }),
+    async execute(args) {
+      const r = await computeCumulativeRate(args.orderNo)
+      return {
+        text: [
+          `Cumulative rate for ${r.orderNo}${r.styleNo ? ` (style ${r.styleNo})` : ''}: ₹${Math.round(r.totalRatePerKg * 100) / 100}/kg`,
+          ...r.legs.map((l) => `• ${l.deptCode} ${l.deptName}: +₹${Math.round(l.ownRate * 100) / 100}/kg → cum ₹${Math.round(l.cumRate * 100) / 100}/kg (${l.basis}${l.qtyKgs ? `, ${Math.round(l.qtyKgs)} kgs` : ''})`),
+          ...r.notes.map((n) => `· ${n}`),
+        ].join('\n'),
+        json: r,
+      }
+    },
+  },
+  {
+    name: 'list_payments',
+    description: 'List payments from the payment register. Optional partyCode or billNo filter.',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      partyCode: z.string().optional(),
+      billNo: z.string().optional(),
+    }),
+    async execute(args) {
+      const party = args.partyCode ? await db.party.findUnique({ where: { code: args.partyCode } }) : null
+      if (args.partyCode && !party) return { text: `Party ${args.partyCode} not found` }
+      const bill = args.billNo ? await db.bill.findUnique({ where: { billNo: args.billNo } }) : null
+      if (args.billNo && !bill) return { text: `Bill ${args.billNo} not found` }
+      const payments = await db.payment.findMany({
+        where: {
+          ...(party ? { partyId: party.id } : {}),
+          ...(bill ? { billId: bill.id } : {}),
+        },
+        include: { party: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      })
+      const total = payments.reduce((s, p) => s + p.amount, 0)
+      return {
+        text: `${payments.length} payment(s), total ₹${Math.round(total * 100) / 100}.`,
+        json: payments.map((p) => ({ voucherNo: p.voucherNo, party: p.party.name, billNo: p.billId, amount: p.amount, mode: p.mode, reference: p.reference, payDate: p.payDate })),
+      }
+    },
+  },
 ]
 
 // ───────────── WRITE TOOLS (plan-then-commit) ─────────────
@@ -868,7 +1093,7 @@ const readTools: AgentTool[] = [
 const writeTools: AgentTool[] = [
   {
     name: 'create_order',
-    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), notes.',
+    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), currency (INR default; USD/EUR for export orders — rates are then in that currency), fxRate (conversion to INR, default 1), notes.',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
@@ -885,6 +1110,8 @@ const writeTools: AgentTool[] = [
       })).min(1),
       notes: z.string().optional(),
       finYear: z.string().optional(),
+      currency: z.string().optional().describe('INR | USD | EUR — currency of line rates and totalValue'),
+      fxRate: z.number().optional().describe('Conversion rate to INR (default 1)'),
     }),
     async execute(args) {
       // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
@@ -896,7 +1123,10 @@ const writeTools: AgentTool[] = [
 
       const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
       const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-      const finYear = args.finYear || '26-27'
+      const finYear = args.finYear || await activeFinYear()
+      const currency = (args.currency || 'INR').toUpperCase()
+      const fxRate = args.fxRate ?? 1
+      const money = currency === 'INR' ? `₹${totalValue}` : `${currency} ${totalValue} (₹${Math.round(totalValue * fxRate)} at ${fxRate})`
 
       // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy")
       const [allColours, allSizes] = await Promise.all([db.colour.findMany(), db.size.findMany()])
@@ -912,11 +1142,11 @@ const writeTools: AgentTool[] = [
       const resolvedOrderNo = await resolveNumber('order', args.orderNo)
 
       return {
-        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
+        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ${money}.`,
         plan: {
-          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
+          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ${money} | delivery ${args.deliveryDate}`,
           creates: [
-            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
+            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, currency, fxRate, status: 'open', notes: args.notes } },
             ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
           ],
           sideEffects: ['Stock reservation will be calculated when fabric is issued'],
@@ -927,11 +1157,11 @@ const writeTools: AgentTool[] = [
               orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id,
               orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
               deliveryDate: new Date(args.deliveryDate),
-              finYear, totalPcs, totalValue, status: 'open', notes: args.notes,
+              finYear, totalPcs, totalValue, currency, fxRate, status: 'open', notes: args.notes,
               lines: { create: linesData.map((l) => ({ ...l, styleId: style.id })) },
             },
           })
-          return { id: created.id, orderNo: created.orderNo }
+          return { id: created.id, orderNo: created.orderNo, currency: created.currency }
         },
       }
     },
@@ -957,11 +1187,12 @@ const writeTools: AgentTool[] = [
     }),
     async execute(args) {
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
-      if (!party) return { text: `Party ${args.partyCode} not found` }
+        || (await db.party.findFirst({ where: { name: args.partyCode } }))
+      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name)` }
 
       const totalQty = args.lines.reduce((s, l) => s + l.qty, 0)
       const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-      const finYear = '26-27'
+      const finYear = await activeFinYear()
 
       // Resolve item ids
       const linesResolved = await Promise.all(args.lines.map(async (l) => {
@@ -973,6 +1204,9 @@ const writeTools: AgentTool[] = [
         return { ...l, itemId: item.id, uomId: item.uomId, amount: l.qty * l.rate }
       }))
 
+      // PO vs budget tolerance (Phase 3.2): look for a Budget on any order referenced by these lines
+      const tolerances = await checkPoVsBudget({ poValue: totalValue, poQty: totalQty })
+
       return {
         text: `Proposed PO ${args.poNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
         plan: {
@@ -982,6 +1216,7 @@ const writeTools: AgentTool[] = [
             ...linesResolved.map((l) => ({ table: 'poLine', data: { ...l, poId: '<pending>' } })),
           ],
           sideEffects: ['Auto-submits for approval workflow; status=open until approved'],
+          tolerances: tolerances.length ? tolerances : undefined,
         },
         async commit() {
           const created = await db.purchaseOrder.create({
@@ -1029,8 +1264,19 @@ const writeTools: AgentTool[] = [
       if (!line) return { text: `PO has no lines` }
       const actualQty = args.receivedQty
       const totalValue = actualQty * line.rate
-      const finYear = '26-27'
+      const finYear = await activeFinYear()
       const resolvedGrnNo = await resolveNumber('grn', args.grnNo)
+
+      // Tolerance checks (Phase 3.2): GRN vs PO balance + back-dating
+      const balQty = Math.max(0, po.totalQty - po.lines.reduce((s, l) => s + l.receivedQty, 0))
+      const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
+      const tolerances = [
+        ...(await checkGrnVsPo(balQty, actualQty)),
+        ...(await checkEntryDate(grnDate)),
+      ]
+      if (tolerances.some((v) => v.severity === 'block')) {
+        return { text: `GRN refused by tolerance check:\n${tolerances.filter((v) => v.severity === 'block').map((v) => `✕ ${v.message}`).join('\n')}`, json: { tolerances } }
+      }
 
       // Movement via the PostingEngine (single source of stock truth)
       const movements = Matrix.purchaseGrn({
@@ -1056,13 +1302,14 @@ const writeTools: AgentTool[] = [
             { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
           ],
           sideEffects: ['Stock increases (posted by PostingEngine)', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
+          tolerances: tolerances.length ? tolerances : undefined,
         },
         async commit() {
           return await db.$transaction(async (tx) => {
             const grn = await tx.gRN.create({
               data: {
                 grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
-                godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+                godownId: godown.id, deptId: dept?.id, grnDate,
                 finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
                 lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
               },
@@ -1089,55 +1336,87 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_sales_invoice',
-    description: 'Create a sales invoice against an order. Required: invoiceNo, orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue, gstRate, gstType (cgst_sgst for intra-state OR igst for inter-state).',
+    description: 'Create a sales invoice against an order. invoiceNo optional — auto-assigned INV-####. GST rate is auto-sourced from the style\'s HSN master (override with gstRate); the CGST/SGST vs IGST split is auto-derived from the party\'s state vs the company state flag (override with gstType). Export invoices (party outside India or invoiceType export) skip GST. Required: orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue.',
     domain: 'accounting',
     isWrite: true,
     schema: z.object({
-      invoiceNo: z.string(),
+      invoiceNo: z.string().optional(),
       orderNo: z.string(),
       partyCode: z.string().describe('Customer party code'),
       billType: z.string(),
       totalQty: z.number(),
       taxableValue: z.number(),
-      gstRate: z.number().describe('e.g. 5 for 5%'),
-      gstType: z.string().describe('cgst_sgst | igst'),
+      gstRate: z.number().optional().describe('Override: GST % (default from style HSN master)'),
+      gstType: z.string().optional().describe('Override: cgst_sgst | igst (default from party state vs company state)'),
+      invoiceType: z.string().optional().describe('domestic | export'),
       invoiceDate: z.string().optional(),
       notes: z.string().optional(),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
       if (!party) return { text: `Party ${args.partyCode} not found` }
-      const finYear = '26-27'
-      const gstAmt = (args.taxableValue * args.gstRate) / 100
-      const billAmount = args.taxableValue + gstAmt
-      const cgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
-      const sgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
-      const igstRate = args.gstType === 'igst' ? args.gstRate : 0
+      const finYear = await activeFinYear()
+      const flags = await getFlags(['gstenable', 'coy_state'])
+      const invoiceType = args.invoiceType || 'domestic'
+
+      // GST rate: explicit override ?? HSN master ?? 0 (INV-004 parity)
+      let gstRate = args.gstRate ?? 0
+      let hsnCode: string | null = order.style?.hsn ?? null
+      let hsnSource = args.gstRate != null ? 'override' : 'none'
+      if (args.gstRate == null && hsnCode) {
+        const hsn = await db.hsnCode.findUnique({ where: { code: hsnCode } })
+        if (hsn) { gstRate = hsn.gstRate; hsnSource = `HSN ${hsn.code}` }
+      }
+      // Export invoices: no GST
+      const isExport = invoiceType === 'export'
+      if (isExport) { gstRate = 0; hsnSource = 'export (zero-rated)' }
+
+      // CGST/SGST vs IGST from party state vs company state (INV-003 parity)
+      let gstType = args.gstType
+      let stateNote = ''
+      if (!gstType) {
+        if (isExport) { gstType = 'none'; stateNote = 'export — zero-rated' }
+        else if (!flags.gstenable) { gstType = 'none'; stateNote = 'gstenable off — no GST split' }
+        else {
+          const partyState = extractStateCode(party.state) // e.g. 'Tamil Nadu (33)' → '33'
+          const coyState = String(flags.coy_state)
+          gstType = partyState && partyState === coyState ? 'cgst_sgst' : 'igst'
+          stateNote = `party state ${partyState || '?'} vs company ${coyState} → ${gstType}`
+        }
+      }
+      const cgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
+      const sgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
+      const igstRate = gstType === 'igst' ? gstRate : 0
       const cgstAmt = (args.taxableValue * cgstRate) / 100
       const sgstAmt = (args.taxableValue * sgstRate) / 100
       const igstAmt = (args.taxableValue * igstRate) / 100
+      const gstAmt = cgstAmt + sgstAmt + igstAmt
+      const billAmount = args.taxableValue + gstAmt
+      const resolvedInvoiceNo = await resolveNumber('invoice', args.invoiceNo)
+      const tolerances = await checkEntryDate(args.invoiceDate ? new Date(args.invoiceDate) : new Date())
 
       return {
-        text: `Proposed invoice ${args.invoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
+        text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${gstRate}% ${gstType}; rate source: ${hsnSource}).`,
         plan: {
-          summary: `Create invoice ${args.invoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
+          summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${gstRate}% ${gstType} (${hsnSource}) | total ₹${billAmount}`,
           creates: [
-            { table: 'salesInvoice', data: { invoiceNo: args.invoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+            { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType, orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.taxableValue, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
           ],
-          sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
+          sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock reduced when despatch is created'],
+          tolerances: tolerances.length ? tolerances : undefined,
         },
         async commit() {
           const inv = await db.salesInvoice.create({
             data: {
-              invoiceNo: args.invoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
+              invoiceNo: resolvedInvoiceNo, invoiceType, orderId: order.id, partyId: party.id,
               invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
               finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
               cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
             },
           })
-          return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount }
+          return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount, gstSplit: { cgstAmt, sgstAmt, igstAmt }, stateNote }
         },
       }
     },
@@ -2943,6 +3222,295 @@ const writeTools: AgentTool[] = [
         async commit() {
           await db.order.update({ where: { id: order.id }, data: patch })
           return { id: order.id, orderNo: order.orderNo }
+        },
+      }
+    },
+  },
+  // ───────────── CONFIG / FLAG WRITES (Phase 3.1) ─────────────
+  {
+    name: 'set_flag',
+    description: 'Change a feature flag / system configuration value. Examples: set_flag(po_buddev, 5) tightens PO budget tolerance to 5%; set_flag(coy_state, "33") sets company GST state to Tamil Nadu; set_flag(notds, true) suppresses TDS. Use get_flags to see available flags, types and defaults.',
+    domain: 'config',
+    isWrite: true,
+    schema: z.object({
+      name: z.string().describe('Exact flag name from the registry (see get_flags)'),
+      value: z.union([z.string(), z.number(), z.boolean()]).describe('New value (type must match the flag: number/boolean/string)'),
+    }),
+    async execute(args) {
+      let current: any
+      try {
+        current = await getFlags([args.name])
+      } catch (e: any) {
+        return { text: e.message }
+      }
+      const oldValue = current[args.name]
+      return {
+        text: `Proposed flag change: ${args.name} = ${JSON.stringify(args.value)} (was ${JSON.stringify(oldValue)}).`,
+        plan: {
+          summary: `Set flag ${args.name}: ${JSON.stringify(oldValue)} → ${JSON.stringify(args.value)}`,
+          updates: [{ table: 'flag', id: args.name, data: { value: String(args.value) } }],
+          sideEffects: ['Tolerance checks and commercial logic re-read this flag on the next document'],
+        },
+        async commit() {
+          try {
+            const v = await setFlag(args.name, args.value)
+            return { name: args.name, value: v }
+          } catch (e: any) {
+            return { error: e.message }
+          }
+        },
+      }
+    },
+  },
+  // ───────────── HSN MASTER WRITE (Phase 3.3) ─────────────
+  {
+    name: 'create_hsn_code',
+    description: 'Create or update an HSN master code with its GST rate (the invoice GST source). Required: code, gstRate. Optional: description. E.g. create_hsn_code(6109, 5, "T-shirts, knitted").',
+    domain: 'masters',
+    isWrite: true,
+    schema: z.object({
+      code: z.string().describe('HSN code, e.g. "6109"'),
+      gstRate: z.number().describe('GST % e.g. 5'),
+      description: z.string().optional(),
+    }),
+    async execute(args) {
+      const existing = await db.hsnCode.findUnique({ where: { code: args.code } })
+      const verb = existing ? `Update HSN ${args.code}` : `Create HSN ${args.code}`
+      return {
+        text: `${verb} with GST ${args.gstRate}%.`,
+        plan: {
+          summary: `${verb} | GST ${args.gstRate}%${args.description ? ` | ${args.description}` : ''}`,
+          creates: existing ? undefined : [{ table: 'hsnCode', data: { code: args.code, gstRate: args.gstRate, description: args.description || '' } }],
+          updates: existing ? [{ table: 'hsnCode', id: existing.id, data: { gstRate: args.gstRate, description: args.description ?? existing.description } }] : undefined,
+          sideEffects: ['Invoices for styles carrying this HSN will source GST % from here'],
+        },
+        async commit() {
+          const row = await db.hsnCode.upsert({
+            where: { code: args.code },
+            update: { gstRate: args.gstRate, ...(args.description !== undefined ? { description: args.description } : {}) },
+            create: { code: args.code, gstRate: args.gstRate, description: args.description || '' },
+          })
+          return { id: row.id, code: row.code, gstRate: row.gstRate }
+        },
+      }
+    },
+  },
+  // ───────────── BILLS / TDS / PAYMENTS CHAIN (Phase 3.4, LLD frmBillPass + FrmPaymentReg) ─────────────
+  {
+    name: 'create_supplier_bill',
+    description: 'Register a supplier/job-work bill (bills register entry). billNo optional — auto-assigned BILL-####. Reference it against a PO (refType po + poNo), GRN (refType grn + grnNo), or jobwork DC (refType jobwork + dcNo). Runs a 3-way match (PO vs GRN vs bill qty/rate) with tolerance verdicts shown on the plan. Required: partyCode, billType (yarn|fab|acc|cm|prd), qty, rate. Optional: gstRate (input credit), additions, deductions.',
+    domain: 'accounting',
+    isWrite: true,
+    schema: z.object({
+      billNo: z.string().optional(),
+      partyCode: z.string(),
+      billType: z.string().describe('yarn | fab | acc | cm | prd'),
+      refType: z.string().optional().describe('po | grn | jobwork | order | none'),
+      refNo: z.string().optional().describe('Direct reference number (GRN/PO/DC) — alternatively use poNo/grnNo/dcNo below'),
+      poNo: z.string().optional(),
+      grnNo: z.string().optional(),
+      dcNo: z.string().optional(),
+      orderNo: z.string().optional(),
+      qty: z.number(),
+      rate: z.number(),
+      gstRate: z.number().optional().describe('GST % on the bill (input credit), default 0'),
+      additions: z.number().optional().describe('Add heads (freight etc.) added to bill amount'),
+      deductions: z.number().optional().describe('Deduction heads subtracted at entry'),
+      billDate: z.string().optional(),
+      remarks: z.string().optional(),
+    }),
+    async execute(args) {
+      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+        || (await db.party.findFirst({ where: { name: args.partyCode } }))
+      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name).` }
+      const finYear = await activeFinYear()
+
+      // Resolve the reference document for the 3-way match
+      let refType = args.refType || (args.poNo ? 'po' : args.grnNo || args.refNo?.startsWith('GRN') ? 'grn' : args.dcNo ? 'jobwork' : args.orderNo ? 'order' : args.refNo ? 'grn' : 'none')
+      let refNo: string | null = args.poNo || args.grnNo || args.dcNo || args.orderNo || args.refNo || null
+      let refId: string | null = null
+      let poQty: number | undefined
+      let poRate: number | undefined
+      let grnQty: number | undefined
+      if (args.poNo) {
+        const po = await db.purchaseOrder.findUnique({ where: { poNo: args.poNo }, include: { lines: true } })
+        if (!po) return { text: `PO ${args.poNo} not found` }
+        refId = po.id
+        poQty = po.lines.reduce((s, l) => s + l.qty, 0)
+        poRate = po.lines[0]?.rate
+      }
+      const grnRef = args.grnNo || (refType === 'grn' && args.refNo ? args.refNo : null)
+      if (grnRef) {
+        const grn = await db.gRN.findUnique({ where: { grnNo: grnRef } })
+        if (!grn) return { text: `GRN ${grnRef} not found` }
+        refNo = grn.grnNo
+        refId = refId || grn.id
+        grnQty = grn.totalQty
+        if (grn.poId && poQty == null) {
+          const po = await db.purchaseOrder.findUnique({ where: { id: grn.poId }, include: { lines: true } })
+          if (po) { poQty = po.lines.reduce((s, l) => s + l.qty, 0); poRate = po.lines[0]?.rate }
+        }
+      }
+      if (args.dcNo) {
+        const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo } })
+        if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
+        refId = refId || jw.id
+      }
+      if (args.orderNo) {
+        const o = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+        if (!o) return { text: `Order ${args.orderNo} not found` }
+        refId = refId || o.id
+      }
+
+      const taxableValue = args.qty * args.rate
+      const gstRate = args.gstRate ?? 0
+      const gstAmount = (taxableValue * gstRate) / 100
+      const additions = args.additions ?? 0
+      const deductions = args.deductions ?? 0
+      const billAmount = taxableValue + gstAmount + additions - deductions
+      const resolvedBillNo = await resolveNumber('bill', args.billNo)
+      const billDate = args.billDate ? new Date(args.billDate) : new Date()
+
+      // 3-way match + dating checks (BIL-008, BR-03)
+      const match = await threeWayMatch({ poQty, grnQty, billQty: args.qty, poRate, billRate: args.rate })
+      const tolerances = [...match.verdicts, ...(await checkEntryDate(billDate))]
+      if (tolerances.some((v) => v.severity === 'block')) {
+        return { text: `Bill refused by tolerance check:\n${tolerances.filter((v) => v.severity === 'block').map((v) => `✕ ${v.message}`).join('\n')}`, json: { tolerances } }
+      }
+
+      return {
+        text: `Proposed bill ${resolvedBillNo} from ${party.name}: ${args.qty} × ₹${args.rate} = ₹${taxableValue}${gstRate ? ` + ${gstRate}% GST ₹${gstAmount}` : ''}${additions ? ` + add ₹${additions}` : ''}${deductions ? ` − ded ₹${deductions}` : ''} → ₹${billAmount}. 3-way match: ${match.matched ? 'OK' : 'deviations flagged'}.`,
+        plan: {
+          summary: `Register bill ${resolvedBillNo} | ${party.name} | ${args.billType} | qty ${args.qty} × ₹${args.rate} | taxable ₹${taxableValue} | GST ${gstRate}% | bill ₹${billAmount}${refNo ? ` | ref ${refType}:${refNo}` : ''}`,
+          creates: [
+            { table: 'bill', data: { billNo: resolvedBillNo, partyId: party.id, billType: args.billType, refType, refNo, refId, billDate, finYear, qty: args.qty, rate: args.rate, taxableValue, gstRate, gstAmount, billAmount, status: 'received', matchVerdict: JSON.stringify(match), remarks: args.remarks } },
+          ],
+          sideEffects: ['Enters the bills register (status received)', 'Pass for payment via pass_bill', 'Party payable exposure increases'],
+          tolerances: tolerances.length ? tolerances : undefined,
+        },
+        async commit() {
+          const bill = await db.bill.create({
+            data: { billNo: resolvedBillNo, partyId: party.id, billType: args.billType, refType, refNo, refId, billDate, finYear, qty: args.qty, rate: args.rate, taxableValue, gstRate, gstAmount, billAmount, status: 'received', matchVerdict: JSON.stringify(match), remarks: args.remarks },
+          })
+          return { id: bill.id, billNo: bill.billNo, billAmount: bill.billAmount, party: party.code, partyName: party.name, refNo, match: { matched: match.matched, verdicts: match.verdicts.filter((v) => v.severity !== 'ok').length } }
+        },
+      }
+    },
+  },
+  {
+    name: 'pass_bill',
+    description: 'Pass a bill for payment (frmBillPass parity): computes TDS (suppressed when notds flag is on; default % from tds_default_percent flag — 194C), applies add/ded heads, and sets net payable. Required: billNo. Optional: tdsPercent override, additions, deductions, remarks.',
+    domain: 'accounting',
+    isWrite: true,
+    schema: z.object({
+      billNo: z.string(),
+      tdsPercent: z.number().optional().describe('TDS % override (default from tds_default_percent flag, e.g. 2 for 194C)'),
+      additions: z.number().optional(),
+      deductions: z.number().optional(),
+      passDate: z.string().optional(),
+      remarks: z.string().optional(),
+    }),
+    async execute(args) {
+      const bill = await db.bill.findUnique({ where: { billNo: args.billNo }, include: { party: true } })
+      if (!bill) return { text: `Bill ${args.billNo} not found` }
+      if (bill.status !== 'received') return { text: `Bill ${args.billNo} is already ${bill.status} — only received bills can be passed.` }
+
+      const flags = await getFlags(['notds', 'tds_default_percent', 'doublebillpassreqd'])
+      const tdsPercent = flags.notds ? 0 : (args.tdsPercent ?? flags.tds_default_percent)
+      const tdsBase = bill.taxableValue
+      const tdsAmount = Math.round(((tdsBase * tdsPercent) / 100) * 100) / 100
+      const additions = args.additions ?? 0
+      const deductions = args.deductions ?? 0
+      const netPayable = Math.round((bill.billAmount - tdsAmount + additions - deductions) * 100) / 100
+      const passDate = args.passDate ? new Date(args.passDate) : new Date()
+
+      return {
+        text: `Proposed pass for bill ${args.billNo} (${bill.party.name}): bill ₹${bill.billAmount} − TDS ${tdsPercent}% ₹${tdsAmount}${additions ? ` + add ₹${additions}` : ''}${deductions ? ` − ded ₹${deductions}` : ''} → net payable ₹${netPayable}.${flags.notds ? ' (TDS suppressed by notds flag)' : ''}${flags.doublebillpassreqd ? ' (doublebillpassreqd is on — a second pass will be required before payable)' : ''}`,
+        plan: {
+          summary: `Pass bill ${args.billNo} | ${bill.party.name} | bill ₹${bill.billAmount} | TDS ${tdsPercent}% = ₹${tdsAmount} | net ₹${netPayable}`,
+          creates: [
+            { table: 'billPass', data: { billId: bill.id, passDate, tdsPercent, tdsAmount, deductions, additions, netPayable, remarks: args.remarks } },
+          ],
+          updates: [
+            { table: 'bill', id: bill.id, data: { status: 'passed', tdsPercent, tdsAmount, netPayable, passDate } },
+          ],
+          sideEffects: ['Bill becomes payable (record_payment)', 'TDS ledger entry implied for Rpt_TDS compliance'],
+          tolerances: undefined,
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const pass = await tx.billPass.create({
+              data: { billId: bill.id, passDate, tdsPercent, tdsAmount, deductions, additions, netPayable, remarks: args.remarks },
+            })
+            const updated = await tx.bill.update({
+              where: { id: bill.id },
+              data: { status: 'passed', tdsPercent, tdsAmount, netPayable, passDate },
+            })
+            return { passId: pass.id, billNo: updated.billNo, netPayable: updated.netPayable, tdsAmount: updated.tdsAmount }
+          })
+        },
+      }
+    },
+  },
+  {
+    name: 'record_payment',
+    description: 'Record a payment (FrmPaymentReg parity): settles a passed bill (billNo) or pays a party on account. voucherNo optional — auto-assigned PAY-####. When billNo is given and amount is OMITTED, the bill is paid IN FULL (amount = net payable). Required: partyCode, mode (cash|bank|cheque|rtgs|upi). Optional: amount (omit for full bill settlement), billNo, reference (cheque/UTR no), notes.',
+    domain: 'accounting',
+    isWrite: true,
+    schema: z.object({
+      voucherNo: z.string().optional(),
+      partyCode: z.string(),
+      amount: z.number().optional().describe('Payment amount — omit to settle the referenced bill IN FULL'),
+      mode: z.string().default('bank'),
+      billNo: z.string().optional(),
+      reference: z.string().optional(),
+      payDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+        || (await db.party.findFirst({ where: { name: args.partyCode } }))
+      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name).` }
+      const finYear = await activeFinYear()
+      let bill: any = null
+      if (args.billNo) {
+        bill = await db.bill.findUnique({ where: { billNo: args.billNo } })
+        if (!bill) return { text: `Bill ${args.billNo} not found` }
+        if (bill.status === 'received') return { text: `Bill ${args.billNo} is not passed yet — pass it first (pass_bill).` }
+      }
+      // amount defaults to full settlement of the referenced bill
+      const amount = args.amount ?? bill?.netPayable
+      if (amount == null || !Number.isFinite(amount) || amount <= 0) {
+        return { text: `Invalid payment amount ${JSON.stringify(args.amount)}${bill ? ` — the bill's net payable is ₹${bill.netPayable}` : ''}. Pass amount explicitly (or omit it to settle bill ${args.billNo || ''} in full).` }
+      }
+      if (bill && amount > bill.netPayable + 0.01) {
+        return { text: `Payment ₹${amount} exceeds net payable ₹${bill.netPayable} on bill ${args.billNo}. Pay at most the net payable or record an on-account payment without billNo.` }
+      }
+      const resolvedVoucherNo = await resolveNumber('payment', args.voucherNo)
+      const payDate = args.payDate ? new Date(args.payDate) : new Date()
+
+      return {
+        text: `Proposed payment ${resolvedVoucherNo} to ${party.name}: ₹${amount} via ${args.mode}${bill ? ` against bill ${bill.billNo}` : ' (on account)'}.`,
+        plan: {
+          summary: `Pay ${resolvedVoucherNo} | ${party.name} | ₹${amount} | ${args.mode}${bill ? ` | bill ${bill.billNo}` : ' | on account'}${args.reference ? ` | ref ${args.reference}` : ''}`,
+          creates: [
+            { table: 'payment', data: { voucherNo: resolvedVoucherNo, partyId: party.id, billId: bill?.id, payDate, finYear, amount, mode: args.mode, reference: args.reference, notes: args.notes } },
+          ],
+          updates: bill && amount >= bill.netPayable - 0.01
+            ? [{ table: 'bill', id: bill.id, data: { status: 'paid' } }]
+            : undefined,
+          sideEffects: ['Party payable reduces', bill ? 'Bill settles when fully paid' : 'On-account credit with party'],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const pay = await tx.payment.create({
+              data: { voucherNo: resolvedVoucherNo, partyId: party.id, billId: bill?.id, payDate, finYear, amount, mode: args.mode, reference: args.reference, notes: args.notes },
+            })
+            if (bill && amount >= bill.netPayable - 0.01) {
+              await tx.bill.update({ where: { id: bill.id }, data: { status: 'paid' } })
+            }
+            return { id: pay.id, voucherNo: pay.voucherNo, amount: pay.amount }
+          })
         },
       }
     },

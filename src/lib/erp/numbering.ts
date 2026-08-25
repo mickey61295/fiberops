@@ -8,6 +8,12 @@
 
 import { db } from '@/lib/db'
 
+/** The active financial year code (falls back to '26-27' when none is active). */
+export async function activeFinYear(): Promise<string> {
+  const fy = await db.finYear.findFirst({ where: { active: true } })
+  return fy?.code ?? '26-27'
+}
+
 type SequenceDef = {
   /** model on the prisma client, e.g. 'order' */
   model: string
@@ -43,6 +49,8 @@ export const SEQUENCES: Record<string, SequenceDef> = {
   department:     { model: 'department',     field: 'code',        template: 'D#',         start: 1 },
   employee:       { model: 'employee',       field: 'code',        template: 'EMP-####',   start: 1 },
   lot:            { model: 'lot',            field: 'lotNo',       template: 'LOT-####',   start: 1 },
+  bill:           { model: 'bill',           field: 'billNo',      template: 'BILL-####',  start: 1 },
+  payment:        { model: 'payment',        field: 'voucherNo',   template: 'PAY-####',   start: 1 },
 }
 
 function render(template: string, n: number): string {
