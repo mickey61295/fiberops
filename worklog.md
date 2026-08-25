@@ -53,3 +53,17 @@ Stage Summary:
 - 3 commits on main as j.maihby@gmail.com: baseline → Phase 0 restore → Phase 1.1/1.2. src/ typechecks 100% clean. App + agent + ingestion verified working end-to-end.
 - Next: Phase 1.3-1.7 (PostingEngine + movement matrix + projectors + refactor write tools + reversal tests) — the core of the convergence plan.
 - Push to GitHub pending: needs PAT or authenticated machine (`git push -u origin main`).
+
+---
+Task ID: phase1-core-and-phase2-production
+Agent: main
+Task: Continue convergence plan — Phase 1.3-1.7 (PostingEngine) then Phase 2 (production depth).
+
+Work Log:
+- Phase 1.3-1.7 (commit d0364fe): movement-matrix.ts (LLD 03 §4 rows for our doc set + invert), posting-engine.ts (sole StockLedger/CurrentStock writer, one tx, warn-not-block negatives), projectors.ts (ProgBalance recomputed from NET ledger), receive_grn + adjust_stock refactored onto engine, reverse_grn tool (compensating posting, PO decrement, REVERSED annotation). Tests found+fixed 2 engine bugs: NULL-vs-'' composite-unique mismatch (upsert never matched → duplicate rows; fixed with NULL-consistent findFirst + update-by-id) and projector gross aggregation (fixed to net so reversals net out). 6/6 golden tests (G1 atomicity, G2 parity, G3 reversal, transfer, projector).
+- Phase 2 (commit 91ffe90): Schema + Stage/RejectionType/PcsStock models (LLD Mas_JobWrkComp + Pcs_StockTable ports; ProductionEntry gains targetStageId/sourceStageId/goodFlag/rejectionTypeId). Seed: 17 Tirupur stages (KN/DY/CT/SW-01..07/FN/PK/PN), 7 rejection types, lines L-1..3. PCS_TXN_TYPES + Movement PCS dimensions. Matrix builders: pieceProduction/pieceRejection/pieceRework/issueToLine/lineTransfer/piecePartyDc/piecePartyGrn. Engine PcsStock bucket writer. Tools → 89: post_production_entry rewritten stage-aware, +post_rejection/post_rework/issue_to_line/list_stages/list_rejection_types/get_stage_wip. tests/posting/pcs-ledger.test.ts 6/6; suite 12/12.
+- Live E2E: agent posted 'SO-1001 SW-05 ← SW-01 200 pcs E001 ₹12' → plan → approved → PcsStock reconciles exactly across multi-run accumulation (SW-01 qty 200/prod 1000; SW-05 plain + line buckets separate; M bucket 60−40=20). Dev server restart was needed to pick up regenerated Prisma client.
+
+Stage Summary:
+- Phases 0, 1, 2 COMPLETE. 5 commits on main (push still pending credentials). 12/12 tests green. 89 agent tools. Production is now a stage pipeline with Good/'M' buckets — the largest semantic gap vs the LLD is closed.
+- Next: Phase 3 (Commercial & Flags): flag registry + tolerance service, HSN/GST, bill+bill-pass+TDS chain, cumulative rate engine, party exposure, FCY fix.

@@ -68,12 +68,12 @@ Ref: LLD 03 §4.2–§4.3, SCHEMA-CATALOG `Mas_JobWrkComp`, `Pcs_/Panel_StockTab
 
 | ID | Task | Size | Exit criteria |
 |---|---|---|---|
-| 2.1 | **Stage model** (`Mas_JobWrkComp` equivalent): stage master per department (SemiFinish flag, PcsType, ProdType); seed D1–D6 chains with real Tirupur stages (knit→dye→cut→stitch→finish→pack) | M | stages seeded; dept→stage chain queryable |
-| 2.2 | **Stage-aware ProductionEntry**: sourceStage/targetStage, Good/'M' bucket, rework flag; posting via engine dispatcher logic (LLD 03 §4.2 rows: piece prod, stage-to-stage, line-out, rework) | M | production entry moves pcs between stage buckets correctly |
-| 2.3 | **Piece ledger** (`PcsStock` model: ordId×style×lot×stage×part×size×color×good×line): the missing third ledger; piece DC/GRN posting paths (LLD 03 §4.3) | L | piece despatch deducts finished-stage bucket; piece GRN adds company bucket |
-| 2.4 | **Rejection & rework**: rejection entries (G→'M' with RejectionTypeId), rework consumes 'M' outputs 'G'; agent tools `post_rejection`, `post_rework` | M | rework round-trip test passes |
-| 2.5 | **Line operations**: line in/out/transfer posting + agent tools | M | line WIP queryable per order |
-| 2.6 | **Read tools upgrade**: `get_line_status`, `get_order` production view read from stage pipeline (ordered/balance per stage) | S | chat query "production status of SO-1001 by stage" answers correctly |
+| 2.1 ✅ | **Stage model** (`Mas_JobWrkComp` equivalent): stage master per department (SemiFinish flag, PcsType, ProdType); seed D1–D6 chains with real Tirupur stages (knit→dye→cut→stitch→finish→pack) | M | stages seeded; dept→stage chain queryable |
+| 2.2 ✅ | **Stage-aware ProductionEntry**: sourceStage/targetStage, Good/'M' bucket, rework flag; posting via engine dispatcher logic (LLD 03 §4.2 rows: piece prod, stage-to-stage, line-out, rework) | M | production entry moves pcs between stage buckets correctly |
+| 2.3 ✅ | **Piece ledger** (`PcsStock` model: ordId×style×lot×stage×part×size×color×good×line): the missing third ledger; piece DC/GRN posting paths (LLD 03 §4.3) | L | piece despatch deducts finished-stage bucket; piece GRN adds company bucket |
+| 2.4 ✅ | **Rejection & rework**: rejection entries (G→'M' with RejectionTypeId), rework consumes 'M' outputs 'G'; agent tools `post_rejection`, `post_rework` | M | rework round-trip test passes |
+| 2.5 ✅ | **Line operations**: line in/out/transfer posting + agent tools | M | line WIP queryable per order |
+| 2.6 ✅ | **Read tools upgrade**: `get_line_status`, `get_order` production view read from stage pipeline (ordered/balance per stage) | S | chat query "production status of SO-1001 by stage" answers correctly |
 
 **Phase exit:** production is a stage pipeline with buckets — not a flat qty sum.
 
@@ -164,3 +164,4 @@ DC family TrType completeness + gate pass/e-way · multi-process GRN chains · r
 | 2026-08-25 | Phase 0 COMPLETE: 82-tool registry, docExtract + /api/upload + Attach button, agent route hardening (coercion/12 steps/80K docs), LPP PO regression re-ingested (5 orders, 30,006 pcs verified). src/ typechecks clean. |
 | 2026-08-25 | Phase 1.1+1.2 COMPLETE: enums.ts (LLD 03 §1 ports + Movement type), numbering.ts (22-sequence NumberingService), create_order refactored onto it. |
 | 2026-08-25 | Phase 1.3-1.7 COMPLETE: movement-matrix.ts + posting-engine.ts (sole stock writer, one-tx) + projectors.ts (ProgBalance live) + receive_grn/adjust_stock refactored + reverse_grn tool + 6/6 golden tests (G1/G2/G3). Fixed NULL-key upsert bug + projector netting bug found by tests. |
+| 2026-08-25 | Phase 2 COMPLETE (2.1-2.6): Stage master (17 Tirupur stages), PcsStock third ledger, Good/'M' buckets, rejection/rework/line tools, get_stage_wip. 89 tools total. 12/12 tests green incl. live-agent E2E production posting. |
