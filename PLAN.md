@@ -36,11 +36,11 @@ The environment reset to a pre-2026-08-24 snapshot. All items below were built a
 
 | ID | Task | Size | Exit criteria |
 |---|---|---|---|
-| 0.1 | Re-apply the **77-tool registry** to `src/lib/agent/tools.ts`: 21 master-create tools, 7 transactional creates (jobwork, pcs despatch, debit note, journal, cost sheet), 5 update/cancels, `receive_jobwork`, `create_sizes` batch, 14 new `list_*` reads | S | `grep -c "name: '"` ≈ 77; TS clean |
-| 0.2 | Restore **document ingestion**: `src/lib/agent/docExtract.ts`, `/api/upload/route.ts`, Attach button in `agent-panel.tsx` | S | upload + extract_document E2E works |
-| 0.3 | Restore **agent route hardening**: MAX_STEPS=12, zod validation with type coercion (`parseWithCoercion`), 80K extract_document result limit, two-phase ingestion + direction-rule system prompt | S | coercion test (string "4.5" → number) passes |
-| 0.4 | **Regression re-ingest** the LPP PO (`upload/PO_696GJ_revised 21-04-25.pdf`): masters → approve → continue → 5 orders → approve | M | 5 orders (11135903/11136041/11136133/11111841/11136129), 30,006 pcs, FY 24-25 in DB |
-| 0.5 | Restore `worklog.md` protocol + **git commit checkpoint** of the full restored state | S | `git log` shows restore commit |
+| 0.1 ✅ | Re-apply the **77-tool registry** to `src/lib/agent/tools.ts`: 21 master-create tools, 7 transactional creates (jobwork, pcs despatch, debit note, journal, cost sheet), 5 update/cancels, `receive_jobwork`, `create_sizes` batch, 14 new `list_*` reads | S | `grep -c "name: '"` ≈ 77; TS clean |
+| 0.2 ✅ | Restore **document ingestion**: `src/lib/agent/docExtract.ts`, `/api/upload/route.ts`, Attach button in `agent-panel.tsx` | S | upload + extract_document E2E works |
+| 0.3 ✅ | Restore **agent route hardening**: MAX_STEPS=12, zod validation with type coercion (`parseWithCoercion`), 80K extract_document result limit, two-phase ingestion + direction-rule system prompt | S | coercion test (string "4.5" → number) passes |
+| 0.4 ✅ | **Regression re-ingest** the LPP PO (`upload/PO_696GJ_revised 21-04-25.pdf`): masters → approve → continue → 5 orders → approve | M | 5 orders (11135903/11136041/11136133/11111841/11136129), 30,006 pcs, FY 24-25 in DB |
+| 0.5 ✅ | Restore `worklog.md` protocol + **git commit checkpoint** of the full restored state | S | `git log` shows restore commit |
 
 **Phase exit:** everything green that was green before the rollback, now committed to git.
 
@@ -52,8 +52,8 @@ Port the LLD's single best idea: all stock math in one engine, driven by a typed
 
 | ID | Task | Size | Exit criteria |
 |---|---|---|---|
-| 1.1 | **`src/lib/erp/enums.ts`** — typed ports: `TrType` (18 codes), `GrnType` (11), `PcsType`, `GoodFlag` ('G'/'M'), `ProcessType` ('P'/'R'/'S'), `YF`, `EntryOption`, `FinalStage` — values verbatim from LLD 03 §1 | S | enums module imported everywhere; no free-string txn types in new code |
-| 1.2 | **`src/lib/erp/numbering.ts`** — NumberingService: prefix registry (SO-/PO-Y-/GRN-/INV-/CUT-/JW-/DC-/DN-/V-…), finyear-scoped, gap-free, peek/take; refactor the ~20 copy-pasted auto-number blocks out of tools | M | all create tools call `numbering.take()`; duplicate-number test passes |
+| 1.1 ✅ | **`src/lib/erp/enums.ts`** — typed ports: `TrType` (18 codes), `GrnType` (11), `PcsType`, `GoodFlag` ('G'/'M'), `ProcessType` ('P'/'R'/'S'), `YF`, `EntryOption`, `FinalStage` — values verbatim from LLD 03 §1 | S | enums module imported everywhere; no free-string txn types in new code |
+| 1.2 ✅ | **`src/lib/erp/numbering.ts`** — NumberingService: prefix registry (SO-/PO-Y-/GRN-/INV-/CUT-/JW-/DC-/DN-/V-…), finyear-scoped, gap-free, peek/take; refactor the ~20 copy-pasted auto-number blocks out of tools | M | all create tools call `numbering.take()`; duplicate-number test passes |
 | 1.3 | **`src/lib/erp/posting-engine.ts` + `movement-matrix.ts`** — port the LLD 03 §4.1 rows that map to our schema: process DC out, purchase GRN in, process GRN in (new dyed identity), returns (TrType 4/6/13), godown transfer (14), jobwork out/in, piece despatch, cut ack (dept −7 pool). Signed `Movement { ledger, key, qty, sign }` applied in ONE transaction | L | engine is the only writer of StockLedger/CurrentStock (grep-enforced) |
 | 1.4 | **Refactor write tools onto the engine**: `receive_grn`, `adjust_stock`, `create_cut_order`, `create_pcs_despatch`, `create_jobwork_order`, `receive_jobwork` call `PostingEngine.apply()` instead of hand-rolled stock SQL | M | behavior-identical on golden inputs; tool diffs shrink |
 | 1.5 | **Compensating reversals**: `cancel_order` / `cancel_purchase_order` / `cancel_invoice` / new `reverse_grn` rebuild inverted MovementSets — stock and ledger restored exactly (LLD 03 §3 delete rule) | M | G3 reversal test: post → reverse → byte-identical prior state |
@@ -160,3 +160,6 @@ DC family TrType completeness + gate pass/e-way · multi-process GRN chains · r
 | Date | Entry |
 |---|---|
 | 2026-08-25 | Plan created from LLD-vs-codebase analysis (comparison doc §6 convergence path) |
+| 2026-08-25 | Git initialized → github.com/mickey61295/fiberops (commits as j.maihby@gmail.com; push pending credentials). Baseline + Phase 0 + Phase 1.1/1.2 committed. |
+| 2026-08-25 | Phase 0 COMPLETE: 82-tool registry, docExtract + /api/upload + Attach button, agent route hardening (coercion/12 steps/80K docs), LPP PO regression re-ingested (5 orders, 30,006 pcs verified). src/ typechecks clean. |
+| 2026-08-25 | Phase 1.1+1.2 COMPLETE: enums.ts (LLD 03 §1 ports + Movement type), numbering.ts (22-sequence NumberingService), create_order refactored onto it. |

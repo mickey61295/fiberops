@@ -31,3 +31,25 @@ Work Log:
 
 Stage Summary:
 - PLAN.md is now the single backlog; worklog continues as session protocol. Next action per plan: Phase 0.1 (restore 77-tool registry).
+
+---
+Task ID: phase0-restore-and-phase1-start
+Agent: main
+Task: Set up version control (github.com/mickey61295/fiberops, commits as j.maihby@gmail.com) and execute the convergence plan starting from Phase 0 (user: "Start working. As a senior software developer you have to make decisions on priority").
+
+Work Log:
+- Git: fresh history (old one had 700MB legacy binaries tracked, unpushable). .gitignore excludes node_modules/.next/db/upload/secrets/source archives. remote=origin github.com/mickey61295/fiberops. Push blocked — no credentials in env (no gh, no PAT); commits queued locally.
+- Commit 1 (baseline): 135 files / 22,733 lines — app + PLAN.md + LLD reference pack.
+- Commit 2 (Phase 0 restore): 10 files / 15,020 insertions.
+  * tools.ts → 82 tools: re-added 16 read tools (masters + list_documents/extract_document), 34 write tools (master creates incl. create_sizes batch, jobwork/despatch/debit/journal/cost-sheet, update/cancels, receive_jobwork), create_order upgraded (finYear param, buyer name fallback, case-insensitive colour/size, NumberingService).
+  * docExtract.ts + /api/upload + agent-panel Attach button (custom-SSE panel replaced incompatible rolled-back useChat variant).
+  * agent route: SYSTEM_PROMPT w/ two-phase ingestion + direction rule, MAX_STEPS=12, parseWithCoercion (zod + string→number/bool fixups), 80K extract_document limit, TurnEvent union + zodToJsonSchema cast fixes, JSON.parse arg guard.
+  * Fixed pre-existing TS errors (erp route PO include, masters-view lucide Tabs, get_line_status never[]). npm i openai zod-to-json-schema (deps were rolled back too).
+  * E2E regression: scripts/test_ingest.mjs re-ingested LPP PO → buyer B-0001 LPP SA, style 696GJ (buyer's own model no this time — direction rule worked), sizes 104-140 batched in ONE call, 5 orders = 30,006 pcs / USD 31,506.30, FY 24-25. Verified + duplicates cleaned via scripts/verify_ingest.js.
+- Commit 3 (Phase 1.1+1.2): src/lib/erp/enums.ts (LLD 03 §1 typed ports: TrType/GrnType/PcsType/GoodFlag/YF/ProcessType/RateFor/EntryOption/FinalStage + Movement interface) and src/lib/erp/numbering.ts (NumberingService: 22 sequences, gap-free, desired-passthrough, collision fallback; create_order refactored onto it as the pattern).
+- PLAN.md: tasks 0.1-0.5 and 1.1-1.2 ticked; change log updated; download copy synced.
+
+Stage Summary:
+- 3 commits on main as j.maihby@gmail.com: baseline → Phase 0 restore → Phase 1.1/1.2. src/ typechecks 100% clean. App + agent + ingestion verified working end-to-end.
+- Next: Phase 1.3-1.7 (PostingEngine + movement matrix + projectors + refactor write tools + reversal tests) — the core of the convergence plan.
+- Push to GitHub pending: needs PAT or authenticated machine (`git push -u origin main`).
