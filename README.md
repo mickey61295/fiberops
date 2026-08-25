@@ -5,7 +5,7 @@ A modern rebuild of the legacy **Joms/Fiberpro** Tirupur knitwear job-work ERP a
 ## What it is
 
 - **ERP core**: orders, procurement (PO/GRN), inventory (multi-godown stock ledger), cutting, production, jobwork, despatch, commercial (invoices/debit notes/journals), costing, HR, approvals, masters.
-- **AI Agent Harness** ("Fiberpro Agent"): a GLM-4.6 tool-calling agent with ~75 read/write tools over the whole schema. Writes follow a **plan → approve → commit** loop — the agent proposes, a human approves, the tool's `commit()` persists inside a transaction. Every turn is audited (`AgentTurn`).
+- **AI Agent Harness** ("Fiberpro Agent"): a GLM-4.6 tool-calling agent with **103 tools** (52 read + 51 write) over the whole schema. Writes follow a **plan → approve → commit** loop — the agent proposes, a human approves, the tool's `commit()` persists inside a transaction. Every turn is audited (`AgentTurn`). After every commit the agent proactively tells the user the next canonical pipeline step (order → BOM → PO → GRN → jobwork → cut → issue-to-line → production → despatch → invoice → cost sheet → collection) and `suggest_next_step` returns a pre-filled args skeleton for the next call.
 - **Document ingestion**: attach a buyer PO PDF (or CSV/TXT) in chat → agent extracts text, proposes missing masters, then one order per document entity, with approvals at each phase.
 
 ## Stack

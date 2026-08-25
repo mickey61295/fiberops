@@ -107,3 +107,23 @@ Work Log:
 
 Stage Summary:
 - Phases 0-4 COMPLETE — the convergence plan is done. 104 tools. 30/30 tests. src clean. Trust machinery live: confidence chips, eval gate (100% static), working audit trail, daily digest, rollback drill 8s. Remaining: push to GitHub (credentials still pending), Phase 5 parked (needs spec cards).
+
+---
+Task ID: phase-1.8
+Agent: main
+Task: Surface the order→program→cut→production→despatch→invoice→cost→collection chain — the user pointed out "there's no next step after order creation", which broke the core ease-of-use promise.
+
+Work Log:
+- Added `suggest_next_step` read tool (in src/lib/agent/tools.ts): inspects an order's pipeline state (bom/cut/production/invoice/cost flags) and returns the NEXT canonical Tirupur knitwear stage with a pre-filled tool-args skeleton the user can paste back.
+- Embedded the 14-stage pipeline template (create_order → create_bom → create_purchase_order → receive_grn → create_jobwork_order → receive_jobwork → create_cut_order → issue_to_line → post_production_entry → post_rework/post_rejection → create_pcs_despatch → create_sales_invoice → create_cost_sheet → record_payment).
+- Updated SYSTEM_PROMPT (src/app/api/agent/route.ts): added INDUSTRY WORKFLOW section + next-step guidance rules ("After a create_order commit succeeds, end your reply with the next canonical stage"). Bumped PROMPT_VERSION v4-2026-08-25 → v5-2026-08-26.
+- Fixed TypeScript issues in new tool: Style.bom → Style.bomLines; SalesInvoice.netValue → SalesInvoice.billAmount; null-safe lengths with `?? 0`.
+- Updated README tool count: ~75 → 103 (52 read + 51 write) and surfaced the pipeline + suggest_next_step in the harness description.
+
+Stage Summary:
+- src/lib/agent/tools.ts +131 lines (new suggest_next_step tool + helpers).
+- src/app/api/agent/route.ts +28 lines (INDUSTRY WORKFLOW + next-step rules + PROMPT_VERSION bump).
+- README.md updated tool-count + pipeline mention.
+- TypeScript: clean (only unrelated sandbox skills/examples have residual errors).
+- Tests: golden-posting 6/6 still pass; app HTTP 200.
+- TODO before push: user must provide GitHub PAT (sandbox has no creds) OR run `git push` from an authenticated machine.
