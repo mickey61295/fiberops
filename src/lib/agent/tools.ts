@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 
 import { z } from 'zod'
 import { listUploadDir, extractDocument } from './docExtract'
+import { resolveNumber } from '../erp/numbering'
 
 export type ToolResult = {
   text?: string
@@ -906,19 +907,7 @@ const writeTools: AgentTool[] = [
       })
 
       // Resolve a free order number (auto-increment if not provided / collision)
-      const resolvedOrderNo = await (async () => {
-        const desired = args.orderNo?.trim()
-        if (desired) {
-          const exists = await db.order.findUnique({ where: { orderNo: desired } })
-          if (!exists) return desired
-        }
-        // Find next free SO-####
-        const all = await db.order.findMany({ where: { orderNo: { startsWith: 'SO-' } } })
-        const used = new Set(all.map((o) => o.orderNo))
-        let n = 1001
-        while (used.has(`SO-${n}`)) n++
-        return `SO-${n}`
-      })()
+      const resolvedOrderNo = await resolveNumber('order', args.orderNo)
 
       return {
         text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
