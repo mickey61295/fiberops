@@ -1,0 +1,50 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+build/
+
+# secrets & env — NEVER commit
+.env
+.env.*
+!.env.example
+.z-ai-config
+*.pem
+*.key
+
+# databases (binary, re-generate via scripts/seed.ts)
+db/*.db
+db/*.db-journal
+*.sqlite
+
+# large user uploads & deliverables (not source)
+upload/
+download/
+tool-results/
+dev.log
+*.log
+
+# legacy source archives & reference extracts (700MB binaries — reference only)
+source-erp/
+research/
+examples/
+mini-services/
+skills/
+tests/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# runtime
+.zscripts/
+*.pid
+tsconfig.tsbuildinfo
+next-env.d.ts

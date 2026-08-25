@@ -1,0 +1,694 @@
+// Fiberpro — Garment ERP with AI Agent Harness
+// Prisma schema (SQLite)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============== ORG / SECURITY ==============
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  name       String
+  role       String      @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
+  createdAt  DateTime    @default(now())
+  agentTurns AgentTurn[]
+}
+
+model AgentTurn {
+  id         String    @id @default(cuid())
+  prompt     String
+  plan       String? // JSON-stringified proposed plan
+  toolCalls  String? // JSON array of {name, args, result}
+  result     String?
+  approved   Boolean   @default(false)
+  approvedBy String?
+  approvedAt DateTime?
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  createdAt  DateTime  @default(now())
+}
+
+// ============== MASTERS ==============
+model Party {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  partyType      String          @default("supplier") // supplier | customer | both
+  gstin          String?
+  pan            String?
+  address        String?
+  city           String?
+  state          String?
+  phone          String?
+  email          String?
+  openingBalance Float           @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orders         Order[]
+  purchaseOrders PurchaseOrder[]
+  salesInvoices  SalesInvoice[]
+  grns           GRN[]
+  lots           Lot[]
+  journals       Journal[]
+  debitNotes     DebitNote[]
+  jobworkOrders  JobworkOrder[]
+  stockLedgers   StockLedger[]
+}
+
+model Buyer {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  dept         String?
+  merchandiser String?
+  createdAt    DateTime @default(now())
+  orders       Order[]
+  styles       Style[]
+}
+
+model Season {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  startDate DateTime?
+  endDate   DateTime?
+}
+
+model Merchandiser {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  email String?
+  phone String?
+}
+
+model Exporter {
+  id    String  @id @default(cuid())
+  code  String  @unique
+  name  String
+  iec   String? // Import Export Code
+  gstin String?
+}
+
+model Style {
+  id          String      @id @default(cuid())
+  styleNo     String      @unique
+  description String?
+  buyerId     String?
+  buyer       Buyer?      @relation(fields: [buyerId], references: [id])
+  category    String? // woven / knit / etc
+  sam         Float? // Standard Allowed Minutes
+  hsn         String?
+  createdAt   DateTime    @default(now())
+  orderLines  OrderLine[]
+  bomLines    BomLine[]
+  orders      Order[]
+}
+
+model Colour {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  code          String         @unique
+  orderLines    OrderLine[]
+  currentStocks CurrentStock[]
+}
+
+model Size {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  sort          Int            @default(0)
+  orderLines    OrderLine[]
+  currentStocks CurrentStock[]
+}
+
+model SizeGroup {
+  id    String @id @default(cuid())
+  name  String @unique
+  sizes String // CSV of size IDs
+}
+
+model Part {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model Component {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model Design {
+  id   String @id @default(cuid())
+  name String @unique
+  code String @unique
+}
+
+model Lot {
+  id      String  @id @default(cuid())
+  lotNo   String  @unique
+  partyId String?
+  party   Party?  @relation(fields: [partyId], references: [id])
+}
+
+model Dia {
+  id      String   @id @default(cuid())
+  value   String   @unique
+  fabrics Fabric[]
+}
+
+model UOM {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  code        String      @unique
+  yarns       Yarn[]
+  fabrics     Fabric[]
+  accessories Accessory[]
+}
+
+model Godown {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  location      String?
+  grns          GRN[]
+  currentStocks CurrentStock[]
+  stockLedgers  StockLedger[]
+}
+
+model Department {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  orderSno          Int               @default(0)
+  isProcess         Boolean           @default(false)
+  employees         Employee[]
+  productionEntries ProductionEntry[]
+  lines             Line[]
+  grns              GRN[]
+  currentStocks     CurrentStock[]
+}
+
+model Employee {
+  id                String            @id @default(cuid())
+  code              String            @unique
+  name              String
+  deptId            String?
+  department        Department?       @relation(fields: [deptId], references: [id])
+  role              String? // operator | supervisor | helper
+  pieceRate         Float             @default(0)
+  dailyWage         Float             @default(0)
+  active            Boolean           @default(true)
+  productionEntries ProductionEntry[]
+}
+
+model Yarn {
+  id    String  @id @default(cuid())
+  code  String  @unique
+  count String
+  blend String?
+  uomId String
+  uom   UOM     @relation(fields: [uomId], references: [id])
+  rate  Float   @default(0)
+}
+
+model Fabric {
+  id           String  @id @default(cuid())
+  code         String  @unique
+  construction String?
+  gsm          Float?
+  width        Float?
+  diaId        String?
+  dia          Dia?    @relation(fields: [diaId], references: [id])
+  uomId        String
+  uom          UOM     @relation(fields: [uomId], references: [id])
+  rate         Float   @default(0)
+}
+
+model Accessory {
+  id       String  @id @default(cuid())
+  code     String  @unique
+  name     String
+  category String?
+  uomId    String
+  uom      UOM     @relation(fields: [uomId], references: [id])
+  rate     Float   @default(0)
+}
+
+// ============== ORDERS / SALES ==============
+model Order {
+  id                String            @id @default(cuid())
+  orderNo           String            @unique
+  buyerId           String
+  buyer             Buyer             @relation(fields: [buyerId], references: [id])
+  styleId           String?
+  style             Style?            @relation(fields: [styleId], references: [id])
+  orderDate         DateTime          @default(now())
+  deliveryDate      DateTime?
+  finYear           String
+  status            String            @default("open") // open | in_progress | completed | cancelled
+  totalPcs          Int               @default(0)
+  totalValue        Float             @default(0)
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  lines             OrderLine[]
+  poLines           POLine[]
+  cutOrders         CutOrder[]
+  productionEntries ProductionEntry[]
+  salesInvoices     SalesInvoice[]
+  costSheet         CostSheet[]
+  party             Party?            @relation(fields: [partyId], references: [id])
+  partyId           String?
+}
+
+model OrderLine {
+  id       String  @id @default(cuid())
+  orderId  String
+  order    Order   @relation(fields: [orderId], references: [id])
+  styleId  String
+  style    Style   @relation(fields: [styleId], references: [id])
+  colourId String?
+  colour   Colour? @relation(fields: [colourId], references: [id])
+  sizeId   String?
+  size     Size?   @relation(fields: [sizeId], references: [id])
+  qty      Int     @default(0)
+  rate     Float   @default(0)
+}
+
+model BomLine {
+  id       String  @id @default(cuid())
+  styleId  String
+  style    Style   @relation(fields: [styleId], references: [id])
+  itemType String // yarn | fabric | accessory
+  itemId   String
+  qty      Float
+  uomId    String?
+  rate     Float   @default(0)
+}
+
+// ============== PROCUREMENT ==============
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  poNo         String    @unique
+  poType       String // yarn | fabric | accessory | general
+  partyId      String
+  party        Party     @relation(fields: [partyId], references: [id])
+  orderDate    DateTime  @default(now())
+  deliveryDate DateTime?
+  finYear      String
+  status       String    @default("open") // open | partial | received | cancelled
+  totalQty     Float     @default(0)
+  totalValue   Float     @default(0)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  lines        POLine[]
+  grns         GRN[]
+}
+
+model POLine {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id])
+  orderId     String?
+  order       Order?        @relation(fields: [orderId], references: [id])
+  itemType    String // yarn | fabric | accessory
+  itemId      String
+  qty         Float
+  receivedQty Float         @default(0)
+  rate        Float
+  uomId       String?
+  amount      Float
+}
+
+model GRN {
+  id         String         @id @default(cuid())
+  grnNo      String         @unique
+  grnType    String // purchase | process | direct_receipt | process_return | sales_return
+  poId       String?
+  po         PurchaseOrder? @relation(fields: [poId], references: [id])
+  partyId    String
+  party      Party          @relation(fields: [partyId], references: [id])
+  godownId   String
+  godown     Godown         @relation(fields: [godownId], references: [id])
+  deptId     String?
+  department Department?    @relation(fields: [deptId], references: [id])
+  grnDate    DateTime       @default(now())
+  finYear    String
+  docNo      String?
+  partyDcRef String?
+  totalQty   Float          @default(0)
+  totalValue Float          @default(0)
+  createdAt  DateTime       @default(now())
+  lines      GRNLine[]
+}
+
+model GRNLine {
+  id       String  @id @default(cuid())
+  grnId    String
+  grn      GRN     @relation(fields: [grnId], references: [id])
+  itemType String // yarn | fabric | accessory
+  itemId   String
+  lotId    String?
+  qty      Float
+  rate     Float
+  uomId    String?
+  amount   Float
+}
+
+// ============== INVENTORY ==============
+model StockLedger {
+  id        String   @id @default(cuid())
+  txnType   String // opening | purchase_grn | process_delivery | process_receipt | sales_delivery | sales_return | transfer_in | transfer_out | godown_transfer_in | godown_transfer_out | stock_adjustment_add | stock_adjustment_less | cut_ack | unit_dc | ready_to_cut_in | ready_to_cut_out
+  itemType  String // yarn | fabric | accessory | pcs
+  itemId    String
+  lotId     String?
+  colourId  String?
+  sizeId    String?
+  godownId  String?
+  deptId    String?
+  orderId   String?
+  docNo     String?
+  docDate   DateTime @default(now())
+  finYear   String
+  inBags    Float    @default(0)
+  inKgs     Float    @default(0)
+  inMtrs    Float    @default(0)
+  inPcs     Float    @default(0)
+  outBags   Float    @default(0)
+  outKgs    Float    @default(0)
+  outMtrs   Float    @default(0)
+  outPcs    Float    @default(0)
+  rate      Float    @default(0)
+  partyId   String?
+  refId     String? // generic ref id (GRN/PO/Order/etc)
+  notes     String?
+  createdAt DateTime @default(now())
+  godown    Godown?  @relation(fields: [godownId], references: [id])
+  party     Party?   @relation(fields: [partyId], references: [id])
+}
+
+model CurrentStock {
+  id         String      @id @default(cuid())
+  itemType   String
+  itemId     String
+  lotId      String?
+  colourId   String?
+  sizeId     String?
+  godownId   String
+  deptId     String?
+  orderId    String?
+  bags       Float       @default(0)
+  kgs        Float       @default(0)
+  mtrs       Float       @default(0)
+  pcs        Float       @default(0)
+  rate       Float       @default(0)
+  updatedAt  DateTime    @updatedAt
+  godown     Godown?     @relation(fields: [godownId], references: [id])
+  colour     Colour?     @relation(fields: [colourId], references: [id])
+  size       Size?       @relation(fields: [sizeId], references: [id])
+  department Department? @relation(fields: [deptId], references: [id])
+
+  @@unique([itemType, itemId, godownId, lotId, colourId, sizeId, deptId, orderId])
+}
+
+// ============== CUTTING ==============
+model CutOrder {
+  id           String      @id @default(cuid())
+  cutNo        String      @unique
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id])
+  cutDate      DateTime    @default(now())
+  fabricIssued Float       @default(0) // kgs
+  totalPcs     Int         @default(0)
+  status       String      @default("planned") // planned | cut | acknowledged
+  markerLength Float?
+  noOfPlies    Int?
+  efficiency   Float?
+  createdAt    DateTime    @default(now())
+  bundles      CutBundle[]
+}
+
+model CutBundle {
+  id         String   @id @default(cuid())
+  cutOrderId String
+  cutOrder   CutOrder @relation(fields: [cutOrderId], references: [id])
+  bundleNo   String   @unique
+  barcode    String   @unique
+  colourId   String?
+  sizeId     String?
+  qty        Int
+  status     String   @default("in_cutting") // in_cutting | issued_to_sewing | sewn | packed
+  createdAt  DateTime @default(now())
+}
+
+// ============== PRODUCTION ==============
+model ProductionEntry {
+  id         String     @id @default(cuid())
+  orderId    String
+  order      Order      @relation(fields: [orderId], references: [id])
+  deptId     String
+  department Department @relation(fields: [deptId], references: [id])
+  prodDate   DateTime   @default(now())
+  bundleNo   String?
+  operatorId String?
+  operator   Employee?  @relation(fields: [operatorId], references: [id])
+  styleNo    String?
+  colourId   String?
+  sizeId     String?
+  qty        Int        @default(0)
+  rework     Boolean    @default(false)
+  rate       Float      @default(0)
+  amount     Float      @default(0)
+  shiftWages Float      @default(0)
+  lineId     String?
+  createdAt  DateTime   @default(now())
+}
+
+model Line {
+  id                 String      @id @default(cuid())
+  code               String      @unique
+  name               String
+  deptId             String?
+  department         Department? @relation(fields: [deptId], references: [id])
+  capacityPcsPerHour Int         @default(0)
+}
+
+// ============== PIECES / FINISHED GOODS ==============
+model PcsDespatch {
+  id           String            @id @default(cuid())
+  dcNo         String            @unique
+  orderId      String?
+  buyerId      String?
+  despatchDate DateTime          @default(now())
+  finYear      String
+  totalPcs     Int               @default(0)
+  vehicleNo    String?
+  courierName  String?
+  status       String            @default("draft") // draft | despatched | delivered
+  createdAt    DateTime          @default(now())
+  lines        PcsDespatchLine[]
+}
+
+model PcsDespatchLine {
+  id            String      @id @default(cuid())
+  pcsDespatchId String
+  pcsDespatch   PcsDespatch @relation(fields: [pcsDespatchId], references: [id])
+  styleNo       String
+  colourId      String?
+  sizeId        String?
+  qty           Int
+  rate          Float       @default(0)
+}
+
+// ============== ACCOUNTING / GST ==============
+model SalesInvoice {
+  id           String   @id @default(cuid())
+  invoiceNo    String   @unique
+  invoiceType  String   @default("domestic") // domestic | export
+  orderId      String?
+  order        Order?   @relation(fields: [orderId], references: [id])
+  partyId      String
+  party        Party    @relation(fields: [partyId], references: [id])
+  invoiceDate  DateTime @default(now())
+  finYear      String
+  billType     String   @default("sales") // sales | jobwork | yarn_sales | fab_sales
+  totalQty     Float    @default(0)
+  taxableValue Float    @default(0)
+  cgstRate     Float    @default(0)
+  sgstRate     Float    @default(0)
+  igstRate     Float    @default(0)
+  cgstAmt      Float    @default(0)
+  sgstAmt      Float    @default(0)
+  igstAmt      Float    @default(0)
+  otherCharges Float    @default(0)
+  roundOff     Float    @default(0)
+  billAmount   Float    @default(0)
+  ern          String? // Export Report Number
+  irn          String? // e-invoice IRN
+  status       String   @default("draft") // draft | issued | paid | cancelled
+  createdAt    DateTime @default(now())
+}
+
+model DebitNote {
+  id        String   @id @default(cuid())
+  noteNo    String   @unique
+  noteType  String // acc | fabric | yarn | pcs | comm
+  partyId   String?
+  party     Party?   @relation(fields: [partyId], references: [id])
+  date      DateTime @default(now())
+  finYear   String
+  amount    Float    @default(0)
+  reason    String?
+  status    String   @default("raised")
+  createdAt DateTime @default(now())
+}
+
+model Journal {
+  id            String   @id @default(cuid())
+  voucherNo     String   @unique
+  voucherType   String // receipt | payment | contra | journal
+  partyId       String?
+  party         Party?   @relation(fields: [partyId], references: [id])
+  date          DateTime @default(now())
+  finYear       String
+  debitAccount  String
+  creditAccount String
+  amount        Float    @default(0)
+  narration     String?
+  createdAt     DateTime @default(now())
+}
+
+// ============== COSTING ==============
+model CostSheet {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+  version       Int      @default(1)
+  fabricCost    Float    @default(0)
+  trimCost      Float    @default(0)
+  cmCost        Float    @default(0)
+  washingCost   Float    @default(0)
+  packingCost   Float    @default(0)
+  overheads     Float    @default(0)
+  commissionPct Float    @default(0)
+  marginPct     Float    @default(0)
+  totalCost     Float    @default(0)
+  sellingPrice  Float    @default(0)
+  createdAt     DateTime @default(now())
+}
+
+model Budget {
+  id         String       @id @default(cuid())
+  orderId    String?
+  deptId     String?
+  finYear    String
+  amount     Float        @default(0)
+  createdAt  DateTime     @default(now())
+  BudgetLine BudgetLine[]
+}
+
+model BudgetLine {
+  id           String  @id @default(cuid())
+  budgetId     String
+  budget       Budget  @relation(fields: [budgetId], references: [id])
+  workId       String? // jobwork component id
+  amount       Float   @default(0)
+  actualAmount Float   @default(0)
+}
+
+// ============== JOBWORK ==============
+model JobworkOrder {
+  id             String    @id @default(cuid())
+  dcNo           String    @unique
+  jobworkerId    String
+  jobworker      Party     @relation(fields: [jobworkerId], references: [id])
+  processType    String // washing | dyeing | printing | embroidery
+  outDate        DateTime  @default(now())
+  expectedInDate DateTime?
+  receivedDate   DateTime?
+  totalQty       Float     @default(0)
+  totalValue     Float     @default(0)
+  status         String    @default("sent") // sent | received | billed
+  itc04Line      String?
+  orderId        String?
+  createdAt      DateTime  @default(now())
+}
+
+// ============== WORKFLOW ==============
+model Approval {
+  id          String    @id @default(cuid())
+  entity      String // po | grn | invoice | cut_order | cost_sheet | debit
+  entityId    String
+  step        Int       @default(1)
+  requestedBy String
+  approvedBy  String?
+  status      String    @default("pending") // pending | approved | rejected
+  comments    String?
+  createdAt   DateTime  @default(now())
+  approvedAt  DateTime?
+}
+
+model GovtHoliday {
+  id   String   @id @default(cuid())
+  date DateTime
+  name String
+}
+
+// ============== PROGRAM BALANCE ==============
+model ProgBalanceFabric {
+  id            String  @id @default(cuid())
+  orderId       String
+  deptId        String
+  fabricId      String
+  colourId      String?
+  designId      String?
+  finDiaId      String?
+  finGsm        Float?
+  ll            String?
+  reqKgs        Float   @default(0)
+  reqMtrs       Float   @default(0)
+  poKgs         Float   @default(0)
+  dcKgs         Float   @default(0)
+  grnKgs        Float   @default(0)
+  progCompKgs   Float   @default(0)
+  transInKgs    Float   @default(0)
+  transOutKgs   Float   @default(0)
+  returnKgs     Float   @default(0)
+  cancelKgs     Float   @default(0)
+  shortKgs      Float   @default(0)
+  reqBalanceKgs Float   @default(0)
+  finishedKgs   Float   @default(0)
+}
+
+model ProgBalanceYarn {
+  id            String @id @default(cuid())
+  orderId       String
+  deptId        String
+  countId       String
+  reqKgs        Float  @default(0)
+  poKgs         Float  @default(0)
+  dcKgs         Float  @default(0)
+  grnKgs        Float  @default(0)
+  progCompKgs   Float  @default(0)
+  transInKgs    Float  @default(0)
+  transOutKgs   Float  @default(0)
+  returnKgs     Float  @default(0)
+  cancelKgs     Float  @default(0)
+  shortKgs      Float  @default(0)
+  reqBalanceKgs Float  @default(0)
+  finishedKgs   Float  @default(0)
+}
+
+model FinYear {
+  id     String   @id @default(cuid())
+  code   String   @unique
+  name   String
+  start  DateTime
+  end    DateTime
+  active Boolean  @default(false)
+}
