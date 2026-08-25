@@ -266,3 +266,226 @@ export function invertMovements(movements: Movement[], reversalDocNo?: string): 
     notes: `REVERSAL${m.docNo ? ` of ${m.docNo}` : ''}${reversalDocNo ? ` via ${reversalDocNo}` : ''}${m.notes ? ` | ${m.notes}` : ''}`,
   }))
 }
+
+// ───────────── PCS stage pipeline (LLD 03 §4.2 ports) ─────────────
+
+export interface PieceProdDoc {
+  orderId: string
+  styleNo: string
+  qty: number
+  targetStageId: string          // bucket receiving the produced pcs
+  sourceStageId?: string         // bucket the pcs came from (stage-to-stage)
+  lotId?: string
+  colourId?: string
+  sizeId?: string
+  lineId?: string                // line bucket (issue-to-line semantics)
+  prodType?: 'inhouse' | 'jobwork'
+}
+
+/**
+ * Piece production (LLD 03 §4.2 row 1): target 'G' bucket + pcs AND source
+ * stage bucket − pcs (stage-to-stage). If sourceStageId is absent, the
+ * entry only credits the target (e.g. first stage from cutting).
+ */
+export function pieceProduction(doc: PieceProdDoc, ref: DocRef): Movement[] {
+  const moves: Movement[] = [{
+    ledger: 'PCS', txnType: 'pcs_stage_in', sign: 1,
+    orderId: doc.orderId, styleNo: doc.styleNo,
+    stageId: doc.targetStageId, lotId: doc.lotId,
+    colourId: doc.colourId, sizeId: doc.sizeId,
+    godownId: '', goodFlag: 'G',
+    qty: { pcs: doc.qty },
+    docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+  }]
+  if (doc.sourceStageId) {
+    moves.push({
+      ledger: 'PCS', txnType: 'pcs_stage_out', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    })
+  }
+  return moves
+}
+
+/**
+ * Rejection (LLD 03 §4.2 Trs_PcsRej row): line 'G' bucket − pcs at the stage,
+ * 'M' bucket + pcs with RejectionTypeId (EmpID=0 semantics → no line).
+ */
+export function pieceRejection(doc: PieceProdDoc & { rejectionTypeId: string }, ref: DocRef): Movement[] {
+  return [
+    {
+      ledger: 'PCS', txnType: 'pcs_rejection', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId || doc.targetStageId,
+      lotId: doc.lotId, colourId: doc.colourId, sizeId: doc.sizeId,
+      lineId: doc.lineId, godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+    {
+      ledger: 'PCS', txnType: 'pcs_rejection', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId || doc.targetStageId,
+      lotId: doc.lotId, colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'M', rejectionTypeId: doc.rejectionTypeId,
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+}
+
+/**
+ * Rework (LLD 03 §4.2 Rework row): consumes the 'M' bucket (with
+ * RejectionTypeId), outputs 'G' at the target stage.
+ */
+export function pieceRework(doc: PieceProdDoc & { rejectionTypeId?: string }, ref: DocRef): Movement[] {
+  const moves: Movement[] = [
+    {
+      ledger: 'PCS', txnType: 'pcs_rework', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId || doc.targetStageId,
+      lotId: doc.lotId, colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'M', rejectionTypeId: doc.rejectionTypeId,
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+    {
+      ledger: 'PCS', txnType: 'pcs_rework', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+  return moves
+}
+
+/**
+ * Issue to line (LLD 03 §4.2 Trs_LineInput row): line bucket + pcs at
+ * TargetStageID AND source-stage bucket − pcs (company WIP).
+ */
+export function issueToLine(doc: PieceProdDoc, ref: DocRef): Movement[] {
+  const moves: Movement[] = [
+    {
+      ledger: 'PCS', txnType: 'pcs_line_in', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      lineId: doc.lineId, godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+  if (doc.sourceStageId) {
+    moves.push({
+      ledger: 'PCS', txnType: 'pcs_line_out', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    })
+  }
+  return moves
+}
+
+/**
+ * Line-to-line transfer (LLD 03 §4.2 Trs_LineTfr row): + at target stage
+ * under TO line, − at source stage under from-line.
+ */
+export function lineTransfer(doc: PieceProdDoc & { toLineId: string }, ref: DocRef): Movement[] {
+  const stage = doc.sourceStageId || doc.targetStageId
+  return [
+    {
+      ledger: 'PCS', txnType: 'pcs_line_transfer', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: stage, lotId: doc.lotId, colourId: doc.colourId, sizeId: doc.sizeId,
+      lineId: doc.lineId, godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+    {
+      ledger: 'PCS', txnType: 'pcs_line_transfer', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: stage, lotId: doc.lotId, colourId: doc.colourId, sizeId: doc.sizeId,
+      lineId: doc.toLineId, godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+}
+
+/**
+ * Outside stitching DC (LLD 03 §4.3 piece process DC row): party bucket +
+ * pcs at target stage AND company bucket − at source stage.
+ */
+export function piecePartyDc(doc: PieceProdDoc & { partyId: string }, ref: DocRef): Movement[] {
+  return [
+    {
+      ledger: 'PCS', txnType: 'pcs_party_out', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      partyId: doc.partyId, godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+    {
+      ledger: 'PCS', txnType: 'pcs_party_out', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId || doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'G',
+      qty: { pcs: doc.qty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+}
+
+/**
+ * Piece GRN from party (LLD 03 §4.3): company bucket + RecPcs at target
+ * stage; optionally Rewrk/Rej legs land in RewrkStk-style buckets.
+ */
+export function piecePartyGrn(doc: PieceProdDoc & { receivedQty?: number; reworkQty?: number; rejQty?: number; rejTypeId?: string }, ref: DocRef): Movement[] {
+  const rec = doc.receivedQty ?? doc.qty
+  const moves: Movement[] = [
+    {
+      ledger: 'PCS', txnType: 'pcs_party_in', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'G',
+      qty: { pcs: rec },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+    {
+      // party bucket − (rec + rew + rej) — multi-stage GRN deduction row
+      ledger: 'PCS', txnType: 'pcs_party_in', sign: -1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.sourceStageId || doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      partyId: (doc as any).partyId, godownId: '', goodFlag: 'G',
+      qty: { pcs: rec + (doc.reworkQty || 0) + (doc.rejQty || 0) },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    },
+  ]
+  if (doc.rejQty && doc.rejTypeId) {
+    moves.push({
+      ledger: 'PCS', txnType: 'pcs_rejection', sign: 1,
+      orderId: doc.orderId, styleNo: doc.styleNo,
+      stageId: doc.targetStageId, lotId: doc.lotId,
+      colourId: doc.colourId, sizeId: doc.sizeId,
+      godownId: '', goodFlag: 'M', rejectionTypeId: doc.rejTypeId,
+      qty: { pcs: doc.rejQty },
+      docNo: ref.docNo, refId: ref.refId, notes: ref.notes,
+    })
+  }
+  return moves
+}

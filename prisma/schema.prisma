@@ -191,6 +191,7 @@ model Department {
   lines             Line[]
   grns              GRN[]
   currentStocks     CurrentStock[]
+  stages            Stage[]
 }
 
 model Employee {
@@ -447,6 +448,38 @@ model CutBundle {
 }
 
 // ============== PRODUCTION ==============
+// ============== PRODUCTION STAGES (LLD Mas_JobWrkComp port) ==============
+// The stage master / job-work composition — THE StageId domain in the legacy
+// system. Each row is a production stage within a department (e.g. Sewing →
+// "Attach collar", "Close side seam"). Production entries post pcs between
+// stage buckets via the PostingEngine's PCS ledger.
+model Stage {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  name        String
+  deptId      String?
+  department  Department?  @relation(fields: [deptId], references: [id])
+  // PcsType: which ledger this stage posts into (legacy Mas_JobWrkComp.PcsType)
+  pcsType     String       @default("Piece") // Piece | Panel | Bit
+  // RateMethod: how operators are paid at this stage (legacy RateMethod)
+  rateMethod  String? // piece_rate | stage_rate | none
+  prodType    String?  @default("inhouse") // inhouse | jobwork
+  // SemiFinish marker (legacy FinalStage 'S' logic): output stays in WIP vs
+  // becomes final-stage output
+  finalStage  Boolean      @default(false)
+  // Spl_Operation stages skip stock posting entirely (legacy flag parity)
+  splOperation Boolean     @default(false)
+  seq         Int          @default(0) // order within the department chain
+  active      Boolean      @default(true)
+}
+
+model RejectionType {
+  id     String  @id @default(cuid())
+  code   String  @unique
+  name   String
+  // e.g. stain | hole | measurement | shade | needle-damage
+}
+
 model ProductionEntry {
   id         String     @id @default(cuid())
   orderId    String
@@ -466,6 +499,12 @@ model ProductionEntry {
   amount     Float      @default(0)
   shiftWages Float      @default(0)
   lineId     String?
+  // Stage pipeline (Phase 2): source/target buckets for the PCS ledger
+  targetStageId String?
+  sourceStageId String?
+  // Good/'M' bucket: rework entries consume 'M' and output 'G' (legacy GoodFlag)
+  goodFlag   String     @default("G") // G | M
+  rejectionTypeId String?
   createdAt  DateTime   @default(now())
 }
 
@@ -617,6 +656,31 @@ model JobworkOrder {
   itc04Line      String?
   orderId        String?
   createdAt      DateTime  @default(now())
+}
+
+// ============== PCS LEDGER (LLD Pcs_StockTable port) ==============
+// Piece stock per order × style × lot × stage × part × colour × size ×
+// good/'M' bucket × line. Maintained ONLY by the PostingEngine.
+model PcsStock {
+  id           String   @id @default(cuid())
+  orderId      String
+  styleNo      String
+  lotId        String?
+  stageId      String   // Stage.id — bucket owner (stage pipeline position)
+  colourId     String?
+  sizeId       String?
+  // Good/'M' bucket (legacy GoodPcsFlag): G = good, M = rejected (with type)
+  goodFlag     String   @default("G")
+  rejectionTypeId String?
+  // Line bucket (legacy EmpID=line semantics): pcs issued to a sewing line
+  lineId       String?
+  partyId      String?  // outside-stitching party bucket
+  qty          Int      @default(0)
+  // cumulative production through this bucket (for efficiency reports)
+  prodQty      Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([orderId, styleNo, lotId, stageId, colourId, sizeId, goodFlag, rejectionTypeId, lineId, partyId])
 }
 
 // ============== WORKFLOW ==============

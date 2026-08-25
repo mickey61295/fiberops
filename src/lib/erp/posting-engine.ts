@@ -149,6 +149,47 @@ export async function apply(
           result.stockRows++
         }
       }
+      // 2b. PCS ledger — stage-pipeline buckets (Phase 2). PcsStock rows are
+      // keyed (order, styleNo, lot, stage, colour, size, goodFlag, rejType,
+      // line, party); the same NULL-consistent matching rule as above applies.
+      if (m.ledger === 'PCS' && m.orderId && m.styleNo) {
+        const stageBucket = (m as any).stageId || m.stageId
+        const pcsMatch = {
+          orderId: m.orderId,
+          styleNo: m.styleNo,
+          lotId: m.lotId || null,
+          stageId: stageBucket || '',
+          colourId: m.colourId || null,
+          sizeId: m.sizeId || null,
+          goodFlag: m.goodFlag || 'G',
+          rejectionTypeId: m.rejectionTypeId || null,
+          lineId: m.lineId || null,
+          partyId: m.partyId || null,
+        }
+        const existingPcs = await tx.pcsStock.findFirst({ where: pcsMatch }).catch(() => null)
+        const deltaPcs = (m.qty.pcs || 0) * s
+        if (existingPcs) {
+          const data: any = { qty: { increment: deltaPcs } }
+          // production qty only ever counts net-good flow into a bucket
+          if (deltaPcs > 0) data.prodQty = { increment: deltaPcs }
+          await tx.pcsStock.update({ where: { id: existingPcs.id }, data })
+          if (existingPcs.qty + deltaPcs < 0) {
+            result.warnings.push(
+              `${m.txnType} ${m.docNo || ''}: PcsStock bucket ${stageBucket} would go negative (${existingPcs.qty + deltaPcs}) for order ${m.orderId}`,
+            )
+          }
+          result.stockRows++
+        } else if (deltaPcs > 0) {
+          await tx.pcsStock.create({
+            data: { ...pcsMatch, qty: deltaPcs, prodQty: deltaPcs },
+          })
+          result.stockRows++
+        } else if (deltaPcs < 0) {
+          result.warnings.push(
+            `${m.txnType} ${m.docNo || ''}: issue of ${-deltaPcs} pcs against empty bucket ${stageBucket} (order ${m.orderId}) — skipped`,
+          )
+        }
+      }
     }
     // 3. Balance projectors — recompute ProgBalance rows for touched
     // order×item keys so program balances are never stale (LLD 03 §5).

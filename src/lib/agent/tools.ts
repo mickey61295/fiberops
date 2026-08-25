@@ -1190,12 +1190,14 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'post_production_entry',
-    description: 'Post a production entry. Required: orderNo, deptCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: styleNo, colourName, sizeName, lineId.',
+    description: 'Post a production entry through the stage pipeline (PostingEngine PCS ledger). Required: orderNo, deptCode, targetStageCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: sourceStageCode (stage-to-stage flow), colourName, sizeName, lineCode.',
     domain: 'production',
     isWrite: true,
     schema: z.object({
       orderNo: z.string(),
       deptCode: z.string(),
+      targetStageCode: z.string().describe('Stage receiving the produced pcs, e.g. SW-05 (use list_stages)'),
+      sourceStageCode: z.string().optional().describe('Stage the pcs came from (stage-to-stage flow)'),
       prodDate: z.string(),
       bundleNo: z.string(),
       operatorCode: z.string(),
@@ -1204,33 +1206,337 @@ const writeTools: AgentTool[] = [
       styleNo: z.string().optional(),
       colourName: z.string().optional(),
       sizeName: z.string().optional(),
-      lineId: z.string().optional(),
+      lineCode: z.string().optional(),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
       const dept = await db.department.findUnique({ where: { code: args.deptCode } })
       if (!dept) return { text: `Dept ${args.deptCode} not found` }
       const operator = await db.employee.findUnique({ where: { code: args.operatorCode } })
       if (!operator) return { text: `Operator ${args.operatorCode} not found` }
+      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
+      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found. Use list_stages first.` }
+      let sourceStage: any = null
+      if (args.sourceStageCode) {
+        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
+        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
+      }
+      let line: any = null
+      if (args.lineCode) {
+        line = await db.line.findUnique({ where: { code: args.lineCode } })
+        if (!line) return { text: `Line ${args.lineCode} not found` }
+      }
+      // Resolve colour/size (case-insensitive)
+      let colourId: string | undefined
+      let sizeId: string | undefined
+      if (args.colourName) {
+        const c = await db.colour.findFirst({ where: { name: args.colourName } })
+          || await db.colour.findFirst({ where: { name: { equals: args.colourName } } })
+        colourId = c?.id
+      }
+      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
+      const styleNo = args.styleNo || order.style?.styleNo || ''
       const amount = args.qty * args.rate
+      const docNo = `PE-${args.bundleNo || Date.now()}`
+
+      // Stage-pipeline movement (LLD 03 §4.2 piece production row)
+      const movements = Matrix.pieceProduction({
+        orderId: order.id, styleNo, qty: args.qty,
+        targetStageId: targetStage.id, sourceStageId: sourceStage?.id,
+        colourId, sizeId, lineId: line?.id,
+      }, { docNo, notes: `${operator.name} @ ${targetStage.code}${sourceStage ? ` from ${sourceStage.code}` : ''}` })
+
       return {
-        text: `Proposed production entry: ${args.qty} pcs by ${operator.name} on bundle ${args.bundleNo}, ₹${amount}.`,
+        text: `Proposed production entry: ${args.qty} pcs by ${operator.name} at ${targetStage.code}${sourceStage ? ` (from ${sourceStage.code})` : ''}, ₹${amount}.`,
         plan: {
-          summary: `Post production | order ${args.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
-          creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo || order.styleId, qty: args.qty, rate: args.rate, amount, lineId: args.lineId } }],
-          sideEffects: ['WIP increases', 'Operator piece-rate earnings increase'],
+          summary: `Post production | order ${args.orderNo} | dept ${dept.code} | stage ${targetStage.code}${sourceStage ? ` ← ${sourceStage.code}` : ''} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
+          creates: [
+            { table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, targetStageId: targetStage.id, sourceStageId: sourceStage?.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo, qty: args.qty, rate: args.rate, amount, goodFlag: 'G' } },
+            { table: 'pcsStock (via PostingEngine)', data: { stage: targetStage.code, qty: args.qty } },
+          ],
+          sideEffects: ['PcsStock stage bucket increases (target) and decreases (source)', 'WIP tracks the stage pipeline', 'Operator piece-rate earnings increase'],
         },
         async commit() {
-          const e = await db.productionEntry.create({
-            data: {
-              orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
-              bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
-              qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
-            },
+          return await db.$transaction(async (tx) => {
+            const e = await tx.productionEntry.create({
+              data: {
+                orderId: order.id, deptId: dept.id, targetStageId: targetStage.id,
+                sourceStageId: sourceStage?.id,
+                prodDate: new Date(args.prodDate), bundleNo: args.bundleNo,
+                operatorId: operator.id, styleNo, qty: args.qty, rate: args.rate,
+                amount, lineId: line?.id, goodFlag: 'G',
+                colourId, sizeId,
+              } as any,
+            })
+            const posting = await applyMovements(
+              movements.map((m) => ({ ...m, refId: e.id })),
+              { tx },
+            )
+            return { id: e.id, stockRows: posting.stockRows, warnings: posting.warnings }
           })
-          return { id: e.id }
         },
+      }
+    },
+  },
+  {
+    name: 'post_rejection',
+    description: 'Post a rejection entry: moves qty from the Good bucket to the rejected (M) bucket with a rejection type at a stage. Required: orderNo, stageCode, qty, rejectionTypeCode. Optional: bundleNo, lineCode, colourName, sizeName.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      orderNo: z.string(),
+      stageCode: z.string(),
+      qty: z.number(),
+      rejectionTypeCode: z.string().describe('e.g. RJ-STN (use list_rejection_types)'),
+      bundleNo: z.string().optional(),
+      lineCode: z.string().optional(),
+      colourName: z.string().optional(),
+      sizeName: z.string().optional(),
+      rejDate: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const stage = await db.stage.findUnique({ where: { code: args.stageCode } })
+      if (!stage) return { text: `Stage ${args.stageCode} not found. Use list_stages first.` }
+      const rejType = await db.rejectionType.findUnique({ where: { code: args.rejectionTypeCode } })
+      if (!rejType) return { text: `Rejection type ${args.rejectionTypeCode} not found. Use list_rejection_types first.` }
+      let line: any = null
+      if (args.lineCode) {
+        line = await db.line.findUnique({ where: { code: args.lineCode } })
+        if (!line) return { text: `Line ${args.lineCode} not found` }
+      }
+      let colourId: string | undefined
+      if (args.colourName) colourId = (await db.colour.findFirst({ where: { name: args.colourName } }))?.id
+      let sizeId: string | undefined
+      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
+      const docNo = `REJ-${Date.now()}`
+      const styleNo = order.style?.styleNo || ''
+
+      const movements = Matrix.pieceRejection({
+        orderId: order.id, styleNo, qty: args.qty,
+        targetStageId: stage.id, sourceStageId: stage.id,
+        rejectionTypeId: rejType.id, colourId, sizeId, lineId: line?.id,
+      }, { docNo, notes: `${rejType.name} at ${stage.code}` })
+
+      return {
+        text: `Proposed rejection: ${args.qty} pcs as ${rejType.name} at ${stage.code}.`,
+        plan: {
+          summary: `Reject ${args.qty} pcs | order ${args.orderNo} | stage ${stage.code} | type ${rejType.name} (${rejType.code})`,
+          creates: [{ table: 'pcsStock (M bucket via PostingEngine)', data: { stage: stage.code, qty: args.qty, rejectionType: rejType.code } }],
+          sideEffects: ['Good bucket decreases', 'Rejected (M) bucket increases with the type', 'Rework can later consume this bucket'],
+        },
+        async commit() {
+          const posting = await applyMovements(movements)
+          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
+        },
+      }
+    },
+  },
+  {
+    name: 'post_rework',
+    description: 'Post a rework entry: consumes the rejected (M) bucket and outputs Good pcs at the target stage. Required: orderNo, targetStageCode, qty. Optional: rejectionTypeCode (narrow to one type), bundleNo, operatorCode, rate.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      orderNo: z.string(),
+      targetStageCode: z.string(),
+      qty: z.number(),
+      rejectionTypeCode: z.string().optional().describe('only consume rejections of this type'),
+      sourceStageCode: z.string().optional().describe('stage holding the rejected pcs (defaults to target)'),
+      bundleNo: z.string().optional(),
+      operatorCode: z.string().optional(),
+      rate: z.number().optional(),
+      reworkDate: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
+      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found` }
+      let rejType: any = null
+      if (args.rejectionTypeCode) {
+        rejType = await db.rejectionType.findUnique({ where: { code: args.rejectionTypeCode } })
+        if (!rejType) return { text: `Rejection type ${args.rejectionTypeCode} not found` }
+      }
+      let sourceStage: any = null
+      if (args.sourceStageCode) {
+        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
+        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
+      }
+      const docNo = `RWK-${Date.now()}`
+      const styleNo = order.style?.styleNo || ''
+      const amount = args.qty * (args.rate || 0)
+
+      const movements = Matrix.pieceRework({
+        orderId: order.id, styleNo, qty: args.qty,
+        targetStageId: targetStage.id, sourceStageId: sourceStage?.id || targetStage.id,
+        rejectionTypeId: rejType?.id,
+      }, { docNo, notes: `Rework to ${targetStage.code}` })
+
+      return {
+        text: `Proposed rework: ${args.qty} pcs from rejected bucket to Good at ${targetStage.code}.`,
+        plan: {
+          summary: `Rework ${args.qty} pcs | order ${args.orderNo} | M → G at ${targetStage.code}${rejType ? ` | type ${rejType.code}` : ''}${amount ? ` | ₹${amount}` : ''}`,
+          creates: [{ table: 'pcsStock (M→G via PostingEngine)', data: { stage: targetStage.code, qty: args.qty } }],
+          sideEffects: ['Rejected bucket decreases', 'Good bucket increases at the target stage', 'Rework qty tracked for efficiency reports'],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            let entryId: string | undefined
+            if (args.operatorCode) {
+              const operator = await tx.employee.findUnique({ where: { code: args.operatorCode } })
+              if (operator) {
+                const e = await tx.productionEntry.create({
+                  data: {
+                    orderId: order.id, deptId: targetStage.deptId || '',
+                    targetStageId: targetStage.id,
+                    sourceStageId: sourceStage?.id || targetStage.id,
+                    prodDate: args.reworkDate ? new Date(args.reworkDate) : new Date(),
+                    bundleNo: args.bundleNo, operatorId: operator.id, styleNo,
+                    qty: args.qty, rate: args.rate || 0, amount,
+                    rework: true, goodFlag: 'G',
+                  } as any,
+                })
+                entryId = e.id
+              }
+            }
+            const posting = await applyMovements(
+              movements.map((m) => ({ ...m, refId: entryId })),
+              { tx },
+            )
+            return { docNo, entryId, stockRows: posting.stockRows, warnings: posting.warnings }
+          })
+        },
+      }
+    },
+  },
+  {
+    name: 'issue_to_line',
+    description: 'Issue pcs to a sewing line: line bucket + at target stage AND source-stage bucket − (company WIP). Required: orderNo, lineCode, targetStageCode, qty. Optional: sourceStageCode, colourName, sizeName.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      orderNo: z.string(),
+      lineCode: z.string(),
+      targetStageCode: z.string(),
+      qty: z.number(),
+      sourceStageCode: z.string().optional(),
+      colourName: z.string().optional(),
+      sizeName: z.string().optional(),
+      issueDate: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const line = await db.line.findUnique({ where: { code: args.lineCode } })
+      if (!line) return { text: `Line ${args.lineCode} not found. Use list_lines first.` }
+      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
+      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found` }
+      let sourceStage: any = null
+      if (args.sourceStageCode) {
+        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
+        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
+      }
+      let colourId: string | undefined
+      if (args.colourName) colourId = (await db.colour.findFirst({ where: { name: args.colourName } }))?.id
+      let sizeId: string | undefined
+      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
+      const docNo = `LIN-${Date.now()}`
+      const styleNo = order.style?.styleNo || ''
+
+      const movements = Matrix.issueToLine({
+        orderId: order.id, styleNo, qty: args.qty,
+        targetStageId: targetStage.id, sourceStageId: sourceStage?.id,
+        lineId: line.id, colourId, sizeId,
+      }, { docNo, notes: `Issue to ${line.name}` })
+
+      return {
+        text: `Proposed issue of ${args.qty} pcs to line ${line.name} at ${targetStage.code}.`,
+        plan: {
+          summary: `Issue to line | order ${args.orderNo} | ${args.qty} pcs | line ${line.name} | stage ${targetStage.code}${sourceStage ? ` ← ${sourceStage.code}` : ''}`,
+          creates: [{ table: 'pcsStock (line bucket via PostingEngine)', data: { line: line.name, stage: targetStage.code, qty: args.qty } }],
+          sideEffects: ['Line bucket increases at the stage', 'Company WIP bucket decreases at the source stage'],
+        },
+        async commit() {
+          const posting = await applyMovements(movements)
+          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
+        },
+      }
+    },
+  },
+  {
+    name: 'list_stages',
+    description: 'List production stages (the stage pipeline) with department, pcsType, seq, finalStage flag. Use before post_production_entry / post_rejection / post_rework / issue_to_line to get stage codes.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const stages = await db.stage.findMany({ include: { department: true }, orderBy: [{ deptId: 'asc' }, { seq: 'asc' }] })
+      return {
+        text: `${stages.length} stages`,
+        json: stages.map((s) => ({
+          code: s.code, name: s.name, dept: s.department?.code, pcsType: s.pcsType,
+          seq: s.seq, finalStage: s.finalStage, prodType: s.prodType, rateMethod: s.rateMethod,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_rejection_types',
+    description: 'List rejection types (stain, hole, measurement, etc). Use before post_rejection.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rts = await db.rejectionType.findMany({ orderBy: { code: 'asc' } })
+      return {
+        text: `${rts.length} rejection types`,
+        json: rts.map((r) => ({ code: r.code, name: r.name })),
+      }
+    },
+  },
+  {
+    name: 'get_stage_wip',
+    description: 'Get piece WIP by stage bucket for an order (the PCS ledger view): qty per stage × good/rejected bucket × line. Required: orderNo.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({ orderNo: z.string() }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const rows = await db.pcsStock.findMany({ where: { orderId: order.id } })
+      const stages = await db.stage.findMany()
+      const stageById = new Map(stages.map((s) => [s.id, s]))
+      const rejTypes = await db.rejectionType.findMany()
+      const rejById = new Map(rejTypes.map((r) => [r.id, r]))
+      const lines = await db.line.findMany()
+      const lineById = new Map(lines.map((l) => [l.id, l]))
+
+      const byStage: Record<string, any> = {}
+      for (const r of rows) {
+        const stage = stageById.get(r.stageId)
+        const key = stage?.code || r.stageId
+        byStage[key] = byStage[key] || { stage: stage?.name || key, code: key, good: 0, rejected: 0, lines: {} as Record<string, number> }
+        if (r.goodFlag === 'G') {
+          byStage[key].good += r.qty
+          if (r.lineId) {
+            const ln = lineById.get(r.lineId)
+            byStage[key].lines[ln?.code || r.lineId] = (byStage[key].lines[ln?.code || r.lineId] || 0) + r.qty
+          }
+        } else {
+          const rt = r.rejectionTypeId ? rejById.get(r.rejectionTypeId) : null
+          const rk = rt?.code || 'M'
+          byStage[key].rejected += r.qty
+          byStage[key][`rej_${rk}`] = (byStage[key][`rej_${rk}`] || 0) + r.qty
+        }
+      }
+      const total = rows.filter((r) => r.goodFlag === 'G').reduce((s, r) => s + r.qty, 0)
+      const totalRej = rows.filter((r) => r.goodFlag !== 'G').reduce((s, r) => s + r.qty, 0)
+      return {
+        text: `${args.orderNo} WIP: ${total} good pcs across ${Object.keys(byStage).length} stages, ${totalRej} rejected.`,
+        json: { orderNo: args.orderNo, totalGood: total, totalRejected: totalRej, stages: Object.values(byStage) },
       }
     },
   },

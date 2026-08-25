@@ -119,10 +119,25 @@ export type TxnType = (typeof TXN_TYPES)[number]
 /** Which ledger a movement applies to (LLD 03 §2 Movement.ledger). */
 export type LedgerKind = 'FABRIC' | 'PANEL' | 'PCS'
 
+/** PCS-ledger transaction kinds (Phase 2 stage pipeline). */
+export const PCS_TXN_TYPES = [
+  'pcs_stage_in',        // production entry: + at target stage bucket
+  'pcs_stage_out',       // production entry: − at source stage bucket
+  'pcs_rejection',       // G → 'M' bucket with RejectionTypeId
+  'pcs_rework',          // 'M' → 'G' (rework consumes rejected bucket)
+  'pcs_line_in',         // issue to line: + line bucket
+  'pcs_line_out',        // line output: − line bucket
+  'pcs_line_transfer',   // line → line
+  'pcs_party_out',       // outside stitching DC: + party bucket, − company
+  'pcs_party_in',        // piece GRN from party: + company
+  'pcs_despatch',        // finished despatch: − finished bucket
+] as const
+export type PcsTxnType = (typeof PCS_TXN_TYPES)[number]
+
 /** A signed stock movement — the PostingEngine's unit of work (LLD 03 §2). */
 export interface Movement {
   ledger: LedgerKind
-  txnType: TxnType
+  txnType: TxnType | PcsTxnType
   /** legacy: order id ('' for non-order stock) */
   orderId?: string
   /** yarn|fabric|accessory item id (FABRIC ledger) */
@@ -140,4 +155,16 @@ export interface Movement {
   docNo?: string
   refId?: string
   notes?: string
+  // ── PCS-ledger dimensions (Phase 2 stage pipeline) ──
+  /** order style number (PcsStock natural key part) */
+  styleNo?: string
+  /** target stage bucket for pcs_stage_in */
+  stageId?: string
+  /** source stage bucket for pcs_stage_out */
+  sourceStageId?: string
+  /** G | M bucket selector */
+  goodFlag?: 'G' | 'M'
+  rejectionTypeId?: string
+  /** line bucket owner (issue-to-line / line-out semantics) */
+  lineId?: string
 }
