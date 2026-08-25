@@ -9,6 +9,8 @@ import { db } from '@/lib/db'
 import { z } from 'zod'
 import { listUploadDir, extractDocument } from './docExtract'
 import { resolveNumber } from '../erp/numbering'
+import { apply as applyMovements, applyReversal } from '../erp/posting-engine'
+import * as Matrix from '../erp/movement-matrix'
 
 export type ToolResult = {
   text?: string
@@ -1002,11 +1004,11 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'receive_grn',
-    description: 'Receive a GRN against a PO. Required: grnNo, poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
+    description: 'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or taken. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
     domain: 'procurement',
     isWrite: true,
     schema: z.object({
-      grnNo: z.string(),
+      grnNo: z.string().optional(),
       poNo: z.string(),
       godownCode: z.string(),
       partyDcRef: z.string().optional(),
@@ -1028,70 +1030,48 @@ const writeTools: AgentTool[] = [
       const actualQty = args.receivedQty
       const totalValue = actualQty * line.rate
       const finYear = '26-27'
+      const resolvedGrnNo = await resolveNumber('grn', args.grnNo)
+
+      // Movement via the PostingEngine (single source of stock truth)
+      const movements = Matrix.purchaseGrn({
+        grnType: 'Purchase',
+        itemType: line.itemType, itemId: line.itemId,
+        qty: actualQty, rate: line.rate,
+        godownId: godown.id, deptId: dept?.id,
+        orderId: line.orderId || undefined,
+        partyId: po.partyId, poId: po.id,
+      }, { docNo: resolvedGrnNo, notes: `Against PO ${po.poNo}` })
 
       return {
-        text: `Proposed GRN ${args.grnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
+        text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
         plan: {
-          summary: `Receive GRN ${args.grnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
+          summary: `Receive GRN ${resolvedGrnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
           creates: [
-            { table: 'grn', data: { grnNo: args.grnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
+            { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
             { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
-            { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: args.grnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
-            { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
+            { table: 'stockLedger (via PostingEngine)', data: { txnType: 'purchase_grn', qty: actualQty, godown: godown.code } },
           ],
           updates: [
             { table: 'purchaseOrder', id: po.id, data: { status: actualQty >= po.totalQty ? 'received' : 'partial' } },
             { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
           ],
-          sideEffects: ['Stock increases', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
+          sideEffects: ['Stock increases (posted by PostingEngine)', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
         },
         async commit() {
           return await db.$transaction(async (tx) => {
             const grn = await tx.gRN.create({
               data: {
-                grnNo: args.grnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
+                grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
                 godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
                 finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
                 lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
               },
             })
-            await tx.stockLedger.create({
-              data: {
-                txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
-                godownId: godown.id, deptId: dept?.id, docNo: args.grnNo,
-                docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
-                finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
-                inPcs: line.itemType === 'accessory' ? actualQty : 0,
-                rate: line.rate, partyId: po.partyId, refId: grn.id,
-              },
-            })
-            // Upsert current stock
-            const csWhere = {
-              itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: {
-                itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
-                lotId: '', colourId: '', sizeId: '', deptId: dept?.id || '', orderId: '',
-              },
-            }
-            const existing = await tx.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
-            if (existing) {
-              await tx.currentStock.update({
-                where: csWhere as any,
-                data: {
-                  kgs: { increment: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0 },
-                  pcs: { increment: line.itemType === 'accessory' ? actualQty : 0 },
-                },
-              })
-            } else {
-              await tx.currentStock.create({
-                data: {
-                  itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
-                  deptId: dept?.id || '',
-                  kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
-                  pcs: line.itemType === 'accessory' ? actualQty : 0,
-                  rate: line.rate,
-                },
-              })
-            }
+            // Stock + ledger via the PostingEngine, same transaction (G1)
+            const posting = await applyMovements(
+              movements.map((m) => ({ ...m, refId: grn.id })),
+              { tx, rate: line.rate },
+            )
             // Update PO + POLine
             await tx.purchaseOrder.update({
               where: { id: po.id },
@@ -1101,7 +1081,7 @@ const writeTools: AgentTool[] = [
               where: { id: line.id },
               data: { receivedQty: { increment: actualQty } },
             })
-            return { id: grn.id, grnNo: grn.grnNo }
+            return { id: grn.id, grnNo: grn.grnNo, stockRows: posting.stockRows, warnings: posting.warnings }
           })
         },
       }
@@ -1306,39 +1286,29 @@ const writeTools: AgentTool[] = [
       else if (args.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: args.itemCode } })
       else if (args.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: args.itemCode } })
       if (!item) return { text: `${args.itemType} ${args.itemCode} not found` }
-      const finYear = '26-27'
       const isPcs = args.itemType === 'accessory'
       const isAdd = args.action === 'add'
+      const docNo = args.docNo || `ADJ-${Date.now()}`
+
+      // Movement via the PostingEngine
+      const movements = Matrix.adjustment({
+        itemType: args.itemType, itemId: item.id,
+        qty: args.qty, action: args.action === 'add' ? 'add' : 'less',
+        reason: args.reason, godownId: godown.id,
+      }, { docNo, notes: args.reason })
+
       return {
         text: `Proposed stock ${args.action === 'add' ? 'addition' : 'reduction'} of ${args.qty} ${isPcs ? 'pcs' : 'kgs'} of ${args.itemCode} at ${args.godownCode}.`,
         plan: {
           summary: `${isAdd ? 'Add to' : 'Reduce from'} stock | ${args.itemType} ${args.itemCode} | ${args.qty} ${isPcs ? 'pcs' : 'kgs'} | godown ${args.godownCode} | reason: ${args.reason}`,
           creates: [
-            { table: 'stockLedger', data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason } },
+            { table: 'stockLedger (via PostingEngine)', data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', qty: args.qty, godown: args.godownCode } },
           ],
-          sideEffects: ['Current stock will be updated'],
+          sideEffects: ['Current stock updated by PostingEngine in one transaction'],
         },
         async commit() {
-          const ledger = await db.stockLedger.create({
-            data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason },
-          })
-          // Upsert current stock
-          const csWhere = { itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: { itemType: args.itemType, itemId: item.id, godownId: godown.id, lotId: '', colourId: '', sizeId: '', deptId: '', orderId: '' } }
-          const existing = await db.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
-          if (existing) {
-            await db.currentStock.update({
-              where: csWhere as any,
-              data: {
-                kgs: { increment: isAdd && !isPcs ? args.qty : !isAdd && !isPcs ? -args.qty : 0 },
-                pcs: { increment: isAdd && isPcs ? args.qty : !isAdd && isPcs ? -args.qty : 0 },
-              },
-            })
-          } else if (isAdd) {
-            await db.currentStock.create({
-              data: { itemType: args.itemType, itemId: item.id, godownId: godown.id, kgs: isPcs ? 0 : args.qty, pcs: isPcs ? args.qty : 0, rate: item.rate },
-            })
-          }
-          return { id: ledger.id }
+          const posting = await applyMovements(movements, { rate: item.rate })
+          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
         },
       }
     },
@@ -1365,6 +1335,79 @@ const writeTools: AgentTool[] = [
         async commit() {
           await db.order.update({ where: { id: order.id }, data: { status: 'cancelled', notes: args.reason } })
           return { id: order.id, status: 'cancelled' }
+        },
+      }
+    },
+  },
+  {
+    name: 'reverse_grn',
+    description: 'Reverse a GRN with a compensating posting — restores the exact prior stock/ledger state (LLD reversal rule; replaces hard deletes). Required: grnNo. Optional: reason.',
+    domain: 'procurement',
+    isWrite: true,
+    schema: z.object({
+      grnNo: z.string(),
+      reason: z.string().optional(),
+    }),
+    async execute(args) {
+      const grn = await db.gRN.findUnique({
+        where: { grnNo: args.grnNo },
+        include: { lines: true, party: true },
+      })
+      if (!grn) return { text: `GRN ${args.grnNo} not found` }
+      if (grn.grnType !== 'purchase' && grn.grnType !== 'Process') {
+        return { text: `Reversal implemented for purchase GRNs; ${grn.grnType} reversal coming with its posting path.` }
+      }
+      const reversalDocNo = `REV-${args.grnNo}`
+      // Rebuild the original movement set and invert it.
+      const movements = grn.lines.map((l) =>
+        Matrix.purchaseGrn({
+          grnType: 'Purchase',
+          itemType: l.itemType, itemId: l.itemId,
+          qty: l.qty, rate: l.rate,
+          godownId: grn.godownId, deptId: grn.deptId || undefined,
+          partyId: grn.partyId || undefined,
+        }, { docNo: grn.grnNo }),
+      ).flat()
+
+      return {
+        text: `Proposed reversal of GRN ${args.grnNo} — ${grn.totalQty} units back out of stock.`,
+        plan: {
+          summary: `Reverse GRN ${args.grnNo} | ${grn.totalQty} units | ₹${grn.totalValue} | ${args.reason || 'no reason given'}`,
+          creates: [
+            { table: 'stockLedger (compensating posting)', data: { reversalDocNo, movements: movements.length } },
+          ],
+          sideEffects: ['Stock reduced by exactly the GRN quantities', 'Ledger shows compensating rows (REV-' + args.grnNo + ')', 'PO receivedQty decremented', 'GRN marked reversed in docNo annotation'],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            // 1. Compensating posting (engine inverts signs)
+            const posting = await applyReversal(movements, reversalDocNo, { tx: tx })
+            // 2. Decrement PO line received quantities + recompute PO status
+            const po = grn.poId ? await tx.purchaseOrder.findUnique({ where: { id: grn.poId }, include: { lines: true } }) : null
+            if (po) {
+              for (const l of grn.lines) {
+                const pl = po.lines.find((p) => p.itemId === l.itemId)
+                if (pl) {
+                  await tx.pOLine.update({
+                    where: { id: pl.id },
+                    data: { receivedQty: { decrement: l.qty } },
+                  })
+                }
+              }
+              const received = po.lines.reduce((s, p) => s + (p.receivedQty - (grn.lines.find((g) => g.itemId === p.itemId)?.qty || 0)), 0)
+              await tx.purchaseOrder.update({
+                where: { id: po.id },
+                data: { status: received <= 0 ? 'open' : 'partial' },
+              })
+            }
+            // 3. Annotate the GRN as reversed (docNo carries the reversal ref;
+            //    no hard delete — full audit trail preserved)
+            await tx.gRN.update({
+              where: { id: grn.id },
+              data: { docNo: `REVERSED${grn.docNo ? `:${grn.docNo}` : ''}` },
+            })
+            return { grnNo: args.grnNo, reversalDocNo, stockRows: posting.stockRows, warnings: posting.warnings }
+          })
         },
       }
     },

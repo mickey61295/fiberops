@@ -127,6 +127,8 @@ export interface Movement {
   orderId?: string
   /** yarn|fabric|accessory item id (FABRIC ledger) */
   itemId?: string
+  /** yarn | fabric | accessory | pcs — CurrentStock.itemType vocabulary */
+  itemType?: string
   lotId?: string
   colourId?: string
   sizeId?: string
