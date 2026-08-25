@@ -88,3 +88,22 @@ Work Log:
 
 Stage Summary:
 - Phases 0, 1, 2, 3 COMPLETE. 102 agent tools. 30/30 tests. Money loop real end-to-end via chat. Next: Phase 4 (AI convergence) — rollback watchdog, per-field confidence chips, golden-set eval harness, daily digest, audit enrichment. Push to GitHub still pending credentials.
+
+---
+Task ID: phase4-ai-convergence
+Agent: main
+Task: Continue convergence plan — Phase 4 (AI Convergence), tasks 4.1-4.6.
+
+Work Log:
+- 4.1 Rollback resilience: scripts/recovery_drill.sh (git restore → deps sanity incl. the once-rolled-back packages → prisma generate/db push → idempotent seeds → dev server → tests; verified 8s full path) + watchdog.sh upgraded from "keep server alive" to marker-based rollback detection (posting-engine.ts / movement-matrix.ts / flags.ts / worklog.md) that auto-runs the drill.
+- 4.2 Per-field confidence: create_order schema + plan.fieldConfidence {field: high|medium|low}; agent-panel renders 🟢/🟡/🔴 chips per field with red warning on low; SYSTEM_PROMPT rule #9 defines verbatim/computed/inferred levels for ingestion.
+- 4.3 Eval harness: scripts/eval_ingest.mjs — (a) LPP PO static verification: 15 fields incl. per-order qtys re-verified against the source PDF text (5196×3 / 11340×4 verbatim occurrences — my earlier golden numbers were misremembered, DB was right); (b) two synthetic docs (SYNTH-PO-1 INR 600pcs, SYNTH-PO-2 USD 1000pcs) with RUN-stamped order numbers, live two-phase ingestion via chat with deterministic gap-driven prompting (checks DB between rounds, re-prompts exact missing masters, then the order), field-level scoring (exact strings, ±0.5% numerics), 429-aware with graceful skip, report → download/eval-report.json. GATE: 100% (15/15) on LPP across 3 runs; synthetic verified across runs (masters landed; order qty/value/currency/lines/spot-checks correct); final run's dynamics skipped due to sustained API rate-limit (environmental, documented in report).
+- 4.4 3-way match: already delivered in 3.4 (get_bill_match + threeWayMatch + create_supplier_bill integration); test C2 proves 5% over-bill → ⚠.
+- 4.5 get_daily_digest: jobwork DC aging vs gendcdays flag, overdue orders, pending approvals, negative-stock buckets, bills awaiting pass, unbilled GRNs >30d, critical count + status line.
+- 4.6 Audit enrichment: AgentTurn + model/promptVersion/steps/toolName/severity columns; PROMPT_VERSION = 'v4-2026-08-25' recorded per row; route computes plan severity from tolerance verdicts.
+- CRITICAL FIX (found via eval): the AgentTurn audit write had NEVER succeeded — userId:'admin' literal violated the User FK and .catch(()=>{}) swallowed it (agentTurn.count() was 0). Now resolves the real admin user (lazy upsert). 40+ enriched rows recorded since.
+- CRITICAL FIX (found via eval): create_order stored colourId/sizeId as '' when lookups failed → P2003 FK violation on orderLine. Now NULL-consistent + graceful "unresolved master" refusal listing exactly what to create first.
+- Zod v3: z.record(z.string(), z.string()) two-arg form.
+
+Stage Summary:
+- Phases 0-4 COMPLETE — the convergence plan is done. 104 tools. 30/30 tests. src clean. Trust machinery live: confidence chips, eval gate (100% static), working audit trail, daily digest, rollback drill 8s. Remaining: push to GitHub (credentials still pending), Phase 5 parked (needs spec cards).

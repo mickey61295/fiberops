@@ -32,6 +32,14 @@ model AgentTurn {
   userId     String
   user       User      @relation(fields: [userId], references: [id])
   createdAt  DateTime  @default(now())
+  // Audit enrichment (PLAN 4.6, LLD 09 telemetry): which model + prompt
+  // version produced this turn, how many reasoning steps it took, and the
+  // tool-call step it belongs to. Feeds the eval harness + correction stats.
+  model         String? // e.g. glm-4.6
+  promptVersion String? // SYSTEM_PROMPT release tag
+  steps         Int? // reasoning steps used
+  toolName      String? // primary tool of this audit row
+  severity      String? // ok | warn | block (tolerance verdict of the plan)
 }
 
 // ============== MASTERS ==============

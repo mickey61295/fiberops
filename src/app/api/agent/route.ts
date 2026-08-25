@@ -2,9 +2,28 @@
 import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
+import { parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 import { db } from '@/lib/db'
 
+// The audit row's userId must reference a REAL User row (FK) — the literal
+// 'admin' id violated the FK and every audit write failed silently (caught).
+// Resolve (or lazily create) the admin user once per process.
+let cachedAdminId: string | null = null
+async function adminUserId(): Promise<string> {
+  if (cachedAdminId) return cachedAdminId
+  const existing = (await db.user.findFirst({ where: { role: 'admin' } }))
+    ?? (await db.user.findFirst())
+  if (existing) { cachedAdminId = existing.id; return cachedAdminId }
+  const created = await db.user.create({ data: { email: 'admin@fiberpro.local', name: 'Admin', role: 'admin' } })
+  cachedAdminId = created.id
+  return cachedAdminId
+}
+
 export const maxDuration = 60
+
+// SYSTEM_PROMPT release tag — recorded on every AgentTurn audit row (4.6) so
+// the eval harness can correlate accuracy drift with prompt changes.
+const PROMPT_VERSION = 'v4-2026-08-25'
 
 const SYSTEM_PROMPT = `You are Fiberpro Agent — an AI assistant embedded in a Garment ERP web application (a modern rebuild of the original Fiberpro VB.NET textile ERP).
 
@@ -53,6 +72,7 @@ When asked to "ingest" / "import" / "book" a document:
 6. Batch independent tool calls in the same step (e.g. all the list_* checks at once, or several create_order calls at once) to stay within the step budget.
 7. Present a summary table of what will be created and remind the user each plan needs approval. Quantities must sum exactly to the document totals — double-check before proposing.
 8. NEVER invent quantities, prices or dates that are not in the document. If a field is absent (e.g. E-COMM entities without prices), use rate 0 and say so in notes.
+9. FIELD CONFIDENCE: when creating orders from an ingested document, pass fieldConfidence on create_order — a map of field → "high" (value read verbatim from the doc: qty, rate, dates, colour/size names), "medium" (computed/summed/unit-converted: totals, converted dates), "low" (inferred, defaulted, or ambiguous mapping). Cover at least: qty, rate, deliveryDate, colourName, sizeName. Low-confidence fields will be flagged for the user to verify on the approval card.
 
 ## CRITICAL SAFETY RULES
 1. For READ prompts, call read tools immediately. Synthesize a concise bullet-point answer.
@@ -176,11 +196,6 @@ function normalizeArgs(args: any): any {
   }
   return out
 }
-
-// LLMs sometimes pass numbers as strings ("4.5") or booleans as "true".
-// parseWithCoercion lives in lib/agent/parse-with-coercion so the proposal
-// step AND /api/agent/approve (commit step) share identical coercion.
-import { parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder()
@@ -345,7 +360,13 @@ export async function POST(req: Request) {
               } else {
                 try {
                   result = await t.execute(parsed.value)
-                  // Persist audit log
+                  // Persist audit log (enriched per PLAN 4.6: model, prompt
+                  // version, step index, primary tool, tolerance severity —
+                  // feeds the eval harness and correction statistics)
+                  const planSeverity = result.plan?.tolerances?.length
+                    ? (result.plan.tolerances.some((v: any) => v.severity === 'block') ? 'block'
+                      : result.plan.tolerances.some((v: any) => v.severity === 'warn') ? 'warn' : 'ok')
+                    : null
                   await db.agentTurn
                     .create({
                       data: {
@@ -361,7 +382,12 @@ export async function POST(req: Request) {
                           JSON.stringify(result.json || '')
                         ).slice(0, 2000),
                         approved: !t.isWrite,
-                        userId: 'admin',
+                        userId: await adminUserId(),
+                        model: 'glm-4.6',
+                        promptVersion: PROMPT_VERSION,
+                        steps: step,
+                        toolName,
+                        severity: planSeverity,
                       },
                     })
                     .catch(() => {})

@@ -28,6 +28,11 @@ export type ToolResult = {
     approvalId?: string
     // Tolerance verdicts ride the plan card: ⚠ amber / ✕ red chips (Phase 3.2)
     tolerances?: Verdict[]
+    // Per-field ingestion confidence (Phase 4.2, LLD 09 §1.3 adapted):
+    // field → 'high' (read verbatim from source doc) | 'medium' (computed /
+    // summed / unit-converted) | 'low' (inferred / defaulted / ambiguous).
+    // Rendered as 🟢/🟡 chips on the plan card; low fields ask for user check.
+    fieldConfidence?: Record<string, 'high' | 'medium' | 'low'>
   }
   // For commit step: actually persist
   commit?: () => Promise<any>
@@ -1057,6 +1062,62 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    name: 'get_daily_digest',
+    description: 'Owner-grade daily exceptions digest (one prompt = full morning briefing): non-return jobwork DCs aging beyond the gendcdays flag, overdue sales orders, pending approvals, negative-stock warnings, bills awaiting pass, unbilled GRNs. Use it for "what needs my attention today?".',
+    domain: 'meta',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const flags = await getFlags(['gendcdays'])
+      const dcDays = flags.gendcdays as number
+      const now = new Date()
+      const daysAgo = (d: Date) => Math.floor((now.getTime() - d.getTime()) / 86_400_000)
+
+      const [jobworks, overdueOrders, pendingApprovals, negStock, billsAwaiting, grns] = await Promise.all([
+        db.jobworkOrder.findMany({ where: { status: 'sent' }, include: { jobworker: true } }),
+        db.order.findMany({ where: { status: { in: ['open', 'in_progress'] }, deliveryDate: { lt: now } }, include: { buyer: true, style: true } }),
+        db.approval.findMany({ where: { status: 'pending' }, take: 50 }),
+        db.currentStock.findMany({ where: { OR: [{ kgs: { lt: 0 } }, { pcs: { lt: 0 } }, { mtrs: { lt: 0 } }, { bags: { lt: 0 } }] }, take: 50 }),
+        db.bill.findMany({ where: { status: 'received' }, include: { party: true } }),
+        db.gRN.findMany({ orderBy: { createdAt: 'desc' }, take: 200, include: { party: true } }),
+      ])
+
+      // non-return DCs beyond gendcdays
+      const agedDcs = jobworks
+        .map((j) => ({ dcNo: j.dcNo, party: j.jobworker.name, processType: j.processType, qty: j.totalQty, outDate: j.outDate, age: daysAgo(j.outDate), expectedIn: j.expectedInDate }))
+        .filter((j) => j.age > dcDays)
+        .sort((a, b) => b.age - a.age)
+      // unbilled GRNs older than 30 days
+      const billedRefs = new Set((await db.bill.findMany({ select: { refNo: true } })).map((b) => b.refNo).filter(Boolean))
+      const unbilledGrns = grns.filter((g) => !billedRefs.has(g.grnNo) && daysAgo(g.grnDate) > 30 && g.totalValue > 0)
+
+      const lines: string[] = []
+      lines.push(`DAILY DIGEST — ${now.toDateString()}`)
+      lines.push(`• Jobwork DCs out beyond ${dcDays} days: ${agedDcs.length}${agedDcs.length ? ' — ' + agedDcs.slice(0, 5).map((d) => `${d.dcNo} @ ${d.party} (${d.processType}, ${d.qty} units, ${d.age}d)`).join('; ') : ''}`)
+      lines.push(`• Overdue sales orders: ${overdueOrders.length}${overdueOrders.length ? ' — ' + overdueOrders.slice(0, 5).map((o) => `${o.orderNo} ${o.buyer?.name ?? ''} (due ${o.deliveryDate?.toISOString().slice(0, 10)}, ${o.totalPcs} pcs)`).join('; ') : ''}`)
+      lines.push(`• Pending approvals: ${pendingApprovals.length}${pendingApprovals.length ? ' — ' + pendingApprovals.slice(0, 5).map((a) => `${a.entity}:${(a.entityId || '').slice(-8)}`).join('; ') : ''}`)
+      lines.push(`• Negative stock buckets: ${negStock.length}${negStock.length ? ' — ' + negStock.slice(0, 5).map((s) => `${s.itemType}:${s.itemId.slice(-6)} ${s.kgs ? s.kgs + 'kg' : s.pcs + 'pcs'}`).join('; ') : ''}`)
+      lines.push(`• Bills awaiting pass: ${billsAwaiting.length}${billsAwaiting.length ? ' — ₹' + Math.round(billsAwaiting.reduce((s, b) => s + b.billAmount, 0)) + ' from ' + [...new Set(billsAwaiting.map((b) => b.party.name))].slice(0, 3).join(', ') : ''}`)
+      lines.push(`• GRNs unbilled >30 days: ${unbilledGrns.length}${unbilledGrns.length ? ' — ₹' + Math.round(unbilledGrns.reduce((s, g) => s + g.totalValue, 0)) : ''}`)
+      const critical = agedDcs.length + overdueOrders.length + negStock.length
+      lines.push(critical > 0 ? `STATUS: ${critical} critical item(s) need action today.` : 'STATUS: all clear — no critical exceptions.')
+
+      return {
+        text: lines.join('\n'),
+        json: {
+          date: now.toISOString(),
+          agedJobworkDcs: agedDcs,
+          overdueOrders: overdueOrders.map((o) => ({ orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo, deliveryDate: o.deliveryDate, totalPcs: o.totalPcs })),
+          pendingApprovals: pendingApprovals.length,
+          negativeStock: negStock.map((s) => ({ itemType: s.itemType, itemId: s.itemId, kgs: s.kgs, pcs: s.pcs, godownId: s.godownId })),
+          billsAwaitingPass: billsAwaiting.map((b) => ({ billNo: b.billNo, party: b.party.name, billAmount: b.billAmount })),
+          unbilledGrns: unbilledGrns.map((g) => ({ grnNo: g.grnNo, party: g.party.name, totalValue: g.totalValue, grnDate: g.grnDate })),
+          criticalCount: critical,
+        },
+      }
+    },
+  },
+  {
     name: 'list_payments',
     description: 'List payments from the payment register. Optional partyCode or billNo filter.',
     domain: 'accounting',
@@ -1112,6 +1173,7 @@ const writeTools: AgentTool[] = [
       finYear: z.string().optional(),
       currency: z.string().optional().describe('INR | USD | EUR — currency of line rates and totalValue'),
       fxRate: z.number().optional().describe('Conversion rate to INR (default 1)'),
+      fieldConfidence: z.record(z.string(), z.string()).optional().describe('Per-field confidence for ingested documents: {field: "high"|"medium"|"low"}. high = verbatim from the source doc; medium = computed/summed/converted; low = inferred or defaulted. Cover at least qty, rate, deliveryDate, colourName, sizeName.'),
     }),
     async execute(args) {
       // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
@@ -1128,15 +1190,23 @@ const writeTools: AgentTool[] = [
       const fxRate = args.fxRate ?? 1
       const money = currency === 'INR' ? `₹${totalValue}` : `${currency} ${totalValue} (₹${Math.round(totalValue * fxRate)} at ${fxRate})`
 
-      // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy")
+      // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy").
+      // NULL-consistent: unresolved lookups store NULL, never '' (P2003 bug —
+      // empty string violates the nullable FK on orderLine.colourId/sizeId).
       const [allColours, allSizes] = await Promise.all([db.colour.findMany(), db.size.findMany()])
       const colourByName = new Map(allColours.map((c) => [c.name.toLowerCase(), c]))
       const sizeByName = new Map(allSizes.map((s) => [s.name.toLowerCase(), s]))
+      const unresolved: string[] = []
       const linesData = args.lines.map((l) => {
         const colour = colourByName.get(String(l.colourName).toLowerCase())
         const size = sizeByName.get(String(l.sizeName).toLowerCase())
-        return { colourId: colour?.id || '', sizeId: size?.id || '', qty: l.qty, rate: l.rate }
+        if (!colour) unresolved.push(`colour "${l.colourName}"`)
+        if (!size) unresolved.push(`size "${l.sizeName}"`)
+        return { colourId: colour?.id ?? null, sizeId: size?.id ?? null, qty: l.qty, rate: l.rate }
       })
+      if (unresolved.length) {
+        return { text: `Cannot create order ${args.orderNo || ''}: unresolved ${[...new Set(unresolved)].join(', ')} — create the missing master(s) first (create_colour / create_sizes), then retry. Case-insensitive match is applied ("NAVY" ≡ "Navy").` }
+      }
 
       // Resolve a free order number (auto-increment if not provided / collision)
       const resolvedOrderNo = await resolveNumber('order', args.orderNo)
@@ -1150,6 +1220,7 @@ const writeTools: AgentTool[] = [
             ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
           ],
           sideEffects: ['Stock reservation will be calculated when fabric is issued'],
+          fieldConfidence: args.fieldConfidence,
         },
         async commit() {
           const created = await db.order.create({

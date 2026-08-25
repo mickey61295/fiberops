@@ -423,6 +423,29 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
                                       ))}
                                     </div>
                                   )}
+                                  {result.plan.fieldConfidence && Object.keys(result.plan.fieldConfidence).length > 0 && (
+                                    <div className="mb-2">
+                                      <div className="text-[10px] font-semibold text-slate-600 mb-1">Field confidence (from source document):</div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {Object.entries(result.plan.fieldConfidence).map(([field, level]: [string, any]) => (
+                                          <span
+                                            key={field}
+                                            className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                              level === 'high' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                                : level === 'medium' ? 'bg-amber-50 border-amber-200 text-amber-900'
+                                                  : 'bg-red-50 border-red-200 text-red-800'
+                                            }`}
+                                            title={level === 'high' ? 'Read verbatim from the document' : level === 'medium' ? 'Computed / summed / converted' : 'Inferred or defaulted — please verify'}
+                                          >
+                                            {level === 'high' ? '🟢' : level === 'medium' ? '🟡' : '🔴'} {field}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      {Object.values(result.plan.fieldConfidence).some((l: any) => l === 'low') && (
+                                        <div className="text-[10px] text-red-700 mt-1">🔴 low-confidence field(s) — please verify before approving</div>
+                                      )}
+                                    </div>
+                                  )}
                                   {result.plan.creates?.length > 0 && (
                                     <div className="text-[10px] text-slate-600 mb-1">
                                       <span className="font-semibold">Creates:</span> {result.plan.creates.length} record(s)
