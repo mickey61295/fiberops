@@ -58,7 +58,7 @@ export async function GET(req: Request) {
         if (id) {
           const po = await db.purchaseOrder.findUnique({
             where: { id },
-            include: { party: true, lines: true, grns: { include: { lines: true } }, order: true },
+            include: { party: true, lines: { include: { order: true } }, grns: { include: { lines: true } } },
           })
           return Response.json(po)
         }
