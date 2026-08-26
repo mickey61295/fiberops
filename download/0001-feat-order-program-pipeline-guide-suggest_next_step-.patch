@@ -1,0 +1,229 @@
+From 568ac0f17c535bc458efb34e6564e18aa1cb1f94 Mon Sep 17 00:00:00 2001
+From: Maheshbabu Jeyaraj <j.maihby@gmail.com>
+Date: Wed, 26 Aug 2026 05:27:20 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20order=E2=86=92program=20pipeline=20guid?=
+ =?UTF-8?q?e=20+=20suggest=5Fnext=5Fstep=20tool?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The core ease-of-use gap: 'no next step after order creation'. Fixed by
+teaching the agent the canonical Tirupur knitwear job-work chain
+(14 stages: order → BOM → PO → GRN → jobwork → cut → issue-to-line →
+production → rework/rejection → despatch → invoice → cost sheet →
+collection) and requiring it to surface the next step after every
+transaction commit.
+
+New read tool: suggest_next_step — inspects an order's pipeline state
+(bom/cut/production/invoice/cost flags) and returns the NEXT canonical
+stage with a pre-filled tool-args skeleton the user can immediately
+paste back.
+
+SYSTEM_PROMPT: INDUSTRY WORKFLOW section added with the 14-stage chain
+and rules — after create_order commit, agent must end reply with the
+next stage + tool to call. 'what's next?' / 'what now?' → always call
+suggest_next_step.
+
+TypeScript: clean for src/.
+---
+ src/app/api/agent/route.ts |  27 +++++++-
+ src/lib/agent/tools.ts     | 138 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 164 insertions(+), 1 deletion(-)
+
+diff --git a/src/app/api/agent/route.ts b/src/app/api/agent/route.ts
+index a7657d8..a5bab6d 100755
+--- a/src/app/api/agent/route.ts
++++ b/src/app/api/agent/route.ts
+@@ -22,7 +22,7 @@ READ tools (no approval needed):
+ - Logistics: list_jobworks, list_despatches
+ - Costing: get_cost_sheet, get_budget_vs_actual
+ - Workflow: get_pending_approvals
+-- Meta: get_dashboard_kpis, summarize_open_orders
++- Meta: get_dashboard_kpis, summarize_open_orders, suggest_next_step (the canonical Tirupur knitwear job-work chain — call after every transaction commit and whenever the user asks "what's next?")
+ 
+ WRITE tools (plan + user-approval + commit):
+ - Masters: create_party, create_buyer, create_style, create_yarn, create_fabric, create_accessory, create_godown, create_department, create_employee, create_colour, create_size, create_uom, create_dia, create_lot, create_season, create_merchandiser, create_exporter, create_fin_year, create_line, create_size_group, create_bom
+@@ -64,6 +64,31 @@ When asked to "ingest" / "import" / "book" a document:
+ 7. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
+ 8. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
+ 
++## INDUSTRY WORKFLOW — TIRUPUR KNITWEAR JOB-WORK CHAIN
++A buyer PO becomes a SALES ORDER (create_order). From that moment, the order flows through 14 canonical stages until the buyer pays. **After every successful commit, you MUST proactively tell the user the next stage and the tool to call next.** This is the core promise of the app — never leave a user wondering "what now?". The chain:
++
++1. **Order** (create_order) → next: BOM
++2. **BOM** (create_bom — yarn/fabric/accessories per style) → next: PO to supplier
++3. **Purchase order** (create_purchase_order — for yarn/fabric not in stock) → next: GRN
++4. **GRN** (receive_grn — material into godown G1) → next: jobwork DC out
++5. **Jobwork DC out** (create_jobwork_order — knit/dye outsourced to a job worker) → next: receive back
++6. **Jobwork receive** (receive_jobwork — fabric back in G1) → next: cut
++7. **Cut order** (create_cut_order — fabric cut to colour×size pieces) → next: issue to line
++8. **Issue to line** (issue_to_line — cut pieces to sewing floor D4) → next: production entry
++9. **Production entry** (post_production_entry — output to PCS ledger, Good/'M' bucket) → next: rework/rejection or despatch
++10. **Rework / rejection** (post_rework / post_rejection — defects) → despatch
++11. **Pcs despatch** (create_pcs_despatch — finished goods DC out to buyer) → next: invoice
++12. **Sales invoice** (create_sales_invoice — GST auto from HSN + party state; export = zero-rated) → next: cost sheet
++13. **Cost sheet** (create_cost_sheet — cumulative rate walk yarn→dye→knit→cut→sew→fin→pack) → next: collection
++14. **Payment collection** (record_payment — settles invoice) → DONE.
++
++### Rules for next-step guidance
++- After a \`create_order\` commit succeeds, immediately end your reply with: **"Next: create a BOM for this style. Type 'suggest next step' and I'll pre-fill the args."** OR call \`suggest_next_step\` yourself and present the skeleton.
++- After ANY transaction commit (PO, GRN, cut, production, despatch, invoice, cost, payment), end your reply with the next canonical stage name + the tool to call.
++- If the user asks "what's next?" / "what now?" / "next step" — ALWAYS call \`suggest_next_step\` with the relevant orderNo. Don't paraphrase — the tool returns an exact skeleton to paste back.
++- If an order is mid-pipeline and the user is unsure where they are, call \`suggest_next_step\` to show the ✓-marked completed stages and the next one.
++- NEVER tell the user "the order is done" after creating it. The order is the FIRST of 14 stages — say so.
++
+ ## Number auto-assignment
+ For ALL create_* tools with auto-numbered codes (party, buyer, style, yarn, fabric, accessory, godown, department, employee, lot, order, PO, GRN, invoice, cut, jobwork, despatch, debit note, journal, cost sheet version) — DO NOT pass the code/number field. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a code if the user explicitly demands a specific one.
+ 
+diff --git a/src/lib/agent/tools.ts b/src/lib/agent/tools.ts
+index 583eded..ede3769 100755
+--- a/src/lib/agent/tools.ts
++++ b/src/lib/agent/tools.ts
+@@ -858,6 +858,144 @@ const readTools: AgentTool[] = [
+       }
+     },
+   },
++  {
++    // Industry-workflow guide — the order→program→cut→production→despatch→
++    // invoice→cost→collection chain. Inspects an order's current pipeline state
++    // and returns the NEXT canonical step with a pre-filled args skeleton so the
++    // user can immediately call the next tool. This is what makes the agent
++    // walk users through the Tirupur knitwear job-work flow instead of stopping
++    // after `create_order`.
++    name: 'suggest_next_step',
++    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
++    domain: 'workflow',
++    isWrite: false,
++    schema: z.object({
++      orderNo: z.string().optional().describe('Sales order number like SO-1001. If omitted, returns the canonical pipeline template.'),
++    }),
++    async execute(args) {
++      const PIPELINE: Array<{ step: number; name: string; tool: string; produces: string }> = [
++        { step: 1, name: 'Order created (sales order from buyer PO)', tool: 'create_order', produces: 'order' },
++        { step: 2, name: 'Bill of Materials (yarn/fabric/accessories per style)', tool: 'create_bom', produces: 'bom' },
++        { step: 3, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
++        { step: 4, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
++        { step: 5, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
++        { step: 6, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
++        { step: 7, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
++        { step: 8, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
++        { step: 9, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
++        { step: 10, name: 'Rework / rejection (defects)', tool: 'post_rework', produces: 'rework' },
++        { step: 11, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
++        { step: 12, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
++        { step: 13, name: 'Cost sheet (cumulative rate walk)', tool: 'create_cost_sheet', produces: 'cost' },
++        { step: 14, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
++      ]
++
++      if (!args.orderNo) {
++        return {
++          text: 'CANONICAL TIRUPUR KNITWEAR JOB-WORK PIPELINE\n' + PIPELINE.map((p) => `${p.step}. ${p.name} → ${p.tool}`).join('\n'),
++          json: { pipeline: PIPELINE },
++        }
++      }
++
++      const order = await db.order.findUnique({
++        where: { orderNo: args.orderNo },
++        include: {
++          buyer: true, style: { include: { bomLines: true } },
++          lines: { include: { colour: true, size: true } },
++          cutOrders: true,
++          productionEntries: true,
++          salesInvoices: true,
++          costSheet: true,
++        },
++      })
++      if (!order) return { text: `Order ${args.orderNo} not found.` }
++
++      const has = {
++        bom: !!order.style?.bomLines?.length,
++        cut: (order.cutOrders?.length ?? 0) > 0,
++        production: (order.productionEntries?.length ?? 0) > 0,
++        invoice: (order.salesInvoices?.length ?? 0) > 0,
++        cost: (order.costSheet?.length ?? 0) > 0,
++      }
++
++      let nextStep: typeof PIPELINE[number] = PIPELINE[1]
++      let skeleton: Record<string, any> = {}
++
++      if (!has.bom) {
++        nextStep = PIPELINE[1]
++        skeleton = {
++          styleNo: order.style?.styleNo,
++          components: [{ itemType: 'yarn', qty: 0, uom: 'kg' }],
++          notes: `BOM for order ${order.orderNo}`,
++        }
++      } else if (!has.cut) {
++        nextStep = PIPELINE[6]
++        const byColourSize = order.lines.map((l: any) => ({
++          colour: l.colour?.name, size: l.size?.name, qty: l.qty,
++        }))
++        skeleton = {
++          orderNo: order.orderNo,
++          styleNo: order.style?.styleNo,
++          cuts: byColourSize,
++          cutDate: new Date().toISOString().slice(0, 10),
++        }
++      } else if (!has.production) {
++        nextStep = PIPELINE[8]
++        skeleton = {
++          orderNo: order.orderNo,
++          lineCode: 'L1',
++          qty: order.totalPcs,
++          stage: 'sewing',
++          goodFlag: 'G',
++          entryDate: new Date().toISOString().slice(0, 10),
++        }
++      } else if (!has.invoice) {
++        nextStep = PIPELINE[11]
++        const cur = (order as any).currency as string | undefined
++        skeleton = {
++          orderNo: order.orderNo,
++          invoiceType: cur && cur !== 'INR' ? 'export' : 'local',
++          invoiceDate: new Date().toISOString().slice(0, 10),
++        }
++      } else if (!has.cost) {
++        nextStep = PIPELINE[12]
++        skeleton = { orderNo: order.orderNo }
++      } else {
++        nextStep = PIPELINE[13]
++        const inv = order.salesInvoices[0]
++        skeleton = {
++          partyCode: order.buyer?.code,
++          billNo: inv?.invoiceNo,
++          amount: inv?.billAmount,
++          mode: 'bank',
++          payDate: new Date().toISOString().slice(0, 10),
++        }
++      }
++
++      const completed = PIPELINE.filter((p) => {
++        if (p.produces === 'order') return true
++        if (p.produces === 'bom') return has.bom
++        if (p.produces === 'cut') return has.cut
++        if (p.produces === 'production') return has.production
++        if (p.produces === 'invoice') return has.invoice
++        if (p.produces === 'cost') return has.cost
++        return false
++      })
++
++      return {
++        text: `Order ${order.orderNo} — next step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress so far: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 14 stages.`,
++        json: {
++          orderNo: order.orderNo,
++          buyer: order.buyer?.name,
++          totalPcs: order.totalPcs,
++          state: has,
++          completed: completed.map((c) => c.step),
++          nextStep,
++          skeleton,
++        },
++      }
++    },
++  },
+ ]
+ 
+ // ───────────── WRITE TOOLS (plan-then-commit) ─────────────
+-- 
+2.47.3
+

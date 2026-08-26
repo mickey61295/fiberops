@@ -1,0 +1,15 @@
+PURCHASE ORDER — SYNTHETIC GARMENTS LTD
+PO Number: SYN-1787668046153-A
+Date: 2026-08-20
+Ship Date: 2026-10-15
+Buyer: Eval Buyer One
+Model No: EVL-101 "Eval Tee"
+Colour: 5X NAVY and 8X ROYAL
+Size Scale: S, M, L
+Currency: INR
+Unit Price: 240.00 (all sizes)
+
+Quantity Matrix (NAVY): S=100, M=200, L=100
+Quantity Matrix (ROYAL): S=50, M=100, L=50
+Total Quantity: 600 pcs
+Payment Terms: 30 days net. Incoterms: FOB Tirupur.

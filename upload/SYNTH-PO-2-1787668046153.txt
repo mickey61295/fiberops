@@ -1,0 +1,15 @@
+PURCHASE ORDER — EXPORT DIVISION
+PO Number: SYN-1787668046153-B
+Order Date: 2026-08-22
+Shipment Window: 2026-11-30
+Buyer: Eval Buyer Two (Export)
+Style: EVL-202 Fleece Hoodie
+Colours: 1X BLACK, 2X GREY MELANGE
+Sizes: 92, 98, 104, 110
+Currency: USD
+Unit Price: 12.50 USD (all sizes)
+
+BLACK: 92=120, 98=180, 104=180, 110=120
+GREY MELANGE: 92=80, 98=120, 104=120, 110=80
+Total: 1000 pcs
+Terms: FOB Chennai, T/T 60 days.
