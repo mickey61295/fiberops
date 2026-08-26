@@ -12,7 +12,7 @@ import { ChevronLeft, ExternalLink } from 'lucide-react'
 import { db } from '@/lib/db'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { CHAIN, type ChainStage } from '@/lib/erp/chain'
-import { findItemByRoute, getHref } from '@/lib/erp/menu-registry'
+import { findItemByRoute, getHref, isLive } from '@/lib/erp/menu-registry'
 import { ChainBar } from '@/components/erp/chain-bar'
 import { BomCard, type BomDisplayLine } from '@/components/erp/bom-card'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
@@ -29,10 +29,18 @@ const d = (dt: Date | null | undefined) => (dt ? new Date(dt).toISOString().slic
 const inr = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`
 const num = (n: number) => Number(n || 0).toLocaleString('en-IN')
 
-/** Link to a chain stage's screen: live route or the coming page (no dead ends). */
-function stageHref(stage: ChainStage): { href: string; label: string } {
+/** Link to a chain stage's screen: live route (with context param — Wave C)
+ *  or the coming page (no dead ends). */
+function stageHref(stage: ChainStage, ctx: { orderNo?: string; poNo?: string; dcNo?: string } = {}): { href: string; label: string } {
   const item = findItemByRoute(stage.formUrl.split('#')[0])
-  return { href: item ? getHref(item) : '/orders', label: item ? item.label : stage.name }
+  let href = item ? getHref(item) : '/orders'
+  // Wave C: live targets carry the context query param (stage 3 ?order=SO-1001)
+  const param = stage.formParam
+  if (item && isLive(item) && param) {
+    const value = param === 'po' ? ctx.poNo : param === 'dcNo' ? ctx.dcNo : ctx.orderNo
+    if (value) href += (href.includes('?') ? '&' : '?') + `${param}=${encodeURIComponent(value)}`
+  }
+  return { href, label: item ? item.label : stage.name }
 }
 
 function FamilySection({
@@ -121,17 +129,17 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
     .reduce((s: number, p: { amount: number }) => s + p.amount, 0)
 
   const poLink = stageHref(CHAIN[3])
-  const programLink = stageHref(CHAIN[2])
+  const programLink = stageHref(CHAIN[2], { orderNo: order.orderNo })
   const grnLink = stageHref(CHAIN[4])
-  const jobworkLink = stageHref(CHAIN[5])
-  const cutLink = stageHref(CHAIN[7])
-  const issueLink = stageHref(CHAIN[8])
-  const productionLink = stageHref(CHAIN[9])
-  const rejectionLink = stageHref(CHAIN[10])
-  const despatchLink = stageHref(CHAIN[11])
-  const invoiceLink = stageHref(CHAIN[12])
-  const costLink = stageHref(CHAIN[13])
-  const paymentLink = stageHref(CHAIN[14])
+  const jobworkLink = stageHref(CHAIN[5], { orderNo: order.orderNo })
+  const cutLink = stageHref(CHAIN[7], { orderNo: order.orderNo })
+  const issueLink = stageHref(CHAIN[8], { orderNo: order.orderNo })
+  const productionLink = stageHref(CHAIN[9], { orderNo: order.orderNo })
+  const rejectionLink = stageHref(CHAIN[10], { orderNo: order.orderNo })
+  const despatchLink = stageHref(CHAIN[11], { orderNo: order.orderNo })
+  const invoiceLink = stageHref(CHAIN[12], { orderNo: order.orderNo })
+  const costLink = stageHref(CHAIN[13], { orderNo: order.orderNo })
+  const paymentLink = stageHref(CHAIN[14], { orderNo: order.orderNo })
 
   return (
     <div className="space-y-4">
@@ -231,7 +239,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.programs ?? []).map((p: { id: string; programNo: string; stage: string; requiredKgs: number; targetDate?: Date | null; status: string }) => (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{p.programNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/programs/${p.id}`} className="text-emerald-700 hover:underline">{p.programNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5 capitalize">{p.stage}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(p.requiredKgs)}</td>
                   <td className="px-3 py-1.5">{d(p.targetDate)}</td>
@@ -265,7 +275,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {pos.map((p) => (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{p.poNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/procurement/po/${p.id}`} className="text-emerald-700 hover:underline">{p.poNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5 capitalize">{p.poType}</td>
                   <td className="px-3 py-1.5">{p.party?.name ?? '—'}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(p.totalQty)}</td>
@@ -300,7 +312,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {grns.map((g) => (
                 <tr key={g.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{g.grnNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/procurement/grn/${g.id}`} className="text-emerald-700 hover:underline">{g.grnNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5 capitalize">{g.grnType.replace('_', ' ')}</td>
                   <td className="px-3 py-1.5">{g.party?.name ?? '—'}</td>
                   <td className="px-3 py-1.5">{g.godown?.name ?? g.godown?.code ?? '—'}</td>
@@ -335,7 +349,17 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {jobworks.map((j) => (
                 <tr key={j.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{j.dcNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/jobwork/order/${j.id}`} className="text-emerald-700 hover:underline">{j.dcNo}</Link>
+                    {j.status === 'sent' && (
+                      <Link
+                        href={`/jobwork/receipt?dcNo=${encodeURIComponent(j.dcNo)}`}
+                        className="ml-2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-50"
+                      >
+                        Receive
+                      </Link>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 capitalize">{j.processType}</td>
                   <td className="px-3 py-1.5">{j.jobworker?.name ?? '—'}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(j.totalQty)}</td>
@@ -369,7 +393,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.cutOrders ?? []).map((c: { id: string; cutNo: string; cutDate: Date; fabricIssued: number; totalPcs: number; status: string }) => (
                 <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{c.cutNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/cutting/job-order/${c.id}`} className="text-emerald-700 hover:underline">{c.cutNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(c.cutDate)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(c.fabricIssued)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(c.totalPcs)}</td>
@@ -401,7 +427,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.lineIssues ?? []).map((i: { id: string; issueNo: string; issueDate: Date; qty: number; status: string }) => (
                 <tr key={i.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{i.issueNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/production/issue/${i.id}`} className="text-emerald-700 hover:underline">{i.issueNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(i.issueDate)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(i.qty)}</td>
                   <td className="px-3 py-1.5 capitalize">{i.status}</td>
@@ -432,7 +460,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.productionEntries ?? []).map((e: any) => (
                 <tr key={e.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5">{d(e.prodDate)}</td>
+                  <td className="px-4 py-1.5">
+                    <Link href={`/production/entry/${e.id}`} className="text-emerald-700 hover:underline">{d(e.prodDate)}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{e.rework ? 'Rework' : 'Good output'}{e.bundleNo ? ` · ${e.bundleNo}` : ''}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(e.qty)}</td>
                   <td className="px-3 py-1.5 text-xs text-slate-400">—</td>
@@ -464,7 +494,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.rejections ?? []).map((r: { id: string; rejNo: string; rejDate: Date; qty: number; rejType: string; action: string }) => (
                 <tr key={r.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{r.rejNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/pieces/rejection/${r.id}`} className="text-emerald-700 hover:underline">{r.rejNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(r.rejDate)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(r.qty)}</td>
                   <td className="px-3 py-1.5 capitalize">{r.rejType.replace('_', ' ')}</td>
@@ -497,7 +529,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {despatches.map((x) => (
                 <tr key={x.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{x.dcNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/pieces/despatch/${x.id}`} className="text-emerald-700 hover:underline">{x.dcNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(x.despatchDate)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{num(x.totalPcs)}</td>
                   <td className="px-3 py-1.5">{x.vehicleNo ?? '—'}</td>

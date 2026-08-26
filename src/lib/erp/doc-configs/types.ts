@@ -16,6 +16,15 @@
 // 3. `DocScreenConfig` = DocConfig minus {service, schema} — the serializable
 //    subset passed to the CLIENT engine. Functions cannot cross the RSC
 //    boundary; the client calls server actions with the slug instead.
+// SPEC-M3 ERRATUM (Wave C):
+// 4. `numberPrefix`/`numberField` are OPTIONAL — production/rework entries
+//    carry no document number (bundleNo is the reference, never auto-assigned)
+//    and jobwork-in references an EXISTING dcNo. The engine hides the
+//    "<prefix>#### auto if blank" hint when numberPrefix is absent.
+// 5. DocLineField gains optional `pickerFrom` — a sibling line-cell name whose
+//    VALUE is the master slug for this row's picker (PO lines: itemCode's
+//    picker is yarn|fabric|accessory per the row's itemType cell). Falls back
+//    to a plain text input until the sibling cell is set.
 import type { z } from 'zod'
 import type { DocPlanResult } from '../posting/types'
 
@@ -44,7 +53,11 @@ export interface DocLineField {
   picker?: string
   /** ERRATUM 1 */
   pickerValueField?: string
+  /** ERRATUM 5 (Wave C) — sibling line-cell name whose value IS the master slug */
+  pickerFrom?: string
   required?: boolean
+  /** ERRATUM 5 companion (Wave C) — select options for line cells (PO itemType) */
+  options?: { value: string; label: string }[]
 }
 
 export interface DocConfig {
@@ -53,10 +66,10 @@ export interface DocConfig {
   /** route slug segment */
   slug: string
   title: string
-  /** 'SO-' */
-  numberPrefix: string
-  /** 'orderNo' */
-  numberField: string
+  /** 'SO-' — OPTIONAL (ERRATUM 4, Wave C): absent = no auto-number hint */
+  numberPrefix?: string
+  /** 'orderNo' — OPTIONAL (ERRATUM 4, Wave C) */
+  numberField?: string
   /** 1..15 (W1 highlight) */
   chainStage?: number
   /** ERRATUM 2 — the EXACT shared zod schema (schemas/<op>.ts); server-only */

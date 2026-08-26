@@ -1,12 +1,45 @@
 // SPEC-M3 §7/§8 — the doc-config registry. Grows per wave (Wave C adds the
-// 13 chain configs, Wave D the accounts/inventory ones). Wave B: order only.
+// chain configs — §8 rows 3-13; Wave D the accounts/inventory ones).
 import type { DocConfig } from './types'
 import { orderConfig } from './order'
+import { programConfig } from './program'
+import { purchaseOrderConfig } from './purchase-order'
+import { grnConfig } from './grn'
+import { jobworkOutConfig, jobworkInConfig } from './jobwork'
+import { cutConfig } from './cut'
+import { lineIssueConfig } from './line-issue'
+import { productionConfig, reworkConfig } from './production'
+import { rejectionConfig } from './rejection'
+import { despatchConfig } from './despatch'
 
-export { orderConfig }
+export {
+  orderConfig,
+  programConfig,
+  purchaseOrderConfig,
+  grnConfig,
+  jobworkOutConfig,
+  jobworkInConfig,
+  cutConfig,
+  lineIssueConfig,
+  productionConfig,
+  reworkConfig,
+  rejectionConfig,
+  despatchConfig,
+}
 
 export const DOC_CONFIGS: DocConfig[] = [
   orderConfig,
+  programConfig,
+  purchaseOrderConfig,
+  grnConfig,
+  jobworkOutConfig,
+  jobworkInConfig,
+  cutConfig,
+  lineIssueConfig,
+  productionConfig,
+  reworkConfig,
+  rejectionConfig,
+  despatchConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {

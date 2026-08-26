@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m3-wave-b)
+Last verified: 2026-08-27 (session: m3-wave-c)
 
 ## Milestone status
 
@@ -12,7 +12,7 @@ Last verified: 2026-08-27 (session: m3-wave-b)
 | M0 — Planning & context framework | deep dive + PLAN-2.0 + CONTEXT system | **DONE** |
 | M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
-| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **WAVE B DONE** (`specs/SPEC-M3.md` §14): Wave A extraction + Wave B order family (DocScreen engine, doc-configs, W1 chain bar, W4 pickers, /orders/new, Order Hub + BOM card, nextFormUrl + agent "Open form") — Waves C (13 chain screens) → D (accounts/inventory + /api/upload) NOT STARTED |
+| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **WAVE C DONE** (`specs/SPEC-M3.md` §14): Wave A extraction + Wave B order family + Wave C chain screens (11 configs: program, PO, GRN, jobwork×2, cut, line-issue, production, rework, rejection, despatch + 11 New pages + 9 view pages + Hub family-row links) — Wave D (accounts/inventory + /api/upload + 2 new tools) NOT STARTED |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | | NOT STARTED |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
@@ -21,26 +21,27 @@ Last verified: 2026-08-27 (session: m3-wave-b)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | `m3-wave-b` commit (Wave B: order family + DocScreen engine + W1/W3/W4 wiring) | `git rev-parse --short HEAD` |
+| Git HEAD | `m3-wave-c` commit (Wave C: 11 chain doc screens + view modes + Hub family links) | `git rev-parse --short HEAD` |
 | Agent tools | **120** (51 inline + 24 factory create + 24 factory update + 21 docTool delegates) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A) | **17 files** in `src/lib/erp/schemas/` (verbatim tool contracts) | context_check |
 | Posting services (M3-A) | **20 files** in `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts + master-service.ts) | context_check |
 | Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
 | tools.ts size | 2805 → 1693 lines (all 21 SPEC-M3 §5 write ops thin delegates; suggest_next_step gained nextFormUrl) | `wc -l` |
-| Doc configs (M3-B) | **1** (`order.ts`) + frozen types + registry + coercion in `src/lib/erp/doc-configs/` | context_check |
+| Doc configs (M3-C) | **12 configs in 10 files** (order + program, purchase-order, grn, jobwork-out/in, cut, line-issue, production, rework, rejection, despatch) in `src/lib/erp/doc-configs/` | context_check |
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
-| Wiring (M3-B) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, resolves id OR orderNo, 12 family sections + rollups) · W4 pickers (`doc-picker.tsx` + `/api/erp?resource=master_search`, create-on-the-fly via master-service) · nextFormUrl (suggest_next_step json) + agent-panel "Open form" | context_check + route smoke |
+| Wiring (M3-B/C) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo prefill on all 11 New screens | context_check + route smoke |
 | Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
-| ERP view/shell components | **19** (16 + Wave B chain-bar + doc-picker + bom-card) | `ls src/components/erp/*.tsx \| wc -l` |
+| ERP view/shell components | **20** (19 + Wave C recent-docs.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | **2** (`master-table.tsx` + `doc-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M3-B) | **16**: M2 set + `/orders/new` + `/orders/[id]` (dynamic doc-view routes link to module root in nav) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
-| Parity (M3-B) | **6/113 items live** · 11/17 groups · legacy coverage 30.7% (78/254 distinct forms) | `/parity` page or `parityStats()` |
+| Live routes (M3-C) | **36**: M2 set + Wave B `/orders/new`,`/orders/[id]` + Wave C 11 item routes + 9 view routes (jobwork-receipt + rework have no own view — update-only / shared-model) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Parity (M3-C) | **17/113 items live** · 14/17 groups (+programs `/programs/new`, +pieces `/pieces/despatch`, +jobwork `/jobwork/order` landings) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A) | **19 tests** (18 ops × both doors + full-chain ledger signature equality) | `npx vitest run` |
-| Doc-config contract + form-door tests (M3-B) | **18 tests** (§7 contracts + coercion + action composition integration) | `npx vitest run` |
-| Registry unit tests | 13 | `npx vitest run` |
+| Doc-config contract + form-door tests (M3-B/C) | **26 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
+| Registry unit tests | 14 | `npx vitest run` |
+| **Total vitest** | **156 passing** | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -95,6 +96,22 @@ Last verified: 2026-08-27 (session: m3-wave-b)
    `schema` (the shared zod) for form-door safeParse; (3) `DocScreenConfig` =
    serializable subset (service/schema cannot cross the RSC boundary — the client
    calls server actions by slug).
+10. **SPEC-M3 ERRATUM (Wave C)** also in `doc-configs/types.ts`: (4)
+   `numberPrefix`/`numberField` OPTIONAL — production/rework entries carry no
+   doc number (bundleNo is the reference) and jobwork-in references an EXISTING
+   dcNo; (5) `DocLineField.pickerFrom` — TYPED line picker (PO itemCode's master
+   slug ← the row's itemType cell) + `options` on line selects. The engine also
+   learned `select` rendering (header + line cells + option labels in View).
+11. **Relation-less FK columns on the reconstructed schema (Wave C, tsc caught
+   it)**: `JobworkOrder.orderId`, `PcsDespatch.orderId`/`buyerId`, `GRN.deptId`
+   are BARE columns — no Prisma relation. Includes on them fail tsc; the pages
+   resolve via separate lookups + id maps (same pattern the Hub already used
+   for the reverse direction). Re-verify relations before writing `include:`.
+12. **rework shares chain stage 11 with rejection** (CHAIN[10] tool is
+   post_rejection — the stage's primary form). Rework has no own view route:
+   rework rows (ProductionEntry.rework=true) view via `/production/entry/[id]`
+   with a rework badge. jobwork-in likewise has no own view (it UPDATES the DC —
+   its post-commit "View document" targets `/jobwork/order/[id]`).
 
 ## What exists today (file inventory — the parts that matter)
 
@@ -112,12 +129,14 @@ Last verified: 2026-08-27 (session: m3-wave-b)
 | `src/lib/erp/schemas/` (17 files) | **M3-A: shared zod** — the agent tool schemas extracted VERBATIM (prompt contract); form actions will safeParse the same objects |
 | `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts) | **M3-A: PostingEngine** — plan/commit per op; postLedger+bumpStock (ADR-004 comments); DocPlanResult types |
 | `src/lib/erp/legacy-enums.ts` | **M3-A: ADR-012 residence** — STAGE_DEPT + documented legacy DeptID/rework magic numbers |
-| `src/lib/erp/doc-configs/` (types + order + index + coerce) | **M3-B: DocConfig frozen types (§7 + ERRATUM) + order config + registry + form coercion** |
-| `src/lib/erp/doc-actions.ts` | **M3-B: the form door's generic server actions** — planDocAction (serializable plan for review) / commitDocAction (re-plan + commit, same as agent approve flow) |
+| `src/lib/erp/doc-configs/` (types + order + 11 Wave C configs + index + coerce) | **M3-B/C: DocConfig frozen types (§7 + ERRATUMs 1-5) + 12 configs + registry + form coercion** |
+| `src/lib/erp/doc-actions.ts` | **M3-B/C: the form door's generic server actions** — planDocAction / commitDocAction + SLUG_REVALIDATE map (all 12 slugs) |
 | `src/components/archetypes/doc-screen.tsx` | **M3-B: DocScreen engine** — New (header grid + W4 pickers + line editor + totals + review step + post-commit CTAs) / View modes; draft state survives create-on-the-fly |
 | `src/components/erp/chain-bar.tsx` | **M3-B: W1 chain mini-pipeline bar** — 15 dots, done-fills, current-stage ring, "Next →" Link via resolveStageUrl |
 | `src/components/erp/doc-picker.tsx` | **M3-B: W4 picker** — searchable dropdown over `/api/erp?resource=master_search` + create-on-the-fly Sheet reusing MasterFieldInput + saveMasterAction |
 | `src/components/erp/bom-card.tsx` | **M3-B: BOM card** (Order Hub #bom) — inline add editor (planBom-backed) + remove (single-door exception, drift #8) |
+| `src/components/erp/recent-docs.tsx` | **M3-C: DocBreadcrumb + RecentDocsTable** — the shared New-page chrome (server component; action column for jobwork Receive) |
+| `src/app/(erp)/programs/{new,[id]}` · `procurement/{po,grn}/{,[id]}` · `jobwork/{order,order/[id],receipt}` · `cutting/job-order/{,[id]}` · `production/{issue,entry}/{,[id]}` · `production/rework` · `pieces/{rejection,despatch}/{,[id]}` | **M3-C: 11 New screens + 9 view screens** (§8 rows 3-13) — config-driven DocScreen + recent docs + prefill CTAs |
 | `src/app/(erp)/orders/new/page.tsx` | **M3-B: Order Sheet New mode** + recent-docs table (item order-sheet-new LIVE) |
 | `src/app/(erp)/orders/[id]/page.tsx` | **M3-B: Order Hub (W3)** — resolves id OR orderNo; header + chain bar + order lines + BOM card + 11 family sections with rollups; unknown → 404 (item order-hub LIVE) |
 | `src/app/(erp)/orders/actions.ts` | **M3-B: BOM card actions** — addBomLineAction (planBom dual-door) + removeBomLineAction (exception) |
@@ -144,17 +163,41 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. Implement M3 **Wave C** per `specs/SPEC-M3.md` §14: 13 chain doc-configs
-   (program, PO, GRN, jobwork ×2, cut, line-issue, production, rework,
-   rejection, despatch — §8 inventory rows 3-13) + routes + view modes +
-   family-row links from the Order Hub. Exit: acceptance #3 complete
-   (form-only 15-stage chain), #4 complete (per-op parity already test-backed
-   by doc-parity; extend if form actions diverge), #9 route smoke.
-2. Wave D per spec §14: invoice, debit-note, payment, journal, cost-sheet,
-   stock-adjustment (+post_stock_adjustment tool), godown-transfer
-   (+transfer_stock tool), /api/upload rebuild + AI-prefill seeding.
-   Tag `m3-done` after Wave D acceptance.
-3. Update this file every wave (same commit).
+1. Implement M3 **Wave D** per `specs/SPEC-M3.md` §14: invoice, debit-note,
+   payment, journal, cost-sheet, stock-adjustment (+`post_stock_adjustment`
+   tool), godown-transfer (+`transfer_stock` tool), `/api/upload` rebuild +
+   AI-prefill seeding. Exit: ALL acceptance criteria → tag `m3-done`
+   (live items 24/113, groups 14/17, tools 122).
+2. Update this file every wave (same commit).
+
+## M3 Wave C notes for future sessions
+
+- **A new doc screen = config + 2 page files + LIVE_ROUTES entry** — nothing
+  else. The generic actions (doc-actions.ts), DocScreen engine, pickers,
+  recent-docs table and chain bar do the rest. Wave C added 11 screens with
+  ZERO service/schema changes (ADR-001 held: pure config + pages).
+- **View pages resolve id OR doc number** (programNo/poNo/grnNo/dcNo/cutNo/
+  issueNo/rejNo). ProductionEntry has NO unique doc number — id-only lookup.
+- **Prefill params**: `?order=` → orderNo, `?po=` → poNo, `?dcNo=` → dcNo
+  (chain bar + Hub CTAs + jobwork Receive quick-links emit them). Pages read
+  `searchParams` (a PROMISE in Next 16 — always `await`).
+- **PO line item pickers are typed**: itemType cell → pickerFrom → the row's
+  DocPicker slug (yarn/fabric/accessory). A blank itemType renders a plain
+  text input with "type first" placeholder; zod then reports itemType missing.
+- **production.lineId picker emits the db ID** (`pickerValueField: 'id'`) —
+  the service stores the FK directly, unlike every other picker which emits
+  a code the service resolves.
+- **recent-docs.tsx** (DocBreadcrumb + RecentDocsTable) is a SERVER component
+  (function props OK — never add 'use client' to it).
+- **tsc known noise stays 30** — zero new-file errors after Wave C; the three
+  relation-less FK traps are drift #11.
+- **zod v4 quirk**: `z.array()` itself has `.unwrap()` (→ element) — when
+  unwrapping optionals discriminate with `instanceof z.ZodOptional`, never
+  duck-typing on `.unwrap` (cost 2 test iterations; see doc-configs.test.ts).
+- **Jobwork receipt UX loop**: recent table on /jobwork/receipt carries a
+  per-row "Receive" action (?dcNo= prefill); the DC view shows a "Receive
+  this DC" CTA when status=sent; the Order Hub jobwork section adds the same
+  quick-link. All three point at the same prefilled form door.
 
 ## M3 Wave B notes for future sessions
 
@@ -233,6 +276,7 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 - `.gitignore` now blocks the heavy untracked dirs (`/source-erp/`, `/workspace/`,
   `/download/`, `/upload/`, `/tool-results/`, `/.zscripts/`, `/mini-services/`,
   `/examples/`) so `git add -A` can never re-add legacy binaries (PITFALLS #6).
-- Tags: `m2-done`, `spec-m3-frozen`, `m3-wave-a`, `m3-wave-b` (M3 Wave B).
+- Tags: `m2-done`, `spec-m3-frozen`, `m3-wave-a`, `m3-wave-b`, `m3-wave-c`
+  (M3 Wave C: 11 chain doc screens + view modes + Hub family links).
   Before rollback #4: `m2-done` (re-created on the recovery commit — tree is
   M2-final), `rollback4-recovered`.

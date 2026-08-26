@@ -35,6 +35,26 @@ function zodErrors(issues: Array<{ path: Array<string | number>; message: string
   return issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
 }
 
+/**
+ * Slug → screens that list this doc family (Wave C: all 12 screens).
+ * revalidatePath on unknown paths is a harmless no-op in Next; the guards
+ * keep this callable from vitest (outside a request scope).
+ */
+const SLUG_REVALIDATE: Record<string, string[]> = {
+  order: ['/orders', '/orders/new'],
+  program: ['/programs/new'],
+  'purchase-order': ['/procurement/po', '/procurement'],
+  grn: ['/procurement/grn', '/procurement'],
+  'jobwork-out': ['/jobwork/order'],
+  'jobwork-in': ['/jobwork/receipt', '/jobwork/order'],
+  cut: ['/cutting/job-order', '/cutting'],
+  'line-issue': ['/production/issue', '/production'],
+  production: ['/production/entry', '/production'],
+  rework: ['/production/rework', '/production/entry', '/production'],
+  rejection: ['/pieces/rejection'],
+  despatch: ['/pieces/despatch'],
+}
+
 async function runPlan(slug: string, payload: DocFormPayload): Promise<
   { ok: true; plan: any; config: { slug: string } } | { ok: false; errors: string[] }
 > {
@@ -64,14 +84,12 @@ export async function commitDocAction(slug: string, payload: DocFormPayload): Pr
   if (!r.ok) return r
   try {
     const doc = await r.plan.commit()
-    // revalidate the screens that list this doc family (Wave B: order routes;
-    // future slugs' routes are harmless no-ops — Next ignores unknown paths).
+    // revalidate the screens that list this doc family (SLUG_REVALIDATE map —
+    // Wave C: every screen is force-dynamic, so this is a Router-Cache hint).
     // Guarded: revalidation must never fail a COMMIT that already succeeded
     // (also keeps the action callable from vitest, outside request scope).
     try {
-      revalidatePath('/orders')
-      revalidatePath('/orders/new')
-      revalidatePath('/')
+      for (const p of SLUG_REVALIDATE[slug] ?? ['/']) revalidatePath(p)
     } catch {
       /* outside a Next request scope (tests) — commit already durable */
     }

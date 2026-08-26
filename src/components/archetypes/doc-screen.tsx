@@ -211,9 +211,11 @@ export function DocScreen({
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-lg font-semibold">New {config.title}</h1>
-        <span className="text-xs text-slate-400 font-mono">
-          {config.numberPrefix}#### auto if blank
-        </span>
+        {config.numberPrefix && (
+          <span className="text-xs text-slate-400 font-mono">
+            {config.numberPrefix}#### auto if blank
+          </span>
+        )}
         <div className="flex-1" />
         <div className="flex gap-1">
           {config.agentTools.map((t) => (
@@ -270,6 +272,18 @@ export function DocScreen({
                           onChange={(e) => setHeader((h) => ({ ...h, [f.name]: e.target.value }))}
                           placeholder={f.name === 'orderNo' ? `${config.numberPrefix}#### (auto)` : undefined}
                         />
+                      ) : f.type === 'select' ? (
+                        <select
+                          className="mt-1 h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none"
+                          value={header[f.name] ?? ''}
+                          onChange={(e) => setHeader((h) => ({ ...h, [f.name]: e.target.value }))}
+                          aria-label={f.label}
+                        >
+                          <option value="">Select {f.label.toLowerCase()}…</option>
+                          {(f.options ?? []).map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
                       ) : (
                         <Input
                           className="mt-1 h-9 text-sm"
@@ -277,7 +291,7 @@ export function DocScreen({
                           step={f.type === 'number' ? 'any' : undefined}
                           value={header[f.name] ?? ''}
                           onChange={(e) => setHeader((h) => ({ ...h, [f.name]: e.target.value }))}
-                          placeholder={f.name === config.numberField ? `${config.numberPrefix}#### (auto)` : undefined}
+                          placeholder={f.name === config.numberField && config.numberPrefix ? `${config.numberPrefix}#### (auto)` : undefined}
                         />
                       )}
                     </>
@@ -317,7 +331,43 @@ export function DocScreen({
                         </td>
                         {config.lineFields!.map((f) => (
                           <td key={f.name} className="px-2 py-1.5">
-                            {f.type === 'picker' ? (
+                            {f.type === 'select' ? (
+                              <select
+                                className="h-8 w-full rounded-md border border-slate-200 bg-white px-1.5 text-sm"
+                                value={row[f.name] ?? ''}
+                                onChange={(e) => setCell(i, f.name, e.target.value)}
+                                aria-label={f.label}
+                              >
+                                <option value=""></option>
+                                {(f.options ?? []).map((o) => (
+                                  <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
+                              </select>
+                            ) : f.type === 'picker' && f.pickerFrom ? (
+                              // ERRATUM 5 (Wave C): typed picker — the master slug
+                              // comes from the sibling cell (PO itemCode ← itemType)
+                              row[f.pickerFrom] ? (
+                                <DocPicker
+                                  inline
+                                  slug={row[f.pickerFrom]}
+                                  valueField={f.pickerValueField}
+                                  value={row[f.name] ?? ''}
+                                  onChange={(v) => setCell(i, f.name, v)}
+                                  label={f.label}
+                                  required={f.required}
+                                  placeholder={f.label}
+                                />
+                              ) : (
+                                <Input
+                                  className="h-8 text-sm"
+                                  type="text"
+                                  value={row[f.name] ?? ''}
+                                  onChange={(e) => setCell(i, f.name, e.target.value)}
+                                  placeholder="type first"
+                                  aria-label={f.label}
+                                />
+                              )
+                            ) : f.type === 'picker' ? (
                               <DocPicker
                                 inline
                                 slug={f.picker!}
@@ -450,6 +500,10 @@ export function DocScreen({
 function FieldValue({ field, value }: { field: DocField | DocLineField; value: unknown }) {
   const str = value === null || value === undefined || value === '' ? '' : String(value)
   if (!str) return <div className="text-sm text-slate-300">—</div>
+  if (field.type === 'select' && field.options?.length) {
+    const opt = field.options.find((o) => o.value === str)
+    if (opt) return <div className="text-sm text-slate-800">{opt.label}</div>
+  }
   if (field.type === 'picker' && field.picker) {
     return (
       <Link href={`/masters/${field.picker}`} className="text-sm text-emerald-700 hover:underline">

@@ -47,10 +47,30 @@ export const LIVE_ROUTES = new Set<string>([
   '/orders', // OrdersView
   '/orders/new', // Order Sheet New mode (M3 Wave B) — order-sheet-new
   '/orders/[id]', // Order Hub (M3 Wave B, W3) — order-hub
+  '/programs/new', // Program Entry (M3 Wave C) — program-entry
+  '/programs/[id]', // Program view (M3 Wave C)
   '/procurement', // ProcurementView
-  '/inventory', // InventoryView
+  '/procurement/po', // Purchase Order (M3 Wave C) — purchase-order
+  '/procurement/po/[id]', // PO view (M3 Wave C)
+  '/procurement/grn', // GRN Entry (M3 Wave C) — grn-entry
+  '/procurement/grn/[id]', // GRN view (M3 Wave C)
+  '/jobwork/order', // Jobwork DC out (M3 Wave C) — jobwork-order
+  '/jobwork/order/[id]', // Jobwork DC view (M3 Wave C; also the receipt target)
+  '/jobwork/receipt', // Jobwork Receipt in (M3 Wave C) — jobwork-receipt (update-only, no own view)
   '/cutting', // CuttingView
+  '/cutting/job-order', // Cutting Job Order (M3 Wave C) — cutting-job-order
+  '/cutting/job-order/[id]', // Cut Order view (M3 Wave C)
   '/production', // ProductionView
+  '/production/issue', // Issue to Line (M3 Wave C) — issue-to-line
+  '/production/issue/[id]', // Line Issue view (M3 Wave C)
+  '/production/entry', // Production Entry (M3 Wave C) — production-entry
+  '/production/entry/[id]', // Production Entry view (M3 Wave C; also serves rework rows)
+  '/production/rework', // Rework (M3 Wave C) — rework (view via /production/entry/[id])
+  '/pieces/rejection', // Pcs Rejection (M3 Wave C) — pcs-rejection
+  '/pieces/rejection/[id]', // Rejection view (M3 Wave C)
+  '/pieces/despatch', // Pcs DC Despatch (M3 Wave C) — pcs-dc
+  '/pieces/despatch/[id]', // Despatch DC view (M3 Wave C)
+  '/inventory', // InventoryView
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -67,13 +87,13 @@ export const LIVE_ROUTES = new Set<string>([
 export const MENU_GROUPS: MenuGroup[] = [
   { id: 'home', label: 'Home', icon: 'LayoutDashboard', landingRoute: '/', order: 1, description: 'KPIs, order status board, daily in/out' },
   { id: 'orders', label: 'Orders & Sales', icon: 'ClipboardList', landingRoute: '/orders', order: 2, description: 'Order sheets, hub, registers, amendments' },
-  { id: 'programs', label: 'Programs', icon: 'Workflow', landingRoute: '/coming/programs', order: 3, description: 'Tirupur core: yarn/fabric programs & balances' },
+  { id: 'programs', label: 'Programs', icon: 'Workflow', landingRoute: '/programs/new', order: 3, description: 'Tirupur core: yarn/fabric programs & balances' },
   { id: 'procurement', label: 'Procurement', icon: 'ShoppingCart', landingRoute: '/procurement', order: 4, description: 'POs, GRNs, acceptance, party balance' },
   { id: 'inventory', label: 'Inventory & Warehouse', icon: 'Boxes', landingRoute: '/inventory', order: 5, description: 'Stock, ledger, lots, transfers' },
   { id: 'cutting', label: 'Cutting & Panels', icon: 'Scissors', landingRoute: '/cutting', order: 6, description: 'Job orders, ready-to-cut, panel ops' },
-  { id: 'pieces', label: 'Pieces (Finished Goods)', icon: 'Shirt', landingRoute: '/coming/pieces', order: 7, description: 'Pcs despatch/receipt/transfer/stock/packing' },
+  { id: 'pieces', label: 'Pieces (Finished Goods)', icon: 'Shirt', landingRoute: '/pieces/despatch', order: 7, description: 'Pcs despatch/receipt/transfer/stock/packing' },
   { id: 'production', label: 'Production & Shopfloor', icon: 'Factory', landingRoute: '/production', order: 8, description: 'Entries, line issue/output, WIP, bundles' },
-  { id: 'jobwork', label: 'Job Work', icon: 'Handshake', landingRoute: '/coming/jobwork', order: 9, description: 'Outsourced jobwork out/in & balances' },
+  { id: 'jobwork', label: 'Job Work', icon: 'Handshake', landingRoute: '/jobwork/order', order: 9, description: 'Outsourced jobwork out/in & balances' },
   { id: 'dispatch', label: 'Dispatch & Logistics', icon: 'Truck', landingRoute: '/coming/dispatch', order: 10, description: 'DCs (all materials), gate, courier, loading' },
   { id: 'accounts', label: 'Accounts & GST', icon: 'Receipt', landingRoute: '/accounts', order: 11, description: 'Invoices, bills, payments, journals, HSN' },
   { id: 'costing', label: 'Costing & Budgets', icon: 'Calculator', landingRoute: '/costing', order: 12, description: 'Cost sheets, budgets, expenses, P&L' },

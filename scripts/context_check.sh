@@ -60,30 +60,31 @@ echo "  pipeline-tests=$TESTS  registry-tests=$REGTESTS  master-cfg-tests=$CFGTE
 echo "  menu-items=$MENUITEMS  live-routes=$LIVEROUTES  master-configs=$MASTERCFGS  MAX_STEPS=$MAXSTEPS"
 echo "  m3-waveA: schemas=$SCHEMAFILES  posting-files=$POSTINGSVCS  chain-stages=$CHAINSTAGES"
 echo "  m3-waveB: doc-configs=$DOCCFGS  erp-shell-components=$DOCSCREENVIEWS"
+echo "  m3-waveC: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  erp-views=$VIEWS"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M3-WaveB session]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M3-WaveC session]"
 check "agent tools (inline+factory+docTool)" "120" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
 check "docTool delegates (SPEC-M3 §5)" "21"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
-check "erp view/shell components (incl. Wave B chain-bar/doc-picker/bom-card)" "19"      "$VIEWS"
+check "erp view/shell components (Wave B + Wave C recent-docs)" "20"      "$VIEWS"
 check "archetype engines"          "2"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests"        "13"      "$REGTESTS"
+check "menu registry tests"        "14"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "19"      "$DOCPARITYTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes"                "16"      "$LIVEROUTES"
+check "live routes (M3 Wave C)"    "36"      "$LIVEROUTES"
 check "master configs"             "24"      "$MASTERCFGS"
 check "shared zod schema files"    "17"      "$SCHEMAFILES"
 check "posting service files"      "20"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc configs (SPEC-M3 §7)"   "1"       "$DOCCFGS"
+check "doc config files (SPEC-M3 §7/§8 — 12 configs; jobwork+production files hold 2)" "10"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -103,8 +104,14 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/components/archetypes/master-table.tsx \
          src/components/archetypes/doc-screen.tsx \
          src/components/erp/chain-bar.tsx src/components/erp/doc-picker.tsx \
-         src/components/erp/bom-card.tsx src/lib/erp/doc-actions.ts \
+         src/components/erp/bom-card.tsx src/components/erp/recent-docs.tsx \
+         src/lib/erp/doc-actions.ts \
          src/lib/erp/doc-configs/types.ts src/lib/erp/doc-configs/order.ts \
+         src/lib/erp/doc-configs/program.ts src/lib/erp/doc-configs/purchase-order.ts \
+         src/lib/erp/doc-configs/grn.ts src/lib/erp/doc-configs/jobwork.ts \
+         src/lib/erp/doc-configs/cut.ts src/lib/erp/doc-configs/line-issue.ts \
+         src/lib/erp/doc-configs/production.ts src/lib/erp/doc-configs/rejection.ts \
+         src/lib/erp/doc-configs/despatch.ts \
          src/lib/erp/doc-configs/index.ts src/lib/erp/doc-configs/coerce.ts \
          tests/pipeline/industry-chain.test.ts tests/unit/menu-registry.test.ts \
          tests/unit/master-configs.test.ts tests/unit/doc-configs.test.ts \
@@ -113,6 +120,17 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/layout.tsx' 'src/app/(erp)/coming/[id]/page.tsx' \
          'src/app/(erp)/orders/new/page.tsx' 'src/app/(erp)/orders/[id]/page.tsx' \
          'src/app/(erp)/orders/actions.ts' \
+         'src/app/(erp)/programs/new/page.tsx' 'src/app/(erp)/programs/[id]/page.tsx' \
+         'src/app/(erp)/procurement/po/page.tsx' 'src/app/(erp)/procurement/po/[id]/page.tsx' \
+         'src/app/(erp)/procurement/grn/page.tsx' 'src/app/(erp)/procurement/grn/[id]/page.tsx' \
+         'src/app/(erp)/jobwork/order/page.tsx' 'src/app/(erp)/jobwork/order/[id]/page.tsx' \
+         'src/app/(erp)/jobwork/receipt/page.tsx' \
+         'src/app/(erp)/cutting/job-order/page.tsx' 'src/app/(erp)/cutting/job-order/[id]/page.tsx' \
+         'src/app/(erp)/production/issue/page.tsx' 'src/app/(erp)/production/issue/[id]/page.tsx' \
+         'src/app/(erp)/production/entry/page.tsx' 'src/app/(erp)/production/entry/[id]/page.tsx' \
+         'src/app/(erp)/production/rework/page.tsx' \
+         'src/app/(erp)/pieces/rejection/page.tsx' 'src/app/(erp)/pieces/rejection/[id]/page.tsx' \
+         'src/app/(erp)/pieces/despatch/page.tsx' 'src/app/(erp)/pieces/despatch/[id]/page.tsx' \
          'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
          'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \
          prisma/schema.prisma; do

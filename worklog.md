@@ -288,3 +288,24 @@ Stage Summary:
 - Architecture landed: ONE DocConfig per doc family drives engine + actions; the form door is now a first-class twin of the agent door at transaction scale (doc-parity enforces the services; doc-configs tests enforce the composition).
 - Tag m3-wave-b. Next: Wave C (13 chain doc-configs + routes + view modes + hub family-row links) per SPEC-M3 §14.
 - Patch-export follow-up: download/ had been WIPED by a sandbox restore (0001-0007 gone). Regenerated from git: 0005 (3f09291..cea63c8), 0006 (cea63c8..7a1bc7c), 0007 (7a1bc7c..d24af15), 0008 (6b28c65..85d464e = Wave B) + wrote 0000-PATCH-INDEX.md documenting that 0001-0004 are lost as files (commits eaten by rollback #4; content survives in the tree / 0005). STATE patch list corrected.
+
+---
+Task ID: m3-wave-c
+Agent: main
+Task: Implement M3 Wave C per frozen spec docs/CONTEXT/specs/SPEC-M3.md §14 — chain screens: 11 doc-configs (program, PO, GRN, jobwork ×2, cut, line-issue, production, rework, rejection, despatch — §8 rows 3-13) + routes + view modes + Order Hub family-row links. Continuation session ("continue") after context exhaustion; bootstrapped per protocol (context_check 71/71 → read STATE/PITFALLS/CONVENTIONS/SPEC-M3 + Wave B pattern files).
+
+Work Log:
+- Engine upgrades (doc-screen.tsx + types.ts): select rendering (header + line cells + option-label display in View mode); numberPrefix/numberField OPTIONAL (ERRATUM 4 — production/rework carry no doc number, jobwork-in references an existing dcNo); TYPED line picker `pickerFrom` (ERRATUM 5 — PO itemCode's master slug from the row's itemType cell) + options on DocLineField selects.
+- 11 doc-configs in doc-configs/ (jobwork.ts + production.ts hold 2 each — 12 configs / 10 files), fields mirroring the shared zod schemas EXACTLY (new every-config schema-mirror test enforces it). Registry → 12 slugs.
+- 20 page files: 11 New screens (DocScreen + prefill ?order/?po/?dcNo + RecentDocsTable) + 9 view screens (id-OR-docNo resolution, chain state + ctx from parent order). Shared chrome extracted to components/erp/recent-docs.tsx (DocBreadcrumb + RecentDocsTable — server component, per-row action column for jobwork Receive).
+- menu-registry: LIVE_ROUTES 16 → 36 (11 item routes + 9 view routes); group landings programs → /programs/new, pieces → /pieces/despatch, jobwork → /jobwork/order (live groups 11 → 14; live items 6 → 17).
+- Order Hub: every family row now LINKS its doc view (programs, POs, GRNs, jobwork + Receive quick-link on sent DCs, cuts, line issues, production entries, rejections, despatches); stageHref gained ctx so section CTAs carry ?order= context.
+- doc-actions.ts: SLUG_REVALIDATE map (12 slugs) replaces the Wave B hardcoded order paths.
+- 3 tsc-caught traps fixed (PITFALLS #21): JobworkOrder.orderId, PcsDespatch.orderId/buyerId, GRN.deptId are relation-less FK columns → separate lookups + id maps in the jobwork/despatch/grn pages.
+- Tests: doc-configs 18 → 26 (registry pin ×12, select-options contract, every-config schema-mirror loop with zod-v4 ZodOptional discrimination — PITFALLS #22, routes-on-disk ×11+9, Wave C form-door integration: program plan+commit through the generic action, grn error surfacing, jobwork out→in update-only roundtrip, unknown-slug guard); menu-registry 13 → 14 (17 live items / 14 groups, Wave C route assertions, pieces landing pin).
+- context_check.sh updated for Wave C (doc-config files=10/12 configs, live-routes=36, erp-views=20, registry-tests=14, +30 critical assets incl. all 20 pages) → 101/101 NO DRIFT; 01-STATE.md rewritten for Wave C (milestone row, ground truth, drift #10-#12, Wave C notes, next actions = Wave D); PITFALLS #21/#22 appended.
+
+Stage Summary:
+- Wave C COMPLETE per spec §14 exit criteria: acceptance #3 complete (form-only chain order→…→despatch — every chain stage 1-12 now has a live DocScreen), #4 complete (schema-mirror test now enforces EVERY config feeds its shared schema; doc-parity already asserts service equality per op), #9 route smoke 60/60 PASS (16 previous routes stay 200; 11 item routes + 4 prefilled CTAs + 9 view routes by id AND doc number 200; 10 unknown ids 404). vitest 156/156 (148 + 8); tsc 30 known-noise only (zero new-file errors).
+- Zero service/schema changes — ADR-001 held: Wave C was pure config + pages over the Wave A posting engine (proof the extraction paid for itself).
+- Tag m3-wave-c. Next: Wave D (invoice, debit-note, payment, journal, cost-sheet, stock-adjustment + post_stock_adjustment tool, godown-transfer + transfer_stock tool, /api/upload + AI-prefill) → tag m3-done.

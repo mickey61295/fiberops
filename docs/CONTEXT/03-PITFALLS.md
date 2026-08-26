@@ -204,3 +204,25 @@ never report failure for a commit that succeeded. Pattern now in
 LESSON: server actions double as testable service compositions; guard the
 Next-runtime-only bits (revalidation, cookies, headers) so vitest can drive
 the full coerce→schema→plan→commit path.
+
+21. Relation-less FK columns on the reconstructed schema (tsc is the catcher) · 2026-08-27
+Wave C hit THREE bare FK columns with NO Prisma relation: `JobworkOrder.orderId`,
+`PcsDespatch.orderId`/`buyerId`, `GRN.deptId`. Writing `include: { order: true }`
+against them fails tsc ("may only specify known properties") and dereferencing
+the phantom relation types the field as `never`. The Order Hub already worked
+around the REVERSE direction (no relation on Order) — but the FORWARD direction
+bites every new view/list page.
+FIX pattern: separate lookup + id map — `db.order.findMany({ where: { id: { in: orderIds } } })`
+→ `Map<id, orderNo>`; single-row views fetch the parent directly.
+LESSON: before writing ANY `include:`, re-check the model in schema.prisma —
+the reconstructed 54-model schema is relation-poor (drift #11 in STATE).
+
+22. zod v4: `z.array()` ALSO has `.unwrap()` (→ element) · 2026-08-27
+Duck-typing "has .unwrap → optional, unwrap it" is WRONG under zod v4:
+ZodArray.unwrap() returns the ELEMENT schema, so `raw.unwrap().element` is
+undefined and the assertion fails confusingly ("order lines schema element
+shape: expected undefined to be truthy" — for a schema that plainly has lines).
+FIX: discriminate with `instanceof z.ZodOptional` before unwrapping
+(tests/unit/doc-configs.test.ts, the every-config schema-mirror loop).
+LESSON: under zod v4, prefer instanceof checks over method-sniffing; several
+wrapper types share method names with different semantics.

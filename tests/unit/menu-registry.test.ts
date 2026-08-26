@@ -69,17 +69,18 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     }
   })
 
-  it('isLive: dashboard true, grn-entry false', () => {
+  it('isLive: dashboard + grn-entry true (Wave C), pcs-receipt still coming', () => {
     expect(isLive(findItemById('dashboard') as MenuItem)).toBe(true)
-    expect(isLive(findItemById('grn-entry') as MenuItem)).toBe(false)
+    expect(isLive(findItemById('grn-entry') as MenuItem)).toBe(true)
+    expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 6 live items of 113 after M3 Wave B (order-sheet-new + order-hub)', () => {
+  it('parityStats: 17 live items of 113 after M3 Wave C (+11 chain screens); 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(6)
-    expect(s.comingItems).toBe(107)
-    expect(s.liveGroups).toBe(11)
+    expect(s.liveItems).toBe(17)
+    expect(s.comingItems).toBe(96)
+    expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
   })
@@ -92,6 +93,28 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
           ? path.join(ERP_DIR, 'page.tsx')
           : path.join(ERP_DIR, route, 'page.tsx')
       expect(fs.existsSync(file), `missing page file for ${route} → ${file}`).toBe(true)
+    }
+  })
+
+  it('Wave C: the 11 chain item routes are live with [id] view routes where the op creates a document', () => {
+    const waveCItems = [
+      '/programs/new', '/procurement/po', '/procurement/grn', '/jobwork/order',
+      '/jobwork/receipt', '/cutting/job-order', '/production/issue',
+      '/production/entry', '/production/rework', '/pieces/rejection', '/pieces/despatch',
+    ]
+    for (const r of waveCItems) {
+      expect(LIVE_ROUTES.has(r), r).toBe(true)
+      expect(isLive(findItemByRoute(r)!), r).toBe(true)
+    }
+    // view routes (no own menu item — reached from recent-docs tables + Hub rows)
+    const waveCViews = [
+      '/programs/[id]', '/procurement/po/[id]', '/procurement/grn/[id]', '/jobwork/order/[id]',
+      '/cutting/job-order/[id]', '/production/issue/[id]', '/production/entry/[id]',
+      '/pieces/rejection/[id]', '/pieces/despatch/[id]',
+    ]
+    for (const r of waveCViews) {
+      expect(LIVE_ROUTES.has(r), r).toBe(true)
+      expect(fs.existsSync(path.join(ERP_DIR, r, 'page.tsx')), r).toBe(true)
     }
   })
 
@@ -111,7 +134,9 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupByRoutePrefix('/coming/programs')?.id).toBe('programs')
     expect(findGroupByRoutePrefix('/coming/grn-entry')?.id).toBe('procurement')
     expect(groupLandingHref(findGroupById('orders')!)).toBe('/orders')
-    expect(groupLandingHref(findGroupById('pieces')!)).toBe('/coming/pieces')
+    expect(groupLandingHref(findGroupById('pieces')!)).toBe('/pieces/despatch')
+    expect(groupLandingHref(findGroupById('programs')!)).toBe('/programs/new')
+    expect(groupLandingHref(findGroupById('jobwork')!)).toBe('/jobwork/order')
     expect(findItemById('order-hub')?.groupId).toBe('orders')
   })
 })
