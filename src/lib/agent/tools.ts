@@ -858,6 +858,144 @@ const readTools: AgentTool[] = [
       }
     },
   },
+  {
+    // Industry-workflow guide — the order→program→cut→production→despatch→
+    // invoice→cost→collection chain. Inspects an order's current pipeline state
+    // and returns the NEXT canonical step with a pre-filled args skeleton so the
+    // user can immediately call the next tool. This is what makes the agent
+    // walk users through the Tirupur knitwear job-work flow instead of stopping
+    // after `create_order`.
+    name: 'suggest_next_step',
+    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
+    domain: 'workflow',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().optional().describe('Sales order number like SO-1001. If omitted, returns the canonical pipeline template.'),
+    }),
+    async execute(args) {
+      const PIPELINE: Array<{ step: number; name: string; tool: string; produces: string }> = [
+        { step: 1, name: 'Order created (sales order from buyer PO)', tool: 'create_order', produces: 'order' },
+        { step: 2, name: 'Bill of Materials (yarn/fabric/accessories per style)', tool: 'create_bom', produces: 'bom' },
+        { step: 3, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
+        { step: 4, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
+        { step: 5, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
+        { step: 6, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
+        { step: 7, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
+        { step: 8, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
+        { step: 9, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
+        { step: 10, name: 'Rework / rejection (defects)', tool: 'post_rework', produces: 'rework' },
+        { step: 11, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
+        { step: 12, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
+        { step: 13, name: 'Cost sheet (cumulative rate walk)', tool: 'create_cost_sheet', produces: 'cost' },
+        { step: 14, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
+      ]
+
+      if (!args.orderNo) {
+        return {
+          text: 'CANONICAL TIRUPUR KNITWEAR JOB-WORK PIPELINE\n' + PIPELINE.map((p) => `${p.step}. ${p.name} → ${p.tool}`).join('\n'),
+          json: { pipeline: PIPELINE },
+        }
+      }
+
+      const order = await db.order.findUnique({
+        where: { orderNo: args.orderNo },
+        include: {
+          buyer: true, style: { include: { bomLines: true } },
+          lines: { include: { colour: true, size: true } },
+          cutOrders: true,
+          productionEntries: true,
+          salesInvoices: true,
+          costSheet: true,
+        },
+      })
+      if (!order) return { text: `Order ${args.orderNo} not found.` }
+
+      const has = {
+        bom: !!order.style?.bomLines?.length,
+        cut: (order.cutOrders?.length ?? 0) > 0,
+        production: (order.productionEntries?.length ?? 0) > 0,
+        invoice: (order.salesInvoices?.length ?? 0) > 0,
+        cost: (order.costSheet?.length ?? 0) > 0,
+      }
+
+      let nextStep: typeof PIPELINE[number] = PIPELINE[1]
+      let skeleton: Record<string, any> = {}
+
+      if (!has.bom) {
+        nextStep = PIPELINE[1]
+        skeleton = {
+          styleNo: order.style?.styleNo,
+          components: [{ itemType: 'yarn', qty: 0, uom: 'kg' }],
+          notes: `BOM for order ${order.orderNo}`,
+        }
+      } else if (!has.cut) {
+        nextStep = PIPELINE[6]
+        const byColourSize = order.lines.map((l: any) => ({
+          colour: l.colour?.name, size: l.size?.name, qty: l.qty,
+        }))
+        skeleton = {
+          orderNo: order.orderNo,
+          styleNo: order.style?.styleNo,
+          cuts: byColourSize,
+          cutDate: new Date().toISOString().slice(0, 10),
+        }
+      } else if (!has.production) {
+        nextStep = PIPELINE[8]
+        skeleton = {
+          orderNo: order.orderNo,
+          lineCode: 'L1',
+          qty: order.totalPcs,
+          stage: 'sewing',
+          goodFlag: 'G',
+          entryDate: new Date().toISOString().slice(0, 10),
+        }
+      } else if (!has.invoice) {
+        nextStep = PIPELINE[11]
+        const cur = (order as any).currency as string | undefined
+        skeleton = {
+          orderNo: order.orderNo,
+          invoiceType: cur && cur !== 'INR' ? 'export' : 'local',
+          invoiceDate: new Date().toISOString().slice(0, 10),
+        }
+      } else if (!has.cost) {
+        nextStep = PIPELINE[12]
+        skeleton = { orderNo: order.orderNo }
+      } else {
+        nextStep = PIPELINE[13]
+        const inv = order.salesInvoices[0]
+        skeleton = {
+          partyCode: order.buyer?.code,
+          billNo: inv?.invoiceNo,
+          amount: inv?.billAmount,
+          mode: 'bank',
+          payDate: new Date().toISOString().slice(0, 10),
+        }
+      }
+
+      const completed = PIPELINE.filter((p) => {
+        if (p.produces === 'order') return true
+        if (p.produces === 'bom') return has.bom
+        if (p.produces === 'cut') return has.cut
+        if (p.produces === 'production') return has.production
+        if (p.produces === 'invoice') return has.invoice
+        if (p.produces === 'cost') return has.cost
+        return false
+      })
+
+      return {
+        text: `Order ${order.orderNo} — next step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress so far: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 14 stages.`,
+        json: {
+          orderNo: order.orderNo,
+          buyer: order.buyer?.name,
+          totalPcs: order.totalPcs,
+          state: has,
+          completed: completed.map((c) => c.step),
+          nextStep,
+          skeleton,
+        },
+      }
+    },
+  },
 ]
 
 // ───────────── WRITE TOOLS (plan-then-commit) ─────────────
