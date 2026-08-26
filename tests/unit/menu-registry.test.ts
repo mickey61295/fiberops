@@ -74,11 +74,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('grn-entry') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 4 live items of 113 after M2 (company-finyear joined)', () => {
+  it('parityStats: 6 live items of 113 after M3 Wave B (order-sheet-new + order-hub)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(4)
-    expect(s.comingItems).toBe(109)
+    expect(s.liveItems).toBe(6)
+    expect(s.comingItems).toBe(107)
     expect(s.liveGroups).toBe(11)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)

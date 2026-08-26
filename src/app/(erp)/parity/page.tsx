@@ -67,7 +67,12 @@ export default function ParityPage() {
                     {items.map((item) => (
                       <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50/60">
                         <td className="px-4 py-2">
-                          <Link href={getHref(item)} className="text-slate-800 hover:text-emerald-700 font-medium">
+                          <Link
+                            // dynamic doc-view routes (e.g. /orders/[id]) have no
+                            // listable index — link the module root instead
+                            href={getHref(item).includes('[id]') ? getHref(item).split('/[id]')[0] : getHref(item)}
+                            className="text-slate-800 hover:text-emerald-700 font-medium"
+                          >
                             {item.label}
                           </Link>
                           <span className="block text-[10px] text-slate-400 font-mono">{item.route}</span>

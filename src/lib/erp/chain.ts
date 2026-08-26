@@ -111,9 +111,8 @@ export function nextStage(state: Partial<ChainStateFlags>): ChainStage | null {
 }
 
 /** W1 CTA target for a stage: the form route with the context query param.
- *  Dynamic [id] segments need db ids this layer does not have — the Order Hub
- *  route (Wave B) also resolves by orderNo; until then such stages fall back
- *  to the module list route. */
+ *  Dynamic [id] segments need db ids this layer does not have — callers WITH
+ *  an id use resolveStageUrl (Wave B) which substitutes it. */
 export function stageFormUrl(
   stage: ChainStage,
   ctx: { orderNo?: string; poNo?: string; dcNo?: string; invoiceNo?: string } = {},
@@ -126,4 +125,37 @@ export function stageFormUrl(
     if (value) url += (url.includes('?') ? '&' : '?') + `${param}=${encodeURIComponent(value)}`
   }
   return url
+}
+
+/**
+ * W1/W3 id-aware URL resolver (Wave B, additive to the frozen §4 exports).
+ * Unlike stageFormUrl (which STRIPS dynamic [id] segments to the module list),
+ * resolveStageUrl substitutes a KNOWN doc id into '/orders/[id]#bom'-style
+ * routes, and keeps the query param BEFORE the hash anchor (stageFormUrl
+ * appends after the full url, which would break '#bom' deep-links).
+ * Falls back to stageFormUrl behaviour when the id is unknown.
+ * Consumers: suggest_next_step.nextFormUrl (agent twin), chain-bar Next → CTA,
+ * DocScreen post-commit CTAs.
+ */
+export function resolveStageUrl(
+  stage: ChainStage,
+  ctx: { orderNo?: string; poNo?: string; dcNo?: string; invoiceNo?: string; id?: string } = {},
+): string {
+  let url = stage.formUrl
+  if (url.includes('[id]')) {
+    if (ctx.id) url = url.replace('[id]', ctx.id)
+    else return stageFormUrl(stage, ctx) // unknown id → frozen fallback
+  }
+  const hashIdx = url.indexOf('#')
+  const base = hashIdx >= 0 ? url.slice(0, hashIdx) : url
+  const hash = hashIdx >= 0 ? url.slice(hashIdx) : ''
+  const param = stage.formParam
+  if (param) {
+    const value = param === 'po' ? ctx.poNo : param === 'dcNo' ? ctx.dcNo : param === 'invoice' ? ctx.invoiceNo : ctx.orderNo
+    if (value) {
+      const sep = base.includes('?') ? '&' : '?'
+      return `${base}${sep}${param}=${encodeURIComponent(value)}${hash}`
+    }
+  }
+  return `${base}${hash}`
 }

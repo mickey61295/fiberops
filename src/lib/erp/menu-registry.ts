@@ -45,6 +45,8 @@ export interface MenuItem {
 export const LIVE_ROUTES = new Set<string>([
   '/', // Dashboard
   '/orders', // OrdersView
+  '/orders/new', // Order Sheet New mode (M3 Wave B) — order-sheet-new
+  '/orders/[id]', // Order Hub (M3 Wave B, W3) — order-hub
   '/procurement', // ProcurementView
   '/inventory', // InventoryView
   '/cutting', // CuttingView

@@ -261,3 +261,29 @@ Stage Summary:
 - Architecture landed: chain.ts (single 15-stage source, W1-ready), schemas/ (shared zod, form-safeParse-ready), posting/ (plan/commit services + ledger.ts), legacy-enums.ts (ADR-012). tools.ts is now thin: 51 inline reads + 4 deliberate inline writes + 48 factory masters + 21 docTool delegates = 120 tools.
 - Bonus: 2 latent pre-existing bugs fixed (PO create was 100% broken; GRN-without-dept was 100% broken since rollback #4) — first-ever PO/GRN coverage came from the parity suite.
 - Tag m3-wave-a. Next: Wave B (doc-configs/types + order config + doc-screen.tsx + doc-picker.tsx + /orders/new + /orders/[id] hub + BOM card + chain bar + nextFormUrl + agent-panel "Open form").
+
+---
+Task ID: m3-wave-b
+Agent: main
+Task: Implement M3 Wave B per frozen spec docs/CONTEXT/specs/SPEC-M3.md §14 — engine + order family: doc-configs (types/order/index/coerce) + DocScreen engine + W4 pickers + W1 chain bar + /orders/new + /orders/[id] Order Hub + BOM card + nextFormUrl + agent-panel "Open form". Continuation session: "continue" after context exhaustion.
+
+Work Log:
+- Bootstrapped per protocol: context_check.sh 57/57 NO DRIFT; read STATE/PITFALLS/CONVENTIONS/SPEC-M3 (full) + chain.ts + posting/order.ts + schemas/order.ts + master-table/master-configs/actions patterns + agent-panel + api/erp + menu-registry test pins.
+- Session hygiene first: 42 dirty files = sandbox-restore mode-bit noise (41) + legit bun.lock vitest-sync (1) → chmod-normalized + committed the lock sync (6b28c65); vitest 130/130 confirmed before starting.
+- doc-configs/: types.ts (§7 frozen shape + ERRATUM: pickerValueField / schema / DocScreenConfig serializable subset), order.ts (fields mirror ORDER_SCHEMA exactly), index.ts (registry + toScreenConfig), coerce.ts (config-driven coercion: numbers coerced, empties dropped, blank line-rows dropped).
+- chain.ts += resolveStageUrl (id-aware, param-BEFORE-hash, falls back to frozen stageFormUrl) — shared by suggest_next_step / chain bar / DocScreen CTAs.
+- W1 chain-bar.tsx: 15 dots, done-fills from ChainStateFlags, current-stage ring, "Next →" Link; no-state mode for New screens.
+- W4 doc-picker.tsx: searchable dropdown over NEW `/api/erp?resource=master_search` (same listMasters read path, valueField param), "+ New <Entity>" create-on-the-fly Sheet reusing exported MasterFieldInput + saveMasterAction — draft preserved by construction.
+- DocScreen engine (archetypes/doc-screen.tsx): New mode (header grid + pickers + line-grid editor + qty×rate totals + Save → planDocAction REVIEW card → commitDocAction → done CTAs incl. stage+1 Next link; Ctrl+S; Ask agent) + generic View mode. Generic server actions in lib/erp/doc-actions.ts ('use server'): coerce → shared zod safeParse → SAME posting service plan/commit (the docTool mirror).
+- /orders/new page (DocScreen + recent 20 table) · /orders/[id] Order Hub (W3): resolves id OR orderNo, CHAIN_ORDER_INCLUDE + rejections + poLines.po.grns; supplementary JobworkOrder/PcsDespatch queries (no reverse relations on Order — schema reality); 12 family sections with rollups; every section header links live-form-or-coming via findItemByRoute+getHref; BOM card (#bom) with planBom-backed inline add editor + documented single-door remove exception; AskAgentButton seeded.
+- suggest_next_step json += nextFormUrl (additive; complete-branch gets null; inv hoisted out of the else-block); agent-panel renders "Open form" button from result.json.nextFormUrl (W5(c) minimal slice).
+- menu-registry: LIVE_ROUTES += /orders/new, /orders/[id] (16 total, 6/113 items live, 78/254 legacy = 30.7%); menu-registry test updated 4→6.
+- CAUGHT BY ROUTE SMOKE (PITFALLS #19): literal `/orders/[id]` href crashes Next <Link> — /parity 500 + 3 more consumer sites patched (nav-sidebar, parity page, coming-soon, coming/[id]) with the split('/[id]') fallback; re-smoked 200.
+- revalidatePath wrapped in try/catch in both action files (PITFALLS #20) so vitest can drive the full compose.
+- tests/unit/doc-configs.test.ts (18): §7 contracts (fields/labels/types, picker slugs vs MASTER_CONFIGS, chainStage bounds, schema-keys mirror, toScreenConfig strips fns, routes live + page files) + coercion (number coercion, dropped empties, blank-row drop, zod-reported missing, non-numeric surfaced) + form-door integration (planDocAction serializable plan; commitDocAction commits + durable rows verified + surgical cleanup; unknown-slug/bad-input structured errors) + resolveStageUrl cases.
+- context_check.sh updated for Wave B (doc-configs=1, archetypes=2, erp-components=19, live-routes=16 grep fix for [id], 12 new critical assets) → 71/71 NO DRIFT; 01-STATE.md rewritten for Wave B (milestone row, ground-truth table, drift #8/#9, inventory +12 rows, next actions = Wave C, Wave B notes, patch/tag lists); PITFALLS #19/#20 appended.
+
+Stage Summary:
+- Wave B COMPLETE per spec §14 exit criteria: acceptance #3 partially (order+BOM form-only), #5 (Order Hub full-family rollups), #6 (nextFormUrl + Open form), #7 (W4 pickers + chain bar on order screens). vitest 148/148 (130 + 18 new); tsc 30 known-noise only (zero new-file errors); route smoke: /orders/new + /orders/[id] (by id AND by orderNo) + all 16 live routes 200, unknown ids 404, master_search API verified incl. name-valueField emission.
+- Architecture landed: ONE DocConfig per doc family drives engine + actions; the form door is now a first-class twin of the agent door at transaction scale (doc-parity enforces the services; doc-configs tests enforce the composition).
+- Tag m3-wave-b. Next: Wave C (13 chain doc-configs + routes + view modes + hub family-row links) per SPEC-M3 §14.

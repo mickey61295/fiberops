@@ -14,7 +14,7 @@ import { buildMasterSchema, planMasterCreate, planMasterUpdate } from '@/lib/erp
 // posting services (ADR-001 at transaction scale). Schemas move VERBATIM into
 // src/lib/erp/schemas/ (the agent prompt contract must not drift); the chain
 // definition lives in src/lib/erp/chain.ts (ADR-007).
-import { CHAIN, CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
+import { CHAIN, CHAIN_ORDER_INCLUDE, computeChainState, resolveStageUrl } from '@/lib/erp/chain'
 import type { DocPlanResult } from '@/lib/erp/posting/types'
 import { ORDER_SCHEMA } from '@/lib/erp/schemas/order'
 import { BOM_SCHEMA } from '@/lib/erp/schemas/bom'
@@ -937,6 +937,7 @@ const readTools: AgentTool[] = [
       let nextStep: typeof CHAIN[number] = CHAIN[2]
       let skeleton: Record<string, any> = {}
       const today = new Date().toISOString().slice(0, 10)
+      const inv = order.salesInvoices?.[0] // hoisted: nextFormUrl (§9.5) + payment skeleton share it
 
       if (!has.bom) {
         nextStep = CHAIN[1]
@@ -992,7 +993,6 @@ const readTools: AgentTool[] = [
         skeleton = { orderNo: order.orderNo }
       } else {
         nextStep = CHAIN[14]
-        const inv = order.salesInvoices?.[0]
         skeleton = {
           partyCode: order.buyer?.code,
           invoiceNo: inv?.invoiceNo,
@@ -1007,7 +1007,7 @@ const readTools: AgentTool[] = [
             json: {
               orderNo: order.orderNo, buyer: order.buyer?.name, totalPcs: order.totalPcs,
               produced, producedPct, state: has, completed: CHAIN.map((p) => p.step),
-              nextStep: null, skeleton: null, pipelineComplete: true,
+              nextStep: null, skeleton: null, nextFormUrl: null, pipelineComplete: true,
             },
           }
         }
@@ -1026,6 +1026,14 @@ const readTools: AgentTool[] = [
         return false
       })
 
+      // W1's agent-side twin (SPEC-M3 §9.5): the ready-to-click form route for
+      // the next step. The agent panel renders it as an "Open form" button.
+      const nextFormUrl = resolveStageUrl(nextStep, {
+        orderNo: order.orderNo,
+        id: order.id,
+        invoiceNo: inv?.invoiceNo,
+      })
+
       return {
         text: `Order ${order.orderNo} (buyer ${order.buyer?.name || '-'}, ${order.totalPcs} pcs) — production ${producedPct}% (${produced}/${order.totalPcs}).\nNext step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 15 stages.`,
         json: {
@@ -1038,6 +1046,7 @@ const readTools: AgentTool[] = [
           completed: completed.map((c) => c.step),
           nextStep,
           skeleton,
+          nextFormUrl,
         },
       }
     },

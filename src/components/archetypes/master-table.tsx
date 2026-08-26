@@ -239,7 +239,9 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
   )
 }
 
-function MasterFieldInput({
+/** Exported for the W4 doc-picker create-on-the-fly Sheet (SPEC-M3 §9.3) —
+ *  same field renderer, same saveMasterAction → same service (ADR-001). */
+export function MasterFieldInput({
   field,
   id,
   defaultValue,

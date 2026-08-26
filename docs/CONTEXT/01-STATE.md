@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-26 (session: m3-wave-a)
+Last verified: 2026-08-27 (session: m3-wave-b)
 
 ## Milestone status
 
@@ -12,7 +12,7 @@ Last verified: 2026-08-26 (session: m3-wave-a)
 | M0 — Planning & context framework | deep dive + PLAN-2.0 + CONTEXT system | **DONE** |
 | M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
-| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **WAVE A DONE** (`specs/SPEC-M3.md` §14): extraction complete — chain.ts + 17 schemas + 17 posting services + ledger.ts + tools.ts thin delegates + doc-parity tests; UI waves B→D NOT STARTED |
+| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **WAVE B DONE** (`specs/SPEC-M3.md` §14): Wave A extraction + Wave B order family (DocScreen engine, doc-configs, W1 chain bar, W4 pickers, /orders/new, Order Hub + BOM card, nextFormUrl + agent "Open form") — Waves C (13 chain screens) → D (accounts/inventory + /api/upload) NOT STARTED |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | | NOT STARTED |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
@@ -21,21 +21,25 @@ Last verified: 2026-08-26 (session: m3-wave-a)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | `rollback4-recovery` commit (re-created after rollback #4; original m1/m2 commits lost — see PITFALLS #16) | `git rev-parse --short HEAD` |
+| Git HEAD | `m3-wave-b` commit (Wave B: order family + DocScreen engine + W1/W3/W4 wiring) | `git rev-parse --short HEAD` |
 | Agent tools | **120** (51 inline + 24 factory create + 24 factory update + 21 docTool delegates) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A) | **17 files** in `src/lib/erp/schemas/` (verbatim tool contracts) | context_check |
 | Posting services (M3-A) | **20 files** in `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts + master-service.ts) | context_check |
-| Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
-| tools.ts size | 2805 → 1705 lines (all 21 SPEC-M3 §5 write ops now thin delegates) | `wc -l` |
+| Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
+| tools.ts size | 2805 → 1693 lines (all 21 SPEC-M3 §5 write ops thin delegates; suggest_next_step gained nextFormUrl) | `wc -l` |
+| Doc configs (M3-B) | **1** (`order.ts`) + frozen types + registry + coercion in `src/lib/erp/doc-configs/` | context_check |
+| DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
+| Wiring (M3-B) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, resolves id OR orderNo, 12 family sections + rollups) · W4 pickers (`doc-picker.tsx` + `/api/erp?resource=master_search`, create-on-the-fly via master-service) · nextFormUrl (suggest_next_step json) + agent-panel "Open form" | context_check + route smoke |
 | Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
-| ERP view/shell components | 16 (masters-view deleted in M2) | `ls src/components/erp/*.tsx \| wc -l` |
-| Archetype engines | 1 (`master-table.tsx` in `src/components/archetypes/`) | context_check |
+| ERP view/shell components | **19** (16 + Wave B chain-bar + doc-picker + bom-card) | `ls src/components/erp/*.tsx \| wc -l` |
+| Archetype engines | **2** (`master-table.tsx` + `doc-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M2) | 14: M1 set + `/admin/company`; `/masters` now the MasterTable hub (+ dynamic `/masters/[entity]` × 24) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
-| Parity (M2) | **4/113 items live** · 11/17 groups · legacy coverage 28.7% (73/254 distinct forms) | `/parity` page or `parityStats()` |
+| Live routes (M3-B) | **16**: M2 set + `/orders/new` + `/orders/[id]` (dynamic doc-view routes link to module root in nav) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Parity (M3-B) | **6/113 items live** · 11/17 groups · legacy coverage 30.7% (78/254 distinct forms) | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A) | **19 tests** (18 ops × both doors + full-chain ledger signature equality) | `npx vitest run` |
+| Doc-config contract + form-door tests (M3-B) | **18 tests** (§7 contracts + coercion + action composition integration) | `npx vitest run` |
 | Registry unit tests | 13 | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
@@ -62,12 +66,12 @@ Last verified: 2026-08-26 (session: m3-wave-a)
    `scripts/rebuild_schema_54.py` (shapes derived from tools.ts + test usage —
    see PITFALLS #16). Original m1/m2 commits and tags are gone; patch exports
    0003/0004 in `download/` are the surviving evidence.
-6. **tsc noise is now 31 errors** (was 32 — the .next-cache entry disappeared; same
-   file set otherwise) — the 54-world orphans: `src/lib/erp/{flags,exposure,cumrate}.ts`
+6. **tsc noise is now ~30 errors** (fluctuates 29-31 with the .next cache) — the
+   54-world orphans: `src/lib/erp/{flags,exposure,cumrate}.ts`
    (reference removed Phase-3/4 models Flag/Bill/prs — only `/api/config` imports
    flags), Phase-3/4 seed/cleanup scripts (`seed_commercial`, `seed_stages`,
    `cleanup_e2e_bills`, `cleanup_stale_t3`, `verify_money_loop`), plus the old
-   known noise (vitest.config poolOptions, examples/, skills/).
+   known noise (vitest.config poolOptions, skills/).
    Do NOT chase these; they document the eaten Phase-3/4 lineage. Full list in
    PITFALLS #16.
 7. **Two LATENT pre-existing bugs found & fixed by the M3-A doc-parity test**
@@ -81,6 +85,16 @@ Last verified: 2026-08-26 (session: m3-wave-a)
      matched the null-keyed buckets that exist. Fixed in `posting/grn.ts`
      (null dims when no dept — ADR-004 pattern; dept-keyed buckets preserved).
    See PITFALLS #18.
+8. **BOM line REMOVAL is a single-door exception** (`removeBomLineAction` in
+   `orders/actions.ts` is a direct db delete — no `delete_bom_line` tool exists in
+   the SPEC-M3 §11 inventory). BOM line CREATION is dual-door (planBom). Revisit
+   in M5 if agents need to remove BOM lines (would need a new tool + ADR).
+9. **SPEC-M3 ERRATUM (Wave B)** documented in `doc-configs/types.ts`: (1) optional
+   `pickerValueField` on DocField/DocLineField — colour/size pickers emit NAME
+   (planOrder resolves by name) while buyer/style emit code; (2) DocConfig carries
+   `schema` (the shared zod) for form-door safeParse; (3) `DocScreenConfig` =
+   serializable subset (service/schema cannot cross the RSC boundary — the client
+   calls server actions by slug).
 
 ## What exists today (file inventory — the parts that matter)
 
@@ -93,11 +107,21 @@ Last verified: 2026-08-26 (session: m3-wave-a)
 | `src/app/(erp)/masters/[entity]/page.tsx` | config-driven MasterTable screen (unknown slug → 404) |
 | `src/app/(erp)/masters/actions.ts` | `saveMasterAction` server action → same service as agent tools |
 | `src/app/(erp)/admin/company/page.tsx` | company profile + FinYear MasterTable (`company-finyear` item live) |
-| `src/lib/erp/menu-registry.ts` | M1 single navigation truth (LIVE_ROUTES grew: `/admin/company`) |
-| `src/lib/erp/chain.ts` | **M3-A: the ONE 15-stage chain def** (ADR-007) — CHAIN + computeChainState + nextStage + stageFormUrl; suggest_next_step + future W1 chain bar share it |
+| `src/lib/erp/menu-registry.ts` | M1 single navigation truth (LIVE_ROUTES grew: `/admin/company` + M3-B `/orders/new`, `/orders/[id]`) |
+| `src/lib/erp/chain.ts` | **M3-A: the ONE 15-stage chain def** (ADR-007) — CHAIN + computeChainState + nextStage + stageFormUrl + resolveStageUrl (M3-B id-aware); suggest_next_step + chain bar + DocScreen CTAs share it |
 | `src/lib/erp/schemas/` (17 files) | **M3-A: shared zod** — the agent tool schemas extracted VERBATIM (prompt contract); form actions will safeParse the same objects |
 | `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts) | **M3-A: PostingEngine** — plan/commit per op; postLedger+bumpStock (ADR-004 comments); DocPlanResult types |
 | `src/lib/erp/legacy-enums.ts` | **M3-A: ADR-012 residence** — STAGE_DEPT + documented legacy DeptID/rework magic numbers |
+| `src/lib/erp/doc-configs/` (types + order + index + coerce) | **M3-B: DocConfig frozen types (§7 + ERRATUM) + order config + registry + form coercion** |
+| `src/lib/erp/doc-actions.ts` | **M3-B: the form door's generic server actions** — planDocAction (serializable plan for review) / commitDocAction (re-plan + commit, same as agent approve flow) |
+| `src/components/archetypes/doc-screen.tsx` | **M3-B: DocScreen engine** — New (header grid + W4 pickers + line editor + totals + review step + post-commit CTAs) / View modes; draft state survives create-on-the-fly |
+| `src/components/erp/chain-bar.tsx` | **M3-B: W1 chain mini-pipeline bar** — 15 dots, done-fills, current-stage ring, "Next →" Link via resolveStageUrl |
+| `src/components/erp/doc-picker.tsx` | **M3-B: W4 picker** — searchable dropdown over `/api/erp?resource=master_search` + create-on-the-fly Sheet reusing MasterFieldInput + saveMasterAction |
+| `src/components/erp/bom-card.tsx` | **M3-B: BOM card** (Order Hub #bom) — inline add editor (planBom-backed) + remove (single-door exception, drift #8) |
+| `src/app/(erp)/orders/new/page.tsx` | **M3-B: Order Sheet New mode** + recent-docs table (item order-sheet-new LIVE) |
+| `src/app/(erp)/orders/[id]/page.tsx` | **M3-B: Order Hub (W3)** — resolves id OR orderNo; header + chain bar + order lines + BOM card + 11 family sections with rollups; unknown → 404 (item order-hub LIVE) |
+| `src/app/(erp)/orders/actions.ts` | **M3-B: BOM card actions** — addBomLineAction (planBom dual-door) + removeBomLineAction (exception) |
+| `src/app/api/erp/route.ts` | + `resource=master_search` (W4 picker feed — same listMasters read path) |
 | `src/lib/agent/tools.ts` | 120 tools, ALL write ops now thin delegates: masterCreateTool/masterUpdateTool (M2) + docTool (M3-A); inline leftovers: approve_pending, adjust_stock, update_order, create_sizes (deliberate — outside SPEC-M3 §5 inventory) |
 | `tests/pipeline/doc-parity.test.ts` | **M3-A: the P2 guarantee at transaction scale** — 18 ops × agent-door vs form-door + full-chain StockLedger signature equality + net-zero bucket assertions |
 | `tests/pipeline/master-parity.test.ts` | **the P2 guarantee**: per-entity tool-path vs service-path equivalence |
@@ -120,13 +144,47 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. Implement M3 **Wave B** per `specs/SPEC-M3.md` §14: doc-configs/types + order
-   config + `doc-screen.tsx` + `doc-picker.tsx` + `/orders/new` + `/orders/[id]`
-   hub + BOM card + chain bar + nextFormUrl + agent-panel "Open form". Exit:
-   acceptance #3 partially (order+BOM), #5, #6, #7 for order screens.
-2. Waves C→D per spec §14 (chain screens → accounts/inventory + AI-prefill).
+1. Implement M3 **Wave C** per `specs/SPEC-M3.md` §14: 13 chain doc-configs
+   (program, PO, GRN, jobwork ×2, cut, line-issue, production, rework,
+   rejection, despatch — §8 inventory rows 3-13) + routes + view modes +
+   family-row links from the Order Hub. Exit: acceptance #3 complete
+   (form-only 15-stage chain), #4 complete (per-op parity already test-backed
+   by doc-parity; extend if form actions diverge), #9 route smoke.
+2. Wave D per spec §14: invoice, debit-note, payment, journal, cost-sheet,
+   stock-adjustment (+post_stock_adjustment tool), godown-transfer
+   (+transfer_stock tool), /api/upload rebuild + AI-prefill seeding.
    Tag `m3-done` after Wave D acceptance.
 3. Update this file every wave (same commit).
+
+## M3 Wave B notes for future sessions
+
+- **DocConfig is the ONLY thing a new doc screen needs**: config (fields mirror
+  the shared schema) + page file + LIVE_ROUTES entry. The generic actions
+  (`doc-actions.ts`) and DocScreen engine do the rest. Wave C = 13 configs +
+  13 page files + registry entries.
+- **The DocScreen flow**: edit → planDocAction (serializable plan review) →
+  commitDocAction (re-plans + commits — same re-derivation as agent approve).
+  NEVER cache the plan client-side; determinism is the contract.
+- **`toScreenConfig()` strips service+schema** — client components receive the
+  serializable subset only; server actions resolve the config by slug.
+- **Picker value fields**: default = master codeField ?? titleField; use
+  `pickerValueField` when the service resolves by a different field (colour/
+  size by NAME). The API takes `valueField` as a query param.
+- **Dynamic [id] routes in nav/parity/coming links** fall back to the module
+  root (`getHref(item).split('/[id]')[0]`) — a literal `/orders/[id]` href
+  crashes Next `<Link>` ("Dynamic href ... not supported" — caught by the
+  /parity 500 during route smoke).
+- **Order Hub supplementary queries**: JobworkOrder.orderId / PcsDespatch.orderId
+  have NO reverse relation on Order (reconstructed schema) — queried separately
+  by orderId; GRNs come via poLines.po.grns (only PO-linked GRNs are visible).
+- **revalidatePath is wrapped in try/catch** in the doc actions — it throws
+  outside a Next request scope (vitest), and revalidation must never fail a
+  commit that already succeeded.
+- **`resolveStageUrl`** (chain.ts, Wave B additive export) substitutes ids into
+  `[id]` routes and keeps query params BEFORE the `#` anchor; falls back to the
+  frozen stageFormUrl when the id is unknown. suggest_next_step's json now
+  carries `nextFormUrl` (additive) and the agent panel renders an "Open form"
+  button when a tool result json contains it.
 
 ## M3 Wave A notes for future sessions
 
@@ -142,8 +200,7 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   are user-visible contract).
 - `suggest_next_step` json gained additive fields (`state.order`, stage
   `formUrl`/`formParam` on pipeline/nextStep) — existing consumers unaffected.
-- Wave A deliberately did NOT add `nextFormUrl` to suggest_next_step (Wave B
-  exit criterion) — chain.ts `stageFormUrl()` is ready but unwired.
+  Wave B added `nextFormUrl` (§9.5) — json is additive-only, do not remove fields.
 
 ## M2 notes for future sessions
 
@@ -168,9 +225,11 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 - Push requires a FRESH PAT from the user each time (protocol in PITFALLS #8).
 - Patches exported to `download/`: 0001 (order-program-flow), 0002 (plan-2.0),
   0003 (m1-app-shell), 0004 (m2-master-table), 0005 (rollback4-recovery),
-  0006 (spec-m3-frozen), 0007 (m3-wave-a-posting-engine).
+  0006 (spec-m3-frozen), 0007 (m3-wave-a-posting-engine),
+  0008 (m3-wave-b-order-family).
 - `.gitignore` now blocks the heavy untracked dirs (`/source-erp/`, `/workspace/`,
   `/download/`, `/upload/`, `/tool-results/`, `/.zscripts/`, `/mini-services/`,
   `/examples/`) so `git add -A` can never re-add legacy binaries (PITFALLS #6).
-- Tags: `m2-done`, `spec-m3-frozen`, `m3-wave-a` (M3 Wave A). Before rollback #4: `m2-done` (re-created on the recovery commit — tree is
+- Tags: `m2-done`, `spec-m3-frozen`, `m3-wave-a`, `m3-wave-b` (M3 Wave B).
+  Before rollback #4: `m2-done` (re-created on the recovery commit — tree is
   M2-final), `rollback4-recovered`.

@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
+import { getMasterConfig } from '@/lib/erp/master-configs'
+import { listMasters } from '@/lib/erp/posting/master-service'
 
-// GET /api/erp?resource=orders|purchase_orders|inventory|cutting|production|invoices|costing|hr|approvals|masters&...
+// GET /api/erp?resource=orders|purchase_orders|inventory|cutting|production|invoices|costing|hr|approvals|masters|master_search&...
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
@@ -9,6 +11,26 @@ export async function GET(req: Request) {
     const id = url.searchParams.get('id')
 
     switch (resource) {
+      // W4 picker feed (SPEC-M3 §9.3) — the SAME listMasters read path the
+      // masters screens use, filtered server-side, emitted as {value,label}.
+      case 'master_search': {
+        const slug = url.searchParams.get('slug') || ''
+        const q = (url.searchParams.get('q') || '').trim().toLowerCase()
+        const valueField = url.searchParams.get('valueField') || ''
+        const config = getMasterConfig(slug)
+        if (!config) return Response.json({ error: 'Unknown master slug' }, { status: 400 })
+        const vField = valueField || config.codeField || config.titleField
+        const rows = await listMasters(config)
+        const filtered = q
+          ? rows.filter((r) => config.searchFields.some((f) => String(r[f] ?? '').toLowerCase().includes(q)))
+          : rows
+        const options = filtered.slice(0, 50).map((r) => {
+          const value = String(r[vField] ?? '')
+          const title = String(r[config.titleField] ?? '')
+          return { value, label: title && title !== value ? `${value} — ${title}` : value }
+        })
+        return Response.json({ options })
+      }
       case 'dashboard': {
         const [openOrders, pendingPos, totalStock, todayProduction, pendingApprovals, openInvoices, recentOrders, recentPos, recentCuts, recentInvoices] = await Promise.all([
           db.order.count({ where: { status: { in: ['open', 'in_progress'] } } }),

@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface AgentPanelProps {
@@ -52,6 +53,7 @@ const SUGGESTED_PROMPTS = [
 ]
 
 export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: AgentPanelProps) {
+  const router = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -405,6 +407,24 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                                       {JSON.stringify(result.json, null, 2)}
                                     </pre>
                                   )}
+                                </div>
+                              )}
+
+                              {/* W5(c) minimal slice (SPEC-M3 §9.5): suggest_next_step
+                                  returns nextFormUrl — the agent-side twin of the
+                                  DocScreen "Next →" CTA. One click opens the form. */}
+                              {result?.json?.nextFormUrl && typeof result.json.nextFormUrl === 'string' && (
+                                <div className="mt-2">
+                                  <Button
+                                    size="sm"
+                                    className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                    onClick={() => {
+                                      onOpenChange(false)
+                                      router.push(result.json.nextFormUrl)
+                                    }}
+                                  >
+                                    Open form <ArrowRight className="h-3 w-3 ml-1" />
+                                  </Button>
                                 </div>
                               )}
 

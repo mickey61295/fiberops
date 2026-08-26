@@ -180,3 +180,27 @@ LESSONS: (1) "verbatim extraction" still needs at least one end-to-end
 execution per path — a test suite green on paths that never ran proves nothing;
 (2) '' vs NULL in composite-unique keys remains the #1 SQLite trap (cf. #4);
 (3) the two-door parity pattern doubles as a crash-test dummy for dormant code.
+
+19. Next.js `<Link>` REJECTS literal dynamic hrefs (`/orders/[id]`) · 2026-08-27
+The moment `/orders/[id]` entered LIVE_ROUTES (M3 Wave B), every renderer that
+built `<Link href={getHref(item)}>` for live items CRASHED at render time with
+"Dynamic href `/orders/[id]` found in <Link> while using the /app router" —
+discovered as a 500 on `/parity` during route smoke (nav-sidebar alone was
+patched first; parity page + coming-soon + coming/[id] all linked item routes).
+FIX pattern (all four sites): `href={getHref(item).includes('[id]') ? getHref(item).split('/[id]')[0] : getHref(item)}`.
+LESSONS: (1) adding a DYNAMIC route to LIVE_ROUTES is not like adding a static
+one — audit EVERY `getHref`/`item.route` consumer before flipping liveness;
+(2) route smoke must cover every registry-driven page (not just the new routes)
+— the crash was on /parity, a page Wave B never touched; (3) keep the
+menu-registry contract intact (getHref stays dumb) and handle dynamic-route
+linking at the render sites.
+
+20. revalidatePath throws OUTSIDE a Next request scope · 2026-08-27
+Server actions that call `revalidatePath()` blow up when invoked from vitest
+(outside a request context). Since a commit is already durable when
+revalidation runs, wrap every revalidatePath in try/catch — an action must
+never report failure for a commit that succeeded. Pattern now in
+`src/lib/erp/doc-actions.ts` + `orders/actions.ts`.
+LESSON: server actions double as testable service compositions; guard the
+Next-runtime-only bits (revalidation, cookies, headers) so vitest can drive
+the full coerce→schema→plan→commit path.

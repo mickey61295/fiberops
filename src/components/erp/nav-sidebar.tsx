@@ -115,7 +115,9 @@ export function NavSidebar({ onNavigate }: { onNavigate?: () => void }) {
                   {items.map((item) => (
                     <Link
                       key={item.id}
-                      href={getHref(item)}
+                      // dynamic doc-view routes (e.g. /orders/[id]) have no
+                      // listable index — the nav falls back to the module root
+                      href={getHref(item).includes('[id]') ? getHref(item).split('/[id]')[0] : getHref(item)}
                       onClick={onNavigate}
                       title={item.description}
                       className={cn(

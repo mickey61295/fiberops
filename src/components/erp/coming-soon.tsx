@@ -138,7 +138,9 @@ export function ComingSoonGroup({ group }: { group: MenuGroup }) {
             {items.map((item) => (
               <Link
                 key={item.id}
-                href={getHref(item)}
+                // dynamic doc-view routes (e.g. /orders/[id]) have no listable
+                // index — link the module root instead
+                href={getHref(item).includes('[id]') ? getHref(item).split('/[id]')[0] : getHref(item)}
                 className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 group"
               >
                 <span
