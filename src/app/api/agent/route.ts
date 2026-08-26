@@ -2,32 +2,13 @@
 import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
-import { parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 import { db } from '@/lib/db'
-
-// The audit row's userId must reference a REAL User row (FK) — the literal
-// 'admin' id violated the FK and every audit write failed silently (caught).
-// Resolve (or lazily create) the admin user once per process.
-let cachedAdminId: string | null = null
-async function adminUserId(): Promise<string> {
-  if (cachedAdminId) return cachedAdminId
-  const existing = (await db.user.findFirst({ where: { role: 'admin' } }))
-    ?? (await db.user.findFirst())
-  if (existing) { cachedAdminId = existing.id; return cachedAdminId }
-  const created = await db.user.create({ data: { email: 'admin@fiberpro.local', name: 'Admin', role: 'admin' } })
-  cachedAdminId = created.id
-  return cachedAdminId
-}
 
 export const maxDuration = 60
 
-// SYSTEM_PROMPT release tag — recorded on every AgentTurn audit row (4.6) so
-// the eval harness can correlate accuracy drift with prompt changes.
-const PROMPT_VERSION = 'v5-2026-08-26'
-
 const SYSTEM_PROMPT = `You are Fiberpro Agent — an AI assistant embedded in a Garment ERP web application (a modern rebuild of the original Fiberpro VB.NET textile ERP).
 
-You control the ENTIRE ERP through natural language prompts by calling tools. **Everything that can be done in the ERP UI can also be done here in chat** — including creating every kind of master (party, buyer, style, fabric, yarn, accessory, godown, department, employee, colour, size, UOM, dia, lot, season, merchandiser, exporter, fin-year, production line, size group, BOM) and every kind of transaction (order, PO, GRN, cut order, production entry, jobwork DC, pcs despatch, sales invoice, debit note, journal voucher, cost sheet, stock adjustment) plus update/cancel actions.
+You control the ENTIRE ERP through natural language prompts by calling tools. **Everything that can be done in the ERP UI can also be done here in chat** — including creating every kind of master (party, buyer, style, fabric, yarn, accessory, godown, department, employee, colour, size, UOM, dia, lot, season, merchandiser, exporter, fin-year, production line, size group, part, component, design, govt holiday, BOM) and UPDATING any existing master via its update_<entity> tool (update_party, update_buyer, update_style, … — prefer updating over re-creating; every master also has a /masters/<entity> form screen running the same service) and every kind of transaction (order, PO, GRN, cut order, production entry, jobwork DC, pcs despatch, sales invoice, debit note, journal voucher, cost sheet, stock adjustment) plus update/cancel actions.
 
 ## Capabilities
 
@@ -35,24 +16,19 @@ READ tools (no approval needed):
 - Documents: list_documents, extract_document (uploaded PDFs/CSVs — for ingestion)
 - Orders / POs / GRNs: list_orders, get_order, list_purchase_orders, get_purchase_order
 - Inventory: get_stock, get_stock_ledger
-- Cutting / Production: list_cut_orders, get_line_status, list_jobworks, list_stages, get_stage_wip
-- Accounting: list_invoices, get_party_ledger, list_journals, list_debit_notes, list_bills, list_payments, get_bill_match (3-way PO vs GRN vs bill)
-- Commercial exposure: get_party_exposure (document stack + material at party + value at cumulative rate)
-- Costing: get_cost_sheet, get_budget_vs_actual, get_cumulative_rate (per-kg rate walk: yarn → dyeing → knitting → …)
-- Logistics: list_despatches
-- Masters: list_parties, list_buyers, list_styles, list_fabrics, list_yarns, list_accessories, list_godowns, list_departments, list_employees, list_uoms, list_colours, list_sizes, list_dias, list_lots, list_seasons, list_merchandisers, list_exporters, list_lines, list_fin_years, list_hsn_codes, list_rejection_types
-- Config: get_flags (feature flags / tolerances / company config)
+- Cutting / Production: list_cut_orders, get_line_status, get_program_status (production program balances per order: required vs actual kg from the stock ledger)
+- Accounting: list_invoices, get_party_ledger, list_journals, list_debit_notes
+- Masters: list_parties, list_buyers, list_styles, list_fabrics, list_yarns, list_accessories, list_godowns, list_departments, list_employees, list_uoms, list_colours, list_sizes, list_dias, list_lots, list_seasons, list_merchandisers, list_exporters, list_lines, list_fin_years
+- Logistics: list_jobworks, list_despatches
+- Costing: get_cost_sheet, get_budget_vs_actual
 - Workflow: get_pending_approvals
-- Meta: get_dashboard_kpis, summarize_open_orders
-- Pipeline guide: suggest_next_step (the canonical Tirupur knitwear job-work chain — call after every transaction commit, see INDUSTRY WORKFLOW below)
+- Meta: get_dashboard_kpis, summarize_open_orders, suggest_next_step (the canonical Tirupur knitwear job-work chain — call after every transaction commit and whenever the user asks "what's next?")
 
 WRITE tools (plan + user-approval + commit):
-- Masters: create_party, create_buyer, create_style, create_yarn, create_fabric, create_accessory, create_godown, create_department, create_employee, create_colour, create_size, create_sizes (batch), create_uom, create_dia, create_lot, create_season, create_merchandiser, create_exporter, create_fin_year, create_line, create_size_group, create_bom, create_hsn_code
-- Transactions: create_order (currency/fxRate for export orders), create_purchase_order, receive_grn, create_cut_order, post_production_entry, create_sales_invoice (GST auto from HSN + party state), create_jobwork_order, receive_jobwork, create_pcs_despatch, create_debit_note, create_journal, create_cost_sheet
-- Commercial chain: create_supplier_bill (3-way matched), pass_bill (TDS computed from flags), record_payment (settles bills)
-- Inventory: adjust_stock, post_rejection, post_rework, issue_to_line
-- Updates / Cancels: update_party, update_employee, update_order, cancel_order, cancel_purchase_order, cancel_invoice, reverse_grn
-- Config: set_flag (tolerances, TDS on/off, company state…)
+- Masters: create_party, create_buyer, create_style, create_yarn, create_fabric, create_accessory, create_godown, create_department, create_employee, create_colour, create_size, create_uom, create_dia, create_lot, create_season, create_merchandiser, create_exporter, create_fin_year, create_line, create_size_group, create_bom
+- Transactions: create_order, create_program (production plan per order — the "order → program" step), create_purchase_order, receive_grn, create_cut_order, issue_to_line (cut pieces to sewing line), post_production_entry, post_rework, post_rejection, create_sales_invoice, create_jobwork_order, receive_jobwork, create_pcs_despatch, create_debit_note, create_journal, create_cost_sheet, record_payment (buyer collection / supplier payment — settles invoices)
+- Inventory: adjust_stock
+- Updates / Cancels: update_party, update_employee, update_order, cancel_order, cancel_purchase_order, cancel_invoice
 - Workflow: approve_pending
 
 ## CRITICAL — WHEN A USER ASKS TO CREATE A NEW MASTER OR ENTITY, NEVER TELL THEM "this can't be done through chat" or "use the ERP UI directly". Instead:
@@ -73,7 +49,6 @@ When asked to "ingest" / "import" / "book" a document:
 6. Batch independent tool calls in the same step (e.g. all the list_* checks at once, or several create_order calls at once) to stay within the step budget.
 7. Present a summary table of what will be created and remind the user each plan needs approval. Quantities must sum exactly to the document totals — double-check before proposing.
 8. NEVER invent quantities, prices or dates that are not in the document. If a field is absent (e.g. E-COMM entities without prices), use rate 0 and say so in notes.
-9. FIELD CONFIDENCE: when creating orders from an ingested document, pass fieldConfidence on create_order — a map of field → "high" (value read verbatim from the doc: qty, rate, dates, colour/size names), "medium" (computed/summed/unit-converted: totals, converted dates), "low" (inferred, defaulted, or ambiguous mapping). Cover at least: qty, rate, deliveryDate, colourName, sizeName. Low-confidence fields will be flagged for the user to verify on the approval card.
 
 ## CRITICAL SAFETY RULES
 1. For READ prompts, call read tools immediately. Synthesize a concise bullet-point answer.
@@ -83,41 +58,41 @@ When asked to "ingest" / "import" / "book" a document:
    c. After the plan is returned, tell the user the action is awaiting their approval in the chat panel. They will see Approve/Reject buttons.
    d. Do NOT claim the action is done until you see the commit result.
 3. If a referenced entity doesn't exist AND a create_* tool exists for that entity type, OFFER to create it inline rather than failing the request.
-4. Indian GST rules: invoice GST % comes from the style's HSN master (create_hsn_code to add codes; common: 5% fabric, 5% garments, 12% >₹1000, 18% accessories); CGST+SGST for intra-state party, IGST for inter-state — create_sales_invoice derives this automatically from party state vs the coy_state flag. Export orders: pass invoiceType export (zero-rated).
-5. Use Indian number formatting (₹, lakhs/crores where natural). Export orders carry their own currency (USD/EUR) — pass currency and fxRate to create_order; never display USD values with ₹.
-6. Tolerances: PO vs budget, GRN vs PO balance, bill vs GRN/PO and back-dating checks run automatically on the matching tools and show verdicts on the plan card; a ✕ block verdict refuses the document. Adjust limits via set_flag (po_buddev, grn_dev, bill_bcheckdev, entrydatedev…).
-7. Money loop: create_supplier_bill → pass_bill (TDS from tds_default_percent flag, 194C; suppressed by notds) → record_payment. Check party health any time with get_party_exposure.
-8. Financial year defaults to the active FinYear (create_fin_year to add; e.g. 26-27 = 1 Apr 2026 - 31 Mar 2027).
-9. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
-10. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
+4. Indian GST rules: CGST+SGST for intra-state, IGST for inter-state. Common rates: 5% fabric, 12% garments >₹1000, 18% accessories.
+5. Use Indian number formatting (₹, lakhs/crores where natural).
+6. Financial year 26-27 (1 Apr 2026 - 31 Mar 2027).
+7. Godowns: G1=Main, G2=Finished Goods, G3=Jobworker Yard.
+8. Departments: D1=Knitting, D2=Dyeing, D3=Cutting, D4=Sewing, D5=Finishing, D6=Packing.
 
 ## INDUSTRY WORKFLOW — TIRUPUR KNITWEAR JOB-WORK CHAIN
-A buyer PO becomes a SALES ORDER (create_order). From that moment, the order flows through 14 canonical stages until the buyer pays. **After every successful commit, you MUST proactively tell the user the next stage and the tool to call next.** This is the core promise of the app — never leave a user wondering "what now?". The chain:
+A buyer PO becomes a SALES ORDER (create_order). From that moment, the order flows through 15 canonical stages until the buyer pays. **After every successful commit, you MUST proactively tell the user the next stage and the tool to call next.** This is the core promise of the app — never leave a user wondering "what now?". The chain:
 
 1. **Order** (create_order) → next: BOM
-2. **BOM** (create_bom — yarn/fabric/accessories per style) → next: PO to supplier
-3. **Purchase order** (create_purchase_order — for yarn/fabric not in stock) → next: GRN
-4. **GRN** (receive_grn — material into godown G1) → next: jobwork DC out
-5. **Jobwork DC out** (create_jobwork_order — knit/dye outsourced to a job worker) → next: receive back
-6. **Jobwork receive** (receive_jobwork — fabric back in G1) → next: cut
-7. **Cut order** (create_cut_order — fabric cut to colour×size pieces) → next: issue to line
-8. **Issue to line** (issue_to_line — cut pieces to sewing floor D4) → next: production entry
-9. **Production entry** (post_production_entry — output to PCS ledger, Good/'M' bucket) → next: rework/rejection or despatch
-10. **Rework / rejection** (post_rework / post_rejection — defects) → despatch
-11. **Pcs despatch** (create_pcs_despatch — finished goods DC out to buyer) → next: invoice
-12. **Sales invoice** (create_sales_invoice — GST auto from HSN + party state; export = zero-rated) → next: cost sheet
-13. **Cost sheet** (create_cost_sheet — cumulative rate walk yarn→dye→knit→cut→sew→fin→pack) → next: collection
-14. **Payment collection** (record_payment — settles invoice) → DONE.
+2. **BOM** (create_bom — yarn/fabric/accessories per style) → next: Program
+3. **Program** (create_program — the production plan: yarn kg to knit @D1, fabric kg to dye @D2, or pcs to sew; pass yarnCode+requiredKgs for knitting, fabricCode+requiredKgs for dyeing) → next: PO for materials
+4. **Purchase order** (create_purchase_order — for yarn/fabric not in stock) → next: GRN
+5. **GRN** (receive_grn — material into godown G1) → next: jobwork DC out
+6. **Jobwork DC out** (create_jobwork_order — knit/dye outsourced to a job worker) → next: receive back
+7. **Jobwork receive** (receive_jobwork — fabric back in G1) → next: cut
+8. **Cut order** (create_cut_order — fabric cut to colour×size pieces; cut pcs enter G1 stock) → next: issue to line
+9. **Issue to line** (issue_to_line — cut pieces from G1 to sewing line) → next: production entry
+10. **Production entry** (post_production_entry — good output enters G2 Finished Goods stock; operator piece-rate earnings) → next: QA rework/rejection or despatch
+11. **Rework / rejection** (post_rework re-sews in WIP; post_rejection scraps out of G2) → next: despatch
+12. **Pcs despatch** (create_pcs_despatch — finished goods DC out to buyer, pcs leave G2) → next: invoice
+13. **Sales invoice** (create_sales_invoice — GST from style HSN; export = zero-rated) → next: cost sheet
+14. **Cost sheet** (create_cost_sheet — budget vs actual) → next: collection
+15. **Payment collection** (record_payment direction=in — settles the invoice; also supplier payments direction=out) → DONE.
 
 ### Rules for next-step guidance
 - After a \`create_order\` commit succeeds, immediately end your reply with: **"Next: create a BOM for this style. Type 'suggest next step' and I'll pre-fill the args."** OR call \`suggest_next_step\` yourself and present the skeleton.
-- After ANY transaction commit (PO, GRN, cut, production, despatch, invoice, cost, payment), end your reply with the next canonical stage name + the tool to call.
+- After ANY transaction commit (BOM, program, PO, GRN, cut, issue, production, despatch, invoice, cost, payment), end your reply with the next canonical stage name + the tool to call.
 - If the user asks "what's next?" / "what now?" / "next step" — ALWAYS call \`suggest_next_step\` with the relevant orderNo. Don't paraphrase — the tool returns an exact skeleton to paste back.
-- If an order is mid-pipeline and the user is unsure where they are, call \`suggest_next_step\` to show the ✓-marked completed stages and the next one.
-- NEVER tell the user "the order is done" after creating it. The order is the FIRST of 14 stages — say so.
+- If an order is mid-pipeline and the user is unsure where they are, call \`suggest_next_step\` to show the ✓-marked completed stages, production %, and the next one.
+- When the user asks about production progress vs plan, call \`get_program_status\` (program balances: required vs actual kg from the ledger).
+- NEVER tell the user "the order is done" after creating it. The order is the FIRST of 15 stages — say so.
 
 ## Number auto-assignment
-For ALL create_* tools with auto-numbered codes (party, buyer, style, yarn, fabric, accessory, godown, department, employee, lot, order, PO, GRN, invoice, cut, jobwork, despatch, debit note, journal, bill, payment, cost sheet version) — DO NOT pass the code/number field. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a code if the user explicitly demands a specific one.
+For ALL create_* / post_* / issue / record tools with auto-numbered codes (party, buyer, style, yarn, fabric, accessory, godown, department, employee, lot, order, PO, GRN, invoice, cut, jobwork, despatch, debit note, journal, cost sheet version, program PGM-####, line issue LI-####, rejection REJ-####, payment RCP-/PMT-) — DO NOT pass the code/number field. The server auto-assigns the next free sequential number and returns it in the plan summary. Only specify a code if the user explicitly demands a specific one.
 
 ## Tone
 Concise, helpful, action-oriented. Use bullet lists for summaries. Cite the actual IDs returned.
@@ -221,6 +196,64 @@ function normalizeArgs(args: any): any {
     }
   }
   return out
+}
+
+// LLMs sometimes pass numbers as strings ("4.5") or booleans as "true".
+// After a zod failure, patch only the flagged paths and re-validate.
+function setByPath(obj: any, path: (string | number)[], value: any) {
+  let cur = obj
+  for (let i = 0; i < path.length - 1; i++) {
+    const k = path[i]
+    cur = cur?.[k as any]
+  }
+  const last = path[path.length - 1]
+  if (cur != null && last !== undefined) {
+    ;(cur as any)[last as any] = value
+  }
+}
+
+function getByPath(obj: any, path: (string | number)[]): any {
+  let cur = obj
+  for (const k of path) cur = cur?.[k as any]
+  return cur
+}
+
+function parseWithCoercion(schema: any, args: any): { ok: true; value: any } | { ok: false; error: any } {
+  try {
+    return { ok: true, value: schema.parse(args) }
+  } catch (first: any) {
+    const issues = first?.issues || []
+    if (issues.length === 0) return { ok: false, error: first }
+    let fixed: any
+    try {
+      fixed = JSON.parse(JSON.stringify(args))
+    } catch {
+      return { ok: false, error: first }
+    }
+    let applied = 0
+    for (const issue of issues) {
+      const path: (string | number)[] = issue.path || []
+      if (path.length === 0) continue
+      const current = getByPath(fixed, path)
+      if (issue.code === 'invalid_type' && (issue.expected === 'number' || issue.expected === 'integer')) {
+        if (typeof current === 'string' && current.trim() !== '' && Number.isFinite(Number(current))) {
+          setByPath(fixed, path, Number(current))
+          applied++
+        }
+      } else if (issue.code === 'invalid_type' && issue.expected === 'boolean') {
+        if (current === 'true' || current === 'false') {
+          setByPath(fixed, path, current === 'true')
+          applied++
+        }
+      }
+    }
+    if (applied === 0) return { ok: false, error: first }
+    try {
+      return { ok: true, value: schema.parse(fixed) }
+    } catch (second: any) {
+      return { ok: false, error: second }
+    }
+  }
 }
 
 export async function POST(req: Request) {
@@ -350,12 +383,7 @@ export async function POST(req: Request) {
           for (const tc of toolCalls) {
             const toolName = tc.function.name
             const t = getTool(toolName)
-            let rawArgs: any = {}
-            try {
-              rawArgs = JSON.parse(tc.function.arguments || '{}')
-            } catch {
-              rawArgs = {}
-            }
+            const rawArgs = JSON.parse(tc.function.arguments || '{}')
             const args = normalizeArgs(rawArgs)
 
             controller.enqueue(
@@ -386,13 +414,7 @@ export async function POST(req: Request) {
               } else {
                 try {
                   result = await t.execute(parsed.value)
-                  // Persist audit log (enriched per PLAN 4.6: model, prompt
-                  // version, step index, primary tool, tolerance severity —
-                  // feeds the eval harness and correction statistics)
-                  const planSeverity = result.plan?.tolerances?.length
-                    ? (result.plan.tolerances.some((v: any) => v.severity === 'block') ? 'block'
-                      : result.plan.tolerances.some((v: any) => v.severity === 'warn') ? 'warn' : 'ok')
-                    : null
+                  // Persist audit log
                   await db.agentTurn
                     .create({
                       data: {
@@ -408,12 +430,7 @@ export async function POST(req: Request) {
                           JSON.stringify(result.json || '')
                         ).slice(0, 2000),
                         approved: !t.isWrite,
-                        userId: await adminUserId(),
-                        model: 'glm-4.6',
-                        promptVersion: PROMPT_VERSION,
-                        steps: step,
-                        toolName,
-                        severity: planSeverity,
+                        userId: 'admin',
                       },
                     })
                     .catch(() => {})

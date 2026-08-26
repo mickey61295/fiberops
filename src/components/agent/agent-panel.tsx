@@ -14,6 +14,8 @@ interface AgentPanelProps {
   open: boolean
   onOpenChange: (v: boolean) => void
   onCommitted: () => void
+  /** Optional pre-filled input (coming-soon "Ask the agent" button). Not auto-sent. */
+  seedPrompt?: string
 }
 
 interface ToolCall {
@@ -49,7 +51,7 @@ const SUGGESTED_PROMPTS = [
   'List the documents I uploaded, then ingest the purchase order into the ERP',
 ]
 
-export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps) {
+export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: AgentPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -60,6 +62,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
   const [attachedFile, setAttachedFile] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Seed the input when the panel opens with a prompt (SPEC-M1 §6). Never auto-sends.
+  useEffect(() => {
+    if (open && seedPrompt) setInput(seedPrompt)
+  }, [open, seedPrompt])
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -311,7 +318,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
               <div className="space-y-4">
                 <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-4 border border-slate-200">
                   <p className="font-medium text-slate-900 mb-2">I&apos;m your AI agent for the Fiberpro Garment ERP.</p>
-                  <p className="text-xs">I can read &amp; write data across all modules — orders, procurement, inventory, cutting, production, accounting, costing, HR, and approvals. Write actions show you a plan first; you approve before anything commits. Attach a buyer PO PDF with the paperclip and say &quot;ingest this&quot;.</p>
+                  <p className="text-xs">I can read &amp; write data across all modules — orders, procurement, inventory, cutting, production, accounting, costing, HR, and approvals. Write actions show you a plan first; you approve before anything commits.</p>
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Try these</div>
@@ -405,47 +412,6 @@ export function AgentPanel({ open, onOpenChange, onCommitted }: AgentPanelProps)
                                 <div className="mt-2 p-2 bg-white rounded border border-amber-300">
                                   <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-1">Plan awaiting approval</div>
                                   <div className="text-xs text-slate-800 mb-1.5">{result.plan.summary}</div>
-                                  {result.plan.tolerances?.length > 0 && (
-                                    <div className="mb-2 space-y-1">
-                                      {result.plan.tolerances.map((t: { severity: string; message: string; flag: string; value?: number; limit?: number }, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className={`text-[10px] px-2 py-1 rounded border flex items-start gap-1.5 ${
-                                            t.severity === 'block' ? 'bg-red-50 border-red-300 text-red-800'
-                                              : t.severity === 'warn' ? 'bg-amber-50 border-amber-300 text-amber-900'
-                                                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                                          }`}
-                                          title={`flag: ${t.flag}${t.value != null ? ` | value ${t.value}` : ''}${t.limit != null ? ` | limit ${t.limit}` : ''}`}
-                                        >
-                                          <span className="font-bold shrink-0">{t.severity === 'block' ? '✕' : t.severity === 'warn' ? '⚠' : '✓'}</span>
-                                          <span>{t.message}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {result.plan.fieldConfidence && Object.keys(result.plan.fieldConfidence).length > 0 && (
-                                    <div className="mb-2">
-                                      <div className="text-[10px] font-semibold text-slate-600 mb-1">Field confidence (from source document):</div>
-                                      <div className="flex flex-wrap gap-1">
-                                        {Object.entries(result.plan.fieldConfidence).map(([field, level]: [string, any]) => (
-                                          <span
-                                            key={field}
-                                            className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                              level === 'high' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                                                : level === 'medium' ? 'bg-amber-50 border-amber-200 text-amber-900'
-                                                  : 'bg-red-50 border-red-200 text-red-800'
-                                            }`}
-                                            title={level === 'high' ? 'Read verbatim from the document' : level === 'medium' ? 'Computed / summed / converted' : 'Inferred or defaulted — please verify'}
-                                          >
-                                            {level === 'high' ? '🟢' : level === 'medium' ? '🟡' : '🔴'} {field}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      {Object.values(result.plan.fieldConfidence).some((l: any) => l === 'low') && (
-                                        <div className="text-[10px] text-red-700 mt-1">🔴 low-confidence field(s) — please verify before approving</div>
-                                      )}
-                                    </div>
-                                  )}
                                   {result.plan.creates?.length > 0 && (
                                     <div className="text-[10px] text-slate-600 mb-1">
                                       <span className="font-semibold">Creates:</span> {result.plan.creates.length} record(s)

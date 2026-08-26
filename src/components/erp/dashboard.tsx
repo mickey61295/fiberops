@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Sparkles, Package, ShoppingCart, Boxes, Scissors, FileText, GitBranch, IndianRupee, Factory } from 'lucide-react'
-import type { ViewKey } from '@/app/page'
+import type { ViewKey } from '@/components/erp/view-routes'
 import { toast } from 'sonner'
 
 interface DashboardProps {

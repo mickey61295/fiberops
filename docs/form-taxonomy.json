@@ -1,0 +1,1962 @@
+{
+  "raw_form_count": 321,
+  "unique_functional_units": 307,
+  "archetypes": {
+    "transaction": {
+      "forms": 173,
+      "unique": 163
+    },
+    "master": {
+      "forms": 52,
+      "unique": 52
+    },
+    "utility": {
+      "forms": 6,
+      "unique": 6
+    },
+    "admin": {
+      "forms": 15,
+      "unique": 15
+    },
+    "register": {
+      "forms": 47,
+      "unique": 43
+    },
+    "approval": {
+      "forms": 18,
+      "unique": 18
+    },
+    "setting": {
+      "forms": 10,
+      "unique": 10
+    }
+  },
+  "forms": [
+    {
+      "form": "Frm_AppAwBill",
+      "base": "Frm_AppAwBill",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_AppMas",
+      "base": "Frm_AppMas",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_CommercialTemplate",
+      "base": "Frm_CommercialTemplate",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frm_composition",
+      "base": "frm_composition",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_CostingInput",
+      "base": "Frm_CostingInput",
+      "archetype": "transaction",
+      "family": "costing"
+    },
+    {
+      "form": "Frm_GoDownSel",
+      "base": "Frm_GoDownSel",
+      "archetype": "utility",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_Lock",
+      "base": "Frm_Lock",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_Mas_Holiday",
+      "base": "Frm_Mas_Holiday",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_Master",
+      "base": "Frm_Master",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_OrderInputMas",
+      "base": "Frm_OrderInputMas",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_Ordersheet_Preview",
+      "base": "Frm_Ordersheet_Preview",
+      "archetype": "register",
+      "family": "order"
+    },
+    {
+      "form": "Frm_Password_List",
+      "base": "Frm_Password_List",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_ProductionCost",
+      "base": "Frm_ProductionCost",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "Frm_ProductionEntryReg",
+      "base": "Frm_ProductionEntryReg",
+      "archetype": "register",
+      "family": "production"
+    },
+    {
+      "form": "Frm_ProductionWages",
+      "base": "Frm_ProductionWages",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "Frm_ProdWagesDept",
+      "base": "Frm_ProdWagesDept",
+      "archetype": "transaction",
+      "family": "wages"
+    },
+    {
+      "form": "Frm_ProdWagesStage",
+      "base": "Frm_ProdWagesStage",
+      "archetype": "transaction",
+      "family": "wages"
+    },
+    {
+      "form": "Frm_ProRouteTemplate",
+      "base": "Frm_ProRouteTemplate",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_RollSplit",
+      "base": "Frm_RollSplit",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "Frm_SubProcess",
+      "base": "Frm_SubProcess",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "Frm_WF_DocumentStore",
+      "base": "Frm_WF_DocumentStore",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAcc_ProgCancel",
+      "base": "FrmAcc_ProgCancel",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmAccack",
+      "base": "frmAccack",
+      "archetype": "approval",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAccCat",
+      "base": "FrmAccCat",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAccDel",
+      "base": "FrmAccDel",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmAccDel_Return",
+      "base": "FrmAccDel_Return",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmAccDescMaster",
+      "base": "FrmAccDescMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAccItemApproval",
+      "base": "FrmAccItemApproval",
+      "archetype": "approval",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAccmaster",
+      "base": "FrmAccmaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmAccSalesDel",
+      "base": "frmAccSalesDel",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmAccShort",
+      "base": "frmAccShort",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmAccStockReg",
+      "base": "FrmAccStockReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmAccStockShow",
+      "base": "frmAccStockShow",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmAddPanelCutting",
+      "base": "frmAddPanelCutting",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "FrmBankMaster",
+      "base": "FrmBankMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmBarcodeReadingNew",
+      "base": "frmBarcodeReading",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmBillPass",
+      "base": "frmBillPass",
+      "archetype": "transaction",
+      "family": "bill-pass"
+    },
+    {
+      "form": "FrmBillsAddDedReport",
+      "base": "FrmBillsAddDedReport",
+      "archetype": "register",
+      "family": "bill-pass"
+    },
+    {
+      "form": "FrmBillsReg",
+      "base": "FrmBillsReg",
+      "archetype": "register",
+      "family": "bill-pass"
+    },
+    {
+      "form": "frmBudcom",
+      "base": "frmBudcom",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmBudget",
+      "base": "frmBudget",
+      "archetype": "transaction",
+      "family": "budget"
+    },
+    {
+      "form": "FrmBudgetAndActualComp",
+      "base": "FrmBudgetAndActualComp",
+      "archetype": "transaction",
+      "family": "budget"
+    },
+    {
+      "form": "frmBudgetNew_JobWork",
+      "base": "frmBudgetNew_JobWork",
+      "archetype": "transaction",
+      "family": "budget"
+    },
+    {
+      "form": "FrmBundle_ProductionEntry",
+      "base": "FrmBundle_ProductionEntry",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FRMBUYER",
+      "base": "FRMBUYER",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmBuyerPLReport",
+      "base": "frmBuyerPLReport",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmBuyerStatus",
+      "base": "FrmBuyerStatus",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmChangeGodown",
+      "base": "FrmChangeGodown",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "FrmChangePassword",
+      "base": "FrmChangePassword",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "frmclose",
+      "base": "frmclose",
+      "archetype": "utility",
+      "family": "misc"
+    },
+    {
+      "form": "frmComboWiseReqRpt",
+      "base": "frmComboWiseReqRpt",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmCommericalInv_New",
+      "base": "FrmCommericalInv",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmCommRateMaster",
+      "base": "FrmCommRateMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmCompanyLogin",
+      "base": "FrmCompanyLogin",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmCompanyRights",
+      "base": "FrmCompanyRights",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmConcern",
+      "base": "FrmConcern",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmContractAllotment",
+      "base": "frmContractAllotment",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "frmContractAllotment_New",
+      "base": "frmContractAllotment",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmCountGroup",
+      "base": "FrmCountGroup",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmCrysReport",
+      "base": "FrmCrysReport",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmCutingReg",
+      "base": "FrmCutingReg",
+      "archetype": "register",
+      "family": "cutting"
+    },
+    {
+      "form": "FrmCutting_FabRej",
+      "base": "FrmCutting_FabRej",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "frmcuttingack",
+      "base": "frmcuttingack",
+      "archetype": "approval",
+      "family": "cutting"
+    },
+    {
+      "form": "FrmCuttingfabretreg",
+      "base": "FrmCuttingfabretreg",
+      "archetype": "register",
+      "family": "cutting"
+    },
+    {
+      "form": "frmCuttingIssue",
+      "base": "frmCuttingIssue",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "frmCuttingJobOrder",
+      "base": "frmCuttingJobOrder",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "FrmCuttingProduction_Auto_New",
+      "base": "FrmCuttingProduction_Auto",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "frmDailyinout",
+      "base": "frmDailyinout",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmDataDelete",
+      "base": "FrmDataDelete",
+      "archetype": "admin",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmDcIdUpdation",
+      "base": "FrmDcIdUpdation",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmDcWiseDtl",
+      "base": "FrmDcWiseDtl",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmdebitnote",
+      "base": "frmdebitnote",
+      "archetype": "transaction",
+      "family": "debit-note"
+    },
+    {
+      "form": "frmDefaultRate",
+      "base": "frmDefaultRate",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmDelCumInv",
+      "base": "frmDelCumInv",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmDelete",
+      "base": "FrmDelete",
+      "archetype": "admin",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmDeliveryAtMas",
+      "base": "FrmDeliveryAtMas",
+      "archetype": "master",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmDeptGroup",
+      "base": "frmDeptGroup",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmDeptMasterNew",
+      "base": "FrmDeptMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmDeptSettings",
+      "base": "frmDeptSettings",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "FrmDesignEntry",
+      "base": "FrmDesignEntry",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmDiaChange",
+      "base": "FrmDiaChange",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "frmDiaSize",
+      "base": "frmDiaSize",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmDirectBill_GateEntry",
+      "base": "FrmDirectBill_GateEntry",
+      "archetype": "transaction",
+      "family": "gate-logistics"
+    },
+    {
+      "form": "frmDirectDebitNote",
+      "base": "frmDirectDebitNote",
+      "archetype": "transaction",
+      "family": "debit-note"
+    },
+    {
+      "form": "frmDomestic_Acc_Issue",
+      "base": "frmDomestic_Acc_Issue",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmEmpmaster",
+      "base": "FrmEmpmaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmExpenseEntryRegister",
+      "base": "FrmExpenseEntryRegister",
+      "archetype": "register",
+      "family": "expenses"
+    },
+    {
+      "form": "FrmExpenseGroup",
+      "base": "FrmExpenseGroup",
+      "archetype": "transaction",
+      "family": "expenses"
+    },
+    {
+      "form": "FrmExpenses",
+      "base": "FrmExpenses",
+      "archetype": "transaction",
+      "family": "expenses"
+    },
+    {
+      "form": "FrmFabDel",
+      "base": "FrmFabDel",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmFabDel_Return",
+      "base": "FrmFabDel_Return",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmFabricAllotment",
+      "base": "frmFabricAllotment",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFabricmaster",
+      "base": "FrmFabricmaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFabricStockRegister",
+      "base": "FrmFabricStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmfabstockshow",
+      "base": "frmfabstockshow",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmFCRmaster",
+      "base": "frmFCRmaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmFcymaster",
+      "base": "frmFcymaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFinalDiaUpdation",
+      "base": "FrmFinalDiaUpdation",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "FrmFinishGoodsEntry",
+      "base": "FrmFinishGoodsEntry",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FrmFinyearLogin",
+      "base": "FrmFinyearLogin",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFixedExpensesEntry",
+      "base": "FrmFixedExpensesEntry",
+      "archetype": "transaction",
+      "family": "expenses"
+    },
+    {
+      "form": "frmFomGrp",
+      "base": "frmFomGrp",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFormas",
+      "base": "FrmFormas",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmFormDef",
+      "base": "FrmFormDef",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmGateEntry",
+      "base": "FrmGateEntry",
+      "archetype": "transaction",
+      "family": "gate-logistics"
+    },
+    {
+      "form": "FrmGatePass",
+      "base": "FrmGatePass",
+      "archetype": "transaction",
+      "family": "gate-logistics"
+    },
+    {
+      "form": "FrmGenDC",
+      "base": "FrmGenDC",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmGeneralClose",
+      "base": "FrmGeneralClose",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmGeneralDCCompletion",
+      "base": "frmGeneralDCCompletion",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmGeneralPurchaseOrd",
+      "base": "frmGeneralPurchaseOrd",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "FrmGeneralStockRegister",
+      "base": "FrmGeneralStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmGenrec",
+      "base": "frmGenrec",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "FrmGoDownAck",
+      "base": "FrmGoDownAck",
+      "archetype": "approval",
+      "family": "stock-ops"
+    },
+    {
+      "form": "FrmGodownMaster",
+      "base": "FrmGodownMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmGodownTransferAck",
+      "base": "FrmGodownTransferAck",
+      "archetype": "approval",
+      "family": "stock-ops"
+    },
+    {
+      "form": "frmGrammage",
+      "base": "frmGrammage",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmGRN_MultiProcess",
+      "base": "frmGRN_MultiProcess",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmGRNEntry",
+      "base": "frmGRNEntry",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmGRNEntry_MultiOrder",
+      "base": "frmGRNEntry_MultiOrder",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmGRNEntryAcc",
+      "base": "frmGRNEntryAcc",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmGRNEntryAcc_Ret_Multi",
+      "base": "frmGRNEntryAcc_Ret_Multi",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "FrmHourlySetting1",
+      "base": "FrmHourlySetting",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "frmHours",
+      "base": "frmHours",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmHSN",
+      "base": "FrmHSN",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmHSNPce",
+      "base": "FrmHSNPce",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmInhouseProductionStatusReg",
+      "base": "FrmInhouseProductionStatusReg",
+      "archetype": "register",
+      "family": "production"
+    },
+    {
+      "form": "FrmInvComm",
+      "base": "FrmInvComm",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmIoHistoryReg",
+      "base": "FrmIoHistoryReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmIoHistoryReg_New",
+      "base": "FrmIoHistoryReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmIssueToProduction",
+      "base": "FrmIssueToProduction",
+      "archetype": "register",
+      "family": "production"
+    },
+    {
+      "form": "FrmItemwiseStockRegister",
+      "base": "FrmItemwiseStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmJobOrderList",
+      "base": "FrmJobOrderList",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "frmJobWorkPcsReturn",
+      "base": "frmJobWorkPcsReturn",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmLabTest",
+      "base": "FrmLabTest",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLabTestInputParameters",
+      "base": "FrmLabTestInputParameters",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLabTestParameters",
+      "base": "FrmLabTestParameters",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLabTestStages",
+      "base": "FrmLabTestStages",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLineInput",
+      "base": "FrmLineInput",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FrmLineInputManual",
+      "base": "FrmLineInputManual",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "frmLineOutputManual",
+      "base": "frmLineOutputManual",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "frmLineOutputManual_New",
+      "base": "frmLineOutputManual",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FrmLoading",
+      "base": "FrmLoading",
+      "archetype": "utility",
+      "family": "gate-logistics"
+    },
+    {
+      "form": "FrmLocalInvConfirm",
+      "base": "FrmLocalInvConfirm",
+      "archetype": "approval",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmLocalInvoice",
+      "base": "FrmLocalInvoice",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmLocalInvPackingList",
+      "base": "FrmLocalInvPackingList",
+      "archetype": "approval",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmLocalInvPackingList_Solid",
+      "base": "FrmLocalInvPackingList_Solid",
+      "archetype": "approval",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmLocInvPackingListFormat",
+      "base": "FrmLocInvPackingListFormat",
+      "archetype": "approval",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmLogin_New",
+      "base": "FrmLogin",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmLoginReg",
+      "base": "FrmLoginReg",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "frmLotApproval",
+      "base": "frmLotApproval",
+      "archetype": "approval",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLotRegister",
+      "base": "FrmLotRegister",
+      "archetype": "register",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmLotSeparate",
+      "base": "FrmLotSeparate",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "frmLotWiseDtl",
+      "base": "frmLotWiseDtl",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmMachineCategory",
+      "base": "FrmMachineCategory",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMachineMaster",
+      "base": "FrmMachineMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasBank",
+      "base": "FrmMasBank",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasBankAccount",
+      "base": "FrmMasBankAccount",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasBuyerDept",
+      "base": "FrmMasBuyerDept",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasExpenses",
+      "base": "FrmMasExpenses",
+      "archetype": "master",
+      "family": "expenses"
+    },
+    {
+      "form": "FrmMasFabric",
+      "base": "FrmMasFabric",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasTemplate",
+      "base": "FrmMasTemplate",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasuser",
+      "base": "FrmMasuser",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMasWorkNature",
+      "base": "FrmMasWorkNature",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMenuAccRights",
+      "base": "FrmMenuAccRights",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMenuRights",
+      "base": "FrmMenuRights",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMill",
+      "base": "FrmMill",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmMIS",
+      "base": "frmMIS",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmMISSetting",
+      "base": "FrmMISSetting",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "frmNewInv",
+      "base": "frmNewInv",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmNewLabTest",
+      "base": "FrmNewLabTest",
+      "archetype": "transaction",
+      "family": "lab-quality"
+    },
+    {
+      "form": "FrmNonBillable",
+      "base": "FrmNonBillable",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmNonReturnDCApproval",
+      "base": "FrmNonReturnDCApproval",
+      "archetype": "approval",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmOpeningStock",
+      "base": "frmOpeningStock",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmOpeningStock_CompWise",
+      "base": "frmOpeningStock_CompWise",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOperationEntry",
+      "base": "FrmOperationEntry",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "frmOptions",
+      "base": "frmOptions",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOptionsPrint",
+      "base": "FrmOptionsPrint",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOptionUpdate",
+      "base": "FrmOptionUpdate",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrdBundIssToLineReg",
+      "base": "FrmOrdBundIssToLineReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrderClose",
+      "base": "FrmOrderClose",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderDespatchCompletion",
+      "base": "FrmOrderDespatchCompletion",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrderDisplayDaysSetting",
+      "base": "FrmOrderDisplayDaysSetting",
+      "archetype": "setting",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderEnquiry",
+      "base": "FrmOrderEnquiry",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "frmOrderGroup",
+      "base": "frmOrderGroup",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderRef",
+      "base": "FrmOrderRef",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderRegister",
+      "base": "FrmOrderRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrderRegister_Spl",
+      "base": "FrmOrderRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrderRelatedInput_Excel",
+      "base": "FrmOrderRelatedInput_Excel",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "frmOrderSample",
+      "base": "frmOrderSample",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmOrderSheetAmendment",
+      "base": "FrmOrderSheetAmendment",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderSheetNew",
+      "base": "FrmOrderSheet",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderSheetNew_Domestic",
+      "base": "FrmOrderSheetNew_Domestic",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderSheetNew_WithAmend",
+      "base": "FrmOrderSheet",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrderwisePcsReg",
+      "base": "FrmOrderwisePcsReg",
+      "archetype": "register",
+      "family": "order"
+    },
+    {
+      "form": "FrmOrdProdTrack",
+      "base": "FrmOrdProdTrack",
+      "archetype": "approval",
+      "family": "order"
+    },
+    {
+      "form": "frmOrdStat",
+      "base": "frmOrdStat",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "frmordwiseregregister",
+      "base": "frmordwiseregregister",
+      "archetype": "register",
+      "family": "order"
+    },
+    {
+      "form": "FrmOtherPORelatedIps",
+      "base": "FrmOtherPORelatedIps",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "FrmPackingList",
+      "base": "FrmPackingList",
+      "archetype": "approval",
+      "family": "packing"
+    },
+    {
+      "form": "FrmPackingList_Domestic",
+      "base": "FrmPackingList_Domestic",
+      "archetype": "approval",
+      "family": "packing"
+    },
+    {
+      "form": "frmPanelDelRework",
+      "base": "frmPanelDelRework",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmPanelExcessEntry",
+      "base": "FrmPanelExcessEntry",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPanelExcessEntryStage",
+      "base": "FrmPanelExcessEntryStage",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmPanelRej",
+      "base": "frmPanelRej",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPartDefineEntry",
+      "base": "FrmPartDefineEntry",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPartyBalanceRegister",
+      "base": "FrmPartyBalanceRegister",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPartyBlnc",
+      "base": "FrmPartyBlnc",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPartyMaster",
+      "base": "FrmPartyMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPaymentReg",
+      "base": "FrmPaymentReg",
+      "archetype": "register",
+      "family": "payment"
+    },
+    {
+      "form": "FrmPaymentReg_Wages",
+      "base": "FrmPaymentReg_Wages",
+      "archetype": "register",
+      "family": "payment"
+    },
+    {
+      "form": "frmPaytem",
+      "base": "frmPaytem",
+      "archetype": "transaction",
+      "family": "payment"
+    },
+    {
+      "form": "frmPcsDel",
+      "base": "frmPcsDel",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPcsDel_Ship",
+      "base": "frmPcsDel_Ship",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPcsDelRecClose",
+      "base": "frmPcsDelRecClose",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPcsDelRework",
+      "base": "frmPcsDelRework",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmPcsGodTransfer",
+      "base": "FrmPcsGodTransfer",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPcsRec",
+      "base": "frmPcsRec",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPcsRej",
+      "base": "frmPcsRej",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPcsShort",
+      "base": "frmPcsShort",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPcsStagewiseOpeningStock",
+      "base": "frmPcsStagewiseOpeningStock",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPcsStockAdjustmentEntry",
+      "base": "frmPcsStockAdjustmentEntry",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "frmPieceInv",
+      "base": "frmPieceInv",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "frmPieceInv_1",
+      "base": "frmPieceInv",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmPieceStock",
+      "base": "FrmPieceStock",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "FrmPieceStockAll",
+      "base": "FrmPieceStockAll",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "FrmPLReg",
+      "base": "FrmPLReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPOCancel",
+      "base": "FrmPOCancel",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "frmPoCompl",
+      "base": "frmPoCompl",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "FrmPOEntryWithMultipleStyleNo",
+      "base": "FrmPOEntryWithMultipleStyleNo",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "frmPopUp",
+      "base": "frmPopUp",
+      "archetype": "utility",
+      "family": "misc"
+    },
+    {
+      "form": "FrmPrdnRateMaster",
+      "base": "FrmPrdnRateMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmPreBudgetProdPlan",
+      "base": "frmPreBudgetProdPlan",
+      "archetype": "transaction",
+      "family": "budget"
+    },
+    {
+      "form": "frmPreBudgetProdPlan_New",
+      "base": "frmPreBudgetProdPlan",
+      "archetype": "transaction",
+      "family": "budget"
+    },
+    {
+      "form": "FrmPreCostingCompMas",
+      "base": "FrmPreCostingCompMas",
+      "archetype": "master",
+      "family": "costing"
+    },
+    {
+      "form": "FrmPrg_GSM_LL_EditEntry",
+      "base": "FrmPrg_GSM_LL_EditEntry",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "FrmPrg_KnittingPartyInclusion",
+      "base": "FrmPrg_KnittingPartyInclusion",
+      "archetype": "master",
+      "family": "program"
+    },
+    {
+      "form": "frmPrintDesign",
+      "base": "frmPrintDesign",
+      "archetype": "utility",
+      "family": "misc"
+    },
+    {
+      "form": "FrmProcessByPassSetting",
+      "base": "FrmProcessByPassSetting",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "frmProcessOrd",
+      "base": "frmProcessOrd",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmProdBillNew",
+      "base": "FrmProdBill",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "frmProdCutComponents",
+      "base": "frmProdCutComponents",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "FrmProdExpenses",
+      "base": "FrmProdExpenses",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FrmProdShiftWagesReg",
+      "base": "FrmProdShiftWagesReg",
+      "archetype": "register",
+      "family": "wages"
+    },
+    {
+      "form": "frmProduction",
+      "base": "frmProduction",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "frmProduction_CutPanel",
+      "base": "frmProduction_CutPanel",
+      "archetype": "transaction",
+      "family": "production"
+    },
+    {
+      "form": "FrmProductionStatusReg",
+      "base": "FrmProductionStatusReg",
+      "archetype": "register",
+      "family": "production"
+    },
+    {
+      "form": "frmProdutionConfig",
+      "base": "frmProdutionConfig",
+      "archetype": "setting",
+      "family": "production"
+    },
+    {
+      "form": "FrmProg_Acc",
+      "base": "FrmProg_Acc",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgCancel",
+      "base": "frmProgCancel",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgCancel_Compwise",
+      "base": "frmProgCancel",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgEntry",
+      "base": "frmProgEntry",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgEntry_YarnCons",
+      "base": "frmProgEntry_YarnCons",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgNew",
+      "base": "frmProg",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "frmProgNew_Actual",
+      "base": "frmProgNew_Actual",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "FrmProgramComplete",
+      "base": "FrmProgramComplete",
+      "archetype": "transaction",
+      "family": "program"
+    },
+    {
+      "form": "FrmProGrnAccept",
+      "base": "FrmProGrnAccept",
+      "archetype": "approval",
+      "family": "program"
+    },
+    {
+      "form": "frmPrsDel",
+      "base": "frmPrsDel",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPrsDelAcc",
+      "base": "frmPrsDelAcc",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPrsDelMulti",
+      "base": "frmPrsDelMulti",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPrsDelMulti_Acc",
+      "base": "frmPrsDelMulti_Acc",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPrsDelMulti_Compwise",
+      "base": "frmPrsDelMulti",
+      "archetype": "transaction",
+      "family": "delivery-dc"
+    },
+    {
+      "form": "frmPrsGRNMulti",
+      "base": "frmPrsGRNMulti",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmPrsGRNMulti_Compwise",
+      "base": "frmPrsGRNMulti",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "frmPurchaseOrd_MultiOrder",
+      "base": "frmPurchaseOrd_MultiOrder",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "frmPurchaseOrd_MultiOrder_HO",
+      "base": "frmPurchaseOrd_MultiOrder",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "frmPurchaseOrdAcc",
+      "base": "frmPurchaseOrdAcc",
+      "archetype": "transaction",
+      "family": "purchase"
+    },
+    {
+      "form": "FrmPurGrnAccept",
+      "base": "FrmPurGrnAccept",
+      "archetype": "approval",
+      "family": "grn"
+    },
+    {
+      "form": "FrmRange",
+      "base": "FrmRange",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmRange_Orderwise",
+      "base": "FrmRange_Orderwise",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmRangeGrp",
+      "base": "FrmRangeGrp",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmRateMaster",
+      "base": "FrmRateMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmReadytoCut",
+      "base": "frmReadytoCut",
+      "archetype": "transaction",
+      "family": "cutting"
+    },
+    {
+      "form": "FrmRegister",
+      "base": "FrmRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmRejPieceStock",
+      "base": "FrmRejPieceStock",
+      "archetype": "transaction",
+      "family": "pcs-stock"
+    },
+    {
+      "form": "FrmReport",
+      "base": "FrmReport",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmReprocess_Approval",
+      "base": "FrmReprocess_Approval",
+      "archetype": "approval",
+      "family": "misc"
+    },
+    {
+      "form": "frmRpt",
+      "base": "frmRpt",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmSalINV",
+      "base": "frmSalINV",
+      "archetype": "transaction",
+      "family": "invoice"
+    },
+    {
+      "form": "FrmSampleEntry_WithEnquiry",
+      "base": "FrmSampleEntry",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmSearch",
+      "base": "frmSearch",
+      "archetype": "utility",
+      "family": "misc"
+    },
+    {
+      "form": "FrmSewingReq",
+      "base": "FrmSewingReq",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmShadeEntry",
+      "base": "FrmShadeEntry",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "frmShortage",
+      "base": "frmShortage",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmShortage_Compwise",
+      "base": "frmShortage",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmShortageBitEntry",
+      "base": "FrmShortageBitEntry",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "frmSizeGroup",
+      "base": "frmSizeGroup",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmSMSMailSetup",
+      "base": "FrmSMSMailSetup",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStageWiseTagMaster",
+      "base": "FrmStageWiseTagMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStateMaster",
+      "base": "FrmStateMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStatusReg",
+      "base": "FrmStatusReg",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStkTransfer",
+      "base": "FrmStkTransfer",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "frmStockAdjustment",
+      "base": "frmStockAdjustment",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "frmStockAdjustment_Domestic",
+      "base": "frmStockAdjustment_Domestic",
+      "archetype": "transaction",
+      "family": "stock-ops"
+    },
+    {
+      "form": "FrmStockLedger",
+      "base": "FrmStockLedger",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStockRegister",
+      "base": "FrmStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStockRegister_SplRpt",
+      "base": "FrmStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStockRegister_Style",
+      "base": "FrmStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStockRegister_StylePcs",
+      "base": "FrmStockRegister_StylePcs",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmStockView",
+      "base": "frmStockView",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStyleDesc",
+      "base": "FrmStyleDesc",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStyleMaster",
+      "base": "FrmStyleMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmStylewiseExpensesEntry",
+      "base": "FrmStylewiseExpensesEntry",
+      "archetype": "transaction",
+      "family": "expenses"
+    },
+    {
+      "form": "frmSupordPendReg",
+      "base": "frmSupordPendReg",
+      "archetype": "register",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmSupplierBillReg",
+      "base": "FrmSupplierBillReg",
+      "archetype": "register",
+      "family": "bill-pass"
+    },
+    {
+      "form": "FrmSupplierOrderRegister",
+      "base": "FrmSupplierOrderRegister",
+      "archetype": "register",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmSuppOrderHistoryReg",
+      "base": "FrmSuppOrderHistoryReg",
+      "archetype": "register",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmSuppOrdSheet_Semi",
+      "base": "FrmSuppOrdSheet_Semi",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmSuppProdSequence",
+      "base": "FrmSuppProdSequence",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmSuppTechDataSheet",
+      "base": "FrmSuppTechDataSheet",
+      "archetype": "transaction",
+      "family": "jobwork"
+    },
+    {
+      "form": "FrmTally_GSTSetup",
+      "base": "FrmTally_GSTSetup",
+      "archetype": "setting",
+      "family": "misc"
+    },
+    {
+      "form": "frmTblErase",
+      "base": "frmTblErase",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "frmTerms",
+      "base": "frmTerms",
+      "archetype": "transaction",
+      "family": "misc"
+    },
+    {
+      "form": "FrmThreadTypeMaster",
+      "base": "FrmThreadTypeMaster",
+      "archetype": "master",
+      "family": "misc"
+    },
+    {
+      "form": "FrmTradingOrderSheet",
+      "base": "FrmTradingOrderSheet",
+      "archetype": "transaction",
+      "family": "order"
+    },
+    {
+      "form": "FrmTradingOrdersInHandReg",
+      "base": "FrmTradingOrdersInHandReg",
+      "archetype": "register",
+      "family": "order"
+    },
+    {
+      "form": "FrmUnitTransferAck",
+      "base": "FrmUnitTransferAck",
+      "archetype": "approval",
+      "family": "stock-ops"
+    },
+    {
+      "form": "FrmUserGroupMas",
+      "base": "FrmUserGroupMas",
+      "archetype": "admin",
+      "family": "misc"
+    },
+    {
+      "form": "FrmWasteReceiptEntry",
+      "base": "FrmWasteReceiptEntry",
+      "archetype": "transaction",
+      "family": "grn"
+    },
+    {
+      "form": "FrmWeightScale_Integration",
+      "base": "FrmWeightScale_Integration",
+      "archetype": "transaction",
+      "family": "gate-logistics"
+    },
+    {
+      "form": "FrmYarnStockRegister",
+      "base": "FrmYarnStockRegister",
+      "archetype": "register",
+      "family": "misc"
+    },
+    {
+      "form": "frmYarnStockShow",
+      "base": "frmYarnStockShow",
+      "archetype": "register",
+      "family": "misc"
+    }
+  ]
+}

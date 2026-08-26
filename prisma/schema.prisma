@@ -12,12 +12,11 @@ datasource db {
 
 // ============== ORG / SECURITY ==============
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  name       String
-  role       String      @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
-  createdAt  DateTime    @default(now())
-  agentTurns AgentTurn[]
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
+  createdAt DateTime @default(now())
 }
 
 model AgentTurn {
@@ -29,17 +28,8 @@ model AgentTurn {
   approved   Boolean   @default(false)
   approvedBy String?
   approvedAt DateTime?
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
+  userId     String // plain string (auth out of scope for v1; would be FK to User.id in prod)
   createdAt  DateTime  @default(now())
-  // Audit enrichment (PLAN 4.6, LLD 09 telemetry): which model + prompt
-  // version produced this turn, how many reasoning steps it took, and the
-  // tool-call step it belongs to. Feeds the eval harness + correction stats.
-  model         String? // e.g. glm-4.6
-  promptVersion String? // SYSTEM_PROMPT release tag
-  steps         Int? // reasoning steps used
-  toolName      String? // primary tool of this audit row
-  severity      String? // ok | warn | block (tolerance verdict of the plan)
 }
 
 // ============== MASTERS ==============
@@ -67,7 +57,6 @@ model Party {
   debitNotes     DebitNote[]
   jobworkOrders  JobworkOrder[]
   stockLedgers   StockLedger[]
-  bills          Bill[]
   payments       Payment[]
 }
 
@@ -196,15 +185,13 @@ model Department {
   name              String
   orderSno          Int               @default(0)
   isProcess         Boolean           @default(false)
-  // Legacy Mas_Dept.Prs — cumulative-rate engine discriminator:
-  // 1 = yarn base · 2 = dyeing · 4 = knitting · -4 = yarn twist · null = plain own-rate dept
-  prs               Int?
   employees         Employee[]
   productionEntries ProductionEntry[]
   lines             Line[]
   grns              GRN[]
   currentStocks     CurrentStock[]
-  stages            Stage[]
+  programs          Program[]
+  rejections        RejectionEntry[]
 }
 
 model Employee {
@@ -221,26 +208,28 @@ model Employee {
 }
 
 model Yarn {
-  id    String  @id @default(cuid())
-  code  String  @unique
-  count String
-  blend String?
-  uomId String
-  uom   UOM     @relation(fields: [uomId], references: [id])
-  rate  Float   @default(0)
+  id       String    @id @default(cuid())
+  code     String    @unique
+  count    String
+  blend    String?
+  uomId    String
+  uom      UOM       @relation(fields: [uomId], references: [id])
+  rate     Float     @default(0)
+  programs Program[]
 }
 
 model Fabric {
-  id           String  @id @default(cuid())
-  code         String  @unique
+  id           String    @id @default(cuid())
+  code         String    @unique
   construction String?
   gsm          Float?
   width        Float?
   diaId        String?
-  dia          Dia?    @relation(fields: [diaId], references: [id])
+  dia          Dia?      @relation(fields: [diaId], references: [id])
   uomId        String
-  uom          UOM     @relation(fields: [uomId], references: [id])
-  rate         Float   @default(0)
+  uom          UOM       @relation(fields: [uomId], references: [id])
+  rate         Float     @default(0)
+  programs     Program[]
 }
 
 model Accessory {
@@ -281,6 +270,10 @@ model Order {
   productionEntries ProductionEntry[]
   salesInvoices     SalesInvoice[]
   costSheet         CostSheet[]
+  programs          Program[]
+  lineIssues        LineIssue[]
+  rejections        RejectionEntry[]
+  payments          Payment[]
   party             Party?            @relation(fields: [partyId], references: [id])
   partyId           String?
 }
@@ -471,59 +464,33 @@ model CutBundle {
 // system. Each row is a production stage within a department (e.g. Sewing →
 // "Attach collar", "Close side seam"). Production entries post pcs between
 // stage buckets via the PostingEngine's PCS ledger.
-model Stage {
-  id          String       @id @default(cuid())
-  code        String       @unique
-  name        String
-  deptId      String?
-  department  Department?  @relation(fields: [deptId], references: [id])
-  // PcsType: which ledger this stage posts into (legacy Mas_JobWrkComp.PcsType)
-  pcsType     String       @default("Piece") // Piece | Panel | Bit
-  // RateMethod: how operators are paid at this stage (legacy RateMethod)
-  rateMethod  String? // piece_rate | stage_rate | none
-  prodType    String?  @default("inhouse") // inhouse | jobwork
-  // SemiFinish marker (legacy FinalStage 'S' logic): output stays in WIP vs
-  // becomes final-stage output
-  finalStage  Boolean      @default(false)
-  // Spl_Operation stages skip stock posting entirely (legacy flag parity)
-  splOperation Boolean     @default(false)
-  seq         Int          @default(0) // order within the department chain
-  active      Boolean      @default(true)
-}
-
-model RejectionType {
-  id     String  @id @default(cuid())
-  code   String  @unique
-  name   String
-  // e.g. stain | hole | measurement | shade | needle-damage
-}
 
 model ProductionEntry {
-  id         String     @id @default(cuid())
-  orderId    String
-  order      Order      @relation(fields: [orderId], references: [id])
-  deptId     String
-  department Department @relation(fields: [deptId], references: [id])
-  prodDate   DateTime   @default(now())
-  bundleNo   String?
-  operatorId String?
-  operator   Employee?  @relation(fields: [operatorId], references: [id])
-  styleNo    String?
-  colourId   String?
-  sizeId     String?
-  qty        Int        @default(0)
-  rework     Boolean    @default(false)
-  rate       Float      @default(0)
-  amount     Float      @default(0)
-  shiftWages Float      @default(0)
-  lineId     String?
+  id              String     @id @default(cuid())
+  orderId         String
+  order           Order      @relation(fields: [orderId], references: [id])
+  deptId          String
+  department      Department @relation(fields: [deptId], references: [id])
+  prodDate        DateTime   @default(now())
+  bundleNo        String?
+  operatorId      String?
+  operator        Employee?  @relation(fields: [operatorId], references: [id])
+  styleNo         String?
+  colourId        String?
+  sizeId          String?
+  qty             Int        @default(0)
+  rework          Boolean    @default(false)
+  rate            Float      @default(0)
+  amount          Float      @default(0)
+  shiftWages      Float      @default(0)
+  lineId          String?
   // Stage pipeline (Phase 2): source/target buckets for the PCS ledger
-  targetStageId String?
-  sourceStageId String?
+  targetStageId   String?
+  sourceStageId   String?
   // Good/'M' bucket: rework entries consume 'M' and output 'G' (legacy GoodFlag)
-  goodFlag   String     @default("G") // G | M
+  goodFlag        String     @default("G") // G | M
   rejectionTypeId String?
-  createdAt  DateTime   @default(now())
+  createdAt       DateTime   @default(now())
 }
 
 model Line {
@@ -533,6 +500,7 @@ model Line {
   deptId             String?
   department         Department? @relation(fields: [deptId], references: [id])
   capacityPcsPerHour Int         @default(0)
+  lineIssues         LineIssue[]
 }
 
 // ============== PIECES / FINISHED GOODS ==============
@@ -679,27 +647,6 @@ model JobworkOrder {
 // ============== PCS LEDGER (LLD Pcs_StockTable port) ==============
 // Piece stock per order × style × lot × stage × part × colour × size ×
 // good/'M' bucket × line. Maintained ONLY by the PostingEngine.
-model PcsStock {
-  id           String   @id @default(cuid())
-  orderId      String
-  styleNo      String
-  lotId        String?
-  stageId      String   // Stage.id — bucket owner (stage pipeline position)
-  colourId     String?
-  sizeId       String?
-  // Good/'M' bucket (legacy GoodPcsFlag): G = good, M = rejected (with type)
-  goodFlag     String   @default("G")
-  rejectionTypeId String?
-  // Line bucket (legacy EmpID=line semantics): pcs issued to a sewing line
-  lineId       String?
-  partyId      String?  // outside-stitching party bucket
-  qty          Int      @default(0)
-  // cumulative production through this bucket (for efficiency reports)
-  prodQty      Int      @default(0)
-  updatedAt    DateTime @updatedAt
-
-  @@unique([orderId, styleNo, lotId, stageId, colourId, sizeId, goodFlag, rejectionTypeId, lineId, partyId])
-}
 
 // ============== WORKFLOW ==============
 model Approval {
@@ -779,75 +726,13 @@ model FinYear {
 // ~25 load-bearing flags of the legacy 189. Stored per company (single-tenant
 // v1), typed via valueType, editable through the agent (set_flag) — the
 // enforcement points live in tolerance.ts / the tools that consult it.
-model Flag {
-  id           String   @id @default(cuid())
-  name         String   @unique // legacy name, unchanged (po_buddev, grn_dev, ...)
-  value        String   // stored as string, coerced on read by valueType
-  valueType    String   @default("number") // number | boolean | string
-  category     String   @default("general") // tolerance | numbering | module | commercial | company
-  defaultValue String   @default("")
-  description  String   @default("")
-  updatedAt    DateTime @updatedAt
-}
 
 // ============== HSN MASTER (LLD FrmHSN port) ==============
 // GST % source of truth: invoices take tax % from here by style.hsn,
 // overriding with explicit line values when present (INV-004).
-model HsnCode {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  description String   @default("")
-  gstRate     Float    @default(5)
-  active      Boolean  @default(true)
-}
 
-// ============== BILLS REGISTER (LLD Trs_Bills / frmBillPass port) ==============
 // Supplier/job-work bill register: bill -> pass (TDS) -> payment chain.
 // 3-way match (PO vs GRN vs bill) runs at create time via tolerance.ts.
-model Bill {
-  id           String     @id @default(cuid())
-  billNo       String     @unique
-  partyId      String
-  party        Party      @relation(fields: [partyId], references: [id])
-  billType     String     @default("fab") // yarn | fab | acc | cm | prd (LLD SP_BillsRegView_* variants)
-  refType      String     @default("grn") // po | grn | jobwork | order | none
-  refNo        String? // PO no / GRN no / JW DC no the bill references
-  refId        String?
-  billDate     DateTime   @default(now())
-  finYear      String
-  qty          Float      @default(0)
-  rate        Float      @default(0)
-  taxableValue Float     @default(0)
-  gstRate      Float      @default(0)
-  gstAmount    Float      @default(0)
-  billAmount   Float      @default(0) // taxable + gst + additions - deductions at entry
-  tdsPercent   Float      @default(0)
-  tdsAmount    Float      @default(0)
-  netPayable   Float      @default(0)
-  status       String     @default("received") // received | passed | paid | cancelled
-  matchVerdict String? // JSON of the 3-way match result (PO vs GRN vs bill)
-  remarks      String?
-  passDate     DateTime?
-  createdAt    DateTime   @default(now())
-  passes       BillPass[]
-  payments     Payment[]
-}
-
-// Bill pass (LLD frmBillPass): PassFlg + TDS_Percent + TDSAmount + add/ded heads
-model BillPass {
-  id          String   @id @default(cuid())
-  billId      String
-  bill        Bill     @relation(fields: [billId], references: [id])
-  passDate    DateTime @default(now())
-  tdsPercent  Float    @default(0)
-  tdsAmount   Float    @default(0)
-  deductions  Float    @default(0) // Mas_AddDed negative heads applied at pass
-  additions   Float    @default(0) // Mas_AddDed positive heads applied at pass
-  netPayable  Float    @default(0)
-  passedBy    String   @default("agent")
-  remarks     String?
-  createdAt   DateTime @default(now())
-}
 
 // Payment register (LLD FrmPaymentReg) — settles bills / parties
 model Payment {
@@ -855,8 +740,10 @@ model Payment {
   voucherNo String   @unique
   partyId   String
   party     Party    @relation(fields: [partyId], references: [id])
-  billId    String?
-  bill      Bill?    @relation(fields: [billId], references: [id])
+  direction String   @default("out") // in = receipt | out = payment
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id])
+  invoiceId String?
   payDate   DateTime @default(now())
   finYear   String
   amount    Float    @default(0)
@@ -864,4 +751,62 @@ model Payment {
   reference String? // cheque/UTR no
   notes     String?
   createdAt DateTime @default(now())
+}
+
+// ============== PRODUCTION PIPELINE (order -> program -> cut -> line) ==============
+
+// Production PROGRAM (legacy Trs_Prog port): the production plan right after
+// BOM — yarn to knit / fabric to dye per order+stage. Auto PGM-####.
+model Program {
+  id           String      @id @default(cuid())
+  programNo    String      @unique
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id])
+  stage        String // knitting | dyeing | printing | embroidery | sewing | finishing | packing
+  deptId       String?
+  department   Department? @relation(fields: [deptId], references: [id])
+  yarnId       String?
+  yarn         Yarn?       @relation(fields: [yarnId], references: [id])
+  fabricId     String?
+  fabric       Fabric?     @relation(fields: [fabricId], references: [id])
+  requiredKgs  Float       @default(0)
+  requiredMtrs Float       @default(0)
+  requiredPcs  Float       @default(0)
+  targetDate   DateTime?
+  notes        String?
+  status       String      @default("open") // open | in_progress | completed | cancelled
+  createdAt    DateTime    @default(now())
+}
+
+// Issue cut pieces from main store (G1) to a sewing line. Auto LI-####.
+model LineIssue {
+  id        String   @id @default(cuid())
+  issueNo   String   @unique
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  lineId    String
+  line      Line     @relation(fields: [lineId], references: [id])
+  issueDate DateTime @default(now())
+  qty       Int      @default(0)
+  styleNo   String?
+  notes     String?
+  status    String   @default("issued")
+  createdAt DateTime @default(now())
+}
+
+// QA rejection entry. Auto REJ-####. action scrap/return_to_party moves stock
+// OUT of G2; rework is document-only (re-sewn via post_production_entry).
+model RejectionEntry {
+  id         String      @id @default(cuid())
+  rejNo      String      @unique
+  orderId    String
+  order      Order       @relation(fields: [orderId], references: [id])
+  deptId     String?
+  department Department? @relation(fields: [deptId], references: [id])
+  rejDate    DateTime    @default(now())
+  qty        Int         @default(0)
+  rejType    String      @default("stitch_fault") // stitch|size|fabric|shade_fault | damage | other
+  action     String      @default("scrap") // scrap | rework | return_to_party
+  notes      String?
+  createdAt  DateTime    @default(now())
 }

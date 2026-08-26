@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# context_check.sh — FiberOps ground-truth verifier.
+# Run at the START of every session (see docs/CONTEXT/00-START-HERE.md).
+# Compares reality against claims in docs/CONTEXT/01-STATE.md.
+# EXIT CODE: 0 = no drift, 1 = drift detected (read the DIFF lines!)
+
+cd "$(dirname "$0")/.." || exit 1
+
+PASS=0; FAIL=0
+check() { # check <label> <expected> <actual>
+  if [ "$2" == "$3" ]; then
+    echo "  OK    $1 = $3"
+    PASS=$((PASS+1))
+  else
+    echo "  DRIFT $1 : STATE says '$2' but reality is '$3'"
+    FAIL=$((FAIL+1))
+  fi
+}
+
+echo "=== FiberOps context check ($(date '+%Y-%m-%d %H:%M')) ==="
+echo
+
+echo "[git]"
+HEAD=$(git rev-parse --short HEAD 2>/dev/null || echo "NO-GIT")
+DIRTY=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+echo "  HEAD=$HEAD  dirty-files=$DIRTY"
+TAGS=$(git tag --points-at HEAD 2>/dev/null | tr '\n' ' ')
+echo "  tags-at-HEAD: ${TAGS:-none}"
+echo
+
+echo "[code metrics — reality]"
+# tools: inline `name:` entries + factory-built master CRUD tools (SPEC-M2 §7)
+INLINE_TOOLS=$(grep -cE "^    name: '[a-z_0-9]+'," src/lib/agent/tools.ts)
+FACTORY_CREATE=$(grep -c "masterCreateTool('" src/lib/agent/tools.ts)
+FACTORY_UPDATE=$(grep -c "masterUpdateTool('" src/lib/agent/tools.ts)
+TOOLS=$((INLINE_TOOLS + FACTORY_CREATE + FACTORY_UPDATE))
+DOMAINS=$(grep -cE "^    domain: '" src/lib/agent/tools.ts)
+MODELS=$(grep -c "^model " prisma/schema.prisma)
+VIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
+ARCHETYPES=$(ls src/components/archetypes/*.tsx 2>/dev/null | wc -l)
+TESTS=$(grep -cE "^\s*(it|test)\(" tests/pipeline/industry-chain.test.ts 2>/dev/null)
+REGTESTS=$(grep -cE "^\s*it\(" tests/unit/menu-registry.test.ts 2>/dev/null)
+CFGTESTS=$(grep -cE "^\s*it\(" tests/unit/master-configs.test.ts 2>/dev/null)
+PARITYTESTS=$(grep -cE "^\s*it\(" tests/pipeline/master-parity.test.ts 2>/dev/null)
+MENUITEMS=$(grep -cE "^    id: '[a-z0-9-]+', label:" src/lib/erp/menu-registry.ts)
+LIVEROUTES=$(grep -cE "^  '/[a-z/-]*'," src/lib/erp/menu-registry.ts)
+MASTERCFGS=$(ls src/lib/erp/master-configs/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | wc -l)
+MAXSTEPS=$(grep -oE "MAX_STEPS = [0-9]+" src/app/api/agent/route.ts | grep -oE "[0-9]+")
+APIS=$(ls src/app/api/ | tr '\n' ' ')
+echo "  tools=$TOOLS (inline=$INLINE_TOOLS + factory=$FACTORY_CREATE+$FACTORY_UPDATE)  prisma-models=$MODELS  erp-views=$VIEWS  archetypes=$ARCHETYPES"
+echo "  pipeline-tests=$TESTS  registry-tests=$REGTESTS  master-cfg-tests=$CFGTESTS  master-parity-tests=$PARITYTESTS"
+echo "  menu-items=$MENUITEMS  live-routes=$LIVEROUTES  master-configs=$MASTERCFGS  MAX_STEPS=$MAXSTEPS"
+echo "  api-routes: $APIS"
+
+echo
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-26 M2 session]"
+check "agent tools (inline+factory)" "120"    "$TOOLS"
+check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
+check "factory create tools"       "24"      "$FACTORY_CREATE"
+check "factory update tools"       "24"      "$FACTORY_UPDATE"
+check "prisma models"              "54"      "$MODELS"
+check "erp view/shell components"  "16"      "$VIEWS"
+check "archetype engines"          "1"       "$ARCHETYPES"
+check "pipeline tests"             "15"      "$TESTS"
+check "menu registry tests"        "13"      "$REGTESTS"
+check "master config tests"        "8"       "$CFGTESTS"
+check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
+check "menu items"                 "113"     "$MENUITEMS"
+check "live routes"                "14"      "$LIVEROUTES"
+check "master configs"             "24"      "$MASTERCFGS"
+check "MAX_STEPS"                  "12"      "$MAXSTEPS"
+
+echo
+echo "[file existence — critical assets]"
+for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
+         docs/CONTEXT/02-DECISIONS.md docs/CONTEXT/03-PITFALLS.md \
+         docs/CONTEXT/04-CONVENTIONS.md docs/PLAN-2.0-MENU-PARITY.md \
+         docs/CONTEXT/specs/SPEC-M1.md docs/CONTEXT/specs/SPEC-M2.md docs/form-taxonomy.json \
+         src/lib/agent/tools.ts src/lib/agent/docExtract.ts \
+         src/lib/erp/menu-registry.ts src/lib/erp/master-configs/index.ts \
+         src/lib/erp/master-configs/types.ts src/lib/erp/posting/master-service.ts \
+         src/components/archetypes/master-table.tsx \
+         tests/pipeline/industry-chain.test.ts tests/unit/menu-registry.test.ts \
+         tests/unit/master-configs.test.ts tests/pipeline/master-parity.test.ts \
+         'src/app/(erp)/layout.tsx' 'src/app/(erp)/coming/[id]/page.tsx' \
+         'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
+         'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \
+         prisma/schema.prisma; do
+  if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
+done
+
+echo
+echo "[known-missing (expected gaps, do not 'fix' silently)]"
+[ -f src/app/api/upload/route.ts ] && echo "  NOTE  /api/upload EXISTS now (was lost in rollback — update STATE)" || echo "  OK    /api/upload absent (known gap, rebuild in M3)"
+grep -q "PROMPT_VERSION" src/app/api/agent/route.ts && echo "  NOTE  PROMPT_VERSION exists now (update STATE)" || echo "  OK    no PROMPT_VERSION (matches STATE drift note #1)"
+[ -f src/components/erp/masters-view.tsx ] && echo "  NOTE  masters-view.tsx still exists (M2 should have deleted it)" || echo "  OK    masters-view.tsx deleted (M2)"
+
+echo
+echo "[system]"
+DF=$(df -h . | tail -1 | awk '{print $5}')
+echo "  disk-used=$DF (PITFALLS #11: full disk kills dev server)"
+
+echo
+echo "================================"
+if [ $FAIL -eq 0 ]; then
+  echo "RESULT: NO DRIFT ($PASS checks passed). STATE.md matches reality."
+  exit 0
+else
+  echo "RESULT: DRIFT DETECTED ($FAIL mismatches)."
+  echo "Protocol: trust THIS output → update docs/CONTEXT/01-STATE.md →"
+  echo "log the drift in docs/CONTEXT/03-PITFALLS.md → check git log/tags for"
+  echo "rollback evidence → recover from worklog + download/*.patch if needed."
+  exit 1
+fi

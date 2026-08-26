@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-/* E2E ingestion regression test (Phase 0.4):
+/* E2E ingestion test:
    1. Ask agent to ingest the LPP PO (phase 1: masters)
    2. Approve every pending write plan via /api/agent/approve
    3. Say "continue" (phase 2: orders)
-   4. Approve all orders
-   5. Verify DB state matches the document (5 orders, 30,006 pcs)
+   4. Report every tool call + args so we can verify data fidelity
 */
 const BASE = 'http://localhost:3000'
 
@@ -30,7 +29,7 @@ function summarize(events, label) {
   console.log(`\n========== ${label} ==========`)
   const calls = events.filter((e) => e.type === 'tool-call-start')
   for (const c of calls) {
-    console.log(`TOOL: ${c.toolName}  args=${JSON.stringify(c.args).slice(0, 220)}`)
+    console.log(`TOOL: ${c.toolName}  args=${JSON.stringify(c.args).slice(0, 300)}`)
   }
   const errs = events.filter((e) => e.type === 'tool-call-end' && e.output?.error)
   for (const e of errs) console.log(`ERROR in ${e.toolName}: ${e.output.error}`)
@@ -38,7 +37,7 @@ function summarize(events, label) {
     .filter((e) => e.type === 'text-delta')
     .map((e) => e.delta)
     .join('')
-  console.log(`\n--- agent text (tail) ---\n${text.slice(-1200)}`)
+  console.log(`\n--- agent text ---\n${text.slice(0, 2500)}`)
   return events
 }
 
@@ -52,7 +51,7 @@ async function approveAll(events) {
       body: JSON.stringify({ toolName: e.toolName, args: e.args }),
     })
     const data = await res.json()
-    console.log(`approve ${e.toolName}: ${data.success ? 'OK -> ' + JSON.stringify(data.committed).slice(0, 100) : 'FAIL ' + data.error}`)
+    console.log(`approve ${e.toolName}: ${data.success ? 'OK -> ' + JSON.stringify(data.committed).slice(0, 120) : 'FAIL ' + data.error}`)
   }
 }
 
@@ -62,6 +61,8 @@ const main = async () => {
     { role: 'user', content: '[Attached document: PO_696GJ_revised 21-04-25.pdf]\nIngest this purchase order into the ERP.' },
   ])
   summarize(ev1, 'PHASE 1: ingest document')
+
+  // Approve all masters
   await approveAll(ev1)
 
   // PHASE 2: continue
@@ -71,6 +72,8 @@ const main = async () => {
     { role: 'user', content: 'continue' },
   ])
   summarize(ev2, 'PHASE 2: continue → create orders')
+
+  // Approve all orders
   await approveAll(ev2)
 }
 

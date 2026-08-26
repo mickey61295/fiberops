@@ -1,50 +1,65 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # dependencies
-node_modules/
-.pnp
-.pnp.js
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
 
 # next.js
-.next/
-out/
-build/
+/.next/
+/out/
 
-# secrets & env — NEVER commit
-.env
-.env.*
-!.env.example
-.z-ai-config
-*.pem
-*.key
+# production
+/build
 
-# databases (binary, re-generate via scripts/seed.ts)
-db/*.db
-db/*.db-journal
-*.sqlite
-
-# large user uploads & deliverables (not source)
-upload/
-download/
-tool-results/
-dev.log
-*.log
-
-# legacy source archives & reference extracts (700MB binaries — reference only)
-source-erp/
-research/
-examples/
-mini-services/
-skills/
-tests/
-
-# OS / editor
+# misc
 .DS_Store
-Thumbs.db
-*.swp
-.idea/
-.vscode/
+*.pem
 
-# runtime
-.zscripts/
-*.pid
-tsconfig.tsbuildinfo
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+
+# typescript
+*.tsbuildinfo
 next-env.d.ts
+local-*
+.claude
+.z-ai-config
+*.log
+dev.log
+dev.out.log
+test
+prompt
+
+server.log
+# Skills directory
+/skills/tool-results/
+
+# Rollback #4 hardening: never let git add -A pick up heavy/legacy dirs (PITFALLS #6)
+/source-erp/
+/workspace/
+/download/
+/upload/
+/tool-results/
+/.zscripts/
+/mini-services/
+/examples/
+/skills/

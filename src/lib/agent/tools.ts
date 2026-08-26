@@ -8,13 +8,8 @@ import { db } from '@/lib/db'
 
 import { z } from 'zod'
 import { listUploadDir, extractDocument } from './docExtract'
-import { resolveNumber, activeFinYear } from '../erp/numbering'
-import { apply as applyMovements, applyReversal } from '../erp/posting-engine'
-import * as Matrix from '../erp/movement-matrix'
-import { getFlags, setFlag, flagRegistry } from '../erp/flags'
-import { checkPoVsBudget, checkGrnVsPo, checkBillQty, checkProcessLoss, checkEntryDate, threeWayMatch, worstSeverity, type Verdict } from '../erp/tolerance'
-import { computeCumulativeRate } from '../erp/cumrate'
-import { getPartyExposure } from '../erp/exposure'
+import { getMasterConfig } from '@/lib/erp/master-configs'
+import { buildMasterSchema, planMasterCreate, planMasterUpdate } from '@/lib/erp/posting/master-service'
 
 export type ToolResult = {
   text?: string
@@ -26,13 +21,6 @@ export type ToolResult = {
     updates?: Array<{ table: string; id: string; data: any }>
     sideEffects?: string[]
     approvalId?: string
-    // Tolerance verdicts ride the plan card: ⚠ amber / ✕ red chips (Phase 3.2)
-    tolerances?: Verdict[]
-    // Per-field ingestion confidence (Phase 4.2, LLD 09 §1.3 adapted):
-    // field → 'high' (read verbatim from source doc) | 'medium' (computed /
-    // summed / unit-converted) | 'low' (inferred / defaulted / ambiguous).
-    // Rendered as 🟢/🟡 chips on the plan card; low fields ask for user check.
-    fieldConfidence?: Record<string, 'high' | 'medium' | 'low'>
   }
   // For commit step: actually persist
   commit?: () => Promise<any>
@@ -63,25 +51,137 @@ async function listAll(model: string, where: any = {}) {
   }
 }
 
-/** Extract a GST state code from free-text state: 'Tamil Nadu (33)' | 'TN' | '33' → '33'. */
-function extractStateCode(state: string | null | undefined): string | null {
-  if (!state) return null
-  const m = String(state).match(/\((\d{2})\)/)
-  if (m) return m[1]
-  if (/^\d{2}$/.test(String(state).trim())) return String(state).trim()
-  const named: Record<string, string> = {
-    'tamil nadu': '33', 'tn': '33', 'kerala': '32', 'karnataka': '29', 'andhra pradesh': '37',
-    'telangana': '36', 'maharashtra': '27', 'gujarat': '24', 'delhi': '07', 'west bengal': '19',
-    'punjab': '03', 'haryana': '06', 'rajasthan': '08', 'uttar pradesh': '09', 'madhya pradesh': '23',
-  }
-  return named[String(state).trim().toLowerCase()] ?? null
+// ───────────── Stock posting helpers (industry chain) ─────────────
+// SQLite gotcha (learned the hard way): NULL ≠ '' inside composite unique keys,
+// so CurrentStock buckets MUST be matched with explicit nulls, never loose
+// equality. findFirst with a fully-normalized key, then update by row id.
+
+type StockKey = {
+  itemType: string
+  itemId: string
+  godownId: string
+  lotId?: string | null
+  colourId?: string | null
+  sizeId?: string | null
+  deptId?: string | null
+  orderId?: string | null
 }
 
-const CURRENCY_SYMBOL: Record<string, string> = { INR: '₹', USD: '$', EUR: '€' }
-function money(order: { currency?: string; totalValue: number }): string {
-  const cur = order.currency || 'INR'
-  return `${CURRENCY_SYMBOL[cur] ?? cur} ${order.totalValue}`
+function normalizedStockKey(k: StockKey) {
+  return {
+    itemType: k.itemType,
+    itemId: k.itemId,
+    godownId: k.godownId,
+    lotId: k.lotId ?? null,
+    colourId: k.colourId ?? null,
+    sizeId: k.sizeId ?? null,
+    deptId: k.deptId ?? null,
+    orderId: k.orderId ?? null,
+  }
 }
+
+/** Increment/decrement a CurrentStock bucket (negative deltas allowed — the ERP
+ *  warns on negative stock but never blocks, matching legacy Fiberpro). */
+async function bumpStock(tx: any, k: StockKey, delta: { pcs?: number; kgs?: number; mtrs?: number; bags?: number; rate?: number }) {
+  const key = normalizedStockKey(k)
+  const existing = await tx.currentStock.findFirst({ where: key })
+  if (existing) {
+    await tx.currentStock.update({
+      where: { id: existing.id },
+      data: {
+        pcs: { increment: delta.pcs || 0 },
+        kgs: { increment: delta.kgs || 0 },
+        mtrs: { increment: delta.mtrs || 0 },
+        bags: { increment: delta.bags || 0 },
+      },
+    })
+    return existing.id
+  }
+  const created = await tx.currentStock.create({
+    data: { ...key, pcs: delta.pcs || 0, kgs: delta.kgs || 0, mtrs: delta.mtrs || 0, bags: delta.bags || 0, rate: delta.rate || 0 },
+  })
+  return created.id
+}
+
+/** Write one StockLedger movement row + bump CurrentStock, inside a transaction. */
+async function postLedger(tx: any, m: {
+  txnType: string
+  itemType: string
+  itemId: string
+  godownId?: string
+  deptId?: string | null
+  orderId?: string | null
+  docNo?: string
+  docDate?: Date
+  partyId?: string | null
+  in?: { pcs?: number; kgs?: number; mtrs?: number; bags?: number }
+  out?: { pcs?: number; kgs?: number; mtrs?: number; bags?: number }
+  rate?: number
+  notes?: string
+}) {
+  const finYear = '26-27'
+  const row = await tx.stockLedger.create({
+    data: {
+      txnType: m.txnType,
+      itemType: m.itemType,
+      itemId: m.itemId,
+      godownId: m.godownId ?? null,
+      deptId: m.deptId ?? null,
+      orderId: m.orderId ?? null,
+      docNo: m.docNo ?? null,
+      docDate: m.docDate ?? new Date(),
+      finYear,
+      partyId: m.partyId ?? null,
+      inPcs: m.in?.pcs || 0, inKgs: m.in?.kgs || 0, inMtrs: m.in?.mtrs || 0, inBags: m.in?.bags || 0,
+      outPcs: m.out?.pcs || 0, outKgs: m.out?.kgs || 0, outMtrs: m.out?.mtrs || 0, outBags: m.out?.bags || 0,
+      rate: m.rate || 0,
+      notes: m.notes ?? null,
+    },
+  })
+  if (m.godownId) {
+    // NOTE: the CurrentStock bucket key is (itemType, itemId, godownId) with
+    // all other dims NULL. deptId/orderId live on the LEDGER row for reporting,
+    // but must NOT fragment the stock bucket — otherwise the cut-in (dept null)
+    // and line-out (dept D4) legs land in different buckets and never net out.
+    await bumpStock(tx, {
+      itemType: m.itemType, itemId: m.itemId, godownId: m.godownId,
+      deptId: null, orderId: null,
+    }, {
+      pcs: (m.in?.pcs || 0) - (m.out?.pcs || 0),
+      kgs: (m.in?.kgs || 0) - (m.out?.kgs || 0),
+      mtrs: (m.in?.mtrs || 0) - (m.out?.mtrs || 0),
+      bags: (m.in?.bags || 0) - (m.out?.bags || 0),
+    })
+  }
+  return row.id
+}
+
+/** Next free sequential document number, e.g. nextNumber('cutOrder', 'cutNo', 'CUT-') → CUT-0007. */
+async function nextNumber(model: string, field: string, prefix: string, pad = 4): Promise<string> {
+  const m = (db as any)[model]
+  const all = await m.findMany({ where: { [field]: { startsWith: prefix } } , select: { [field]: true } })
+  const used = new Set(all.map((r: any) => r[field]))
+  let n = 1
+  while (used.has(`${prefix}${String(n).padStart(pad, '0')}`)) n++
+  return `${prefix}${String(n).padStart(pad, '0')}`
+}
+
+/** Resolve a document number: honour an explicit user-supplied value if free, else auto-assign. */
+async function resolveDocNo(model: string, field: string, prefix: string, desired?: string): Promise<string> {
+  if (desired?.trim()) {
+    const m = (db as any)[model]
+    const exists = await m.findUnique({ where: { [field]: desired.trim() } }).catch(() => null)
+    if (!exists) return desired.trim()
+  }
+  return nextNumber(model, field, prefix)
+}
+
+// Stage → department code mapping (Tirupur knitwear chain).
+const STAGE_DEPT: Record<string, string> = {
+  knitting: 'D1', dyeing: 'D2', printing: 'D2', embroidery: 'D2',
+  cutting: 'D3', sewing: 'D4', finishing: 'D5', packing: 'D6',
+}
+
 
 // ───────────── READ TOOLS ─────────────
 
@@ -107,7 +207,7 @@ const readTools: AgentTool[] = [
         text: `Found ${orders.length} orders.`,
         json: orders.map((o) => ({
           id: o.id, orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
-          totalPcs: o.totalPcs, totalValue: o.totalValue, currency: o.currency, valueDisplay: money(o), status: o.status,
+          totalPcs: o.totalPcs, totalValue: o.totalValue, status: o.status,
           deliveryDate: o.deliveryDate, orderDate: o.orderDate,
         })),
       }
@@ -132,8 +232,7 @@ const readTools: AgentTool[] = [
         },
       })
       if (!order) return { text: `Order ${args.orderNo} not found.` }
-      const { currency, fxRate, totalValue, ...rest } = order as any
-      return { text: `Order ${order.orderNo} for ${order.buyer?.name} — ${order.totalPcs} pcs, ${money(order)}`, json: { ...rest, currency, fxRate, totalValue, valueDisplay: money(order) } }
+      return { text: `Order ${order.orderNo} for ${order.buyer?.name}`, json: order }
     },
   },
   {
@@ -343,40 +442,28 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_party_ledger',
-    description: 'Get party ledger (invoices + bills + payments + journals + debit notes) by party code.',
+    description: 'Get party ledger (invoices + journals) by party code.',
     domain: 'accounting',
     isWrite: false,
     schema: z.object({ partyCode: z.string() }),
     async execute(args) {
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
-        || (await db.party.findFirst({ where: { name: args.partyCode } }))
       if (!party) return { text: `Party ${args.partyCode} not found` }
-      const [invoices, journals, debitNotes, bills, payments] = await Promise.all([
+      const [invoices, journals, debitNotes] = await Promise.all([
         db.salesInvoice.findMany({ where: { partyId: party.id } }),
         db.journal.findMany({ where: { partyId: party.id } }),
         db.debitNote.findMany({ where: { partyId: party.id } }),
-        db.bill.findMany({ where: { partyId: party.id } }),
-        db.payment.findMany({ where: { partyId: party.id } }),
       ])
       const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
       const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
       const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
-      const unpaidBills = bills.filter((b) => b.status === 'received' || b.status === 'passed')
-      const billsPayable = unpaidBills.reduce((s, b) => s + b.netPayable, 0)
-      const paidToParty = payments.reduce((s, p) => s + p.amount, 0)
       return {
-        text: `Party ${party.name}: billed(receivable)=₹${totalBilled}, bills payable=₹${billsPayable}, paid=₹${paidToParty}, debit notes=₹${totalDebit}, journals=₹${totalJournal}`,
+        text: `Party ${party.name}: billed=${totalBilled}, debit notes=${totalDebit}, journals=${totalJournal}`,
         json: {
           party: { code: party.code, name: party.name, opening: party.openingBalance },
-          invoices: invoices.length, totalBilled,
-          bills: bills.length, billsPayable,
-          payments: payments.length, paidToParty,
-          totalDebit, totalJournal,
+          invoices: invoices.length, totalBilled, totalDebit, totalJournal,
           recentInvoices: invoices.slice(0, 5).map((i) => ({
             invoiceNo: i.invoiceNo, date: i.invoiceDate, amount: i.billAmount, status: i.status,
-          })),
-          recentBills: bills.slice(0, 5).map((b) => ({
-            billNo: b.billNo, billType: b.billType, refNo: b.refNo, netPayable: b.netPayable, status: b.status,
           })),
         },
       }
@@ -617,20 +704,14 @@ const readTools: AgentTool[] = [
         orderBy: { deliveryDate: 'asc' },
       })
       const totalPcs = orders.reduce((s, o) => s + o.totalPcs, 0)
-      // per-currency totals (FCY fix — never sum ₹ with USD)
-      const byCurrency = new Map<string, number>()
-      for (const o of orders) {
-        const cur = o.currency || 'INR'
-        byCurrency.set(cur, (byCurrency.get(cur) || 0) + o.totalValue)
-      }
-      const totalsStr = [...byCurrency.entries()].map(([cur, v]) => `${CURRENCY_SYMBOL[cur] ?? cur} ${Math.round(v).toLocaleString('en-IN')}`).join(' + ')
+      const totalValue = orders.reduce((s, o) => s + o.totalValue, 0)
       return {
-        text: `${orders.length} open orders, ${totalPcs} pcs total, ${totalsStr} total value.`,
+        text: `${orders.length} open orders, ${totalPcs} pcs total, ₹${totalValue.toLocaleString('en-IN')} total value.`,
         json: {
-          summary: { count: orders.length, totalPcs, totalsByCurrency: Object.fromEntries(byCurrency) },
+          summary: { count: orders.length, totalPcs, totalValue },
           orders: orders.map((o) => ({
             orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
-            totalPcs: o.totalPcs, totalValue: o.totalValue, currency: o.currency || 'INR', valueDisplay: money(o), deliveryDate: o.deliveryDate,
+            totalPcs: o.totalPcs, totalValue: o.totalValue, deliveryDate: o.deliveryDate,
             status: o.status,
           })),
         },
@@ -911,270 +992,37 @@ const readTools: AgentTool[] = [
       }
     },
   },
-  // ───────────── CONFIG / FLAG READS (Phase 3.1) ─────────────
   {
-    name: 'get_flags',
-    description: 'Read feature flags / system configuration (tolerances, commercial switches, company config). Optional category filter (tolerance|numbering|module|commercial|company) or names array for specific flags. Values are typed (numbers/booleans/strings).',
-    domain: 'config',
-    isWrite: false,
-    schema: z.object({
-      category: z.string().optional(),
-      names: z.array(z.string()).optional().describe('Specific flag names, e.g. ["po_buddev", "grn_dev"]'),
-    }),
-    async execute(args) {
-      const defs = flagRegistry().filter((f) => !args.category || f.category === args.category)
-      const names = args.names?.length ? args.names : defs.map((f) => f.name)
-      const values = await getFlags(names)
-      const rows = await db.flag.findMany({ where: { name: { in: names } } })
-      const meta = new Map(rows.map((r) => [r.name, r]))
-      return {
-        text: `${names.length} flag(s): ${names.map((n) => `${n}=${JSON.stringify(values[n])}`).join(', ')}`,
-        json: names.map((n) => {
-          const d = defs.find((x) => x.name === n) || flagRegistry().find((x) => x.name === n)
-          return { name: n, value: values[n], type: d?.valueType, category: d?.category, description: d?.description, defaultValue: d?.value, custom: meta.get(n)?.value !== meta.get(n)?.defaultValue }
-        }),
-      }
-    },
-  },
-  // ───────────── HSN MASTER READS (Phase 3.3) ─────────────
-  {
-    name: 'list_hsn_codes',
-    description: 'List HSN master codes with GST rates (source of truth for invoice GST).',
-    domain: 'masters',
-    isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const rows = await db.hsnCode.findMany({ orderBy: { code: 'asc' } })
-      return {
-        text: `${rows.length} HSN codes. ${rows.slice(0, 10).map((h) => `${h.code}=${h.gstRate}%`).join(', ')}${rows.length > 10 ? ' …' : ''}`,
-        json: rows,
-      }
-    },
-  },
-  // ───────────── COMMERCIAL READS (Phase 3.4-3.6) ─────────────
-  {
-    name: 'list_bills',
-    description: 'List supplier/job-work bills from the bills register. Optional filter by partyCode, status (received|passed|paid|cancelled), or billType (yarn|fab|acc|cm|prd).',
-    domain: 'accounting',
-    isWrite: false,
-    schema: z.object({
-      partyCode: z.string().optional(),
-      status: z.string().optional(),
-      billType: z.string().optional(),
-    }),
-    async execute(args) {
-      const party = args.partyCode ? await db.party.findUnique({ where: { code: args.partyCode } }) : null
-      if (args.partyCode && !party) return { text: `Party ${args.partyCode} not found` }
-      const bills = await db.bill.findMany({
-        where: {
-          ...(party ? { partyId: party.id } : {}),
-          ...(args.status ? { status: args.status } : {}),
-          ...(args.billType ? { billType: args.billType } : {}),
-        },
-        include: { party: true },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      })
-      const total = bills.reduce((s, b) => s + b.netPayable, 0)
-      return {
-        text: `${bills.length} bill(s), net payable ₹${Math.round(total * 100) / 100}.`,
-        json: bills.map((b) => ({
-          billNo: b.billNo, party: b.party.name, billType: b.billType, refType: b.refType, refNo: b.refNo,
-          qty: b.qty, rate: b.rate, taxableValue: b.taxableValue, gstRate: b.gstRate, tdsPercent: b.tdsPercent,
-          netPayable: b.netPayable, status: b.status, billDate: b.billDate,
-        })),
-      }
-    },
-  },
-  {
-    name: 'get_bill_match',
-    description: 'Run a 3-way match (PO qty vs GRN qty vs bill qty/rate) for a reference document. Pass poNo or grnNo plus the billed qty/rate to see deviation verdicts against tolerance flags (bill_bcheck / bill_bcheckdev).',
-    domain: 'accounting',
-    isWrite: false,
-    schema: z.object({
-      poNo: z.string().optional(),
-      grnNo: z.string().optional(),
-      billedQty: z.number(),
-      billedRate: z.number().optional(),
-    }),
-    async execute(args) {
-      let poQty: number | undefined
-      let poRate: number | undefined
-      let grnQty: number | undefined
-      if (args.poNo) {
-        const po = await db.purchaseOrder.findUnique({ where: { poNo: args.poNo }, include: { lines: true } })
-        if (!po) return { text: `PO ${args.poNo} not found` }
-        poQty = po.totalQty
-        poRate = po.lines[0]?.rate
-      }
-      if (args.grnNo) {
-        const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo } })
-        if (!grn) return { text: `GRN ${args.grnNo} not found` }
-        grnQty = grn.totalQty
-      }
-      const match = await threeWayMatch({ poQty, grnQty, billQty: args.billedQty, poRate, billRate: args.billedRate })
-      return {
-        text: match.matched
-          ? `3-way match OK: bill qty ${args.billedQty} agrees with references (PO ${poQty ?? '—'}, GRN ${grnQty ?? '—'}).`
-          : `3-way match deviations:\n${match.verdicts.filter((v) => v.severity !== 'ok').map((v) => `⚠ ${v.message}`).join('\n') || 'within tolerance'}`,
-        json: match,
-      }
-    },
-  },
-  {
-    name: 'get_party_exposure',
-    description: 'Party exposure in three views: absolute document stack (open POs, unbilled GRNs, unpaid bills, payments), material at the party in kgs with DC aging, and value at cumulative rate per order. Answers "how much value is at Anand dyeing?" in ₹.',
-    domain: 'accounting',
-    isWrite: false,
-    schema: z.object({ partyCode: z.string() }),
-    async execute(args) {
-      const exposure = await getPartyExposure(args.partyCode)
-      const a = exposure.absolute
-      return {
-        text: [
-          `Party ${exposure.party.name} (${exposure.party.code}) exposure:`,
-          `• Open POs: ${a.openPoCount} worth ₹${a.openPoValue}`,
-          `• Unbilled GRNs: ₹${a.unbilledGrnValue}`,
-          `• Bills payable: ₹${a.billsPayable} (net now ₹${a.netPayableNow} after payments ₹${a.paymentsMade} / debits ₹${a.debitNotes})`,
-          `• Material at party: ${exposure.material.kgsAtParty} kgs ≈ ₹${exposure.material.valueAtCumRate} at cumulative rate${exposure.material.dcAgingDays != null ? ` (oldest DC ${exposure.material.dcAgingDays} days old)` : ''}`,
-          exposure.program.length ? `• Program-wise: ${exposure.program.map((p) => `${p.orderNo} ${p.kgsAtParty}kgs ₹${p.valueAtCumRate}`).join('; ')}` : '• No material at party',
-        ].join('\n'),
-        json: exposure,
-      }
-    },
-  },
-  {
-    name: 'get_cumulative_rate',
-    description: 'Cumulative rate per kg for an order (Tgr_StockRatePost parity): walks departments in Sno order — yarn base + dyeing + knitting + own rates from actual postings, falling back to budgets. Shows each leg with basis and the running cumulative.',
-    domain: 'costing',
-    isWrite: false,
-    schema: z.object({ orderNo: z.string() }),
-    async execute(args) {
-      const r = await computeCumulativeRate(args.orderNo)
-      return {
-        text: [
-          `Cumulative rate for ${r.orderNo}${r.styleNo ? ` (style ${r.styleNo})` : ''}: ₹${Math.round(r.totalRatePerKg * 100) / 100}/kg`,
-          ...r.legs.map((l) => `• ${l.deptCode} ${l.deptName}: +₹${Math.round(l.ownRate * 100) / 100}/kg → cum ₹${Math.round(l.cumRate * 100) / 100}/kg (${l.basis}${l.qtyKgs ? `, ${Math.round(l.qtyKgs)} kgs` : ''})`),
-          ...r.notes.map((n) => `· ${n}`),
-        ].join('\n'),
-        json: r,
-      }
-    },
-  },
-  {
-    name: 'get_daily_digest',
-    description: 'Owner-grade daily exceptions digest (one prompt = full morning briefing): non-return jobwork DCs aging beyond the gendcdays flag, overdue sales orders, pending approvals, negative-stock warnings, bills awaiting pass, unbilled GRNs. Use it for "what needs my attention today?".',
-    domain: 'meta',
-    isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const flags = await getFlags(['gendcdays'])
-      const dcDays = flags.gendcdays as number
-      const now = new Date()
-      const daysAgo = (d: Date) => Math.floor((now.getTime() - d.getTime()) / 86_400_000)
-
-      const [jobworks, overdueOrders, pendingApprovals, negStock, billsAwaiting, grns] = await Promise.all([
-        db.jobworkOrder.findMany({ where: { status: 'sent' }, include: { jobworker: true } }),
-        db.order.findMany({ where: { status: { in: ['open', 'in_progress'] }, deliveryDate: { lt: now } }, include: { buyer: true, style: true } }),
-        db.approval.findMany({ where: { status: 'pending' }, take: 50 }),
-        db.currentStock.findMany({ where: { OR: [{ kgs: { lt: 0 } }, { pcs: { lt: 0 } }, { mtrs: { lt: 0 } }, { bags: { lt: 0 } }] }, take: 50 }),
-        db.bill.findMany({ where: { status: 'received' }, include: { party: true } }),
-        db.gRN.findMany({ orderBy: { createdAt: 'desc' }, take: 200, include: { party: true } }),
-      ])
-
-      // non-return DCs beyond gendcdays
-      const agedDcs = jobworks
-        .map((j) => ({ dcNo: j.dcNo, party: j.jobworker.name, processType: j.processType, qty: j.totalQty, outDate: j.outDate, age: daysAgo(j.outDate), expectedIn: j.expectedInDate }))
-        .filter((j) => j.age > dcDays)
-        .sort((a, b) => b.age - a.age)
-      // unbilled GRNs older than 30 days
-      const billedRefs = new Set((await db.bill.findMany({ select: { refNo: true } })).map((b) => b.refNo).filter(Boolean))
-      const unbilledGrns = grns.filter((g) => !billedRefs.has(g.grnNo) && daysAgo(g.grnDate) > 30 && g.totalValue > 0)
-
-      const lines: string[] = []
-      lines.push(`DAILY DIGEST — ${now.toDateString()}`)
-      lines.push(`• Jobwork DCs out beyond ${dcDays} days: ${agedDcs.length}${agedDcs.length ? ' — ' + agedDcs.slice(0, 5).map((d) => `${d.dcNo} @ ${d.party} (${d.processType}, ${d.qty} units, ${d.age}d)`).join('; ') : ''}`)
-      lines.push(`• Overdue sales orders: ${overdueOrders.length}${overdueOrders.length ? ' — ' + overdueOrders.slice(0, 5).map((o) => `${o.orderNo} ${o.buyer?.name ?? ''} (due ${o.deliveryDate?.toISOString().slice(0, 10)}, ${o.totalPcs} pcs)`).join('; ') : ''}`)
-      lines.push(`• Pending approvals: ${pendingApprovals.length}${pendingApprovals.length ? ' — ' + pendingApprovals.slice(0, 5).map((a) => `${a.entity}:${(a.entityId || '').slice(-8)}`).join('; ') : ''}`)
-      lines.push(`• Negative stock buckets: ${negStock.length}${negStock.length ? ' — ' + negStock.slice(0, 5).map((s) => `${s.itemType}:${s.itemId.slice(-6)} ${s.kgs ? s.kgs + 'kg' : s.pcs + 'pcs'}`).join('; ') : ''}`)
-      lines.push(`• Bills awaiting pass: ${billsAwaiting.length}${billsAwaiting.length ? ' — ₹' + Math.round(billsAwaiting.reduce((s, b) => s + b.billAmount, 0)) + ' from ' + [...new Set(billsAwaiting.map((b) => b.party.name))].slice(0, 3).join(', ') : ''}`)
-      lines.push(`• GRNs unbilled >30 days: ${unbilledGrns.length}${unbilledGrns.length ? ' — ₹' + Math.round(unbilledGrns.reduce((s, g) => s + g.totalValue, 0)) : ''}`)
-      const critical = agedDcs.length + overdueOrders.length + negStock.length
-      lines.push(critical > 0 ? `STATUS: ${critical} critical item(s) need action today.` : 'STATUS: all clear — no critical exceptions.')
-
-      return {
-        text: lines.join('\n'),
-        json: {
-          date: now.toISOString(),
-          agedJobworkDcs: agedDcs,
-          overdueOrders: overdueOrders.map((o) => ({ orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo, deliveryDate: o.deliveryDate, totalPcs: o.totalPcs })),
-          pendingApprovals: pendingApprovals.length,
-          negativeStock: negStock.map((s) => ({ itemType: s.itemType, itemId: s.itemId, kgs: s.kgs, pcs: s.pcs, godownId: s.godownId })),
-          billsAwaitingPass: billsAwaiting.map((b) => ({ billNo: b.billNo, party: b.party.name, billAmount: b.billAmount })),
-          unbilledGrns: unbilledGrns.map((g) => ({ grnNo: g.grnNo, party: g.party.name, totalValue: g.totalValue, grnDate: g.grnDate })),
-          criticalCount: critical,
-        },
-      }
-    },
-  },
-  {
-    name: 'list_payments',
-    description: 'List payments from the payment register. Optional partyCode or billNo filter.',
-    domain: 'accounting',
-    isWrite: false,
-    schema: z.object({
-      partyCode: z.string().optional(),
-      billNo: z.string().optional(),
-    }),
-    async execute(args) {
-      const party = args.partyCode ? await db.party.findUnique({ where: { code: args.partyCode } }) : null
-      if (args.partyCode && !party) return { text: `Party ${args.partyCode} not found` }
-      const bill = args.billNo ? await db.bill.findUnique({ where: { billNo: args.billNo } }) : null
-      if (args.billNo && !bill) return { text: `Bill ${args.billNo} not found` }
-      const payments = await db.payment.findMany({
-        where: {
-          ...(party ? { partyId: party.id } : {}),
-          ...(bill ? { billId: bill.id } : {}),
-        },
-        include: { party: true },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      })
-      const total = payments.reduce((s, p) => s + p.amount, 0)
-      return {
-        text: `${payments.length} payment(s), total ₹${Math.round(total * 100) / 100}.`,
-        json: payments.map((p) => ({ voucherNo: p.voucherNo, party: p.party.name, billNo: p.billId, amount: p.amount, mode: p.mode, reference: p.reference, payDate: p.payDate })),
-      }
-    },
-  },
-  {
-    // Industry-workflow guide (Phase 1.8 — order→program→cut→production→despatch→invoice→cost→collection).
-    // Inspects the current state of an order and returns the NEXT canonical pipeline step
-    // with a pre-filled tool-args skeleton so the user can immediately call the next tool.
+    // Industry-workflow guide — the order→program→cut→production→despatch→
+    // invoice→cost→collection chain. Inspects an order's current pipeline state
+    // and returns the NEXT canonical step with a pre-filled args skeleton so the
+    // user can immediately call the next tool. This is what makes the agent
+    // walk users through the Tirupur knitwear job-work flow instead of stopping
+    // after `create_order`.
     name: 'suggest_next_step',
-    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
+    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → program → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
     domain: 'workflow',
     isWrite: false,
     schema: z.object({
       orderNo: z.string().optional().describe('Sales order number like SO-1001. If omitted, returns the canonical pipeline template.'),
     }),
     async execute(args) {
-      // Canonical pipeline — every step references a tool that exists in this registry.
-      const PIPELINE = [
+      const PIPELINE: Array<{ step: number; name: string; tool: string; produces: string }> = [
         { step: 1, name: 'Order created (sales order from buyer PO)', tool: 'create_order', produces: 'order' },
         { step: 2, name: 'Bill of Materials (yarn/fabric/accessories per style)', tool: 'create_bom', produces: 'bom' },
-        { step: 3, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
-        { step: 4, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
-        { step: 5, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
-        { step: 6, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
-        { step: 7, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
-        { step: 8, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
-        { step: 9, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
-        { step: 10, name: 'Rework / rejection (defects)', tool: 'post_rework', produces: 'rework' },
-        { step: 11, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
-        { step: 12, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
-        { step: 13, name: 'Cost sheet (cumulative rate walk)', tool: 'create_cost_sheet', produces: 'cost' },
-        { step: 14, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
+        { step: 3, name: 'Program — production plan (yarn to knit / fabric to dye per order)', tool: 'create_program', produces: 'program' },
+        { step: 4, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
+        { step: 5, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
+        { step: 6, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
+        { step: 7, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
+        { step: 8, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
+        { step: 9, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
+        { step: 10, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
+        { step: 11, name: 'Rework / rejection (defects)', tool: 'post_rejection', produces: 'rework' },
+        { step: 12, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
+        { step: 13, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
+        { step: 14, name: 'Cost sheet (budget vs actual)', tool: 'create_cost_sheet', produces: 'cost' },
+        { step: 15, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
       ]
 
       if (!args.orderNo) {
@@ -1189,97 +1037,196 @@ const readTools: AgentTool[] = [
         include: {
           buyer: true, style: { include: { bomLines: true } },
           lines: { include: { colour: true, size: true } },
-          cutOrders: { include: { bundles: true } },
+          programs: true,
+          cutOrders: true,
+          lineIssues: true,
           productionEntries: true,
           salesInvoices: true,
           costSheet: true,
+          payments: true,
         },
       })
       if (!order) return { text: `Order ${args.orderNo} not found.` }
 
-      // Detect the deepest reached stage.
       const has = {
         bom: !!order.style?.bomLines?.length,
+        program: (order.programs?.length ?? 0) > 0,
         cut: (order.cutOrders?.length ?? 0) > 0,
+        lineIssue: (order.lineIssues?.length ?? 0) > 0,
         production: (order.productionEntries?.length ?? 0) > 0,
         invoice: (order.salesInvoices?.length ?? 0) > 0,
         cost: (order.costSheet?.length ?? 0) > 0,
+        payment: (order.payments?.length ?? 0) > 0,
       }
+      const produced = order.productionEntries?.filter((e: any) => !e.rework).reduce((s: number, e: any) => s + e.qty, 0) || 0
+      const producedPct = order.totalPcs > 0 ? Math.round((produced / order.totalPcs) * 100) : 0
 
-      let nextStep: typeof PIPELINE[number] | null = null
+      let nextStep: typeof PIPELINE[number] = PIPELINE[2]
       let skeleton: Record<string, any> = {}
+      const today = new Date().toISOString().slice(0, 10)
 
       if (!has.bom) {
-        nextStep = PIPELINE[1] // create_bom
+        nextStep = PIPELINE[1]
         skeleton = {
           styleNo: order.style?.styleNo,
-          components: [{ itemType: 'yarn', qty: 0, uom: 'kg' }],
-          notes: `BOM for order ${order.orderNo}`,
+          components: [{ itemType: 'yarn', qty: Math.ceil(order.totalPcs * 0.25), uom: 'kg' }],
+          notes: `BOM for order ${order.orderNo} (estimate: 0.25 kg/pc — adjust to actual GSM)`,
         }
-      } else if (!has.cut) {
-        nextStep = PIPELINE[6] // create_cut_order
-        const byColourSize = order.lines.map((l: any) => ({
-          colour: l.colour?.name, size: l.size?.name, qty: l.qty,
-        }))
+      } else if (!has.program) {
+        nextStep = PIPELINE[2]
         skeleton = {
           orderNo: order.orderNo,
-          styleNo: order.style?.styleNo,
-          cuts: byColourSize,
-          cutDate: new Date().toISOString().slice(0, 10),
+          stage: 'knitting',
+          requiredKgs: Math.ceil(order.totalPcs * 0.25),
+          notes: `Knitting program for ${order.orderNo}`,
         }
-      } else if (!has.production) {
-        nextStep = PIPELINE[8] // post_production_entry
+      } else if (!has.cut) {
+        nextStep = PIPELINE[7]
+        skeleton = {
+          orderNo: order.orderNo,
+          fabricIssued: Math.ceil(order.totalPcs * 0.25),
+          totalPcs: order.totalPcs,
+          cutDate: today,
+        }
+      } else if (!has.lineIssue) {
+        nextStep = PIPELINE[8]
         skeleton = {
           orderNo: order.orderNo,
           lineCode: 'L1',
           qty: order.totalPcs,
-          stage: 'sewing',
-          goodFlag: 'G',
-          entryDate: new Date().toISOString().slice(0, 10),
+          issueDate: today,
         }
-      } else if (!has.invoice) {
-        nextStep = PIPELINE[11] // create_sales_invoice
+      } else if (!has.production) {
+        nextStep = PIPELINE[9]
         skeleton = {
           orderNo: order.orderNo,
-          invoiceType: order.currency && order.currency !== 'INR' ? 'export' : 'local',
-          invoiceDate: new Date().toISOString().slice(0, 10),
+          deptCode: 'D4',
+          prodDate: today,
+          bundleNo: 'B1',
+          operatorCode: '<operator-code>',
+          qty: order.totalPcs,
+          rate: 0,
+        }
+      } else if (!has.invoice) {
+        nextStep = PIPELINE[12]
+        skeleton = {
+          orderNo: order.orderNo,
+          invoiceType: 'domestic',
+          invoiceDate: today,
         }
       } else if (!has.cost) {
-        nextStep = PIPELINE[12] // create_cost_sheet
+        nextStep = PIPELINE[13]
         skeleton = { orderNo: order.orderNo }
       } else {
-        nextStep = PIPELINE[13] // record_payment
-        const inv = order.salesInvoices[0]
+        nextStep = PIPELINE[14]
+        const inv = order.salesInvoices?.[0]
         skeleton = {
           partyCode: order.buyer?.code,
-          billNo: inv?.invoiceNo,
+          invoiceNo: inv?.invoiceNo,
           amount: inv?.billAmount,
+          direction: 'in',
           mode: 'bank',
-          payDate: new Date().toISOString().slice(0, 10),
+          payDate: today,
+        }
+        if (has.payment) {
+          return {
+            text: `Order ${order.orderNo} — ALL 15 STAGES COMPLETE (production ${producedPct}%, invoice ${inv?.invoiceNo || '-'} issued, payments received). Order lifecycle done.`,
+            json: {
+              orderNo: order.orderNo, buyer: order.buyer?.name, totalPcs: order.totalPcs,
+              produced, producedPct, state: has, completed: PIPELINE.map((p) => p.step),
+              nextStep: null, skeleton: null, pipelineComplete: true,
+            },
+          }
         }
       }
 
       const completed = PIPELINE.filter((p) => {
         if (p.produces === 'order') return true
         if (p.produces === 'bom') return has.bom
+        if (p.produces === 'program') return has.program
         if (p.produces === 'cut') return has.cut
+        if (p.produces === 'lineIssue') return has.lineIssue
         if (p.produces === 'production') return has.production
         if (p.produces === 'invoice') return has.invoice
         if (p.produces === 'cost') return has.cost
+        if (p.produces === 'payment') return has.payment
         return false
       })
 
       return {
-        text: `Order ${order.orderNo} — next step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress so far: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 14 stages.`,
+        text: `Order ${order.orderNo} (buyer ${order.buyer?.name || '-'}, ${order.totalPcs} pcs) — production ${producedPct}% (${produced}/${order.totalPcs}).\nNext step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 15 stages.`,
         json: {
           orderNo: order.orderNo,
           buyer: order.buyer?.name,
           totalPcs: order.totalPcs,
+          produced,
+          producedPct,
           state: has,
           completed: completed.map((c) => c.step),
-          nextStep: nextStep,
+          nextStep,
           skeleton,
         },
+      }
+    },
+  },
+  {
+    // Program status — required vs actual per production program, with balances
+    // computed from the StockLedger (source of truth), not from projector columns.
+    name: 'get_program_status',
+    description: 'Production program status for an order: each program (knitting/dyeing/...) with required qty, actual qty consumed/produced (from the stock ledger), and balance. Also shows yarn and fabric balances for the order.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().describe('Sales order number like SO-1001'),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({
+        where: { orderNo: args.orderNo },
+        include: {
+          programs: { include: { yarn: true, fabric: true, department: true } },
+        },
+      })
+      if (!order) return { text: `Order ${args.orderNo} not found.` }
+
+      // Aggregate the ledger for this order per (itemType, itemId).
+      const ledger = await db.stockLedger.findMany({ where: { orderId: order.id } })
+      const agg = new Map<string, { inKgs: number; outKgs: number; inMtrs: number; outMtrs: number; inPcs: number; outPcs: number }>()
+      for (const r of ledger) {
+        const key = `${r.itemType}:${r.itemId}`
+        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
+        a.inKgs += r.inKgs; a.outKgs += r.outKgs
+        a.inMtrs += r.inMtrs; a.outMtrs += r.outMtrs
+        a.inPcs += r.inPcs; a.outPcs += r.outPcs
+        agg.set(key, a)
+      }
+
+      const produced = order.programs.map((p: any) => {
+        const isYarn = !!p.yarnId
+        const key = isYarn ? `yarn:${p.yarnId}` : `fabric:${p.fabricId}`
+        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
+        // Knitting program (yarn): actual = yarn consumed (out). Dyeing program (fabric): actual = fabric received in (in).
+        const required = p.requiredKgs
+        const actual = isYarn ? a.outKgs : a.inKgs
+        return {
+          programNo: p.programNo,
+          stage: p.stage,
+          dept: p.department?.code,
+          item: isYarn ? p.yarn?.code : p.fabric?.code,
+          requiredKgs: required,
+          actualKgs: Math.round(actual * 100) / 100,
+          balanceKgs: Math.round((required - actual) * 100) / 100,
+          status: p.status,
+          targetDate: p.targetDate,
+        }
+      })
+
+      const lines = produced.length
+        ? produced.map((p) => `${p.programNo} [${p.stage}${p.dept ? ' @' + p.dept : ''}] ${p.item || '-'}: required ${p.requiredKgs} kg, actual ${p.actualKgs} kg, balance ${p.balanceKgs} kg (${p.status})`)
+        : ['No programs yet — call create_program to plan production for this order.']
+
+      return {
+        text: `Program status for ${order.orderNo}:\n` + lines.join('\n'),
+        json: { orderNo: order.orderNo, programs: produced },
       }
     },
   },
@@ -1287,10 +1234,188 @@ const readTools: AgentTool[] = [
 
 // ───────────── WRITE TOOLS (plan-then-commit) ─────────────
 
+
+// ───────────── MASTER CRUD TOOLS (SPEC-M2 §7) — thin delegates ─────────────
+// ADR-001: ALL master business logic lives in src/lib/erp/posting/master-service.ts.
+// These tools and the form server action (src/app/(erp)/masters/actions.ts) call
+// the SAME plan/commit functions — form and agent behavior cannot drift.
+
+function masterCreateTool(slug: string, description: string): AgentTool {
+  const config = getMasterConfig(slug)!
+  return {
+    name: config.createTool,
+    description,
+    domain: 'masters',
+    isWrite: true,
+    schema: buildMasterSchema(config, 'create'),
+    async execute(args) {
+      const plan = await planMasterCreate(config, args)
+      if (!plan.ok) return { text: plan.errors.join('; ') }
+      return {
+        text: plan.summary,
+        plan: {
+          summary: plan.summary,
+          creates: plan.creates ? [plan.creates] : undefined,
+          sideEffects: plan.sideEffects,
+        },
+        commit: plan.commit,
+      }
+    },
+  }
+}
+
+function masterUpdateTool(slug: string, description: string): AgentTool {
+  const config = getMasterConfig(slug)!
+  return {
+    name: config.updateTool,
+    description,
+    domain: 'masters',
+    isWrite: true,
+    schema: buildMasterSchema(config, 'update'),
+    async execute(args) {
+      const plan = await planMasterUpdate(config, args)
+      if (!plan.ok) return { text: plan.errors.join('; ') }
+      return {
+        text: plan.summary,
+        plan: {
+          summary: plan.summary,
+          updates: plan.updates ? [plan.updates] : undefined,
+          sideEffects: plan.sideEffects,
+        },
+        commit: plan.commit,
+      }
+    },
+  }
+}
+
+const masterCreateTools: AgentTool[] = [
+  masterCreateTool('party', 'Create a party master (customer / supplier / both). code is optional — auto-assigned PRT-#### if omitted or taken. Required: name, partyType (supplier|customer|both). Optional: gstin, pan, address, city, state, phone, email, openingBalance.'),
+  masterCreateTool('buyer', 'Create a buyer master (the customer department / brand). code is optional — auto-assigned B-#### if omitted or taken. Required: name. Optional: dept, merchandiser.'),
+  masterCreateTool('style', 'Create a style master. styleNo is optional — auto-assigned STY-#### if omitted or taken. Required: description. Optional: buyerCode, category (woven|knit), sam, hsn.'),
+  masterCreateTool('yarn', 'Create a yarn master. code is optional — auto-assigned Y-#### if omitted or taken. Required: count, uomCode. Optional: blend, rate.'),
+  masterCreateTool('fabric', 'Create a fabric master. code is optional — auto-assigned F-#### if omitted or taken. Required: uomCode. Optional: construction, gsm, width, diaValue (creates Dia if missing), rate.'),
+  masterCreateTool('accessory', 'Create an accessory master (zipper, button, label, etc). code is optional — auto-assigned A-#### if omitted or taken. Required: name, uomCode. Optional: category, rate.'),
+  masterCreateTool('godown', 'Create a godown (warehouse). code is optional — auto-assigned G#### if omitted or taken. Required: name. Optional: location.'),
+  masterCreateTool('department', 'Create a department / process. code is optional — auto-assigned D#### if omitted or taken. Required: name. Optional: orderSno, isProcess.'),
+  masterCreateTool('employee', 'Create an employee master. code is optional — auto-assigned EMP-#### if omitted or taken. Required: name. Optional: deptCode, role (operator|supervisor|helper), pieceRate, dailyWage, active.'),
+  masterCreateTool('colour', 'Create a colour master. Required: name, code (e.g. RED, BLK, NAV). If colour exists, returns it.'),
+  masterCreateTool('size', 'Create a size master. Required: name (e.g. S, M, L, XL, 32, 34). Optional: sort order.'),
+  masterCreateTool('uom', 'Create a unit of measure master. Required: name (KGS, MTR, PCS, BAG), code (matching). If exists, returns it.'),
+  masterCreateTool('dia', 'Create a dia (machine diameter) master. Required: value (e.g. "30", "34"). If exists, returns it.'),
+  masterCreateTool('lot', 'Create a lot master. lotNo is optional — auto-assigned LOT-#### if omitted or taken. Optional: partyCode.'),
+  masterCreateTool('season', 'Create a season master. Required: code, name. Optional: startDate, endDate.'),
+  masterCreateTool('merchandiser', 'Create a merchandiser master. Required: name. Optional: email, phone.'),
+  masterCreateTool('exporter', 'Create an exporter master (the exporting entity). Required: code, name. Optional: iec, gstin.'),
+  masterCreateTool('fin-year', 'Create a financial year. Required: code, name, start, end. Optional: active (set true for current FY — deactivates other years).'),
+  masterCreateTool('line', 'Create a production line. Required: code, name. Optional: deptCode, capacityPcsPerHour.'),
+  masterCreateTool('size-group', 'Create a size group master. Required: name, sizes (CSV of size names). Resolves each size name to a Size row.'),
+  masterCreateTool('part', 'Create a garment part master. Required: name (e.g. Front Panel, Sleeve, Collar).'),
+  masterCreateTool('component', 'Create a component master. Required: name (e.g. Self Fabric, Contrast Panel).'),
+  masterCreateTool('design', 'Create a design master. Required: code, name.'),
+  masterCreateTool('govt-holiday', 'Create a government holiday. Required: date (ISO), name.'),
+]
+
+const masterUpdateTools: AgentTool[] = [
+  masterUpdateTool('party', 'Update an existing party master by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('buyer', 'Update an existing buyer by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('style', 'Update an existing style by styleNo. All fields optional; only provided fields are updated (buyerCode resolves the buyer by code or name).'),
+  masterUpdateTool('yarn', 'Update an existing yarn by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('fabric', 'Update an existing fabric by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('accessory', 'Update an existing accessory by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('godown', 'Update an existing godown by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('department', 'Update an existing department by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('employee', 'Update an existing employee by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('colour', 'Update an existing colour by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('size', 'Update an existing size by name. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('size-group', 'Update an existing size group by name. All fields optional; sizes = CSV/array of size names.'),
+  masterUpdateTool('dia', 'Update an existing dia by value. (Dia has a single field — to change it, create a new dia.)'),
+  masterUpdateTool('uom', 'Update an existing UOM by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('lot', 'Update an existing lot by lotNo. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('season', 'Update an existing season by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('merchandiser', 'Update an existing merchandiser by name. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('exporter', 'Update an existing exporter by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('fin-year', 'Update an existing financial year by code. All fields optional. Setting active=true makes it the current FY and deactivates other years.'),
+  masterUpdateTool('line', 'Update an existing production line by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('part', 'Update an existing garment part by name. (Part has a single field — to rename, create a new part.)'),
+  masterUpdateTool('component', 'Update an existing component by name. (Component has a single field — to rename, create a new component.)'),
+  masterUpdateTool('design', 'Update an existing design by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('govt-holiday', 'Update an existing govt holiday by date (ISO). Provide name to rename it.'),
+]
+
+// new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
+const masterNewListTools: AgentTool[] = [
+  {
+    name: 'list_size_groups',
+    description: 'List size groups with their size names resolved.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const groups = await db.sizeGroup.findMany()
+      const sizes = await db.size.findMany()
+      const byId = new Map(sizes.map((s: any) => [s.id, s.name]))
+      return {
+        text: `${groups.length} size groups`,
+        json: groups.map((g: any) => ({
+          name: g.name,
+          sizes: String(g.sizes || '').split(',').filter(Boolean).map((id: string) => byId.get(id) || id).join(', '),
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_parts',
+    description: 'List garment parts (e.g. Front Panel, Sleeve).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.part.findMany({ take: 200 })
+      return { text: `${rows.length} parts`, json: rows.map((p: any) => ({ name: p.name })) }
+    },
+  },
+  {
+    name: 'list_components',
+    description: 'List components (e.g. Self Fabric, Contrast Panel).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.component.findMany({ take: 200 })
+      return { text: `${rows.length} components`, json: rows.map((c: any) => ({ name: c.name })) }
+    },
+  },
+  {
+    name: 'list_designs',
+    description: 'List designs.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.design.findMany({ take: 200 })
+      return { text: `${rows.length} designs`, json: rows.map((d: any) => ({ code: d.code, name: d.name })) }
+    },
+  },
+  {
+    name: 'list_govt_holidays',
+    description: 'List government holidays.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.govtHoliday.findMany({ orderBy: { date: 'desc' }, take: 400 })
+      return {
+        text: `${rows.length} holidays`,
+        json: rows.map((h: any) => ({ date: h.date instanceof Date ? h.date.toISOString().slice(0, 10) : h.date, name: h.name })),
+      }
+    },
+  },
+]
+
 const writeTools: AgentTool[] = [
   {
     name: 'create_order',
-    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), currency (INR default; USD/EUR for export orders — rates are then in that currency), fxRate (conversion to INR, default 1), notes.',
+    description: 'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), notes.',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
@@ -1307,9 +1432,6 @@ const writeTools: AgentTool[] = [
       })).min(1),
       notes: z.string().optional(),
       finYear: z.string().optional(),
-      currency: z.string().optional().describe('INR | USD | EUR — currency of line rates and totalValue'),
-      fxRate: z.number().optional().describe('Conversion rate to INR (default 1)'),
-      fieldConfidence: z.record(z.string(), z.string()).optional().describe('Per-field confidence for ingested documents: {field: "high"|"medium"|"low"}. high = verbatim from the source doc; medium = computed/summed/converted; low = inferred or defaulted. Cover at least qty, rate, deliveryDate, colourName, sizeName.'),
     }),
     async execute(args) {
       // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
@@ -1321,42 +1443,42 @@ const writeTools: AgentTool[] = [
 
       const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
       const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-      const finYear = args.finYear || await activeFinYear()
-      const currency = (args.currency || 'INR').toUpperCase()
-      const fxRate = args.fxRate ?? 1
-      const money = currency === 'INR' ? `₹${totalValue}` : `${currency} ${totalValue} (₹${Math.round(totalValue * fxRate)} at ${fxRate})`
+      const finYear = args.finYear || '26-27'
 
-      // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy").
-      // NULL-consistent: unresolved lookups store NULL, never '' (P2003 bug —
-      // empty string violates the nullable FK on orderLine.colourId/sizeId).
+      // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy")
       const [allColours, allSizes] = await Promise.all([db.colour.findMany(), db.size.findMany()])
       const colourByName = new Map(allColours.map((c) => [c.name.toLowerCase(), c]))
       const sizeByName = new Map(allSizes.map((s) => [s.name.toLowerCase(), s]))
-      const unresolved: string[] = []
       const linesData = args.lines.map((l) => {
         const colour = colourByName.get(String(l.colourName).toLowerCase())
         const size = sizeByName.get(String(l.sizeName).toLowerCase())
-        if (!colour) unresolved.push(`colour "${l.colourName}"`)
-        if (!size) unresolved.push(`size "${l.sizeName}"`)
-        return { colourId: colour?.id ?? null, sizeId: size?.id ?? null, qty: l.qty, rate: l.rate }
+        return { colourId: colour?.id || '', sizeId: size?.id || '', qty: l.qty, rate: l.rate }
       })
-      if (unresolved.length) {
-        return { text: `Cannot create order ${args.orderNo || ''}: unresolved ${[...new Set(unresolved)].join(', ')} — create the missing master(s) first (create_colour / create_sizes), then retry. Case-insensitive match is applied ("NAVY" ≡ "Navy").` }
-      }
 
       // Resolve a free order number (auto-increment if not provided / collision)
-      const resolvedOrderNo = await resolveNumber('order', args.orderNo)
+      const resolvedOrderNo = await (async () => {
+        const desired = args.orderNo?.trim()
+        if (desired) {
+          const exists = await db.order.findUnique({ where: { orderNo: desired } })
+          if (!exists) return desired
+        }
+        // Find next free SO-####
+        const all = await db.order.findMany({ where: { orderNo: { startsWith: 'SO-' } } })
+        const used = new Set(all.map((o) => o.orderNo))
+        let n = 1001
+        while (used.has(`SO-${n}`)) n++
+        return `SO-${n}`
+      })()
 
       return {
-        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ${money}.`,
+        text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
         plan: {
-          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ${money} | delivery ${args.deliveryDate}`,
+          summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
           creates: [
-            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, currency, fxRate, status: 'open', notes: args.notes } },
+            { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
             ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
           ],
           sideEffects: ['Stock reservation will be calculated when fabric is issued'],
-          fieldConfidence: args.fieldConfidence,
         },
         async commit() {
           const created = await db.order.create({
@@ -1364,22 +1486,22 @@ const writeTools: AgentTool[] = [
               orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id,
               orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
               deliveryDate: new Date(args.deliveryDate),
-              finYear, totalPcs, totalValue, currency, fxRate, status: 'open', notes: args.notes,
+              finYear, totalPcs, totalValue, status: 'open', notes: args.notes,
               lines: { create: linesData.map((l) => ({ ...l, styleId: style.id })) },
             },
           })
-          return { id: created.id, orderNo: created.orderNo, currency: created.currency }
+          return { id: created.id, orderNo: created.orderNo }
         },
       }
     },
   },
   {
     name: 'create_purchase_order',
-    description: 'Create a purchase order. Required: poNo, poType (yarn|fabric|accessory|general), partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}).',
+    description: 'Create a purchase order. poNo is optional — if omitted or already taken, the next free PO-{Y|F|A}-{seq} is auto-assigned based on poType. Required: poType (yarn|fabric|accessory|general), partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}).',
     domain: 'procurement',
     isWrite: true,
     schema: z.object({
-      poNo: z.string(),
+      poNo: z.string().optional(),
       poType: z.string(),
       partyCode: z.string(),
       orderDate: z.string().optional(),
@@ -1394,12 +1516,11 @@ const writeTools: AgentTool[] = [
     }),
     async execute(args) {
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
-        || (await db.party.findFirst({ where: { name: args.partyCode } }))
-      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name)` }
+      if (!party) return { text: `Party ${args.partyCode} not found` }
 
       const totalQty = args.lines.reduce((s, l) => s + l.qty, 0)
       const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-      const finYear = await activeFinYear()
+      const finYear = '26-27'
 
       // Resolve item ids
       const linesResolved = await Promise.all(args.lines.map(async (l) => {
@@ -1411,24 +1532,35 @@ const writeTools: AgentTool[] = [
         return { ...l, itemId: item.id, uomId: item.uomId, amount: l.qty * l.rate }
       }))
 
-      // PO vs budget tolerance (Phase 3.2): look for a Budget on any order referenced by these lines
-      const tolerances = await checkPoVsBudget({ poValue: totalValue, poQty: totalQty })
+      // Resolve a free PO number
+      const prefix = args.poType === 'yarn' ? 'PO-Y-' : args.poType === 'fabric' ? 'PO-F-' : args.poType === 'accessory' ? 'PO-A-' : 'PO-G-'
+      const resolvedPoNo = await (async () => {
+        const desired = args.poNo?.trim()
+        if (desired) {
+          const exists = await db.purchaseOrder.findUnique({ where: { poNo: desired } })
+          if (!exists) return desired
+        }
+        const all = await db.purchaseOrder.findMany({ where: { poNo: { startsWith: prefix } } })
+        const used = new Set(all.map((p) => p.poNo))
+        let n = 1
+        while (used.has(`${prefix}${String(n).padStart(3, '0')}`)) n++
+        return `${prefix}${String(n).padStart(3, '0')}`
+      })()
 
       return {
-        text: `Proposed PO ${args.poNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
+        text: `Proposed PO ${resolvedPoNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
         plan: {
-          summary: `Create PO ${args.poNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
+          summary: `Create PO ${resolvedPoNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
           creates: [
-            { table: 'purchaseOrder', data: { poNo: args.poNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
+            { table: 'purchaseOrder', data: { poNo: resolvedPoNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
             ...linesResolved.map((l) => ({ table: 'poLine', data: { ...l, poId: '<pending>' } })),
           ],
           sideEffects: ['Auto-submits for approval workflow; status=open until approved'],
-          tolerances: tolerances.length ? tolerances : undefined,
         },
         async commit() {
           const created = await db.purchaseOrder.create({
             data: {
-              poNo: args.poNo, poType: args.poType, partyId: party.id,
+              poNo: resolvedPoNo, poType: args.poType, partyId: party.id,
               orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
               deliveryDate: new Date(args.deliveryDate),
               finYear, totalQty, totalValue, status: 'open', notes: args.notes,
@@ -1446,7 +1578,7 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'receive_grn',
-    description: 'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or taken. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
+    description: 'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or colliding. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
     domain: 'procurement',
     isWrite: true,
     schema: z.object({
@@ -1471,29 +1603,21 @@ const writeTools: AgentTool[] = [
       if (!line) return { text: `PO has no lines` }
       const actualQty = args.receivedQty
       const totalValue = actualQty * line.rate
-      const finYear = await activeFinYear()
-      const resolvedGrnNo = await resolveNumber('grn', args.grnNo)
+      const finYear = '26-27'
 
-      // Tolerance checks (Phase 3.2): GRN vs PO balance + back-dating
-      const balQty = Math.max(0, po.totalQty - po.lines.reduce((s, l) => s + l.receivedQty, 0))
-      const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
-      const tolerances = [
-        ...(await checkGrnVsPo(balQty, actualQty)),
-        ...(await checkEntryDate(grnDate)),
-      ]
-      if (tolerances.some((v) => v.severity === 'block')) {
-        return { text: `GRN refused by tolerance check:\n${tolerances.filter((v) => v.severity === 'block').map((v) => `✕ ${v.message}`).join('\n')}`, json: { tolerances } }
-      }
-
-      // Movement via the PostingEngine (single source of stock truth)
-      const movements = Matrix.purchaseGrn({
-        grnType: 'Purchase',
-        itemType: line.itemType, itemId: line.itemId,
-        qty: actualQty, rate: line.rate,
-        godownId: godown.id, deptId: dept?.id,
-        orderId: line.orderId || undefined,
-        partyId: po.partyId, poId: po.id,
-      }, { docNo: resolvedGrnNo, notes: `Against PO ${po.poNo}` })
+      // Resolve a free GRN number
+      const resolvedGrnNo = await (async () => {
+        const desired = args.grnNo?.trim()
+        if (desired) {
+          const exists = await db.gRN.findUnique({ where: { grnNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.gRN.findMany({ where: { grnNo: { startsWith: 'GRN-' } } })
+        const used = new Set(all.map((g) => g.grnNo))
+        let n = 1
+        while (used.has(`GRN-${String(n).padStart(4, '0')}`)) n++
+        return `GRN-${String(n).padStart(4, '0')}`
+      })()
 
       return {
         text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
@@ -1502,30 +1626,62 @@ const writeTools: AgentTool[] = [
           creates: [
             { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
             { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
-            { table: 'stockLedger (via PostingEngine)', data: { txnType: 'purchase_grn', qty: actualQty, godown: godown.code } },
+            { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
+            { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
           ],
           updates: [
             { table: 'purchaseOrder', id: po.id, data: { status: actualQty >= po.totalQty ? 'received' : 'partial' } },
             { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
           ],
-          sideEffects: ['Stock increases (posted by PostingEngine)', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
-          tolerances: tolerances.length ? tolerances : undefined,
+          sideEffects: ['Stock increases', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
         },
         async commit() {
           return await db.$transaction(async (tx) => {
             const grn = await tx.gRN.create({
               data: {
                 grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
-                godownId: godown.id, deptId: dept?.id, grnDate,
+                godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
                 finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
                 lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
               },
             })
-            // Stock + ledger via the PostingEngine, same transaction (G1)
-            const posting = await applyMovements(
-              movements.map((m) => ({ ...m, refId: grn.id })),
-              { tx, rate: line.rate },
-            )
+            await tx.stockLedger.create({
+              data: {
+                txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
+                godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo,
+                docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+                finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+                inPcs: line.itemType === 'accessory' ? actualQty : 0,
+                rate: line.rate, partyId: po.partyId, refId: grn.id,
+              },
+            })
+            // Upsert current stock
+            const csWhere = {
+              itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: {
+                itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+                lotId: '', colourId: '', sizeId: '', deptId: dept?.id || '', orderId: '',
+              },
+            }
+            const existing = await tx.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+            if (existing) {
+              await tx.currentStock.update({
+                where: csWhere as any,
+                data: {
+                  kgs: { increment: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0 },
+                  pcs: { increment: line.itemType === 'accessory' ? actualQty : 0 },
+                },
+              })
+            } else {
+              await tx.currentStock.create({
+                data: {
+                  itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+                  deptId: dept?.id || '',
+                  kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+                  pcs: line.itemType === 'accessory' ? actualQty : 0,
+                  rate: line.rate,
+                },
+              })
+            }
             // Update PO + POLine
             await tx.purchaseOrder.update({
               where: { id: po.id },
@@ -1535,7 +1691,7 @@ const writeTools: AgentTool[] = [
               where: { id: line.id },
               data: { receivedQty: { increment: actualQty } },
             })
-            return { id: grn.id, grnNo: grn.grnNo, stockRows: posting.stockRows, warnings: posting.warnings }
+            return { id: grn.id, grnNo: grn.grnNo }
           })
         },
       }
@@ -1543,7 +1699,7 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_sales_invoice',
-    description: 'Create a sales invoice against an order. invoiceNo optional — auto-assigned INV-####. GST rate is auto-sourced from the style\'s HSN master (override with gstRate); the CGST/SGST vs IGST split is auto-derived from the party\'s state vs the company state flag (override with gstType). Export invoices (party outside India or invoiceType export) skip GST. Required: orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue.',
+    description: 'Create a sales invoice against an order. invoiceNo is optional — auto-assigned INV-#### if omitted or colliding. Required: orderNo, partyCode, billType (sales|jobwork|yarn_sales|fab_sales), totalQty, taxableValue, gstRate, gstType (cgst_sgst for intra-state OR igst for inter-state).',
     domain: 'accounting',
     isWrite: true,
     schema: z.object({
@@ -1553,88 +1709,70 @@ const writeTools: AgentTool[] = [
       billType: z.string(),
       totalQty: z.number(),
       taxableValue: z.number(),
-      gstRate: z.number().optional().describe('Override: GST % (default from style HSN master)'),
-      gstType: z.string().optional().describe('Override: cgst_sgst | igst (default from party state vs company state)'),
-      invoiceType: z.string().optional().describe('domestic | export'),
+      gstRate: z.number().describe('e.g. 5 for 5%'),
+      gstType: z.string().describe('cgst_sgst | igst'),
       invoiceDate: z.string().optional(),
       notes: z.string().optional(),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
       if (!party) return { text: `Party ${args.partyCode} not found` }
-      const finYear = await activeFinYear()
-      const flags = await getFlags(['gstenable', 'coy_state'])
-      const invoiceType = args.invoiceType || 'domestic'
-
-      // GST rate: explicit override ?? HSN master ?? 0 (INV-004 parity)
-      let gstRate = args.gstRate ?? 0
-      let hsnCode: string | null = order.style?.hsn ?? null
-      let hsnSource = args.gstRate != null ? 'override' : 'none'
-      if (args.gstRate == null && hsnCode) {
-        const hsn = await db.hsnCode.findUnique({ where: { code: hsnCode } })
-        if (hsn) { gstRate = hsn.gstRate; hsnSource = `HSN ${hsn.code}` }
-      }
-      // Export invoices: no GST
-      const isExport = invoiceType === 'export'
-      if (isExport) { gstRate = 0; hsnSource = 'export (zero-rated)' }
-
-      // CGST/SGST vs IGST from party state vs company state (INV-003 parity)
-      let gstType = args.gstType
-      let stateNote = ''
-      if (!gstType) {
-        if (isExport) { gstType = 'none'; stateNote = 'export — zero-rated' }
-        else if (!flags.gstenable) { gstType = 'none'; stateNote = 'gstenable off — no GST split' }
-        else {
-          const partyState = extractStateCode(party.state) // e.g. 'Tamil Nadu (33)' → '33'
-          const coyState = String(flags.coy_state)
-          gstType = partyState && partyState === coyState ? 'cgst_sgst' : 'igst'
-          stateNote = `party state ${partyState || '?'} vs company ${coyState} → ${gstType}`
-        }
-      }
-      const cgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
-      const sgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
-      const igstRate = gstType === 'igst' ? gstRate : 0
+      const finYear = '26-27'
+      const gstAmt = (args.taxableValue * args.gstRate) / 100
+      const billAmount = args.taxableValue + gstAmt
+      const cgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
+      const sgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
+      const igstRate = args.gstType === 'igst' ? args.gstRate : 0
       const cgstAmt = (args.taxableValue * cgstRate) / 100
       const sgstAmt = (args.taxableValue * sgstRate) / 100
       const igstAmt = (args.taxableValue * igstRate) / 100
-      const gstAmt = cgstAmt + sgstAmt + igstAmt
-      const billAmount = args.taxableValue + gstAmt
-      const resolvedInvoiceNo = await resolveNumber('invoice', args.invoiceNo)
-      const tolerances = await checkEntryDate(args.invoiceDate ? new Date(args.invoiceDate) : new Date())
+
+      // Resolve a free invoice number
+      const resolvedInvoiceNo = await (async () => {
+        const desired = args.invoiceNo?.trim()
+        if (desired) {
+          const exists = await db.salesInvoice.findUnique({ where: { invoiceNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.salesInvoice.findMany({ where: { invoiceNo: { startsWith: 'INV-' } } })
+        const used = new Set(all.map((i) => i.invoiceNo))
+        let n = 1
+        while (used.has(`INV-${String(n).padStart(4, '0')}`)) n++
+        return `INV-${String(n).padStart(4, '0')}`
+      })()
 
       return {
-        text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${gstRate}% ${gstType}; rate source: ${hsnSource}).`,
+        text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
         plan: {
-          summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${gstRate}% ${gstType} (${hsnSource}) | total ₹${billAmount}`,
+          summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
           creates: [
-            { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType, orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.taxableValue, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+            { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
           ],
-          sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock reduced when despatch is created'],
-          tolerances: tolerances.length ? tolerances : undefined,
+          sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
         },
         async commit() {
           const inv = await db.salesInvoice.create({
             data: {
-              invoiceNo: resolvedInvoiceNo, invoiceType, orderId: order.id, partyId: party.id,
+              invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
               invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
               finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
               cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
             },
           })
-          return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount, gstSplit: { cgstAmt, sgstAmt, igstAmt }, stateNote }
+          return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount }
         },
       }
     },
   },
   {
     name: 'create_cut_order',
-    description: 'Create a cut order against an order. Required: cutNo, orderNo, fabricIssued (kgs), totalPcs, markerLength, noOfPlies, efficiency.',
+    description: 'Create a cut order against an order. cutNo is optional — auto-assigned CUT-#### if omitted or colliding. Required: orderNo, fabricIssued (kgs), totalPcs, markerLength, noOfPlies, efficiency.',
     domain: 'cutting',
     isWrite: true,
     schema: z.object({
-      cutNo: z.string(),
+      cutNo: z.string().optional(),
       orderNo: z.string(),
       fabricIssued: z.number(),
       totalPcs: z.number(),
@@ -1646,44 +1784,70 @@ const writeTools: AgentTool[] = [
     async execute(args) {
       const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
+
+      // Resolve a free cut number
+      const resolvedCutNo = await (async () => {
+        const desired = args.cutNo?.trim()
+        if (desired) {
+          const exists = await db.cutOrder.findUnique({ where: { cutNo: desired } }).catch(() => null)
+          if (!exists) return desired
+        }
+        const all = await db.cutOrder.findMany({ where: { cutNo: { startsWith: 'CUT-' } } })
+        const used = new Set(all.map((c) => c.cutNo))
+        let n = 1
+        while (used.has(`CUT-${String(n).padStart(4, '0')}`)) n++
+        return `CUT-${String(n).padStart(4, '0')}`
+      })()
+
       return {
-        text: `Proposed cut order ${args.cutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
+        text: `Proposed cut order ${resolvedCutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
         plan: {
-          summary: `Create cut order ${args.cutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
-          creates: [{ table: 'cutOrder', data: { cutNo: args.cutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
+          summary: `Create cut order ${resolvedCutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
+          creates: [{ table: 'cutOrder', data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
           sideEffects: ['Auto-generates cut bundles with barcodes if efficiency provided'],
         },
         async commit() {
-          const cut = await db.cutOrder.create({
-            data: { cutNo: args.cutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
-          })
-          // Auto-generate bundles
-          const bundles = Math.ceil(args.totalPcs / 100)
-          for (let i = 1; i <= bundles; i++) {
-            await db.cutBundle.create({
-              data: {
-                cutOrderId: cut.id, bundleNo: `${args.cutNo}/B${i}`,
-                barcode: `*${args.cutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
-                qty: Math.min(100, args.totalPcs - (i - 1) * 100),
-                status: 'in_cutting',
-              },
+          return await db.$transaction(async (tx) => {
+            const cut = await tx.cutOrder.create({
+              data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
             })
-          }
-          return { id: cut.id, cutNo: cut.cutNo, bundlesCreated: bundles }
+            // Auto-generate bundles
+            const bundles = Math.ceil(args.totalPcs / 100)
+            for (let i = 1; i <= bundles; i++) {
+              await tx.cutBundle.create({
+                data: {
+                  cutOrderId: cut.id, bundleNo: `${resolvedCutNo}/B${i}`,
+                  barcode: `*${resolvedCutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
+                  qty: Math.min(100, args.totalPcs - (i - 1) * 100),
+                  status: 'in_cutting',
+                },
+              })
+            }
+            // Industry chain: cut pieces enter G1 (Main) — ready_to_cut_in.
+            const g1 = await tx.godown.findUnique({ where: { code: 'G1' } })
+            if (g1) {
+              await postLedger(tx, {
+                txnType: 'ready_to_cut_in', itemType: 'pcs', itemId: order.id,
+                godownId: g1.id, deptId: null, orderId: order.id,
+                docNo: resolvedCutNo, docDate: args.cutDate ? new Date(args.cutDate) : new Date(),
+                in: { pcs: args.totalPcs },
+                notes: `Cut order ${resolvedCutNo} output`,
+              })
+            }
+            return { id: cut.id, cutNo: cut.cutNo, bundlesCreated: bundles }
+          })
         },
       }
     },
   },
   {
     name: 'post_production_entry',
-    description: 'Post a production entry through the stage pipeline (PostingEngine PCS ledger). Required: orderNo, deptCode, targetStageCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: sourceStageCode (stage-to-stage flow), colourName, sizeName, lineCode.',
+    description: 'Post a production entry. Required: orderNo, deptCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: styleNo, colourName, sizeName, lineId.',
     domain: 'production',
     isWrite: true,
     schema: z.object({
       orderNo: z.string(),
       deptCode: z.string(),
-      targetStageCode: z.string().describe('Stage receiving the produced pcs, e.g. SW-05 (use list_stages)'),
-      sourceStageCode: z.string().optional().describe('Stage the pcs came from (stage-to-stage flow)'),
       prodDate: z.string(),
       bundleNo: z.string(),
       operatorCode: z.string(),
@@ -1692,337 +1856,47 @@ const writeTools: AgentTool[] = [
       styleNo: z.string().optional(),
       colourName: z.string().optional(),
       sizeName: z.string().optional(),
-      lineCode: z.string().optional(),
+      lineId: z.string().optional(),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
       const dept = await db.department.findUnique({ where: { code: args.deptCode } })
       if (!dept) return { text: `Dept ${args.deptCode} not found` }
       const operator = await db.employee.findUnique({ where: { code: args.operatorCode } })
       if (!operator) return { text: `Operator ${args.operatorCode} not found` }
-      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
-      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found. Use list_stages first.` }
-      let sourceStage: any = null
-      if (args.sourceStageCode) {
-        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
-        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
-      }
-      let line: any = null
-      if (args.lineCode) {
-        line = await db.line.findUnique({ where: { code: args.lineCode } })
-        if (!line) return { text: `Line ${args.lineCode} not found` }
-      }
-      // Resolve colour/size (case-insensitive)
-      let colourId: string | undefined
-      let sizeId: string | undefined
-      if (args.colourName) {
-        const c = await db.colour.findFirst({ where: { name: args.colourName } })
-          || await db.colour.findFirst({ where: { name: { equals: args.colourName } } })
-        colourId = c?.id
-      }
-      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
-      const styleNo = args.styleNo || order.style?.styleNo || ''
       const amount = args.qty * args.rate
-      const docNo = `PE-${args.bundleNo || Date.now()}`
-
-      // Stage-pipeline movement (LLD 03 §4.2 piece production row)
-      const movements = Matrix.pieceProduction({
-        orderId: order.id, styleNo, qty: args.qty,
-        targetStageId: targetStage.id, sourceStageId: sourceStage?.id,
-        colourId, sizeId, lineId: line?.id,
-      }, { docNo, notes: `${operator.name} @ ${targetStage.code}${sourceStage ? ` from ${sourceStage.code}` : ''}` })
-
       return {
-        text: `Proposed production entry: ${args.qty} pcs by ${operator.name} at ${targetStage.code}${sourceStage ? ` (from ${sourceStage.code})` : ''}, ₹${amount}.`,
+        text: `Proposed production entry: ${args.qty} pcs by ${operator.name} on bundle ${args.bundleNo}, ₹${amount}.`,
         plan: {
-          summary: `Post production | order ${args.orderNo} | dept ${dept.code} | stage ${targetStage.code}${sourceStage ? ` ← ${sourceStage.code}` : ''} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
-          creates: [
-            { table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, targetStageId: targetStage.id, sourceStageId: sourceStage?.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo, qty: args.qty, rate: args.rate, amount, goodFlag: 'G' } },
-            { table: 'pcsStock (via PostingEngine)', data: { stage: targetStage.code, qty: args.qty } },
-          ],
-          sideEffects: ['PcsStock stage bucket increases (target) and decreases (source)', 'WIP tracks the stage pipeline', 'Operator piece-rate earnings increase'],
+          summary: `Post production | order ${args.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
+          creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo || order.styleId, qty: args.qty, rate: args.rate, amount, lineId: args.lineId } }],
+          sideEffects: ['WIP increases', 'Operator piece-rate earnings increase'],
         },
         async commit() {
           return await db.$transaction(async (tx) => {
             const e = await tx.productionEntry.create({
               data: {
-                orderId: order.id, deptId: dept.id, targetStageId: targetStage.id,
-                sourceStageId: sourceStage?.id,
-                prodDate: new Date(args.prodDate), bundleNo: args.bundleNo,
-                operatorId: operator.id, styleNo, qty: args.qty, rate: args.rate,
-                amount, lineId: line?.id, goodFlag: 'G',
-                colourId, sizeId,
-              } as any,
+                orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
+                bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
+                qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
+              },
             })
-            const posting = await applyMovements(
-              movements.map((m) => ({ ...m, refId: e.id })),
-              { tx },
-            )
-            return { id: e.id, stockRows: posting.stockRows, warnings: posting.warnings }
-          })
-        },
-      }
-    },
-  },
-  {
-    name: 'post_rejection',
-    description: 'Post a rejection entry: moves qty from the Good bucket to the rejected (M) bucket with a rejection type at a stage. Required: orderNo, stageCode, qty, rejectionTypeCode. Optional: bundleNo, lineCode, colourName, sizeName.',
-    domain: 'production',
-    isWrite: true,
-    schema: z.object({
-      orderNo: z.string(),
-      stageCode: z.string(),
-      qty: z.number(),
-      rejectionTypeCode: z.string().describe('e.g. RJ-STN (use list_rejection_types)'),
-      bundleNo: z.string().optional(),
-      lineCode: z.string().optional(),
-      colourName: z.string().optional(),
-      sizeName: z.string().optional(),
-      rejDate: z.string().optional(),
-    }),
-    async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
-      if (!order) return { text: `Order ${args.orderNo} not found` }
-      const stage = await db.stage.findUnique({ where: { code: args.stageCode } })
-      if (!stage) return { text: `Stage ${args.stageCode} not found. Use list_stages first.` }
-      const rejType = await db.rejectionType.findUnique({ where: { code: args.rejectionTypeCode } })
-      if (!rejType) return { text: `Rejection type ${args.rejectionTypeCode} not found. Use list_rejection_types first.` }
-      let line: any = null
-      if (args.lineCode) {
-        line = await db.line.findUnique({ where: { code: args.lineCode } })
-        if (!line) return { text: `Line ${args.lineCode} not found` }
-      }
-      let colourId: string | undefined
-      if (args.colourName) colourId = (await db.colour.findFirst({ where: { name: args.colourName } }))?.id
-      let sizeId: string | undefined
-      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
-      const docNo = `REJ-${Date.now()}`
-      const styleNo = order.style?.styleNo || ''
-
-      const movements = Matrix.pieceRejection({
-        orderId: order.id, styleNo, qty: args.qty,
-        targetStageId: stage.id, sourceStageId: stage.id,
-        rejectionTypeId: rejType.id, colourId, sizeId, lineId: line?.id,
-      }, { docNo, notes: `${rejType.name} at ${stage.code}` })
-
-      return {
-        text: `Proposed rejection: ${args.qty} pcs as ${rejType.name} at ${stage.code}.`,
-        plan: {
-          summary: `Reject ${args.qty} pcs | order ${args.orderNo} | stage ${stage.code} | type ${rejType.name} (${rejType.code})`,
-          creates: [{ table: 'pcsStock (M bucket via PostingEngine)', data: { stage: stage.code, qty: args.qty, rejectionType: rejType.code } }],
-          sideEffects: ['Good bucket decreases', 'Rejected (M) bucket increases with the type', 'Rework can later consume this bucket'],
-        },
-        async commit() {
-          const posting = await applyMovements(movements)
-          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
-        },
-      }
-    },
-  },
-  {
-    name: 'post_rework',
-    description: 'Post a rework entry: consumes the rejected (M) bucket and outputs Good pcs at the target stage. Required: orderNo, targetStageCode, qty. Optional: rejectionTypeCode (narrow to one type), bundleNo, operatorCode, rate.',
-    domain: 'production',
-    isWrite: true,
-    schema: z.object({
-      orderNo: z.string(),
-      targetStageCode: z.string(),
-      qty: z.number(),
-      rejectionTypeCode: z.string().optional().describe('only consume rejections of this type'),
-      sourceStageCode: z.string().optional().describe('stage holding the rejected pcs (defaults to target)'),
-      bundleNo: z.string().optional(),
-      operatorCode: z.string().optional(),
-      rate: z.number().optional(),
-      reworkDate: z.string().optional(),
-    }),
-    async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
-      if (!order) return { text: `Order ${args.orderNo} not found` }
-      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
-      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found` }
-      let rejType: any = null
-      if (args.rejectionTypeCode) {
-        rejType = await db.rejectionType.findUnique({ where: { code: args.rejectionTypeCode } })
-        if (!rejType) return { text: `Rejection type ${args.rejectionTypeCode} not found` }
-      }
-      let sourceStage: any = null
-      if (args.sourceStageCode) {
-        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
-        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
-      }
-      const docNo = `RWK-${Date.now()}`
-      const styleNo = order.style?.styleNo || ''
-      const amount = args.qty * (args.rate || 0)
-
-      const movements = Matrix.pieceRework({
-        orderId: order.id, styleNo, qty: args.qty,
-        targetStageId: targetStage.id, sourceStageId: sourceStage?.id || targetStage.id,
-        rejectionTypeId: rejType?.id,
-      }, { docNo, notes: `Rework to ${targetStage.code}` })
-
-      return {
-        text: `Proposed rework: ${args.qty} pcs from rejected bucket to Good at ${targetStage.code}.`,
-        plan: {
-          summary: `Rework ${args.qty} pcs | order ${args.orderNo} | M → G at ${targetStage.code}${rejType ? ` | type ${rejType.code}` : ''}${amount ? ` | ₹${amount}` : ''}`,
-          creates: [{ table: 'pcsStock (M→G via PostingEngine)', data: { stage: targetStage.code, qty: args.qty } }],
-          sideEffects: ['Rejected bucket decreases', 'Good bucket increases at the target stage', 'Rework qty tracked for efficiency reports'],
-        },
-        async commit() {
-          return await db.$transaction(async (tx) => {
-            let entryId: string | undefined
-            if (args.operatorCode) {
-              const operator = await tx.employee.findUnique({ where: { code: args.operatorCode } })
-              if (operator) {
-                const e = await tx.productionEntry.create({
-                  data: {
-                    orderId: order.id, deptId: targetStage.deptId || '',
-                    targetStageId: targetStage.id,
-                    sourceStageId: sourceStage?.id || targetStage.id,
-                    prodDate: args.reworkDate ? new Date(args.reworkDate) : new Date(),
-                    bundleNo: args.bundleNo, operatorId: operator.id, styleNo,
-                    qty: args.qty, rate: args.rate || 0, amount,
-                    rework: true, goodFlag: 'G',
-                  } as any,
-                })
-                entryId = e.id
-              }
+            // Industry chain: good output enters G2 (Finished Goods) — production_in.
+            // Rework entries do NOT move stock (pieces are re-sewn in WIP).
+            const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+            if (g2) {
+              await postLedger(tx, {
+                txnType: 'production_in', itemType: 'pcs', itemId: order.id,
+                godownId: g2.id, deptId: dept.id, orderId: order.id,
+                docNo: args.bundleNo, docDate: new Date(args.prodDate),
+                in: { pcs: args.qty },
+                notes: `Production ${dept.code} bundle ${args.bundleNo}`,
+              })
             }
-            const posting = await applyMovements(
-              movements.map((m) => ({ ...m, refId: entryId })),
-              { tx },
-            )
-            return { docNo, entryId, stockRows: posting.stockRows, warnings: posting.warnings }
+            return { id: e.id }
           })
         },
-      }
-    },
-  },
-  {
-    name: 'issue_to_line',
-    description: 'Issue pcs to a sewing line: line bucket + at target stage AND source-stage bucket − (company WIP). Required: orderNo, lineCode, targetStageCode, qty. Optional: sourceStageCode, colourName, sizeName.',
-    domain: 'production',
-    isWrite: true,
-    schema: z.object({
-      orderNo: z.string(),
-      lineCode: z.string(),
-      targetStageCode: z.string(),
-      qty: z.number(),
-      sourceStageCode: z.string().optional(),
-      colourName: z.string().optional(),
-      sizeName: z.string().optional(),
-      issueDate: z.string().optional(),
-    }),
-    async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { style: true } })
-      if (!order) return { text: `Order ${args.orderNo} not found` }
-      const line = await db.line.findUnique({ where: { code: args.lineCode } })
-      if (!line) return { text: `Line ${args.lineCode} not found. Use list_lines first.` }
-      const targetStage = await db.stage.findUnique({ where: { code: args.targetStageCode } })
-      if (!targetStage) return { text: `Stage ${args.targetStageCode} not found` }
-      let sourceStage: any = null
-      if (args.sourceStageCode) {
-        sourceStage = await db.stage.findUnique({ where: { code: args.sourceStageCode } })
-        if (!sourceStage) return { text: `Source stage ${args.sourceStageCode} not found` }
-      }
-      let colourId: string | undefined
-      if (args.colourName) colourId = (await db.colour.findFirst({ where: { name: args.colourName } }))?.id
-      let sizeId: string | undefined
-      if (args.sizeName) sizeId = (await db.size.findUnique({ where: { name: args.sizeName } }))?.id
-      const docNo = `LIN-${Date.now()}`
-      const styleNo = order.style?.styleNo || ''
-
-      const movements = Matrix.issueToLine({
-        orderId: order.id, styleNo, qty: args.qty,
-        targetStageId: targetStage.id, sourceStageId: sourceStage?.id,
-        lineId: line.id, colourId, sizeId,
-      }, { docNo, notes: `Issue to ${line.name}` })
-
-      return {
-        text: `Proposed issue of ${args.qty} pcs to line ${line.name} at ${targetStage.code}.`,
-        plan: {
-          summary: `Issue to line | order ${args.orderNo} | ${args.qty} pcs | line ${line.name} | stage ${targetStage.code}${sourceStage ? ` ← ${sourceStage.code}` : ''}`,
-          creates: [{ table: 'pcsStock (line bucket via PostingEngine)', data: { line: line.name, stage: targetStage.code, qty: args.qty } }],
-          sideEffects: ['Line bucket increases at the stage', 'Company WIP bucket decreases at the source stage'],
-        },
-        async commit() {
-          const posting = await applyMovements(movements)
-          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
-        },
-      }
-    },
-  },
-  {
-    name: 'list_stages',
-    description: 'List production stages (the stage pipeline) with department, pcsType, seq, finalStage flag. Use before post_production_entry / post_rejection / post_rework / issue_to_line to get stage codes.',
-    domain: 'production',
-    isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const stages = await db.stage.findMany({ include: { department: true }, orderBy: [{ deptId: 'asc' }, { seq: 'asc' }] })
-      return {
-        text: `${stages.length} stages`,
-        json: stages.map((s) => ({
-          code: s.code, name: s.name, dept: s.department?.code, pcsType: s.pcsType,
-          seq: s.seq, finalStage: s.finalStage, prodType: s.prodType, rateMethod: s.rateMethod,
-        })),
-      }
-    },
-  },
-  {
-    name: 'list_rejection_types',
-    description: 'List rejection types (stain, hole, measurement, etc). Use before post_rejection.',
-    domain: 'production',
-    isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const rts = await db.rejectionType.findMany({ orderBy: { code: 'asc' } })
-      return {
-        text: `${rts.length} rejection types`,
-        json: rts.map((r) => ({ code: r.code, name: r.name })),
-      }
-    },
-  },
-  {
-    name: 'get_stage_wip',
-    description: 'Get piece WIP by stage bucket for an order (the PCS ledger view): qty per stage × good/rejected bucket × line. Required: orderNo.',
-    domain: 'production',
-    isWrite: false,
-    schema: z.object({ orderNo: z.string() }),
-    async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
-      if (!order) return { text: `Order ${args.orderNo} not found` }
-      const rows = await db.pcsStock.findMany({ where: { orderId: order.id } })
-      const stages = await db.stage.findMany()
-      const stageById = new Map(stages.map((s) => [s.id, s]))
-      const rejTypes = await db.rejectionType.findMany()
-      const rejById = new Map(rejTypes.map((r) => [r.id, r]))
-      const lines = await db.line.findMany()
-      const lineById = new Map(lines.map((l) => [l.id, l]))
-
-      const byStage: Record<string, any> = {}
-      for (const r of rows) {
-        const stage = stageById.get(r.stageId)
-        const key = stage?.code || r.stageId
-        byStage[key] = byStage[key] || { stage: stage?.name || key, code: key, good: 0, rejected: 0, lines: {} as Record<string, number> }
-        if (r.goodFlag === 'G') {
-          byStage[key].good += r.qty
-          if (r.lineId) {
-            const ln = lineById.get(r.lineId)
-            byStage[key].lines[ln?.code || r.lineId] = (byStage[key].lines[ln?.code || r.lineId] || 0) + r.qty
-          }
-        } else {
-          const rt = r.rejectionTypeId ? rejById.get(r.rejectionTypeId) : null
-          const rk = rt?.code || 'M'
-          byStage[key].rejected += r.qty
-          byStage[key][`rej_${rk}`] = (byStage[key][`rej_${rk}`] || 0) + r.qty
-        }
-      }
-      const total = rows.filter((r) => r.goodFlag === 'G').reduce((s, r) => s + r.qty, 0)
-      const totalRej = rows.filter((r) => r.goodFlag !== 'G').reduce((s, r) => s + r.qty, 0)
-      return {
-        text: `${args.orderNo} WIP: ${total} good pcs across ${Object.keys(byStage).length} stages, ${totalRej} rejected.`,
-        json: { orderNo: args.orderNo, totalGood: total, totalRejected: totalRej, stages: Object.values(byStage) },
       }
     },
   },
@@ -2078,29 +1952,39 @@ const writeTools: AgentTool[] = [
       else if (args.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: args.itemCode } })
       else if (args.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: args.itemCode } })
       if (!item) return { text: `${args.itemType} ${args.itemCode} not found` }
+      const finYear = '26-27'
       const isPcs = args.itemType === 'accessory'
       const isAdd = args.action === 'add'
-      const docNo = args.docNo || `ADJ-${Date.now()}`
-
-      // Movement via the PostingEngine
-      const movements = Matrix.adjustment({
-        itemType: args.itemType, itemId: item.id,
-        qty: args.qty, action: args.action === 'add' ? 'add' : 'less',
-        reason: args.reason, godownId: godown.id,
-      }, { docNo, notes: args.reason })
-
       return {
         text: `Proposed stock ${args.action === 'add' ? 'addition' : 'reduction'} of ${args.qty} ${isPcs ? 'pcs' : 'kgs'} of ${args.itemCode} at ${args.godownCode}.`,
         plan: {
           summary: `${isAdd ? 'Add to' : 'Reduce from'} stock | ${args.itemType} ${args.itemCode} | ${args.qty} ${isPcs ? 'pcs' : 'kgs'} | godown ${args.godownCode} | reason: ${args.reason}`,
           creates: [
-            { table: 'stockLedger (via PostingEngine)', data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', qty: args.qty, godown: args.godownCode } },
+            { table: 'stockLedger', data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason } },
           ],
-          sideEffects: ['Current stock updated by PostingEngine in one transaction'],
+          sideEffects: ['Current stock will be updated'],
         },
         async commit() {
-          const posting = await applyMovements(movements, { rate: item.rate })
-          return { docNo, stockRows: posting.stockRows, warnings: posting.warnings }
+          const ledger = await db.stockLedger.create({
+            data: { txnType: isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less', itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo: args.docNo || `ADJ-${Date.now()}`, docDate: new Date(), finYear, inKgs: isAdd && !isPcs ? args.qty : 0, outKgs: !isAdd && !isPcs ? args.qty : 0, inPcs: isAdd && isPcs ? args.qty : 0, outPcs: !isAdd && isPcs ? args.qty : 0, rate: item.rate, notes: args.reason },
+          })
+          // Upsert current stock
+          const csWhere = { itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: { itemType: args.itemType, itemId: item.id, godownId: godown.id, lotId: '', colourId: '', sizeId: '', deptId: '', orderId: '' } }
+          const existing = await db.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+          if (existing) {
+            await db.currentStock.update({
+              where: csWhere as any,
+              data: {
+                kgs: { increment: isAdd && !isPcs ? args.qty : !isAdd && !isPcs ? -args.qty : 0 },
+                pcs: { increment: isAdd && isPcs ? args.qty : !isAdd && isPcs ? -args.qty : 0 },
+              },
+            })
+          } else if (isAdd) {
+            await db.currentStock.create({
+              data: { itemType: args.itemType, itemId: item.id, godownId: godown.id, kgs: isPcs ? 0 : args.qty, pcs: isPcs ? args.qty : 0, rate: item.rate },
+            })
+          }
+          return { id: ledger.id }
         },
       }
     },
@@ -2131,529 +2015,16 @@ const writeTools: AgentTool[] = [
       }
     },
   },
-  {
-    name: 'reverse_grn',
-    description: 'Reverse a GRN with a compensating posting — restores the exact prior stock/ledger state (LLD reversal rule; replaces hard deletes). Required: grnNo. Optional: reason.',
-    domain: 'procurement',
-    isWrite: true,
-    schema: z.object({
-      grnNo: z.string(),
-      reason: z.string().optional(),
-    }),
-    async execute(args) {
-      const grn = await db.gRN.findUnique({
-        where: { grnNo: args.grnNo },
-        include: { lines: true, party: true },
-      })
-      if (!grn) return { text: `GRN ${args.grnNo} not found` }
-      if (grn.grnType !== 'purchase' && grn.grnType !== 'Process') {
-        return { text: `Reversal implemented for purchase GRNs; ${grn.grnType} reversal coming with its posting path.` }
-      }
-      const reversalDocNo = `REV-${args.grnNo}`
-      // Rebuild the original movement set and invert it.
-      const movements = grn.lines.map((l) =>
-        Matrix.purchaseGrn({
-          grnType: 'Purchase',
-          itemType: l.itemType, itemId: l.itemId,
-          qty: l.qty, rate: l.rate,
-          godownId: grn.godownId, deptId: grn.deptId || undefined,
-          partyId: grn.partyId || undefined,
-        }, { docNo: grn.grnNo }),
-      ).flat()
-
-      return {
-        text: `Proposed reversal of GRN ${args.grnNo} — ${grn.totalQty} units back out of stock.`,
-        plan: {
-          summary: `Reverse GRN ${args.grnNo} | ${grn.totalQty} units | ₹${grn.totalValue} | ${args.reason || 'no reason given'}`,
-          creates: [
-            { table: 'stockLedger (compensating posting)', data: { reversalDocNo, movements: movements.length } },
-          ],
-          sideEffects: ['Stock reduced by exactly the GRN quantities', 'Ledger shows compensating rows (REV-' + args.grnNo + ')', 'PO receivedQty decremented', 'GRN marked reversed in docNo annotation'],
-        },
-        async commit() {
-          return await db.$transaction(async (tx) => {
-            // 1. Compensating posting (engine inverts signs)
-            const posting = await applyReversal(movements, reversalDocNo, { tx: tx })
-            // 2. Decrement PO line received quantities + recompute PO status
-            const po = grn.poId ? await tx.purchaseOrder.findUnique({ where: { id: grn.poId }, include: { lines: true } }) : null
-            if (po) {
-              for (const l of grn.lines) {
-                const pl = po.lines.find((p) => p.itemId === l.itemId)
-                if (pl) {
-                  await tx.pOLine.update({
-                    where: { id: pl.id },
-                    data: { receivedQty: { decrement: l.qty } },
-                  })
-                }
-              }
-              const received = po.lines.reduce((s, p) => s + (p.receivedQty - (grn.lines.find((g) => g.itemId === p.itemId)?.qty || 0)), 0)
-              await tx.purchaseOrder.update({
-                where: { id: po.id },
-                data: { status: received <= 0 ? 'open' : 'partial' },
-              })
-            }
-            // 3. Annotate the GRN as reversed (docNo carries the reversal ref;
-            //    no hard delete — full audit trail preserved)
-            await tx.gRN.update({
-              where: { id: grn.id },
-              data: { docNo: `REVERSED${grn.docNo ? `:${grn.docNo}` : ''}` },
-            })
-            return { grnNo: args.grnNo, reversalDocNo, stockRows: posting.stockRows, warnings: posting.warnings }
-          })
-        },
-      }
-    },
-  },
 
   // ───────────── MASTER CREATE TOOLS ─────────────
   // These close the "agent cannot create masters" gap. Every entity in the
   // schema is now reachable from chat — parties, buyers, styles, items,
   // godowns, departments, employees, colours, sizes, UOMs, etc.
 
-  {
-    name: 'create_party',
-    description: 'Create a party master (customer / supplier / both). code is optional — auto-assigned PRT-#### if omitted or taken. Required: name, partyType (supplier|customer|both). Optional: gstin, pan, address, city, state, phone, email, openingBalance.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      partyType: z.string().default('supplier'),
-      gstin: z.string().optional(),
-      pan: z.string().optional(),
-      address: z.string().optional(),
-      city: z.string().optional(),
-      state: z.string().optional(),
-      phone: z.string().optional(),
-      email: z.string().optional(),
-      openingBalance: z.number().optional(),
-    }),
-    async execute(args) {
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.party.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.party.findMany({ where: { code: { startsWith: 'PRT-' } } })
-        const used = new Set(all.map((p) => p.code))
-        let n = 1
-        while (used.has(`PRT-${String(n).padStart(4, '0')}`)) n++
-        return `PRT-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed party ${resolvedCode} — ${args.name} (${args.partyType}).`,
-        plan: {
-          summary: `Create party ${resolvedCode} | ${args.name} | type ${args.partyType} | city ${args.city || '-'} | GSTIN ${args.gstin || '-'} | opening ₹${args.openingBalance || 0}`,
-          creates: [{ table: 'party', data: { code: resolvedCode, name: args.name, partyType: args.partyType, gstin: args.gstin, pan: args.pan, address: args.address, city: args.city, state: args.state, phone: args.phone, email: args.email, openingBalance: args.openingBalance || 0 } }],
-          sideEffects: ['Party ledger opening balance created', 'Can now be referenced on orders, POs, invoices, GRNs'],
-        },
-        async commit() {
-          const p = await db.party.create({
-            data: { code: resolvedCode, name: args.name, partyType: args.partyType, gstin: args.gstin, pan: args.pan, address: args.address, city: args.city, state: args.state, phone: args.phone, email: args.email, openingBalance: args.openingBalance || 0 },
-          })
-          return { id: p.id, code: p.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_buyer',
-    description: 'Create a buyer master (the customer department / brand). code is optional — auto-assigned B-#### if omitted or taken. Required: name. Optional: dept, merchandiser.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      dept: z.string().optional(),
-      merchandiser: z.string().optional(),
-    }),
-    async execute(args) {
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.buyer.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.buyer.findMany({ where: { code: { startsWith: 'B-' } } })
-        const used = new Set(all.map((b) => b.code))
-        let n = 1
-        while (used.has(`B-${String(n).padStart(4, '0')}`)) n++
-        return `B-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed buyer ${resolvedCode} — ${args.name}.`,
-        plan: {
-          summary: `Create buyer ${resolvedCode} | ${args.name} | dept ${args.dept || '-'} | merchandiser ${args.merchandiser || '-'}`,
-          creates: [{ table: 'buyer', data: { code: resolvedCode, name: args.name, dept: args.dept, merchandiser: args.merchandiser } }],
-          sideEffects: ['Buyer can now be referenced on sales orders and styles'],
-        },
-        async commit() {
-          const b = await db.buyer.create({ data: { code: resolvedCode, name: args.name, dept: args.dept, merchandiser: args.merchandiser } })
-          return { id: b.id, code: b.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_style',
-    description: 'Create a style master. styleNo is optional — auto-assigned STY-#### if omitted or taken. Required: description. Optional: buyerCode, category (woven|knit), sam, hsn. Only pass fields actually known — do not invent sam/category.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      styleNo: z.string().optional(),
-      description: z.string(),
-      buyerCode: z.string().optional(),
-      category: z.string().optional(),
-      sam: z.number().optional(),
-      hsn: z.string().optional(),
-    }),
-    async execute(args) {
-      let buyer: any = null
-      if (args.buyerCode) {
-        // Accept either the buyer code (B-0001) or the buyer name ("LPP SA")
-        buyer = (await db.buyer.findUnique({ where: { code: args.buyerCode } }))
-          || (await db.buyer.findFirst({ where: { name: args.buyerCode } }))
-        if (!buyer) return { text: `Buyer ${args.buyerCode} not found (tried code and name). Use list_buyers first.` }
-      }
-      const resolvedStyleNo = await (async () => {
-        const desired = args.styleNo?.trim()
-        if (desired) {
-          const exists = await db.style.findUnique({ where: { styleNo: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.style.findMany({ where: { styleNo: { startsWith: 'STY-' } } })
-        const used = new Set(all.map((s) => s.styleNo))
-        let n = 1
-        while (used.has(`STY-${String(n).padStart(4, '0')}`)) n++
-        return `STY-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed style ${resolvedStyleNo} — ${args.description}.`,
-        plan: {
-          summary: `Create style ${resolvedStyleNo} | ${args.description} | buyer ${buyer?.name || '-'} | category ${args.category || '-'} | SAM ${args.sam || '-'} | HSN ${args.hsn || '-'}`,
-          creates: [{ table: 'style', data: { styleNo: resolvedStyleNo, description: args.description, buyerId: buyer?.id, category: args.category, sam: args.sam, hsn: args.hsn } }],
-          sideEffects: ['Style can now be used on sales orders and BOMs'],
-        },
-        async commit() {
-          const s = await db.style.create({ data: { styleNo: resolvedStyleNo, description: args.description, buyerId: buyer?.id, category: args.category, sam: args.sam, hsn: args.hsn } })
-          return { id: s.id, styleNo: s.styleNo }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_yarn',
-    description: 'Create a yarn master. code is optional — auto-assigned Y-#### if omitted or taken. Required: count, uomCode. Optional: blend, rate.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      count: z.string(),
-      blend: z.string().optional(),
-      uomCode: z.string(),
-      rate: z.number().optional(),
-    }),
-    async execute(args) {
-      const uom = await db.uOM.findUnique({ where: { code: args.uomCode } })
-      if (!uom) return { text: `UOM ${args.uomCode} not found. Use list_uoms first (or create_uom).` }
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.yarn.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.yarn.findMany({ where: { code: { startsWith: 'Y-' } } })
-        const used = new Set(all.map((y) => y.code))
-        let n = 1
-        while (used.has(`Y-${String(n).padStart(4, '0')}`)) n++
-        return `Y-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed yarn ${resolvedCode} — ${args.count} ${args.blend || ''}.`,
-        plan: {
-          summary: `Create yarn ${resolvedCode} | count ${args.count} | blend ${args.blend || '-'} | UOM ${uom.name} | rate ₹${args.rate || 0}`,
-          creates: [{ table: 'yarn', data: { code: resolvedCode, count: args.count, blend: args.blend, uomId: uom.id, rate: args.rate || 0 } }],
-          sideEffects: ['Yarn can now appear on POs, BOMs, GRNs, stock'],
-        },
-        async commit() {
-          const y = await db.yarn.create({ data: { code: resolvedCode, count: args.count, blend: args.blend, uomId: uom.id, rate: args.rate || 0 } })
-          return { id: y.id, code: y.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_fabric',
-    description: 'Create a fabric master. code is optional — auto-assigned F-#### if omitted or taken. Required: uomCode. Optional: construction, gsm, width, diaValue (creates Dia if missing), rate.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      construction: z.string().optional(),
-      gsm: z.number().optional(),
-      width: z.number().optional(),
-      diaValue: z.string().optional(),
-      uomCode: z.string(),
-      rate: z.number().optional(),
-    }),
-    async execute(args) {
-      const uom = await db.uOM.findUnique({ where: { code: args.uomCode } })
-      if (!uom) return { text: `UOM ${args.uomCode} not found` }
-      let dia: any = null
-      if (args.diaValue) {
-        dia = await db.dia.findUnique({ where: { value: args.diaValue } })
-        if (!dia) dia = await db.dia.create({ data: { value: args.diaValue } })
-      }
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.fabric.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.fabric.findMany({ where: { code: { startsWith: 'F-' } } })
-        const used = new Set(all.map((f) => f.code))
-        let n = 1
-        while (used.has(`F-${String(n).padStart(4, '0')}`)) n++
-        return `F-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed fabric ${resolvedCode} — ${args.construction || ''} ${args.gsm ? args.gsm + 'gsm' : ''}.`,
-        plan: {
-          summary: `Create fabric ${resolvedCode} | construction ${args.construction || '-'} | gsm ${args.gsm || '-'} | width ${args.width || '-'} | dia ${args.diaValue || '-'} | UOM ${uom.name} | rate ₹${args.rate || 0}`,
-          creates: [{ table: 'fabric', data: { code: resolvedCode, construction: args.construction, gsm: args.gsm, width: args.width, diaId: dia?.id, uomId: uom.id, rate: args.rate || 0 } }],
-          sideEffects: ['Fabric can now appear on POs, BOMs, GRNs, stock, cut orders'],
-        },
-        async commit() {
-          const f = await db.fabric.create({ data: { code: resolvedCode, construction: args.construction, gsm: args.gsm, width: args.width, diaId: dia?.id, uomId: uom.id, rate: args.rate || 0 } })
-          return { id: f.id, code: f.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_accessory',
-    description: 'Create an accessory master (zipper, button, label, etc). code is optional — auto-assigned A-#### if omitted or taken. Required: name, uomCode. Optional: category, rate.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      category: z.string().optional(),
-      uomCode: z.string(),
-      rate: z.number().optional(),
-    }),
-    async execute(args) {
-      const uom = await db.uOM.findUnique({ where: { code: args.uomCode } })
-      if (!uom) return { text: `UOM ${args.uomCode} not found` }
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.accessory.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.accessory.findMany({ where: { code: { startsWith: 'A-' } } })
-        const used = new Set(all.map((a) => a.code))
-        let n = 1
-        while (used.has(`A-${String(n).padStart(4, '0')}`)) n++
-        return `A-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed accessory ${resolvedCode} — ${args.name}.`,
-        plan: {
-          summary: `Create accessory ${resolvedCode} | ${args.name} | category ${args.category || '-'} | UOM ${uom.name} | rate ₹${args.rate || 0}`,
-          creates: [{ table: 'accessory', data: { code: resolvedCode, name: args.name, category: args.category, uomId: uom.id, rate: args.rate || 0 } }],
-          sideEffects: ['Accessory can now appear on POs, BOMs, GRNs, stock'],
-        },
-        async commit() {
-          const a = await db.accessory.create({ data: { code: resolvedCode, name: args.name, category: args.category, uomId: uom.id, rate: args.rate || 0 } })
-          return { id: a.id, code: a.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_godown',
-    description: 'Create a godown (warehouse). code is optional — auto-assigned G#### if omitted or taken. Required: name. Optional: location.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      location: z.string().optional(),
-    }),
-    async execute(args) {
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.godown.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.godown.findMany({ where: { code: { startsWith: 'G' } } })
-        const used = new Set(all.map((g) => g.code))
-        let n = 1
-        while (used.has(`G${n}`)) n++
-        return `G${n}`
-      })()
-
-      return {
-        text: `Proposed godown ${resolvedCode} — ${args.name}.`,
-        plan: {
-          summary: `Create godown ${resolvedCode} | ${args.name} | location ${args.location || '-'}`,
-          creates: [{ table: 'godown', data: { code: resolvedCode, name: args.name, location: args.location } }],
-          sideEffects: ['Godown can now hold stock and receive GRNs'],
-        },
-        async commit() {
-          const g = await db.godown.create({ data: { code: resolvedCode, name: args.name, location: args.location } })
-          return { id: g.id, code: g.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_department',
-    description: 'Create a department / process. code is optional — auto-assigned D#### if omitted or taken. Required: name. Optional: orderSno, isProcess.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      orderSno: z.number().optional(),
-      isProcess: z.boolean().optional(),
-    }),
-    async execute(args) {
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.department.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.department.findMany({ where: { code: { startsWith: 'D' } } })
-        const used = new Set(all.map((d) => d.code))
-        let n = 1
-        while (used.has(`D${n}`)) n++
-        return `D${n}`
-      })()
-
-      return {
-        text: `Proposed department ${resolvedCode} — ${args.name}.`,
-        plan: {
-          summary: `Create department ${resolvedCode} | ${args.name} | isProcess ${args.isProcess || false} | order ${args.orderSno || 0}`,
-          creates: [{ table: 'department', data: { code: resolvedCode, name: args.name, orderSno: args.orderSno || 0, isProcess: args.isProcess || false } }],
-          sideEffects: ['Department can now hold employees, production entries, stock'],
-        },
-        async commit() {
-          const d = await db.department.create({ data: { code: resolvedCode, name: args.name, orderSno: args.orderSno || 0, isProcess: args.isProcess || false } })
-          return { id: d.id, code: d.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_employee',
-    description: 'Create an employee master. code is optional — auto-assigned EMP-#### if omitted or taken. Required: name. Optional: deptCode, role (operator|supervisor|helper), pieceRate, dailyWage, active.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().optional(),
-      name: z.string(),
-      deptCode: z.string().optional(),
-      role: z.string().optional(),
-      pieceRate: z.number().optional(),
-      dailyWage: z.number().optional(),
-      active: z.boolean().optional(),
-    }),
-    async execute(args) {
-      let dept: any = null
-      if (args.deptCode) {
-        dept = await db.department.findUnique({ where: { code: args.deptCode } })
-        if (!dept) return { text: `Dept ${args.deptCode} not found` }
-      }
-      const resolvedCode = await (async () => {
-        const desired = args.code?.trim()
-        if (desired) {
-          const exists = await db.employee.findUnique({ where: { code: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.employee.findMany({ where: { code: { startsWith: 'EMP-' } } })
-        const used = new Set(all.map((e) => e.code))
-        let n = 1
-        while (used.has(`EMP-${String(n).padStart(4, '0')}`)) n++
-        return `EMP-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed employee ${resolvedCode} — ${args.name}.`,
-        plan: {
-          summary: `Create employee ${resolvedCode} | ${args.name} | dept ${dept?.code || '-'} | role ${args.role || '-'} | piece-rate ₹${args.pieceRate || 0} | daily wage ₹${args.dailyWage || 0}`,
-          creates: [{ table: 'employee', data: { code: resolvedCode, name: args.name, deptId: dept?.id, role: args.role, pieceRate: args.pieceRate || 0, dailyWage: args.dailyWage || 0, active: args.active ?? true } }],
-          sideEffects: ['Employee can now be assigned to production entries'],
-        },
-        async commit() {
-          const e = await db.employee.create({ data: { code: resolvedCode, name: args.name, deptId: dept?.id, role: args.role, pieceRate: args.pieceRate || 0, dailyWage: args.dailyWage || 0, active: args.active ?? true } })
-          return { id: e.id, code: e.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_colour',
-    description: 'Create a colour master. Required: name, code (e.g. RED, BLK, NAV). If colour exists, returns it.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      name: z.string(),
-      code: z.string(),
-    }),
-    async execute(args) {
-      const existing = await db.colour.findUnique({ where: { name: args.name } }).catch(() => null)
-      if (existing) return { text: `Colour ${args.name} already exists (code ${existing.code}).` }
-      return {
-        text: `Proposed colour ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create colour ${args.code} | ${args.name}`,
-          creates: [{ table: 'colour', data: { name: args.name, code: args.code } }],
-          sideEffects: ['Colour can now be used on order lines, stock, cut bundles'],
-        },
-        async commit() {
-          const c = await db.colour.create({ data: { name: args.name, code: args.code } })
-          return { id: c.id, code: c.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_size',
-    description: 'Create a size master. Required: name (e.g. S, M, L, XL, 32, 34). Optional: sort order.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      name: z.string(),
-      sort: z.number().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.size.findUnique({ where: { name: args.name } }).catch(() => null)
-      if (existing) return { text: `Size ${args.name} already exists.` }
-      return {
-        text: `Proposed size ${args.name}.`,
-        plan: {
-          summary: `Create size ${args.name} | sort ${args.sort || 0}`,
-          creates: [{ table: 'size', data: { name: args.name, sort: args.sort || 0 } }],
-          sideEffects: ['Size can now be used on order lines, stock, cut bundles'],
-        },
-        async commit() {
-          const s = await db.size.create({ data: { name: args.name, sort: args.sort || 0 } })
-          return { id: s.id }
-        },
-      }
-    },
-  },
+  // ───────────── MASTER CRUD TOOLS (SPEC-M2 §7) — thin delegates to master-service ─────────────
+  ...masterCreateTools,
+  ...masterUpdateTools,
+  ...masterNewListTools,
   {
     name: 'create_sizes',
     description: 'Batch-create a full size scale in ONE call (preferred over repeated create_size when ingesting documents). Pass every size name of the scale via "names", e.g. names=["104","110","116","122","128","134","140"] or names=["XS","S","M","L","XL"]. Sizes that already exist are skipped automatically.',
@@ -2695,274 +2066,8 @@ const writeTools: AgentTool[] = [
     },
   },
   {
-    name: 'create_uom',
-    description: 'Create a unit of measure master. Required: name (KGS, MTR, PCS, BAG), code (matching). If exists, returns it.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      name: z.string(),
-      code: z.string(),
-    }),
-    async execute(args) {
-      const existing = await db.uOM.findUnique({ where: { code: args.code } }).catch(() => null)
-      if (existing) return { text: `UOM ${args.code} already exists.` }
-      return {
-        text: `Proposed UOM ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create UOM ${args.code} | ${args.name}`,
-          creates: [{ table: 'uom', data: { name: args.name, code: args.code } }],
-          sideEffects: ['UOM can now be used on yarn, fabric, accessory masters'],
-        },
-        async commit() {
-          const u = await db.uOM.create({ data: { name: args.name, code: args.code } })
-          return { id: u.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_dia',
-    description: 'Create a dia (machine diameter) master. Required: value (e.g. "30", "34"). If exists, returns it.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      value: z.string(),
-    }),
-    async execute(args) {
-      const existing = await db.dia.findUnique({ where: { value: args.value } }).catch(() => null)
-      if (existing) return { text: `Dia ${args.value} already exists.` }
-      return {
-        text: `Proposed dia ${args.value}.`,
-        plan: {
-          summary: `Create dia ${args.value}`,
-          creates: [{ table: 'dia', data: { value: args.value } }],
-          sideEffects: ['Dia can now be used on fabric masters'],
-        },
-        async commit() {
-          const d = await db.dia.create({ data: { value: args.value } })
-          return { id: d.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_lot',
-    description: 'Create a lot master. lotNo is optional — auto-assigned LOT-#### if omitted or taken. Optional: partyCode.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      lotNo: z.string().optional(),
-      partyCode: z.string().optional(),
-    }),
-    async execute(args) {
-      let party: any = null
-      if (args.partyCode) {
-        party = await db.party.findUnique({ where: { code: args.partyCode } })
-        if (!party) return { text: `Party ${args.partyCode} not found` }
-      }
-      const resolvedLotNo = await (async () => {
-        const desired = args.lotNo?.trim()
-        if (desired) {
-          const exists = await db.lot.findUnique({ where: { lotNo: desired } }).catch(() => null)
-          if (!exists) return desired
-        }
-        const all = await db.lot.findMany({ where: { lotNo: { startsWith: 'LOT-' } } })
-        const used = new Set(all.map((l) => l.lotNo))
-        let n = 1
-        while (used.has(`LOT-${String(n).padStart(4, '0')}`)) n++
-        return `LOT-${String(n).padStart(4, '0')}`
-      })()
-
-      return {
-        text: `Proposed lot ${resolvedLotNo}.`,
-        plan: {
-          summary: `Create lot ${resolvedLotNo} | party ${party?.code || '-'}`,
-          creates: [{ table: 'lot', data: { lotNo: resolvedLotNo, partyId: party?.id } }],
-          sideEffects: ['Lot can now be assigned to GRNs and stock'],
-        },
-        async commit() {
-          const l = await db.lot.create({ data: { lotNo: resolvedLotNo, partyId: party?.id } })
-          return { id: l.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_season',
-    description: 'Create a season master. Required: code, name. Optional: startDate, endDate.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string(),
-      startDate: z.string().optional(),
-      endDate: z.string().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.season.findUnique({ where: { code: args.code } }).catch(() => null)
-      if (existing) return { text: `Season ${args.code} already exists.` }
-      return {
-        text: `Proposed season ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create season ${args.code} | ${args.name} | ${args.startDate || '?'} → ${args.endDate || '?'}`,
-          creates: [{ table: 'season', data: { code: args.code, name: args.name, startDate: args.startDate ? new Date(args.startDate) : null, endDate: args.endDate ? new Date(args.endDate) : null } }],
-          sideEffects: ['Season can now be referenced on orders'],
-        },
-        async commit() {
-          const s = await db.season.create({ data: { code: args.code, name: args.name, startDate: args.startDate ? new Date(args.startDate) : null, endDate: args.endDate ? new Date(args.endDate) : null } })
-          return { id: s.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_merchandiser',
-    description: 'Create a merchandiser master. Required: name. Optional: email, phone.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      name: z.string(),
-      email: z.string().optional(),
-      phone: z.string().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.merchandiser.findUnique({ where: { name: args.name } }).catch(() => null)
-      if (existing) return { text: `Merchandiser ${args.name} already exists.` }
-      return {
-        text: `Proposed merchandiser ${args.name}.`,
-        plan: {
-          summary: `Create merchandiser ${args.name} | email ${args.email || '-'} | phone ${args.phone || '-'}`,
-          creates: [{ table: 'merchandiser', data: { name: args.name, email: args.email, phone: args.phone } }],
-          sideEffects: ['Merchandiser can be assigned to buyers'],
-        },
-        async commit() {
-          const m = await db.merchandiser.create({ data: { name: args.name, email: args.email, phone: args.phone } })
-          return { id: m.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_exporter',
-    description: 'Create an exporter master (the exporting entity). Required: code, name. Optional: iec, gstin.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string(),
-      iec: z.string().optional(),
-      gstin: z.string().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.exporter.findUnique({ where: { code: args.code } }).catch(() => null)
-      if (existing) return { text: `Exporter ${args.code} already exists.` }
-      return {
-        text: `Proposed exporter ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create exporter ${args.code} | ${args.name} | IEC ${args.iec || '-'} | GSTIN ${args.gstin || '-'}`,
-          creates: [{ table: 'exporter', data: { code: args.code, name: args.name, iec: args.iec, gstin: args.gstin } }],
-          sideEffects: ['Exporter can be referenced on export invoices / shipping bills'],
-        },
-        async commit() {
-          const e = await db.exporter.create({ data: { code: args.code, name: args.name, iec: args.iec, gstin: args.gstin } })
-          return { id: e.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_fin_year',
-    description: 'Create a financial year. Required: code, name, start, end. Optional: active (set true for current FY).',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string(),
-      start: z.string(),
-      end: z.string(),
-      active: z.boolean().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.finYear.findUnique({ where: { code: args.code } }).catch(() => null)
-      if (existing) return { text: `FinYear ${args.code} already exists.` }
-      return {
-        text: `Proposed FinYear ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create FinYear ${args.code} | ${args.name} | ${args.start} → ${args.end} | active ${args.active || false}`,
-          creates: [{ table: 'finYear', data: { code: args.code, name: args.name, start: new Date(args.start), end: new Date(args.end), active: args.active || false } }],
-          sideEffects: ['If active=true, all transactions will post to this FY'],
-        },
-        async commit() {
-          const f = await db.finYear.create({ data: { code: args.code, name: args.name, start: new Date(args.start), end: new Date(args.end), active: args.active || false } })
-          return { id: f.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_line',
-    description: 'Create a production line. Required: code, name. Optional: deptCode, capacityPcsPerHour.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string(),
-      deptCode: z.string().optional(),
-      capacityPcsPerHour: z.number().optional(),
-    }),
-    async execute(args) {
-      let dept: any = null
-      if (args.deptCode) {
-        dept = await db.department.findUnique({ where: { code: args.deptCode } })
-        if (!dept) return { text: `Dept ${args.deptCode} not found` }
-      }
-      const existing = await db.line.findUnique({ where: { code: args.code } }).catch(() => null)
-      if (existing) return { text: `Line ${args.code} already exists.` }
-      return {
-        text: `Proposed line ${args.code} — ${args.name}.`,
-        plan: {
-          summary: `Create line ${args.code} | ${args.name} | dept ${dept?.code || '-'} | cap ${args.capacityPcsPerHour || 0} pcs/hr`,
-          creates: [{ table: 'line', data: { code: args.code, name: args.name, deptId: dept?.id, capacityPcsPerHour: args.capacityPcsPerHour || 0 } }],
-          sideEffects: ['Line can be assigned to production entries'],
-        },
-        async commit() {
-          const l = await db.line.create({ data: { code: args.code, name: args.name, deptId: dept?.id, capacityPcsPerHour: args.capacityPcsPerHour || 0 } })
-          return { id: l.id }
-        },
-      }
-    },
-  },
-  {
-    name: 'create_size_group',
-    description: 'Create a size group master. Required: name, sizes (list of size names). Resolves each size name to a Size row.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      name: z.string(),
-      sizes: z.array(z.string()),
-    }),
-    async execute(args) {
-      const existing = await db.sizeGroup.findUnique({ where: { name: args.name } }).catch(() => null)
-      if (existing) return { text: `Size group ${args.name} already exists.` }
-      const sizes = await Promise.all(args.sizes.map(async (n) => db.size.findUnique({ where: { name: n } })))
-      const ids = sizes.filter(Boolean).map((s: any) => s.id)
-      return {
-        text: `Proposed size group ${args.name} with ${ids.length} sizes.`,
-        plan: {
-          summary: `Create size group ${args.name} | sizes: ${args.sizes.join(', ')}`,
-          creates: [{ table: 'sizeGroup', data: { name: args.name, sizes: ids.join(',') } }],
-          sideEffects: ['Size group can be applied to styles'],
-        },
-        async commit() {
-          const sg = await db.sizeGroup.create({ data: { name: args.name, sizes: ids.join(',') } })
-          return { id: sg.id }
-        },
-      }
-    },
-  },
-  {
     name: 'create_bom',
-    description: 'Create Bill of Materials lines for a style. Required: styleNo, lines (array of {itemType (yarn|fabric|accessory), itemCode, qty, rate}).',
+    description: 'Create a Bill of Materials line for a style. Required: styleNo, lines (array of {itemType (yarn|fabric|accessory), itemCode, qty, rate}). Optional: uomCode.',
     domain: 'masters',
     isWrite: true,
     schema: z.object({
@@ -3005,7 +2110,7 @@ const writeTools: AgentTool[] = [
 
   {
     name: 'create_jobwork_order',
-    description: 'Send material out to a jobworker (washing/dyeing/printing/embroidery). dcNo is optional — auto-assigned JW-#### if omitted or taken. Required: jobworkerCode (party), processType, totalQty, totalValue. Optional: orderNo, expectedInDate.',
+    description: 'Send material out to a jobworker (washing/dyeing/printing/embroidery). dcNo is optional — auto-assigned JW-#### if omitted or taken. Required: jobworkerCode (party), processType, totalQty, totalValue. Optional: orderId, expectedInDate.',
     domain: 'production',
     isWrite: true,
     schema: z.object({
@@ -3054,36 +2159,8 @@ const writeTools: AgentTool[] = [
     },
   },
   {
-    name: 'receive_jobwork',
-    description: 'Mark a jobwork DC as received back from the jobworker. Required: dcNo. Optional: receivedDate, receivedQty (defaults to sent qty).',
-    domain: 'production',
-    isWrite: true,
-    schema: z.object({
-      dcNo: z.string(),
-      receivedDate: z.string().optional(),
-      receivedQty: z.number().optional(),
-    }),
-    async execute(args) {
-      const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo } })
-      if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
-      if (jw.status === 'received') return { text: `Already received on ${jw.receivedDate}` }
-      return {
-        text: `Proposed receipt of jobwork ${args.dcNo} — ${args.receivedQty || jw.totalQty} units.`,
-        plan: {
-          summary: `Receive jobwork DC ${args.dcNo} | qty ${args.receivedQty || jw.totalQty} | date ${args.receivedDate || 'today'}`,
-          updates: [{ table: 'jobworkOrder', id: jw.id, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } }],
-          sideEffects: ['Material back in main godown', 'Jobwork cost booked'],
-        },
-        async commit() {
-          await db.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } })
-          return { id: jw.id, dcNo: jw.dcNo }
-        },
-      }
-    },
-  },
-  {
     name: 'create_pcs_despatch',
-    description: 'Despatch finished goods (pieces) to a buyer. dcNo is optional — auto-assigned DC-#### if omitted or taken. Required: orderNo, totalPcs. Optional: vehicleNo, courierName, lines (array of {styleNo, colourName, sizeName, qty, rate}).',
+    description: 'Despatch finished goods (pieces) to a buyer. dcNo is optional — auto-assigned DC-#### if omitted or taken. Required: orderNo, totalPcs. Optional: buyerCode (defaults from order), vehicleNo, courierName, lines (array of {styleNo, colourName, sizeName, qty, rate}).',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
@@ -3129,15 +2206,28 @@ const writeTools: AgentTool[] = [
           sideEffects: ['Finished goods stock reduces', 'Order completion % increases'],
         },
         async commit() {
-          const d = await db.pcsDespatch.create({
-            data: {
-              dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
-              despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
-              finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched',
-              lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
-            },
+          return await db.$transaction(async (tx) => {
+            const d = await tx.pcsDespatch.create({
+              data: {
+                dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
+                despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+                finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched',
+                lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
+              },
+            })
+            // Industry chain: despatched pcs leave G2 (Finished Goods) — sales_delivery.
+            const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+            if (g2) {
+              await postLedger(tx, {
+                txnType: 'sales_delivery', itemType: 'pcs', itemId: order.id,
+                godownId: g2.id, deptId: null, orderId: order.id,
+                docNo: resolvedDcNo, docDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+                out: { pcs: args.totalPcs },
+                notes: `Despatch DC ${resolvedDcNo} → ${order.buyer?.name || 'buyer'}`,
+              })
+            }
+            return { id: d.id, dcNo: d.dcNo }
           })
-          return { id: d.id, dcNo: d.dcNo }
         },
       }
     },
@@ -3235,7 +2325,7 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'create_cost_sheet',
-    description: 'Create / update a cost sheet for an order. version auto-increments if a sheet exists. Required: orderNo. All cost fields optional — fabricCost, trimCost, cmCost, washingCost, packingCost, overheads, commissionPct, marginPct, sellingPrice.',
+    description: 'Create / update a cost sheet for an order. version defaults to 1; if a sheet exists, the next version is auto-assigned. Required: orderNo. All cost fields optional — fabricCost, trimCost, cmCost, washingCost, packingCost, overheads, commissionPct, marginPct, sellingPrice.',
     domain: 'costing',
     isWrite: true,
     schema: z.object({
@@ -3326,84 +2416,8 @@ const writeTools: AgentTool[] = [
     },
   },
   {
-    name: 'update_party',
-    description: 'Update an existing party master by code. All fields optional; only provided fields are updated.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string().optional(),
-      partyType: z.string().optional(),
-      gstin: z.string().optional(),
-      pan: z.string().optional(),
-      address: z.string().optional(),
-      city: z.string().optional(),
-      state: z.string().optional(),
-      phone: z.string().optional(),
-      email: z.string().optional(),
-      openingBalance: z.number().optional(),
-    }),
-    async execute(args) {
-      const party = await db.party.findUnique({ where: { code: args.code } })
-      if (!party) return { text: `Party ${args.code} not found` }
-      const { code: _code, ...patch } = args
-      return {
-        text: `Proposed update to party ${args.code}.`,
-        plan: {
-          summary: `Update party ${args.code} | fields: ${Object.keys(patch).join(', ') || 'none'}`,
-          updates: [{ table: 'party', id: party.id, data: patch }],
-          sideEffects: ['Party master updated'],
-        },
-        async commit() {
-          await db.party.update({ where: { id: party.id }, data: patch })
-          return { id: party.id, code: party.code }
-        },
-      }
-    },
-  },
-  {
-    name: 'update_employee',
-    description: 'Update an existing employee by code. All fields optional; only provided fields are updated.',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string(),
-      name: z.string().optional(),
-      deptCode: z.string().optional(),
-      role: z.string().optional(),
-      pieceRate: z.number().optional(),
-      dailyWage: z.number().optional(),
-      active: z.boolean().optional(),
-    }),
-    async execute(args) {
-      const emp = await db.employee.findUnique({ where: { code: args.code } })
-      if (!emp) return { text: `Employee ${args.code} not found` }
-      const { code: _code, deptCode, ...patch } = args
-      let deptId: string | undefined
-      if (deptCode) {
-        const dept = await db.department.findUnique({ where: { code: deptCode } })
-        if (!dept) return { text: `Dept ${deptCode} not found` }
-        deptId = dept.id
-      }
-      const data: any = { ...patch }
-      if (deptId !== undefined) data.deptId = deptId
-      return {
-        text: `Proposed update to employee ${args.code}.`,
-        plan: {
-          summary: `Update employee ${args.code} | fields: ${Object.keys(data).join(', ') || 'none'}`,
-          updates: [{ table: 'employee', id: emp.id, data }],
-          sideEffects: ['Employee master updated'],
-        },
-        async commit() {
-          await db.employee.update({ where: { id: emp.id }, data })
-          return { id: emp.id, code: emp.code }
-        },
-      }
-    },
-  },
-  {
     name: 'update_order',
-    description: 'Update an existing order by orderNo. Updatable: deliveryDate, status (open|in_progress|completed|cancelled), notes. Cannot change orderNo or buyer.',
+    description: 'Update an existing order by orderNo. Updatable: deliveryDate, status (open|in_progress|completed|cancelled), notes. Cannot change orderNo or buyerId.',
     domain: 'orders',
     isWrite: true,
     schema: z.object({
@@ -3433,296 +2447,333 @@ const writeTools: AgentTool[] = [
       }
     },
   },
-  // ───────────── CONFIG / FLAG WRITES (Phase 3.1) ─────────────
   {
-    name: 'set_flag',
-    description: 'Change a feature flag / system configuration value. Examples: set_flag(po_buddev, 5) tightens PO budget tolerance to 5%; set_flag(coy_state, "33") sets company GST state to Tamil Nadu; set_flag(notds, true) suppresses TDS. Use get_flags to see available flags, types and defaults.',
-    domain: 'config',
+    name: 'receive_jobwork',
+    description: 'Mark a jobwork DC as received back from the jobworker. Required: dcNo. Optional: receivedDate, receivedQty (defaults to sent qty).',
+    domain: 'production',
     isWrite: true,
     schema: z.object({
-      name: z.string().describe('Exact flag name from the registry (see get_flags)'),
-      value: z.union([z.string(), z.number(), z.boolean()]).describe('New value (type must match the flag: number/boolean/string)'),
+      dcNo: z.string(),
+      receivedDate: z.string().optional(),
+      receivedQty: z.number().optional(),
     }),
     async execute(args) {
-      let current: any
-      try {
-        current = await getFlags([args.name])
-      } catch (e: any) {
-        return { text: e.message }
-      }
-      const oldValue = current[args.name]
+      const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo } })
+      if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
+      if (jw.status === 'received') return { text: `Already received on ${jw.receivedDate}` }
       return {
-        text: `Proposed flag change: ${args.name} = ${JSON.stringify(args.value)} (was ${JSON.stringify(oldValue)}).`,
+        text: `Proposed receipt of jobwork ${args.dcNo} — ${args.receivedQty || jw.totalQty} units.`,
         plan: {
-          summary: `Set flag ${args.name}: ${JSON.stringify(oldValue)} → ${JSON.stringify(args.value)}`,
-          updates: [{ table: 'flag', id: args.name, data: { value: String(args.value) } }],
-          sideEffects: ['Tolerance checks and commercial logic re-read this flag on the next document'],
+          summary: `Receive jobwork DC ${args.dcNo} | qty ${args.receivedQty || jw.totalQty} | date ${args.receivedDate || 'today'}`,
+          updates: [{ table: 'jobworkOrder', id: jw.id, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } }],
+          sideEffects: ['Material back in main godown', 'Jobwork cost booked'],
         },
         async commit() {
-          try {
-            const v = await setFlag(args.name, args.value)
-            return { name: args.name, value: v }
-          } catch (e: any) {
-            return { error: e.message }
-          }
-        },
-      }
-    },
-  },
-  // ───────────── HSN MASTER WRITE (Phase 3.3) ─────────────
-  {
-    name: 'create_hsn_code',
-    description: 'Create or update an HSN master code with its GST rate (the invoice GST source). Required: code, gstRate. Optional: description. E.g. create_hsn_code(6109, 5, "T-shirts, knitted").',
-    domain: 'masters',
-    isWrite: true,
-    schema: z.object({
-      code: z.string().describe('HSN code, e.g. "6109"'),
-      gstRate: z.number().describe('GST % e.g. 5'),
-      description: z.string().optional(),
-    }),
-    async execute(args) {
-      const existing = await db.hsnCode.findUnique({ where: { code: args.code } })
-      const verb = existing ? `Update HSN ${args.code}` : `Create HSN ${args.code}`
-      return {
-        text: `${verb} with GST ${args.gstRate}%.`,
-        plan: {
-          summary: `${verb} | GST ${args.gstRate}%${args.description ? ` | ${args.description}` : ''}`,
-          creates: existing ? undefined : [{ table: 'hsnCode', data: { code: args.code, gstRate: args.gstRate, description: args.description || '' } }],
-          updates: existing ? [{ table: 'hsnCode', id: existing.id, data: { gstRate: args.gstRate, description: args.description ?? existing.description } }] : undefined,
-          sideEffects: ['Invoices for styles carrying this HSN will source GST % from here'],
-        },
-        async commit() {
-          const row = await db.hsnCode.upsert({
-            where: { code: args.code },
-            update: { gstRate: args.gstRate, ...(args.description !== undefined ? { description: args.description } : {}) },
-            create: { code: args.code, gstRate: args.gstRate, description: args.description || '' },
-          })
-          return { id: row.id, code: row.code, gstRate: row.gstRate }
-        },
-      }
-    },
-  },
-  // ───────────── BILLS / TDS / PAYMENTS CHAIN (Phase 3.4, LLD frmBillPass + FrmPaymentReg) ─────────────
-  {
-    name: 'create_supplier_bill',
-    description: 'Register a supplier/job-work bill (bills register entry). billNo optional — auto-assigned BILL-####. Reference it against a PO (refType po + poNo), GRN (refType grn + grnNo), or jobwork DC (refType jobwork + dcNo). Runs a 3-way match (PO vs GRN vs bill qty/rate) with tolerance verdicts shown on the plan. Required: partyCode, billType (yarn|fab|acc|cm|prd), qty, rate. Optional: gstRate (input credit), additions, deductions.',
-    domain: 'accounting',
-    isWrite: true,
-    schema: z.object({
-      billNo: z.string().optional(),
-      partyCode: z.string(),
-      billType: z.string().describe('yarn | fab | acc | cm | prd'),
-      refType: z.string().optional().describe('po | grn | jobwork | order | none'),
-      refNo: z.string().optional().describe('Direct reference number (GRN/PO/DC) — alternatively use poNo/grnNo/dcNo below'),
-      poNo: z.string().optional(),
-      grnNo: z.string().optional(),
-      dcNo: z.string().optional(),
-      orderNo: z.string().optional(),
-      qty: z.number(),
-      rate: z.number(),
-      gstRate: z.number().optional().describe('GST % on the bill (input credit), default 0'),
-      additions: z.number().optional().describe('Add heads (freight etc.) added to bill amount'),
-      deductions: z.number().optional().describe('Deduction heads subtracted at entry'),
-      billDate: z.string().optional(),
-      remarks: z.string().optional(),
-    }),
-    async execute(args) {
-      const party = await db.party.findUnique({ where: { code: args.partyCode } })
-        || (await db.party.findFirst({ where: { name: args.partyCode } }))
-      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name).` }
-      const finYear = await activeFinYear()
-
-      // Resolve the reference document for the 3-way match
-      let refType = args.refType || (args.poNo ? 'po' : args.grnNo || args.refNo?.startsWith('GRN') ? 'grn' : args.dcNo ? 'jobwork' : args.orderNo ? 'order' : args.refNo ? 'grn' : 'none')
-      let refNo: string | null = args.poNo || args.grnNo || args.dcNo || args.orderNo || args.refNo || null
-      let refId: string | null = null
-      let poQty: number | undefined
-      let poRate: number | undefined
-      let grnQty: number | undefined
-      if (args.poNo) {
-        const po = await db.purchaseOrder.findUnique({ where: { poNo: args.poNo }, include: { lines: true } })
-        if (!po) return { text: `PO ${args.poNo} not found` }
-        refId = po.id
-        poQty = po.lines.reduce((s, l) => s + l.qty, 0)
-        poRate = po.lines[0]?.rate
-      }
-      const grnRef = args.grnNo || (refType === 'grn' && args.refNo ? args.refNo : null)
-      if (grnRef) {
-        const grn = await db.gRN.findUnique({ where: { grnNo: grnRef } })
-        if (!grn) return { text: `GRN ${grnRef} not found` }
-        refNo = grn.grnNo
-        refId = refId || grn.id
-        grnQty = grn.totalQty
-        if (grn.poId && poQty == null) {
-          const po = await db.purchaseOrder.findUnique({ where: { id: grn.poId }, include: { lines: true } })
-          if (po) { poQty = po.lines.reduce((s, l) => s + l.qty, 0); poRate = po.lines[0]?.rate }
-        }
-      }
-      if (args.dcNo) {
-        const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo } })
-        if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
-        refId = refId || jw.id
-      }
-      if (args.orderNo) {
-        const o = await db.order.findUnique({ where: { orderNo: args.orderNo } })
-        if (!o) return { text: `Order ${args.orderNo} not found` }
-        refId = refId || o.id
-      }
-
-      const taxableValue = args.qty * args.rate
-      const gstRate = args.gstRate ?? 0
-      const gstAmount = (taxableValue * gstRate) / 100
-      const additions = args.additions ?? 0
-      const deductions = args.deductions ?? 0
-      const billAmount = taxableValue + gstAmount + additions - deductions
-      const resolvedBillNo = await resolveNumber('bill', args.billNo)
-      const billDate = args.billDate ? new Date(args.billDate) : new Date()
-
-      // 3-way match + dating checks (BIL-008, BR-03)
-      const match = await threeWayMatch({ poQty, grnQty, billQty: args.qty, poRate, billRate: args.rate })
-      const tolerances = [...match.verdicts, ...(await checkEntryDate(billDate))]
-      if (tolerances.some((v) => v.severity === 'block')) {
-        return { text: `Bill refused by tolerance check:\n${tolerances.filter((v) => v.severity === 'block').map((v) => `✕ ${v.message}`).join('\n')}`, json: { tolerances } }
-      }
-
-      return {
-        text: `Proposed bill ${resolvedBillNo} from ${party.name}: ${args.qty} × ₹${args.rate} = ₹${taxableValue}${gstRate ? ` + ${gstRate}% GST ₹${gstAmount}` : ''}${additions ? ` + add ₹${additions}` : ''}${deductions ? ` − ded ₹${deductions}` : ''} → ₹${billAmount}. 3-way match: ${match.matched ? 'OK' : 'deviations flagged'}.`,
-        plan: {
-          summary: `Register bill ${resolvedBillNo} | ${party.name} | ${args.billType} | qty ${args.qty} × ₹${args.rate} | taxable ₹${taxableValue} | GST ${gstRate}% | bill ₹${billAmount}${refNo ? ` | ref ${refType}:${refNo}` : ''}`,
-          creates: [
-            { table: 'bill', data: { billNo: resolvedBillNo, partyId: party.id, billType: args.billType, refType, refNo, refId, billDate, finYear, qty: args.qty, rate: args.rate, taxableValue, gstRate, gstAmount, billAmount, status: 'received', matchVerdict: JSON.stringify(match), remarks: args.remarks } },
-          ],
-          sideEffects: ['Enters the bills register (status received)', 'Pass for payment via pass_bill', 'Party payable exposure increases'],
-          tolerances: tolerances.length ? tolerances : undefined,
-        },
-        async commit() {
-          const bill = await db.bill.create({
-            data: { billNo: resolvedBillNo, partyId: party.id, billType: args.billType, refType, refNo, refId, billDate, finYear, qty: args.qty, rate: args.rate, taxableValue, gstRate, gstAmount, billAmount, status: 'received', matchVerdict: JSON.stringify(match), remarks: args.remarks },
-          })
-          return { id: bill.id, billNo: bill.billNo, billAmount: bill.billAmount, party: party.code, partyName: party.name, refNo, match: { matched: match.matched, verdicts: match.verdicts.filter((v) => v.severity !== 'ok').length } }
+          await db.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } })
+          return { id: jw.id, dcNo: jw.dcNo }
         },
       }
     },
   },
   {
-    name: 'pass_bill',
-    description: 'Pass a bill for payment (frmBillPass parity): computes TDS (suppressed when notds flag is on; default % from tds_default_percent flag — 194C), applies add/ded heads, and sets net payable. Required: billNo. Optional: tdsPercent override, additions, deductions, remarks.',
-    domain: 'accounting',
+    // ── Industry chain: PROGRAM — the "order → program" step. ──
+    name: 'create_program',
+    description: 'Create a production PROGRAM for an order — the production plan step right after BOM. For a knitting program pass stage=knitting + yarnCode + requiredKgs; for a dyeing program pass stage=dyeing + fabricCode + requiredKgs; for sewing/finishing/packing pass requiredPcs. programNo auto-assigned PGM-####. Dept auto-maps from stage (knitting→D1, dyeing→D2, sewing→D4, finishing→D5, packing→D6) unless deptCode given. Also updates the legacy ProgBalanceYarn/ProgBalanceFabric projector rows.',
+    domain: 'production',
     isWrite: true,
     schema: z.object({
-      billNo: z.string(),
-      tdsPercent: z.number().optional().describe('TDS % override (default from tds_default_percent flag, e.g. 2 for 194C)'),
-      additions: z.number().optional(),
-      deductions: z.number().optional(),
-      passDate: z.string().optional(),
-      remarks: z.string().optional(),
+      programNo: z.string().optional(),
+      orderNo: z.string(),
+      stage: z.string().describe('knitting | dyeing | printing | embroidery | sewing | finishing | packing'),
+      yarnCode: z.string().optional().describe('Yarn code (knitting programs — yarn to consume)'),
+      fabricCode: z.string().optional().describe('Fabric code (dyeing programs — fabric to process)'),
+      requiredKgs: z.number().optional(),
+      requiredMtrs: z.number().optional(),
+      requiredPcs: z.number().optional(),
+      deptCode: z.string().optional(),
+      targetDate: z.string().optional(),
+      notes: z.string().optional(),
     }),
     async execute(args) {
-      const bill = await db.bill.findUnique({ where: { billNo: args.billNo }, include: { party: true } })
-      if (!bill) return { text: `Bill ${args.billNo} not found` }
-      if (bill.status !== 'received') return { text: `Bill ${args.billNo} is already ${bill.status} — only received bills can be passed.` }
-
-      const flags = await getFlags(['notds', 'tds_default_percent', 'doublebillpassreqd'])
-      const tdsPercent = flags.notds ? 0 : (args.tdsPercent ?? flags.tds_default_percent)
-      const tdsBase = bill.taxableValue
-      const tdsAmount = Math.round(((tdsBase * tdsPercent) / 100) * 100) / 100
-      const additions = args.additions ?? 0
-      const deductions = args.deductions ?? 0
-      const netPayable = Math.round((bill.billAmount - tdsAmount + additions - deductions) * 100) / 100
-      const passDate = args.passDate ? new Date(args.passDate) : new Date()
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const yarn = args.yarnCode ? await db.yarn.findUnique({ where: { code: args.yarnCode } }) : null
+      if (args.yarnCode && !yarn) return { text: `Yarn ${args.yarnCode} not found` }
+      const fabric = args.fabricCode ? await db.fabric.findUnique({ where: { code: args.fabricCode } }) : null
+      if (args.fabricCode && !fabric) return { text: `Fabric ${args.fabricCode} not found` }
+      const deptCode = args.deptCode || STAGE_DEPT[args.stage]
+      const dept = deptCode ? await db.department.findUnique({ where: { code: deptCode } }) : null
+      if (deptCode && !dept) return { text: `Department ${deptCode} not found` }
+      if (!args.requiredKgs && !args.requiredMtrs && !args.requiredPcs) {
+        return { text: 'Provide at least one of requiredKgs / requiredMtrs / requiredPcs.' }
+      }
+      const programNo = await resolveDocNo('program', 'programNo', 'PGM-', args.programNo)
 
       return {
-        text: `Proposed pass for bill ${args.billNo} (${bill.party.name}): bill ₹${bill.billAmount} − TDS ${tdsPercent}% ₹${tdsAmount}${additions ? ` + add ₹${additions}` : ''}${deductions ? ` − ded ₹${deductions}` : ''} → net payable ₹${netPayable}.${flags.notds ? ' (TDS suppressed by notds flag)' : ''}${flags.doublebillpassreqd ? ' (doublebillpassreqd is on — a second pass will be required before payable)' : ''}`,
+        text: `Proposed program ${programNo} for ${order.orderNo}: ${args.stage}${dept ? ' @' + dept.code : ''} — ${args.requiredKgs || 0} kg / ${args.requiredMtrs || 0} mtr / ${args.requiredPcs || 0} pcs.`,
         plan: {
-          summary: `Pass bill ${args.billNo} | ${bill.party.name} | bill ₹${bill.billAmount} | TDS ${tdsPercent}% = ₹${tdsAmount} | net ₹${netPayable}`,
-          creates: [
-            { table: 'billPass', data: { billId: bill.id, passDate, tdsPercent, tdsAmount, deductions, additions, netPayable, remarks: args.remarks } },
-          ],
-          updates: [
-            { table: 'bill', id: bill.id, data: { status: 'passed', tdsPercent, tdsAmount, netPayable, passDate } },
-          ],
-          sideEffects: ['Bill becomes payable (record_payment)', 'TDS ledger entry implied for Rpt_TDS compliance'],
-          tolerances: undefined,
+          summary: `Create program ${programNo} | order ${order.orderNo} | stage ${args.stage}${dept ? ' @' + dept.code : ''} | req ${args.requiredKgs || 0}kg ${args.requiredMtrs || 0}mtr ${args.requiredPcs || 0}pcs | target ${args.targetDate || '-'} | item ${yarn?.code || fabric?.code || '-'}`,
+          creates: [{ table: 'program', data: { programNo, orderId: order.id, stage: args.stage, deptId: dept?.id, yarnId: yarn?.id, fabricId: fabric?.id, requiredKgs: args.requiredKgs || 0, requiredMtrs: args.requiredMtrs || 0, requiredPcs: args.requiredPcs || 0, targetDate: args.targetDate ? new Date(args.targetDate) : null, notes: args.notes, status: 'open' } }],
+          sideEffects: [
+            yarn ? `ProgBalanceYarn.reqKgs +${args.requiredKgs || 0} kg (order ${order.orderNo})` : null,
+            fabric ? `ProgBalanceFabric.reqKgs +${args.requiredKgs || 0} kg (order ${order.orderNo})` : null,
+          ].filter((s): s is string => Boolean(s)),
         },
         async commit() {
           return await db.$transaction(async (tx) => {
-            const pass = await tx.billPass.create({
-              data: { billId: bill.id, passDate, tdsPercent, tdsAmount, deductions, additions, netPayable, remarks: args.remarks },
+            const prog = await tx.program.create({
+              data: { programNo, orderId: order.id, stage: args.stage, deptId: dept?.id, yarnId: yarn?.id, fabricId: fabric?.id, requiredKgs: args.requiredKgs || 0, requiredMtrs: args.requiredMtrs || 0, requiredPcs: args.requiredPcs || 0, targetDate: args.targetDate ? new Date(args.targetDate) : null, notes: args.notes, status: 'open' },
             })
-            const updated = await tx.bill.update({
-              where: { id: bill.id },
-              data: { status: 'passed', tdsPercent, tdsAmount, netPayable, passDate },
-            })
-            return { passId: pass.id, billNo: updated.billNo, netPayable: updated.netPayable, tdsAmount: updated.tdsAmount }
+            // Legacy projector rows: required quantities per order+dept+item.
+            if (yarn && dept) {
+              const existing = await tx.progBalanceYarn.findFirst({ where: { orderId: order.id, deptId: dept.id, countId: yarn.id } })
+              if (existing) await tx.progBalanceYarn.update({ where: { id: existing.id }, data: { reqKgs: { increment: args.requiredKgs || 0 } } })
+              else await tx.progBalanceYarn.create({ data: { orderId: order.id, deptId: dept.id, countId: yarn.id, reqKgs: args.requiredKgs || 0 } })
+            }
+            if (fabric && dept) {
+              const existing = await tx.progBalanceFabric.findFirst({ where: { orderId: order.id, deptId: dept.id, fabricId: fabric.id } })
+              if (existing) await tx.progBalanceFabric.update({ where: { id: existing.id }, data: { reqKgs: { increment: args.requiredKgs || 0 } } })
+              else await tx.progBalanceFabric.create({ data: { orderId: order.id, deptId: dept.id, fabricId: fabric.id, reqKgs: args.requiredKgs || 0 } })
+            }
+            return { id: prog.id, programNo: prog.programNo }
           })
         },
       }
     },
   },
   {
+    // ── Industry chain: ISSUE TO LINE — cut pieces from cutting floor to sewing line. ──
+    name: 'issue_to_line',
+    description: 'Issue cut pieces from the main godown (G1) to a sewing line. issueNo auto-assigned LI-####. Required: orderNo, lineCode, qty. Moves pcs out of G1 in the stock ledger (txn ready_to_cut_out).',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      issueNo: z.string().optional(),
+      orderNo: z.string(),
+      lineCode: z.string(),
+      qty: z.number(),
+      issueDate: z.string().optional(),
+      styleNo: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const line = await db.line.findUnique({ where: { code: args.lineCode } })
+      if (!line) return { text: `Line ${args.lineCode} not found (create it with create_line)` }
+      const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
+      if (!g1) return { text: 'Godown G1 (Main) not found — create it with create_godown' }
+      const issueNo = await resolveDocNo('lineIssue', 'issueNo', 'LI-', args.issueNo)
+      const issueDate = args.issueDate ? new Date(args.issueDate) : new Date()
+
+      // Warn (never block) if G1 pcs would go negative — legacy Fiberpro behaviour.
+      const bucket = await db.currentStock.findFirst({ where: { itemType: 'pcs', itemId: order.id, godownId: g1.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null } })
+      const onHand = bucket?.pcs || 0
+      const warn = onHand < args.qty ? [`⚠ G1 pcs balance is ${onHand}; issuing ${args.qty} makes it negative (cut order not yet booked?)`] : []
+
+      return {
+        text: `Proposed line issue ${issueNo}: ${args.qty} pcs of ${order.orderNo} to line ${line.code} (${line.name}).`,
+        plan: {
+          summary: `Issue to line ${issueNo} | order ${order.orderNo} | line ${line.code} | ${args.qty} pcs | ${issueDate.toISOString().slice(0, 10)}`,
+          creates: [{ table: 'lineIssue', data: { issueNo, orderId: order.id, lineId: line.id, issueDate, qty: args.qty, styleNo: args.styleNo || null, notes: args.notes, status: 'issued' } }],
+          sideEffects: [
+            `StockLedger: ${args.qty} pcs OUT of G1 (ready_to_cut_out)`,
+            `Line ${line.code} WIP increases`,
+            ...warn,
+          ],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const li = await tx.lineIssue.create({
+              data: { issueNo, orderId: order.id, lineId: line.id, issueDate, qty: args.qty, styleNo: args.styleNo || null, notes: args.notes, status: 'issued' },
+            })
+            await postLedger(tx, {
+              txnType: 'ready_to_cut_out', itemType: 'pcs', itemId: order.id,
+              godownId: g1.id, deptId: line.deptId, orderId: order.id,
+              docNo: issueNo, docDate: issueDate,
+              out: { pcs: args.qty },
+              notes: `Issued to line ${line.code}`,
+            })
+            return { id: li.id, issueNo: li.issueNo }
+          })
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: REJECTION — QA rejects pieces out of finished stock. ──
+    name: 'post_rejection',
+    description: 'Post a QA rejection for an order. rejNo auto-assigned REJ-####. Required: orderNo, qty. Optional: rejType (stitch_fault | size_fault | fabric_fault | shade_fault | damage | other), action (scrap | rework | return_to_party), deptCode, notes. Scrap/return actions move qty OUT of G2 (Finished Goods) in the stock ledger; rework action is document-only (pieces go back to the line via post_production_entry with rework).',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      rejNo: z.string().optional(),
+      orderNo: z.string(),
+      qty: z.number(),
+      rejType: z.string().optional(),
+      action: z.string().optional(),
+      deptCode: z.string().optional(),
+      rejDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const dept = args.deptCode ? await db.department.findUnique({ where: { code: args.deptCode } }) : null
+      if (args.deptCode && !dept) return { text: `Department ${args.deptCode} not found` }
+      const rejNo = await resolveDocNo('rejectionEntry', 'rejNo', 'REJ-', args.rejNo)
+      const rejDate = args.rejDate ? new Date(args.rejDate) : new Date()
+      const action = args.action || 'scrap'
+      const rejType = args.rejType || 'stitch_fault'
+      const movesStock = action === 'scrap' || action === 'return_to_party'
+
+      return {
+        text: `Proposed rejection ${rejNo}: ${args.qty} pcs of ${order.orderNo} — ${rejType}, action ${action}.`,
+        plan: {
+          summary: `Rejection ${rejNo} | order ${order.orderNo} | ${args.qty} pcs | type ${rejType} | action ${action}${dept ? ' @' + dept.code : ''}`,
+          creates: [{ table: 'rejectionEntry', data: { rejNo, orderId: order.id, deptId: dept?.id, rejDate, qty: args.qty, rejType, action, notes: args.notes } }],
+          sideEffects: movesStock
+            ? [`StockLedger: ${args.qty} pcs OUT of G2 Finished Goods (rejection_out)`]
+            : ['Document only — pieces stay in WIP for re-sewing (post_production_entry with rework)'],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const rej = await tx.rejectionEntry.create({
+              data: { rejNo, orderId: order.id, deptId: dept?.id, rejDate, qty: args.qty, rejType, action, notes: args.notes },
+            })
+            if (movesStock) {
+              const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+              if (g2) {
+                await postLedger(tx, {
+                  txnType: 'rejection_out', itemType: 'pcs', itemId: order.id,
+                  godownId: g2.id, deptId: dept?.id ?? null, orderId: order.id,
+                  docNo: rejNo, docDate: rejDate,
+                  out: { pcs: args.qty },
+                  notes: `QA rejection (${rejType}) → ${action}`,
+                })
+              }
+            }
+            return { id: rej.id, rejNo: rej.rejNo }
+          })
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: REWORK — defective pieces re-sewn, output booked again. ──
+    name: 'post_rework',
+    description: 'Post a rework production entry — defective pieces re-processed through a department. Required: orderNo, deptCode, qty, bundleNo. Creates a ProductionEntry with rework=true (kept separate from first-pass output in line status). Document-only: no stock movement.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      orderNo: z.string(),
+      deptCode: z.string(),
+      qty: z.number(),
+      bundleNo: z.string(),
+      prodDate: z.string().optional(),
+      operatorCode: z.string().optional(),
+      rate: z.number().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const dept = await db.department.findUnique({ where: { code: args.deptCode } })
+      if (!dept) return { text: `Dept ${args.deptCode} not found` }
+      const operator = args.operatorCode ? await db.employee.findUnique({ where: { code: args.operatorCode } }) : null
+      if (args.operatorCode && !operator) return { text: `Operator ${args.operatorCode} not found` }
+      const prodDate = args.prodDate ? new Date(args.prodDate) : new Date()
+      const rate = args.rate || 0
+      const amount = args.qty * rate
+
+      return {
+        text: `Proposed rework entry: ${args.qty} pcs of ${order.orderNo} re-processed @ ${dept.code}.`,
+        plan: {
+          summary: `Rework | order ${order.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo}${operator ? ' | operator ' + operator.name : ''} | ₹${amount}`,
+          creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate, bundleNo: args.bundleNo, operatorId: operator?.id, qty: args.qty, rate, amount, rework: true, styleNo: order.styleId } }],
+          sideEffects: ['Rework tracked separately from first-pass output', 'Piece-rate earnings accrue to the operator'],
+        },
+        async commit() {
+          const e = await db.productionEntry.create({
+            data: { orderId: order.id, deptId: dept.id, prodDate, bundleNo: args.bundleNo, operatorId: operator?.id, qty: args.qty, rate, amount, rework: true },
+          })
+          return { id: e.id }
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: PAYMENT — buyer collection / supplier payment. ──
     name: 'record_payment',
-    description: 'Record a payment (FrmPaymentReg parity): settles a passed bill (billNo) or pays a party on account. voucherNo optional — auto-assigned PAY-####. When billNo is given and amount is OMITTED, the bill is paid IN FULL (amount = net payable). Required: partyCode, mode (cash|bank|cheque|rtgs|upi). Optional: amount (omit for full bill settlement), billNo, reference (cheque/UTR no), notes.',
+    description: 'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out). voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). Required: partyCode, amount, direction. Optional: invoiceNo (marks the invoice paid when fully collected), orderNo, mode (cash|bank|cheque|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
     domain: 'accounting',
     isWrite: true,
     schema: z.object({
       voucherNo: z.string().optional(),
       partyCode: z.string(),
-      amount: z.number().optional().describe('Payment amount — omit to settle the referenced bill IN FULL'),
-      mode: z.string().default('bank'),
-      billNo: z.string().optional(),
+      amount: z.number(),
+      direction: z.string().optional().describe('in = receipt from buyer (default) | out = payment to supplier'),
+      invoiceNo: z.string().optional(),
+      orderNo: z.string().optional(),
+      mode: z.string().optional(),
       reference: z.string().optional(),
       payDate: z.string().optional(),
       notes: z.string().optional(),
     }),
     async execute(args) {
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
-        || (await db.party.findFirst({ where: { name: args.partyCode } }))
-      if (!party) return { text: `Party ${args.partyCode} not found (tried code and name).` }
-      const finYear = await activeFinYear()
-      let bill: any = null
-      if (args.billNo) {
-        bill = await db.bill.findUnique({ where: { billNo: args.billNo } })
-        if (!bill) return { text: `Bill ${args.billNo} not found` }
-        if (bill.status === 'received') return { text: `Bill ${args.billNo} is not passed yet — pass it first (pass_bill).` }
-      }
-      // amount defaults to full settlement of the referenced bill
-      const amount = args.amount ?? bill?.netPayable
-      if (amount == null || !Number.isFinite(amount) || amount <= 0) {
-        return { text: `Invalid payment amount ${JSON.stringify(args.amount)}${bill ? ` — the bill's net payable is ₹${bill.netPayable}` : ''}. Pass amount explicitly (or omit it to settle bill ${args.billNo || ''} in full).` }
-      }
-      if (bill && amount > bill.netPayable + 0.01) {
-        return { text: `Payment ₹${amount} exceeds net payable ₹${bill.netPayable} on bill ${args.billNo}. Pay at most the net payable or record an on-account payment without billNo.` }
-      }
-      const resolvedVoucherNo = await resolveNumber('payment', args.voucherNo)
+      if (!party) return { text: `Party ${args.partyCode} not found` }
+      const direction = args.direction === 'out' ? 'out' : 'in'
+      const invoice = args.invoiceNo ? await db.salesInvoice.findUnique({ where: { invoiceNo: args.invoiceNo } }) : null
+      if (args.invoiceNo && !invoice) return { text: `Invoice ${args.invoiceNo} not found` }
+      const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
+      if (args.orderNo && !order) return { text: `Order ${args.orderNo} not found` }
+      const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
       const payDate = args.payDate ? new Date(args.payDate) : new Date()
+      const mode = args.mode || 'bank'
+      const settlesInvoice = invoice && direction === 'in' && args.amount >= invoice.billAmount - 0.01
 
       return {
-        text: `Proposed payment ${resolvedVoucherNo} to ${party.name}: ₹${amount} via ${args.mode}${bill ? ` against bill ${bill.billNo}` : ' (on account)'}.`,
+        text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${invoice ? ' against invoice ' + invoice.invoiceNo : ''}.`,
         plan: {
-          summary: `Pay ${resolvedVoucherNo} | ${party.name} | ₹${amount} | ${args.mode}${bill ? ` | bill ${bill.billNo}` : ' | on account'}${args.reference ? ` | ref ${args.reference}` : ''}`,
-          creates: [
-            { table: 'payment', data: { voucherNo: resolvedVoucherNo, partyId: party.id, billId: bill?.id, payDate, finYear, amount, mode: args.mode, reference: args.reference, notes: args.notes } },
-          ],
-          updates: bill && amount >= bill.netPayable - 0.01
-            ? [{ table: 'bill', id: bill.id, data: { status: 'paid' } }]
-            : undefined,
-          sideEffects: ['Party payable reduces', bill ? 'Bill settles when fully paid' : 'On-account credit with party'],
+          summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${invoice ? ' | invoice ' + invoice.invoiceNo + ' (₹' + invoice.billAmount + ')' : ''}${args.reference ? ' | ref ' + args.reference : ''}`,
+          creates: [{ table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes } }],
+          updates: settlesInvoice ? [{ table: 'salesInvoice', id: invoice!.id, data: { status: 'paid' } }] : undefined,
+          sideEffects: [
+            direction === 'in' ? 'Party receivable reduces' : 'Party payable reduces',
+            'Journal voucher written (receipt/payment)',
+            settlesInvoice ? `Invoice ${invoice!.invoiceNo} marked paid` : null,
+          ].filter((s): s is string => Boolean(s)),
         },
         async commit() {
           return await db.$transaction(async (tx) => {
             const pay = await tx.payment.create({
-              data: { voucherNo: resolvedVoucherNo, partyId: party.id, billId: bill?.id, payDate, finYear, amount, mode: args.mode, reference: args.reference, notes: args.notes },
+              data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes },
             })
-            if (bill && amount >= bill.netPayable - 0.01) {
-              await tx.bill.update({ where: { id: bill.id }, data: { status: 'paid' } })
+            await tx.journal.create({
+              data: {
+                voucherNo: `JV-${voucherNo}`,
+                voucherType: direction === 'in' ? 'receipt' : 'payment',
+                partyId: party.id,
+                date: payDate,
+                finYear: '26-27',
+                debitAccount: direction === 'in' ? 'Cash/Bank' : party.name,
+                creditAccount: direction === 'in' ? party.name : 'Cash/Bank',
+                amount: args.amount,
+                narration: `${direction === 'in' ? 'Collection' : 'Payment'} ${voucherNo}${invoice ? ' against ' + invoice.invoiceNo : ''}${args.reference ? ' ref ' + args.reference : ''}`,
+              },
+            })
+            if (settlesInvoice) {
+              await tx.salesInvoice.update({ where: { id: invoice!.id }, data: { status: 'paid' } })
             }
-            return { id: pay.id, voucherNo: pay.voucherNo, amount: pay.amount }
+            return { id: pay.id, voucherNo: pay.voucherNo, invoiceSettled: settlesInvoice }
           })
         },
       }
     },
   },
 ]
+
 
 export const allTools: AgentTool[] = [...readTools, ...writeTools]
 
