@@ -219,3 +219,20 @@ Stage Summary:
 - COST of the near-miss: the byte-exact 54-model schema is gone; it is now the script-reconstructed functional equivalent (diff vs original: possibly cosmetic field-order/comments only — all code paths test-verified).
 - New invariant: prisma/schema.prisma + db/custom.db are now COMMITTED artifacts (they weren't through M1/M2 — the root cause of unrecoverability).
 - Next: SPEC-M3 per STATE next-actions (PostingEngine extraction + DocScreen + wiring W1/W3/W4 + /api/upload rebuild) — commit BEFORE coding.
+
+---
+Task ID: spec-m3
+Agent: main
+Task: Write and freeze SPEC-M3 (the stated next action after rollback recovery).
+
+Work Log:
+- Read CONVENTIONS (§posting-service pattern, testing rules) + SPEC-M2 as the format template + plan §4.2 (DocScreen), §4.6 (wiring W1/W6), §6-M3, §7 (tool gaps).
+- Inventoried the 22 transaction write tools in tools.ts (create_order … record_payment + 3 cancels) with their ledger effects from the postLedger call sites.
+- Extracted the 15-stage PIPELINE definition (source for chain.ts, ADR-007) and the 42 M3-phase menu items from the registry.
+- Wrote docs/CONTEXT/specs/SPEC-M3.md: goal + 11 acceptance criteria; non-goals re-sequenced via ADR-014 (DC family / pcs receipt+transfer / cutting-issue / ready-to-cut / multi-GRN / approval INs / amend-close screens → M4/M5; cancels become doc-view actions); architecture (tools.ts → thin delegates over posting/<op>.ts + schemas/<op>.ts, postLedger/bumpStock → posting/ledger.ts, STAGE_DEPT → legacy-enums.ts); frozen DocConfig types; the 20-screen live inventory (24/113 items, 14/17 groups after M3); wiring specs W1 (chain bar + Next CTA + computeChainState shared with suggest_next_step), W3 (Order Hub full-family include set + BOM card), W4 (doc-picker + create-on-the-fly reusing MasterTable in Sheet + draft preservation), nextFormUrl; /api/upload rebuild contract; 2 new tools (post_stock_adjustment, transfer_stock → 122 total); testing plan (doc-parity per op + form-door industry-chain companion + doc-config contract tests); 4 implementation waves with exit criteria; gotchas (verbatim zod moves, reconstructed-schema relation names, ADR-004 bucket rule, numbering collision-safety).
+- Added ADR-014 to 02-DECISIONS.md; updated 01-STATE.md (M3 = SPEC FROZEN, next actions = Wave A first; m1-done tag note).
+
+Stage Summary:
+- SPEC-M3 frozen and committed BEFORE any M3 code (protocol rule #3 satisfied).
+- M3 is session-splittable: Wave A (pure extraction, zero UI) is the safe first session — industry-chain test must pass UNMODIFIED through it.
+- Next session bootstraps via 00-START-HERE → STATE → SPEC-M3 §14 Wave A.

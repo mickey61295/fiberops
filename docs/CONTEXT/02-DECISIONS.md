@@ -113,3 +113,23 @@ Consequence: zero schema churn in M2; plan §6 M2/M3 lines annotated; the 20+
 legacy master forms with no schema model (banks, machines, rates, ranges,
 templates, threads, stages, expenses, HSN×2…) are documented in SPEC-M2 §3 with
 explicit M6 disposition instead of being silently dropped.
+
+ADR-014 — M3 boundary: chain-executable forms over full doc-family coverage · 2026-08-26 · ACTIVE
+Context: plan §6-M3 lists the full doc-family set (DC family, Pcs Receipt/Transfer,
+cutting-issue/ready-to-cut/production, multi-process GRN) alongside the core chain.
+Half of those families have NO posting tools yet (§7 gaps: create_dc, transfer_stock
+general-form, issue_fabric_to_cut, ready_to_cut standalone) — building their screens
+now would mean forms without the agent door or one-off logic outside the
+PostingEngine, violating P2/ADR-001. The acceptance that matters for the business
+is "full Tirupur chain executable through forms".
+Decision: M3 = PostingEngine extraction (22 ops → services + shared schemas) +
+DocScreen engine + the 20 screens in SPEC-M3 §8 (chain-complete set + accounts +
+inventory ops incl. 2 NEW tools post_stock_adjustment/transfer_stock) + W1/W3/W4
+wiring + /api/upload. DC family, pcs-receipt/transfer, ready-to-cut/cutting-issue/
+cutting-production, multi-process GRN, GAN/cut/lot approval INs, and the
+amend/cancel/close menu screens are re-sequenced to M4/M5 (cancels become doc-view
+actions now; their menu items go live-by-absorption only when M5 confirms).
+Consequence: live items 24/113 after M3 (not 42); plan §6 M3 line annotated;
+SPEC-M2's deferrals (post_opening → M3, BOM editor → Order Hub card) are honored —
+post_opening lands as a Wave-D stock-adjustment companion if budget allows, else
+M5 with ADR note.

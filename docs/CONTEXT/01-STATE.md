@@ -10,9 +10,9 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
 | Milestone | Scope | Status |
 |---|---|---|
 | M0 — Planning & context framework | deep dive + PLAN-2.0 + CONTEXT system | **DONE** |
-| M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (tag `m1-done`) |
+| M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
-| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | | NOT STARTED — spec required first (`specs/SPEC-M3.md`) |
+| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **SPEC FROZEN** (`specs/SPEC-M3.md`, ADR-014) — implementation NOT STARTED, Wave A first |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | | NOT STARTED |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
@@ -98,14 +98,12 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. Write `specs/SPEC-M3.md` (PostingEngine extraction: services out of tools.ts for
-   TRANSACTIONS + shared zod schemas; DocScreen engine; 15-stage chain forms; wiring
-   W1 mini-pipeline + W3 Order Hub + W4 pickers; `/api/upload` rebuild lands here) —
-   commit BEFORE coding.
-2. Implement M3. Acceptance per plan §6: full Tirupur chain executable through forms;
-   form saves and agent commits produce identical ledger effects (test-asserted);
-   Order Hub live with ≤1-click access to every related document.
-3. Tag `m3-done`. Update this file.
+1. Implement M3 **Wave A** per `specs/SPEC-M3.md` §14: `chain.ts` + `schemas/` +
+   `posting/` extraction (22 services + ledger.ts) + tools.ts delegation +
+   `tests/pipeline/doc-parity.test.ts`. Exit: all tests green, zero behavior change.
+2. Waves B→D per spec §14 (engine + order family → chain screens → accounts/
+   inventory + AI-prefill). Tag `m3-done` after Wave D acceptance.
+3. Update this file every wave (same commit).
 
 ## M2 notes for future sessions
 
