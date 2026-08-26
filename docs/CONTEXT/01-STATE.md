@@ -223,10 +223,13 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 - History was cleaned with git-filter-repo (blobs >50MB stripped). Never re-add
   binaries from source-erp/.
 - Push requires a FRESH PAT from the user each time (protocol in PITFALLS #8).
-- Patches exported to `download/`: 0001 (order-program-flow), 0002 (plan-2.0),
-  0003 (m1-app-shell), 0004 (m2-master-table), 0005 (rollback4-recovery),
-  0006 (spec-m3-frozen), 0007 (m3-wave-a-posting-engine),
-  0008 (m3-wave-b-order-family).
+- Patches in `download/` (REGENERATED 2026-08-27 after a sandbox restore wiped
+  the directory — see 0000-PATCH-INDEX.md): 0005 (rollback4-recovery,
+  3f09291..cea63c8), 0006 (spec-m3-frozen), 0007 (m3-wave-a-posting-engine),
+  0008 (m3-wave-b-order-family). Patches 0001-0004 (order-program-flow,
+  plan-2.0, m1-app-shell, m2-master-table) are LOST as patch files — their
+  commits were eaten by rollback #4; the CONTENT survives in the tree and in
+  0005's re-commit diff.
 - `.gitignore` now blocks the heavy untracked dirs (`/source-erp/`, `/workspace/`,
   `/download/`, `/upload/`, `/tool-results/`, `/.zscripts/`, `/mini-services/`,
   `/examples/`) so `git add -A` can never re-add legacy binaries (PITFALLS #6).
