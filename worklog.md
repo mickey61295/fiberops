@@ -69,3 +69,28 @@ Stage Summary:
 - Local main and agent/order-program-flow both at aaf63dd; origin/agent/order-program-flow tracking set up.
 - Security note for user: the PAT was pasted in chat — recommend revoking it at https://github.com/settings/tokens after this session and minting a fresh one for future pushes.
 - Next decision: open a PR agent/order-program-flow → main, OR force-push main to align remote main with the cleaned history.
+
+---
+Task ID: phase-2.0
+Agent: main
+Task: Continue the industry-flow build (user: "continue" after the order→program gap discussion + push). The rolled-back baseline was missing 4 of the 15 pipeline tools and had NO Program concept — the "order → program" flow the user explicitly named.
+
+Work Log:
+- Audited the 84-tool baseline against the 15-stage pipeline: missing issue_to_line, post_rework, post_rejection, record_payment; no Program entity.
+- Schema (prisma): added Program (PGM-####, stage→dept auto-map, required kgs/mtrs/pcs, updates legacy ProgBalanceYarn/Fabric projector rows), LineIssue (LI-####), RejectionEntry (REJ-####), Payment (RCP-/PMT-#### with direction in/out) + back-relations. `prisma db push` + generate.
+- tools.ts: shared helpers — bumpStock (NULL-consistent CurrentStock matching), postLedger (StockLedger row + stock bump in one tx), nextNumber/resolveDocNo, STAGE_DEPT map.
+- New write tools: create_program, issue_to_line (G1 pcs out, warns-not-blocks on negative), post_rejection (scrap/return moves G2 pcs out; rework is document-only), post_rework (ProductionEntry rework=true), record_payment (Payment + Journal voucher + invoice → paid when fully collected).
+- New read tool: get_program_status — per-program required vs actual computed from StockLedger (source of truth), not projector columns.
+- Stock effects added to existing chain tools: create_cut_order (pcs → G1 ready_to_cut_in), post_production_entry (good output → G2 production_in), create_pcs_despatch (pcs ← G2 sales_delivery).
+- suggest_next_step: 15 stages now (Program inserted as step 3); richer skeletons matching actual tool schemas; production % and pipelineComplete terminal state; has.lineIssue/program/payment detection.
+- SYSTEM_PROMPT: updated READ/WRITE tool lists, 15-stage INDUSTRY WORKFLOW chain, program-status rule, numbering list (PGM/LI/REJ/RCP/PMT).
+- CRITICAL BUG FOUND + FIXED: CurrentStock buckets fragmented by deptId — cut-in leg wrote {dept null} bucket while line-out leg wrote {dept D4} bucket, so stock never netted (the SQLite composite-unique trap in a new disguise). Fix: postLedger always bumps the (itemType, itemId, godownId) bucket with deptId/orderId NULL; dept stays on the ledger row for reporting only.
+- E2E: tests/pipeline/industry-chain.test.ts (15 tests) — full chain with G1/G2 stock assertions, ledger txn-type assertions, program balance, invoice settlement, pipelineComplete. 15/15 PASS after the bucket fix.
+- vitest.config.ts created (@ alias, singleFork); vitest installed as devDependency.
+- README.md recreated (lost in rollback): 90 tools, 15-stage chain, try-it instructions, repo layout.
+
+Stage Summary:
+- 90 tools total (6 new: create_program, issue_to_line, post_rejection, post_rework, record_payment, get_program_status).
+- The order→program→…→collection chain is now fully executable via chat with real stock-ledger effects.
+- 15/15 E2E tests green; tsc clean; app HTTP 200.
+- Next: commit + push to GitHub (PAT re-embed → push → scrub).

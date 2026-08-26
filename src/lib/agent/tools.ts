@@ -49,6 +49,138 @@ async function listAll(model: string, where: any = {}) {
   }
 }
 
+// ───────────── Stock posting helpers (industry chain) ─────────────
+// SQLite gotcha (learned the hard way): NULL ≠ '' inside composite unique keys,
+// so CurrentStock buckets MUST be matched with explicit nulls, never loose
+// equality. findFirst with a fully-normalized key, then update by row id.
+
+type StockKey = {
+  itemType: string
+  itemId: string
+  godownId: string
+  lotId?: string | null
+  colourId?: string | null
+  sizeId?: string | null
+  deptId?: string | null
+  orderId?: string | null
+}
+
+function normalizedStockKey(k: StockKey) {
+  return {
+    itemType: k.itemType,
+    itemId: k.itemId,
+    godownId: k.godownId,
+    lotId: k.lotId ?? null,
+    colourId: k.colourId ?? null,
+    sizeId: k.sizeId ?? null,
+    deptId: k.deptId ?? null,
+    orderId: k.orderId ?? null,
+  }
+}
+
+/** Increment/decrement a CurrentStock bucket (negative deltas allowed — the ERP
+ *  warns on negative stock but never blocks, matching legacy Fiberpro). */
+async function bumpStock(tx: any, k: StockKey, delta: { pcs?: number; kgs?: number; mtrs?: number; bags?: number; rate?: number }) {
+  const key = normalizedStockKey(k)
+  const existing = await tx.currentStock.findFirst({ where: key })
+  if (existing) {
+    await tx.currentStock.update({
+      where: { id: existing.id },
+      data: {
+        pcs: { increment: delta.pcs || 0 },
+        kgs: { increment: delta.kgs || 0 },
+        mtrs: { increment: delta.mtrs || 0 },
+        bags: { increment: delta.bags || 0 },
+      },
+    })
+    return existing.id
+  }
+  const created = await tx.currentStock.create({
+    data: { ...key, pcs: delta.pcs || 0, kgs: delta.kgs || 0, mtrs: delta.mtrs || 0, bags: delta.bags || 0, rate: delta.rate || 0 },
+  })
+  return created.id
+}
+
+/** Write one StockLedger movement row + bump CurrentStock, inside a transaction. */
+async function postLedger(tx: any, m: {
+  txnType: string
+  itemType: string
+  itemId: string
+  godownId?: string
+  deptId?: string | null
+  orderId?: string | null
+  docNo?: string
+  docDate?: Date
+  partyId?: string | null
+  in?: { pcs?: number; kgs?: number; mtrs?: number; bags?: number }
+  out?: { pcs?: number; kgs?: number; mtrs?: number; bags?: number }
+  rate?: number
+  notes?: string
+}) {
+  const finYear = '26-27'
+  const row = await tx.stockLedger.create({
+    data: {
+      txnType: m.txnType,
+      itemType: m.itemType,
+      itemId: m.itemId,
+      godownId: m.godownId ?? null,
+      deptId: m.deptId ?? null,
+      orderId: m.orderId ?? null,
+      docNo: m.docNo ?? null,
+      docDate: m.docDate ?? new Date(),
+      finYear,
+      partyId: m.partyId ?? null,
+      inPcs: m.in?.pcs || 0, inKgs: m.in?.kgs || 0, inMtrs: m.in?.mtrs || 0, inBags: m.in?.bags || 0,
+      outPcs: m.out?.pcs || 0, outKgs: m.out?.kgs || 0, outMtrs: m.out?.mtrs || 0, outBags: m.out?.bags || 0,
+      rate: m.rate || 0,
+      notes: m.notes ?? null,
+    },
+  })
+  if (m.godownId) {
+    // NOTE: the CurrentStock bucket key is (itemType, itemId, godownId) with
+    // all other dims NULL. deptId/orderId live on the LEDGER row for reporting,
+    // but must NOT fragment the stock bucket — otherwise the cut-in (dept null)
+    // and line-out (dept D4) legs land in different buckets and never net out.
+    await bumpStock(tx, {
+      itemType: m.itemType, itemId: m.itemId, godownId: m.godownId,
+      deptId: null, orderId: null,
+    }, {
+      pcs: (m.in?.pcs || 0) - (m.out?.pcs || 0),
+      kgs: (m.in?.kgs || 0) - (m.out?.kgs || 0),
+      mtrs: (m.in?.mtrs || 0) - (m.out?.mtrs || 0),
+      bags: (m.in?.bags || 0) - (m.out?.bags || 0),
+    })
+  }
+  return row.id
+}
+
+/** Next free sequential document number, e.g. nextNumber('cutOrder', 'cutNo', 'CUT-') → CUT-0007. */
+async function nextNumber(model: string, field: string, prefix: string, pad = 4): Promise<string> {
+  const m = (db as any)[model]
+  const all = await m.findMany({ where: { [field]: { startsWith: prefix } } , select: { [field]: true } })
+  const used = new Set(all.map((r: any) => r[field]))
+  let n = 1
+  while (used.has(`${prefix}${String(n).padStart(pad, '0')}`)) n++
+  return `${prefix}${String(n).padStart(pad, '0')}`
+}
+
+/** Resolve a document number: honour an explicit user-supplied value if free, else auto-assign. */
+async function resolveDocNo(model: string, field: string, prefix: string, desired?: string): Promise<string> {
+  if (desired?.trim()) {
+    const m = (db as any)[model]
+    const exists = await m.findUnique({ where: { [field]: desired.trim() } }).catch(() => null)
+    if (!exists) return desired.trim()
+  }
+  return nextNumber(model, field, prefix)
+}
+
+// Stage → department code mapping (Tirupur knitwear chain).
+const STAGE_DEPT: Record<string, string> = {
+  knitting: 'D1', dyeing: 'D2', printing: 'D2', embroidery: 'D2',
+  cutting: 'D3', sewing: 'D4', finishing: 'D5', packing: 'D6',
+}
+
+
 // ───────────── READ TOOLS ─────────────
 
 const readTools: AgentTool[] = [
@@ -866,7 +998,7 @@ const readTools: AgentTool[] = [
     // walk users through the Tirupur knitwear job-work flow instead of stopping
     // after `create_order`.
     name: 'suggest_next_step',
-    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
+    description: 'Given an order (SO-####), inspect its current pipeline state and return the NEXT canonical step in the Tirupur knitwear job-work flow (order → BOM → program → PO → GRN → jobwork → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection). The response includes a pre-filled args skeleton the user can paste back. If no orderNo is given, returns the full pipeline template.',
     domain: 'workflow',
     isWrite: false,
     schema: z.object({
@@ -876,18 +1008,19 @@ const readTools: AgentTool[] = [
       const PIPELINE: Array<{ step: number; name: string; tool: string; produces: string }> = [
         { step: 1, name: 'Order created (sales order from buyer PO)', tool: 'create_order', produces: 'order' },
         { step: 2, name: 'Bill of Materials (yarn/fabric/accessories per style)', tool: 'create_bom', produces: 'bom' },
-        { step: 3, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
-        { step: 4, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
-        { step: 5, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
-        { step: 6, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
-        { step: 7, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
-        { step: 8, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
-        { step: 9, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
-        { step: 10, name: 'Rework / rejection (defects)', tool: 'post_rework', produces: 'rework' },
-        { step: 11, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
-        { step: 12, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
-        { step: 13, name: 'Cost sheet (cumulative rate walk)', tool: 'create_cost_sheet', produces: 'cost' },
-        { step: 14, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
+        { step: 3, name: 'Program — production plan (yarn to knit / fabric to dye per order)', tool: 'create_program', produces: 'program' },
+        { step: 4, name: 'Purchase order to supplier for materials', tool: 'create_purchase_order', produces: 'po' },
+        { step: 5, name: 'GRN — receive material into godown', tool: 'receive_grn', produces: 'grn' },
+        { step: 6, name: 'Jobwork DC out (knitting/dyeing/etc.)', tool: 'create_jobwork_order', produces: 'jobworkOut' },
+        { step: 7, name: 'Jobwork receive back', tool: 'receive_jobwork', produces: 'jobworkIn' },
+        { step: 8, name: 'Cut order (cut fabric to colour×size)', tool: 'create_cut_order', produces: 'cut' },
+        { step: 9, name: 'Issue cut pieces to sewing line', tool: 'issue_to_line', produces: 'lineIssue' },
+        { step: 10, name: 'Production entry (sewing output → PCS ledger)', tool: 'post_production_entry', produces: 'production' },
+        { step: 11, name: 'Rework / rejection (defects)', tool: 'post_rejection', produces: 'rework' },
+        { step: 12, name: 'Pcs despatch (finished goods DC out)', tool: 'create_pcs_despatch', produces: 'despatch' },
+        { step: 13, name: 'Sales invoice (GST auto from HSN)', tool: 'create_sales_invoice', produces: 'invoice' },
+        { step: 14, name: 'Cost sheet (budget vs actual)', tool: 'create_cost_sheet', produces: 'cost' },
+        { step: 15, name: 'Payment collection', tool: 'record_payment', produces: 'payment' },
       ]
 
       if (!args.orderNo) {
@@ -902,97 +1035,196 @@ const readTools: AgentTool[] = [
         include: {
           buyer: true, style: { include: { bomLines: true } },
           lines: { include: { colour: true, size: true } },
+          programs: true,
           cutOrders: true,
+          lineIssues: true,
           productionEntries: true,
           salesInvoices: true,
           costSheet: true,
+          payments: true,
         },
       })
       if (!order) return { text: `Order ${args.orderNo} not found.` }
 
       const has = {
         bom: !!order.style?.bomLines?.length,
+        program: (order.programs?.length ?? 0) > 0,
         cut: (order.cutOrders?.length ?? 0) > 0,
+        lineIssue: (order.lineIssues?.length ?? 0) > 0,
         production: (order.productionEntries?.length ?? 0) > 0,
         invoice: (order.salesInvoices?.length ?? 0) > 0,
         cost: (order.costSheet?.length ?? 0) > 0,
+        payment: (order.payments?.length ?? 0) > 0,
       }
+      const produced = order.productionEntries?.filter((e: any) => !e.rework).reduce((s: number, e: any) => s + e.qty, 0) || 0
+      const producedPct = order.totalPcs > 0 ? Math.round((produced / order.totalPcs) * 100) : 0
 
-      let nextStep: typeof PIPELINE[number] = PIPELINE[1]
+      let nextStep: typeof PIPELINE[number] = PIPELINE[2]
       let skeleton: Record<string, any> = {}
+      const today = new Date().toISOString().slice(0, 10)
 
       if (!has.bom) {
         nextStep = PIPELINE[1]
         skeleton = {
           styleNo: order.style?.styleNo,
-          components: [{ itemType: 'yarn', qty: 0, uom: 'kg' }],
-          notes: `BOM for order ${order.orderNo}`,
+          components: [{ itemType: 'yarn', qty: Math.ceil(order.totalPcs * 0.25), uom: 'kg' }],
+          notes: `BOM for order ${order.orderNo} (estimate: 0.25 kg/pc — adjust to actual GSM)`,
         }
-      } else if (!has.cut) {
-        nextStep = PIPELINE[6]
-        const byColourSize = order.lines.map((l: any) => ({
-          colour: l.colour?.name, size: l.size?.name, qty: l.qty,
-        }))
+      } else if (!has.program) {
+        nextStep = PIPELINE[2]
         skeleton = {
           orderNo: order.orderNo,
-          styleNo: order.style?.styleNo,
-          cuts: byColourSize,
-          cutDate: new Date().toISOString().slice(0, 10),
+          stage: 'knitting',
+          requiredKgs: Math.ceil(order.totalPcs * 0.25),
+          notes: `Knitting program for ${order.orderNo}`,
         }
-      } else if (!has.production) {
+      } else if (!has.cut) {
+        nextStep = PIPELINE[7]
+        skeleton = {
+          orderNo: order.orderNo,
+          fabricIssued: Math.ceil(order.totalPcs * 0.25),
+          totalPcs: order.totalPcs,
+          cutDate: today,
+        }
+      } else if (!has.lineIssue) {
         nextStep = PIPELINE[8]
         skeleton = {
           orderNo: order.orderNo,
           lineCode: 'L1',
           qty: order.totalPcs,
-          stage: 'sewing',
-          goodFlag: 'G',
-          entryDate: new Date().toISOString().slice(0, 10),
+          issueDate: today,
         }
-      } else if (!has.invoice) {
-        nextStep = PIPELINE[11]
-        const cur = (order as any).currency as string | undefined
+      } else if (!has.production) {
+        nextStep = PIPELINE[9]
         skeleton = {
           orderNo: order.orderNo,
-          invoiceType: cur && cur !== 'INR' ? 'export' : 'local',
-          invoiceDate: new Date().toISOString().slice(0, 10),
+          deptCode: 'D4',
+          prodDate: today,
+          bundleNo: 'B1',
+          operatorCode: '<operator-code>',
+          qty: order.totalPcs,
+          rate: 0,
+        }
+      } else if (!has.invoice) {
+        nextStep = PIPELINE[12]
+        skeleton = {
+          orderNo: order.orderNo,
+          invoiceType: 'domestic',
+          invoiceDate: today,
         }
       } else if (!has.cost) {
-        nextStep = PIPELINE[12]
+        nextStep = PIPELINE[13]
         skeleton = { orderNo: order.orderNo }
       } else {
-        nextStep = PIPELINE[13]
-        const inv = order.salesInvoices[0]
+        nextStep = PIPELINE[14]
+        const inv = order.salesInvoices?.[0]
         skeleton = {
           partyCode: order.buyer?.code,
-          billNo: inv?.invoiceNo,
+          invoiceNo: inv?.invoiceNo,
           amount: inv?.billAmount,
+          direction: 'in',
           mode: 'bank',
-          payDate: new Date().toISOString().slice(0, 10),
+          payDate: today,
+        }
+        if (has.payment) {
+          return {
+            text: `Order ${order.orderNo} — ALL 15 STAGES COMPLETE (production ${producedPct}%, invoice ${inv?.invoiceNo || '-'} issued, payments received). Order lifecycle done.`,
+            json: {
+              orderNo: order.orderNo, buyer: order.buyer?.name, totalPcs: order.totalPcs,
+              produced, producedPct, state: has, completed: PIPELINE.map((p) => p.step),
+              nextStep: null, skeleton: null, pipelineComplete: true,
+            },
+          }
         }
       }
 
       const completed = PIPELINE.filter((p) => {
         if (p.produces === 'order') return true
         if (p.produces === 'bom') return has.bom
+        if (p.produces === 'program') return has.program
         if (p.produces === 'cut') return has.cut
+        if (p.produces === 'lineIssue') return has.lineIssue
         if (p.produces === 'production') return has.production
         if (p.produces === 'invoice') return has.invoice
         if (p.produces === 'cost') return has.cost
+        if (p.produces === 'payment') return has.payment
         return false
       })
 
       return {
-        text: `Order ${order.orderNo} — next step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress so far: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 14 stages.`,
+        text: `Order ${order.orderNo} (buyer ${order.buyer?.name || '-'}, ${order.totalPcs} pcs) — production ${producedPct}% (${produced}/${order.totalPcs}).\nNext step: ${nextStep.step}. ${nextStep.name}\n→ call ${nextStep.tool} with skeleton:\n${JSON.stringify(skeleton, null, 2)}\n\nProgress: ${completed.map((c) => '✓' + c.step).join(' ') || '✓1'} of 15 stages.`,
         json: {
           orderNo: order.orderNo,
           buyer: order.buyer?.name,
           totalPcs: order.totalPcs,
+          produced,
+          producedPct,
           state: has,
           completed: completed.map((c) => c.step),
           nextStep,
           skeleton,
         },
+      }
+    },
+  },
+  {
+    // Program status — required vs actual per production program, with balances
+    // computed from the StockLedger (source of truth), not from projector columns.
+    name: 'get_program_status',
+    description: 'Production program status for an order: each program (knitting/dyeing/...) with required qty, actual qty consumed/produced (from the stock ledger), and balance. Also shows yarn and fabric balances for the order.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().describe('Sales order number like SO-1001'),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({
+        where: { orderNo: args.orderNo },
+        include: {
+          programs: { include: { yarn: true, fabric: true, department: true } },
+        },
+      })
+      if (!order) return { text: `Order ${args.orderNo} not found.` }
+
+      // Aggregate the ledger for this order per (itemType, itemId).
+      const ledger = await db.stockLedger.findMany({ where: { orderId: order.id } })
+      const agg = new Map<string, { inKgs: number; outKgs: number; inMtrs: number; outMtrs: number; inPcs: number; outPcs: number }>()
+      for (const r of ledger) {
+        const key = `${r.itemType}:${r.itemId}`
+        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
+        a.inKgs += r.inKgs; a.outKgs += r.outKgs
+        a.inMtrs += r.inMtrs; a.outMtrs += r.outMtrs
+        a.inPcs += r.inPcs; a.outPcs += r.outPcs
+        agg.set(key, a)
+      }
+
+      const produced = order.programs.map((p: any) => {
+        const isYarn = !!p.yarnId
+        const key = isYarn ? `yarn:${p.yarnId}` : `fabric:${p.fabricId}`
+        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
+        // Knitting program (yarn): actual = yarn consumed (out). Dyeing program (fabric): actual = fabric received in (in).
+        const required = p.requiredKgs
+        const actual = isYarn ? a.outKgs : a.inKgs
+        return {
+          programNo: p.programNo,
+          stage: p.stage,
+          dept: p.department?.code,
+          item: isYarn ? p.yarn?.code : p.fabric?.code,
+          requiredKgs: required,
+          actualKgs: Math.round(actual * 100) / 100,
+          balanceKgs: Math.round((required - actual) * 100) / 100,
+          status: p.status,
+          targetDate: p.targetDate,
+        }
+      })
+
+      const lines = produced.length
+        ? produced.map((p) => `${p.programNo} [${p.stage}${p.dept ? ' @' + p.dept : ''}] ${p.item || '-'}: required ${p.requiredKgs} kg, actual ${p.actualKgs} kg, balance ${p.balanceKgs} kg (${p.status})`)
+        : ['No programs yet — call create_program to plan production for this order.']
+
+      return {
+        text: `Program status for ${order.orderNo}:\n` + lines.join('\n'),
+        json: { orderNo: order.orderNo, programs: produced },
       }
     },
   },
@@ -1395,22 +1627,35 @@ const writeTools: AgentTool[] = [
           sideEffects: ['Auto-generates cut bundles with barcodes if efficiency provided'],
         },
         async commit() {
-          const cut = await db.cutOrder.create({
-            data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
-          })
-          // Auto-generate bundles
-          const bundles = Math.ceil(args.totalPcs / 100)
-          for (let i = 1; i <= bundles; i++) {
-            await db.cutBundle.create({
-              data: {
-                cutOrderId: cut.id, bundleNo: `${resolvedCutNo}/B${i}`,
-                barcode: `*${resolvedCutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
-                qty: Math.min(100, args.totalPcs - (i - 1) * 100),
-                status: 'in_cutting',
-              },
+          return await db.$transaction(async (tx) => {
+            const cut = await tx.cutOrder.create({
+              data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
             })
-          }
-          return { id: cut.id, cutNo: cut.cutNo, bundlesCreated: bundles }
+            // Auto-generate bundles
+            const bundles = Math.ceil(args.totalPcs / 100)
+            for (let i = 1; i <= bundles; i++) {
+              await tx.cutBundle.create({
+                data: {
+                  cutOrderId: cut.id, bundleNo: `${resolvedCutNo}/B${i}`,
+                  barcode: `*${resolvedCutNo.replace(/[^A-Z0-9]/gi, '')}B${String(i).padStart(3, '0')}*`,
+                  qty: Math.min(100, args.totalPcs - (i - 1) * 100),
+                  status: 'in_cutting',
+                },
+              })
+            }
+            // Industry chain: cut pieces enter G1 (Main) — ready_to_cut_in.
+            const g1 = await tx.godown.findUnique({ where: { code: 'G1' } })
+            if (g1) {
+              await postLedger(tx, {
+                txnType: 'ready_to_cut_in', itemType: 'pcs', itemId: order.id,
+                godownId: g1.id, deptId: null, orderId: order.id,
+                docNo: resolvedCutNo, docDate: args.cutDate ? new Date(args.cutDate) : new Date(),
+                in: { pcs: args.totalPcs },
+                notes: `Cut order ${resolvedCutNo} output`,
+              })
+            }
+            return { id: cut.id, cutNo: cut.cutNo, bundlesCreated: bundles }
+          })
         },
       }
     },
@@ -1449,14 +1694,28 @@ const writeTools: AgentTool[] = [
           sideEffects: ['WIP increases', 'Operator piece-rate earnings increase'],
         },
         async commit() {
-          const e = await db.productionEntry.create({
-            data: {
-              orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
-              bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
-              qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
-            },
+          return await db.$transaction(async (tx) => {
+            const e = await tx.productionEntry.create({
+              data: {
+                orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
+                bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
+                qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
+              },
+            })
+            // Industry chain: good output enters G2 (Finished Goods) — production_in.
+            // Rework entries do NOT move stock (pieces are re-sewn in WIP).
+            const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+            if (g2) {
+              await postLedger(tx, {
+                txnType: 'production_in', itemType: 'pcs', itemId: order.id,
+                godownId: g2.id, deptId: dept.id, orderId: order.id,
+                docNo: args.bundleNo, docDate: new Date(args.prodDate),
+                in: { pcs: args.qty },
+                notes: `Production ${dept.code} bundle ${args.bundleNo}`,
+              })
+            }
+            return { id: e.id }
           })
-          return { id: e.id }
         },
       }
     },
@@ -2473,15 +2732,28 @@ const writeTools: AgentTool[] = [
           sideEffects: ['Finished goods stock reduces', 'Order completion % increases'],
         },
         async commit() {
-          const d = await db.pcsDespatch.create({
-            data: {
-              dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
-              despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
-              finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched',
-              lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
-            },
+          return await db.$transaction(async (tx) => {
+            const d = await tx.pcsDespatch.create({
+              data: {
+                dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
+                despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+                finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched',
+                lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
+              },
+            })
+            // Industry chain: despatched pcs leave G2 (Finished Goods) — sales_delivery.
+            const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+            if (g2) {
+              await postLedger(tx, {
+                txnType: 'sales_delivery', itemType: 'pcs', itemId: order.id,
+                godownId: g2.id, deptId: null, orderId: order.id,
+                docNo: resolvedDcNo, docDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+                out: { pcs: args.totalPcs },
+                notes: `Despatch DC ${resolvedDcNo} → ${order.buyer?.name || 'buyer'}`,
+              })
+            }
+            return { id: d.id, dcNo: d.dcNo }
           })
-          return { id: d.id, dcNo: d.dcNo }
         },
       }
     },
@@ -2801,6 +3073,303 @@ const writeTools: AgentTool[] = [
         async commit() {
           await db.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } })
           return { id: jw.id, dcNo: jw.dcNo }
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: PROGRAM — the "order → program" step. ──
+    name: 'create_program',
+    description: 'Create a production PROGRAM for an order — the production plan step right after BOM. For a knitting program pass stage=knitting + yarnCode + requiredKgs; for a dyeing program pass stage=dyeing + fabricCode + requiredKgs; for sewing/finishing/packing pass requiredPcs. programNo auto-assigned PGM-####. Dept auto-maps from stage (knitting→D1, dyeing→D2, sewing→D4, finishing→D5, packing→D6) unless deptCode given. Also updates the legacy ProgBalanceYarn/ProgBalanceFabric projector rows.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      programNo: z.string().optional(),
+      orderNo: z.string(),
+      stage: z.string().describe('knitting | dyeing | printing | embroidery | sewing | finishing | packing'),
+      yarnCode: z.string().optional().describe('Yarn code (knitting programs — yarn to consume)'),
+      fabricCode: z.string().optional().describe('Fabric code (dyeing programs — fabric to process)'),
+      requiredKgs: z.number().optional(),
+      requiredMtrs: z.number().optional(),
+      requiredPcs: z.number().optional(),
+      deptCode: z.string().optional(),
+      targetDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const yarn = args.yarnCode ? await db.yarn.findUnique({ where: { code: args.yarnCode } }) : null
+      if (args.yarnCode && !yarn) return { text: `Yarn ${args.yarnCode} not found` }
+      const fabric = args.fabricCode ? await db.fabric.findUnique({ where: { code: args.fabricCode } }) : null
+      if (args.fabricCode && !fabric) return { text: `Fabric ${args.fabricCode} not found` }
+      const deptCode = args.deptCode || STAGE_DEPT[args.stage]
+      const dept = deptCode ? await db.department.findUnique({ where: { code: deptCode } }) : null
+      if (deptCode && !dept) return { text: `Department ${deptCode} not found` }
+      if (!args.requiredKgs && !args.requiredMtrs && !args.requiredPcs) {
+        return { text: 'Provide at least one of requiredKgs / requiredMtrs / requiredPcs.' }
+      }
+      const programNo = await resolveDocNo('program', 'programNo', 'PGM-', args.programNo)
+
+      return {
+        text: `Proposed program ${programNo} for ${order.orderNo}: ${args.stage}${dept ? ' @' + dept.code : ''} — ${args.requiredKgs || 0} kg / ${args.requiredMtrs || 0} mtr / ${args.requiredPcs || 0} pcs.`,
+        plan: {
+          summary: `Create program ${programNo} | order ${order.orderNo} | stage ${args.stage}${dept ? ' @' + dept.code : ''} | req ${args.requiredKgs || 0}kg ${args.requiredMtrs || 0}mtr ${args.requiredPcs || 0}pcs | target ${args.targetDate || '-'} | item ${yarn?.code || fabric?.code || '-'}`,
+          creates: [{ table: 'program', data: { programNo, orderId: order.id, stage: args.stage, deptId: dept?.id, yarnId: yarn?.id, fabricId: fabric?.id, requiredKgs: args.requiredKgs || 0, requiredMtrs: args.requiredMtrs || 0, requiredPcs: args.requiredPcs || 0, targetDate: args.targetDate ? new Date(args.targetDate) : null, notes: args.notes, status: 'open' } }],
+          sideEffects: [
+            yarn ? `ProgBalanceYarn.reqKgs +${args.requiredKgs || 0} kg (order ${order.orderNo})` : null,
+            fabric ? `ProgBalanceFabric.reqKgs +${args.requiredKgs || 0} kg (order ${order.orderNo})` : null,
+          ].filter((s): s is string => Boolean(s)),
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const prog = await tx.program.create({
+              data: { programNo, orderId: order.id, stage: args.stage, deptId: dept?.id, yarnId: yarn?.id, fabricId: fabric?.id, requiredKgs: args.requiredKgs || 0, requiredMtrs: args.requiredMtrs || 0, requiredPcs: args.requiredPcs || 0, targetDate: args.targetDate ? new Date(args.targetDate) : null, notes: args.notes, status: 'open' },
+            })
+            // Legacy projector rows: required quantities per order+dept+item.
+            if (yarn && dept) {
+              const existing = await tx.progBalanceYarn.findFirst({ where: { orderId: order.id, deptId: dept.id, countId: yarn.id } })
+              if (existing) await tx.progBalanceYarn.update({ where: { id: existing.id }, data: { reqKgs: { increment: args.requiredKgs || 0 } } })
+              else await tx.progBalanceYarn.create({ data: { orderId: order.id, deptId: dept.id, countId: yarn.id, reqKgs: args.requiredKgs || 0 } })
+            }
+            if (fabric && dept) {
+              const existing = await tx.progBalanceFabric.findFirst({ where: { orderId: order.id, deptId: dept.id, fabricId: fabric.id } })
+              if (existing) await tx.progBalanceFabric.update({ where: { id: existing.id }, data: { reqKgs: { increment: args.requiredKgs || 0 } } })
+              else await tx.progBalanceFabric.create({ data: { orderId: order.id, deptId: dept.id, fabricId: fabric.id, reqKgs: args.requiredKgs || 0 } })
+            }
+            return { id: prog.id, programNo: prog.programNo }
+          })
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: ISSUE TO LINE — cut pieces from cutting floor to sewing line. ──
+    name: 'issue_to_line',
+    description: 'Issue cut pieces from the main godown (G1) to a sewing line. issueNo auto-assigned LI-####. Required: orderNo, lineCode, qty. Moves pcs out of G1 in the stock ledger (txn ready_to_cut_out).',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      issueNo: z.string().optional(),
+      orderNo: z.string(),
+      lineCode: z.string(),
+      qty: z.number(),
+      issueDate: z.string().optional(),
+      styleNo: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const line = await db.line.findUnique({ where: { code: args.lineCode } })
+      if (!line) return { text: `Line ${args.lineCode} not found (create it with create_line)` }
+      const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
+      if (!g1) return { text: 'Godown G1 (Main) not found — create it with create_godown' }
+      const issueNo = await resolveDocNo('lineIssue', 'issueNo', 'LI-', args.issueNo)
+      const issueDate = args.issueDate ? new Date(args.issueDate) : new Date()
+
+      // Warn (never block) if G1 pcs would go negative — legacy Fiberpro behaviour.
+      const bucket = await db.currentStock.findFirst({ where: { itemType: 'pcs', itemId: order.id, godownId: g1.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null } })
+      const onHand = bucket?.pcs || 0
+      const warn = onHand < args.qty ? [`⚠ G1 pcs balance is ${onHand}; issuing ${args.qty} makes it negative (cut order not yet booked?)`] : []
+
+      return {
+        text: `Proposed line issue ${issueNo}: ${args.qty} pcs of ${order.orderNo} to line ${line.code} (${line.name}).`,
+        plan: {
+          summary: `Issue to line ${issueNo} | order ${order.orderNo} | line ${line.code} | ${args.qty} pcs | ${issueDate.toISOString().slice(0, 10)}`,
+          creates: [{ table: 'lineIssue', data: { issueNo, orderId: order.id, lineId: line.id, issueDate, qty: args.qty, styleNo: args.styleNo || null, notes: args.notes, status: 'issued' } }],
+          sideEffects: [
+            `StockLedger: ${args.qty} pcs OUT of G1 (ready_to_cut_out)`,
+            `Line ${line.code} WIP increases`,
+            ...warn,
+          ],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const li = await tx.lineIssue.create({
+              data: { issueNo, orderId: order.id, lineId: line.id, issueDate, qty: args.qty, styleNo: args.styleNo || null, notes: args.notes, status: 'issued' },
+            })
+            await postLedger(tx, {
+              txnType: 'ready_to_cut_out', itemType: 'pcs', itemId: order.id,
+              godownId: g1.id, deptId: line.deptId, orderId: order.id,
+              docNo: issueNo, docDate: issueDate,
+              out: { pcs: args.qty },
+              notes: `Issued to line ${line.code}`,
+            })
+            return { id: li.id, issueNo: li.issueNo }
+          })
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: REJECTION — QA rejects pieces out of finished stock. ──
+    name: 'post_rejection',
+    description: 'Post a QA rejection for an order. rejNo auto-assigned REJ-####. Required: orderNo, qty. Optional: rejType (stitch_fault | size_fault | fabric_fault | shade_fault | damage | other), action (scrap | rework | return_to_party), deptCode, notes. Scrap/return actions move qty OUT of G2 (Finished Goods) in the stock ledger; rework action is document-only (pieces go back to the line via post_production_entry with rework).',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      rejNo: z.string().optional(),
+      orderNo: z.string(),
+      qty: z.number(),
+      rejType: z.string().optional(),
+      action: z.string().optional(),
+      deptCode: z.string().optional(),
+      rejDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const dept = args.deptCode ? await db.department.findUnique({ where: { code: args.deptCode } }) : null
+      if (args.deptCode && !dept) return { text: `Department ${args.deptCode} not found` }
+      const rejNo = await resolveDocNo('rejectionEntry', 'rejNo', 'REJ-', args.rejNo)
+      const rejDate = args.rejDate ? new Date(args.rejDate) : new Date()
+      const action = args.action || 'scrap'
+      const rejType = args.rejType || 'stitch_fault'
+      const movesStock = action === 'scrap' || action === 'return_to_party'
+
+      return {
+        text: `Proposed rejection ${rejNo}: ${args.qty} pcs of ${order.orderNo} — ${rejType}, action ${action}.`,
+        plan: {
+          summary: `Rejection ${rejNo} | order ${order.orderNo} | ${args.qty} pcs | type ${rejType} | action ${action}${dept ? ' @' + dept.code : ''}`,
+          creates: [{ table: 'rejectionEntry', data: { rejNo, orderId: order.id, deptId: dept?.id, rejDate, qty: args.qty, rejType, action, notes: args.notes } }],
+          sideEffects: movesStock
+            ? [`StockLedger: ${args.qty} pcs OUT of G2 Finished Goods (rejection_out)`]
+            : ['Document only — pieces stay in WIP for re-sewing (post_production_entry with rework)'],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const rej = await tx.rejectionEntry.create({
+              data: { rejNo, orderId: order.id, deptId: dept?.id, rejDate, qty: args.qty, rejType, action, notes: args.notes },
+            })
+            if (movesStock) {
+              const g2 = await tx.godown.findUnique({ where: { code: 'G2' } })
+              if (g2) {
+                await postLedger(tx, {
+                  txnType: 'rejection_out', itemType: 'pcs', itemId: order.id,
+                  godownId: g2.id, deptId: dept?.id ?? null, orderId: order.id,
+                  docNo: rejNo, docDate: rejDate,
+                  out: { pcs: args.qty },
+                  notes: `QA rejection (${rejType}) → ${action}`,
+                })
+              }
+            }
+            return { id: rej.id, rejNo: rej.rejNo }
+          })
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: REWORK — defective pieces re-sewn, output booked again. ──
+    name: 'post_rework',
+    description: 'Post a rework production entry — defective pieces re-processed through a department. Required: orderNo, deptCode, qty, bundleNo. Creates a ProductionEntry with rework=true (kept separate from first-pass output in line status). Document-only: no stock movement.',
+    domain: 'production',
+    isWrite: true,
+    schema: z.object({
+      orderNo: z.string(),
+      deptCode: z.string(),
+      qty: z.number(),
+      bundleNo: z.string(),
+      prodDate: z.string().optional(),
+      operatorCode: z.string().optional(),
+      rate: z.number().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const dept = await db.department.findUnique({ where: { code: args.deptCode } })
+      if (!dept) return { text: `Dept ${args.deptCode} not found` }
+      const operator = args.operatorCode ? await db.employee.findUnique({ where: { code: args.operatorCode } }) : null
+      if (args.operatorCode && !operator) return { text: `Operator ${args.operatorCode} not found` }
+      const prodDate = args.prodDate ? new Date(args.prodDate) : new Date()
+      const rate = args.rate || 0
+      const amount = args.qty * rate
+
+      return {
+        text: `Proposed rework entry: ${args.qty} pcs of ${order.orderNo} re-processed @ ${dept.code}.`,
+        plan: {
+          summary: `Rework | order ${order.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo}${operator ? ' | operator ' + operator.name : ''} | ₹${amount}`,
+          creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate, bundleNo: args.bundleNo, operatorId: operator?.id, qty: args.qty, rate, amount, rework: true, styleNo: order.styleId } }],
+          sideEffects: ['Rework tracked separately from first-pass output', 'Piece-rate earnings accrue to the operator'],
+        },
+        async commit() {
+          const e = await db.productionEntry.create({
+            data: { orderId: order.id, deptId: dept.id, prodDate, bundleNo: args.bundleNo, operatorId: operator?.id, qty: args.qty, rate, amount, rework: true },
+          })
+          return { id: e.id }
+        },
+      }
+    },
+  },
+  {
+    // ── Industry chain: PAYMENT — buyer collection / supplier payment. ──
+    name: 'record_payment',
+    description: 'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out). voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). Required: partyCode, amount, direction. Optional: invoiceNo (marks the invoice paid when fully collected), orderNo, mode (cash|bank|cheque|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
+    domain: 'accounting',
+    isWrite: true,
+    schema: z.object({
+      voucherNo: z.string().optional(),
+      partyCode: z.string(),
+      amount: z.number(),
+      direction: z.string().optional().describe('in = receipt from buyer (default) | out = payment to supplier'),
+      invoiceNo: z.string().optional(),
+      orderNo: z.string().optional(),
+      mode: z.string().optional(),
+      reference: z.string().optional(),
+      payDate: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+    async execute(args) {
+      const party = await db.party.findUnique({ where: { code: args.partyCode } })
+      if (!party) return { text: `Party ${args.partyCode} not found` }
+      const direction = args.direction === 'out' ? 'out' : 'in'
+      const invoice = args.invoiceNo ? await db.salesInvoice.findUnique({ where: { invoiceNo: args.invoiceNo } }) : null
+      if (args.invoiceNo && !invoice) return { text: `Invoice ${args.invoiceNo} not found` }
+      const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
+      if (args.orderNo && !order) return { text: `Order ${args.orderNo} not found` }
+      const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
+      const payDate = args.payDate ? new Date(args.payDate) : new Date()
+      const mode = args.mode || 'bank'
+      const settlesInvoice = invoice && direction === 'in' && args.amount >= invoice.billAmount - 0.01
+
+      return {
+        text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${invoice ? ' against invoice ' + invoice.invoiceNo : ''}.`,
+        plan: {
+          summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${invoice ? ' | invoice ' + invoice.invoiceNo + ' (₹' + invoice.billAmount + ')' : ''}${args.reference ? ' | ref ' + args.reference : ''}`,
+          creates: [{ table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes } }],
+          updates: settlesInvoice ? [{ table: 'salesInvoice', id: invoice!.id, data: { status: 'paid' } }] : undefined,
+          sideEffects: [
+            direction === 'in' ? 'Party receivable reduces' : 'Party payable reduces',
+            'Journal voucher written (receipt/payment)',
+            settlesInvoice ? `Invoice ${invoice!.invoiceNo} marked paid` : null,
+          ].filter((s): s is string => Boolean(s)),
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            const pay = await tx.payment.create({
+              data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes },
+            })
+            await tx.journal.create({
+              data: {
+                voucherNo: `JV-${voucherNo}`,
+                voucherType: direction === 'in' ? 'receipt' : 'payment',
+                partyId: party.id,
+                date: payDate,
+                finYear: '26-27',
+                debitAccount: direction === 'in' ? 'Cash/Bank' : party.name,
+                creditAccount: direction === 'in' ? party.name : 'Cash/Bank',
+                amount: args.amount,
+                narration: `${direction === 'in' ? 'Collection' : 'Payment'} ${voucherNo}${invoice ? ' against ' + invoice.invoiceNo : ''}${args.reference ? ' ref ' + args.reference : ''}`,
+              },
+            })
+            if (settlesInvoice) {
+              await tx.salesInvoice.update({ where: { id: invoice!.id }, data: { status: 'paid' } })
+            }
+            return { id: pay.id, voucherNo: pay.voucherNo, invoiceSettled: settlesInvoice }
+          })
         },
       }
     },

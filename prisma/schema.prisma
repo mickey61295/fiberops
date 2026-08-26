@@ -57,6 +57,7 @@ model Party {
   debitNotes     DebitNote[]
   jobworkOrders  JobworkOrder[]
   stockLedgers   StockLedger[]
+  payments       Payment[]
 }
 
 model Buyer {
@@ -189,6 +190,8 @@ model Department {
   lines             Line[]
   grns              GRN[]
   currentStocks     CurrentStock[]
+  programs          Program[]
+  rejections        RejectionEntry[]
 }
 
 model Employee {
@@ -205,26 +208,28 @@ model Employee {
 }
 
 model Yarn {
-  id    String  @id @default(cuid())
-  code  String  @unique
-  count String
-  blend String?
-  uomId String
-  uom   UOM     @relation(fields: [uomId], references: [id])
-  rate  Float   @default(0)
+  id       String    @id @default(cuid())
+  code     String    @unique
+  count    String
+  blend    String?
+  uomId    String
+  uom      UOM       @relation(fields: [uomId], references: [id])
+  rate     Float     @default(0)
+  programs Program[]
 }
 
 model Fabric {
-  id           String  @id @default(cuid())
-  code         String  @unique
+  id           String    @id @default(cuid())
+  code         String    @unique
   construction String?
   gsm          Float?
   width        Float?
   diaId        String?
-  dia          Dia?    @relation(fields: [diaId], references: [id])
+  dia          Dia?      @relation(fields: [diaId], references: [id])
   uomId        String
-  uom          UOM     @relation(fields: [uomId], references: [id])
-  rate         Float   @default(0)
+  uom          UOM       @relation(fields: [uomId], references: [id])
+  rate         Float     @default(0)
+  programs     Program[]
 }
 
 model Accessory {
@@ -260,6 +265,10 @@ model Order {
   productionEntries ProductionEntry[]
   salesInvoices     SalesInvoice[]
   costSheet         CostSheet[]
+  programs          Program[]
+  lineIssues        LineIssue[]
+  rejections        RejectionEntry[]
+  payments          Payment[]
   party             Party?            @relation(fields: [partyId], references: [id])
   partyId           String?
 }
@@ -474,6 +483,7 @@ model Line {
   deptId             String?
   department         Department? @relation(fields: [deptId], references: [id])
   capacityPcsPerHour Int         @default(0)
+  issues             LineIssue[]
 }
 
 // ============== PIECES / FINISHED GOODS ==============
@@ -530,6 +540,7 @@ model SalesInvoice {
   irn          String? // e-invoice IRN
   status       String   @default("draft") // draft | issued | paid | cancelled
   createdAt    DateTime @default(now())
+  payments     Payment[]
 }
 
 model DebitNote {
@@ -680,6 +691,85 @@ model ProgBalanceYarn {
   shortKgs      Float  @default(0)
   reqBalanceKgs Float  @default(0)
   finishedKgs   Float  @default(0)
+}
+
+// ── Industry chain: PROGRAM (production plan per order → "order-program" flow) ──
+// After an order is booked, the merchandiser programs production: how much yarn
+// to knit (D1), how much fabric to dye (D2), etc. Programs carry required
+// quantities; actuals accrue from StockLedger per order+item (see get_program_status).
+model Program {
+  id           String      @id @default(cuid())
+  programNo    String      @unique
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id])
+  stage        String // knitting | dyeing | printing | embroidery | sewing | finishing | packing
+  deptId       String?
+  department   Department? @relation(fields: [deptId], references: [id])
+  yarnId       String?
+  yarn         Yarn?       @relation(fields: [yarnId], references: [id])
+  fabricId     String?
+  fabric       Fabric?     @relation(fields: [fabricId], references: [id])
+  requiredKgs  Float       @default(0)
+  requiredMtrs Float       @default(0)
+  requiredPcs  Int         @default(0)
+  targetDate   DateTime?
+  status       String      @default("open") // open | in_progress | closed | cancelled
+  notes        String?
+  createdAt    DateTime    @default(now())
+}
+
+// Cut pieces issued from the cutting floor to a sewing line.
+model LineIssue {
+  id        String   @id @default(cuid())
+  issueNo   String   @unique
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  lineId    String
+  line      Line     @relation(fields: [lineId], references: [id])
+  issueDate DateTime @default(now())
+  qty       Int      @default(0)
+  styleNo   String?
+  colourId  String?
+  sizeId    String?
+  status    String   @default("issued") // issued | returned | closed
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// QA rejection of finished/semi-finished pieces.
+model RejectionEntry {
+  id        String      @id @default(cuid())
+  rejNo     String      @unique
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  deptId    String?
+  department Department? @relation(fields: [deptId], references: [id])
+  rejDate   DateTime    @default(now())
+  qty       Int         @default(0)
+  rejType   String      @default("stitch_fault") // stitch_fault | size_fault | fabric_fault | shade_fault | damage | other
+  action    String      @default("scrap") // scrap | rework | return_to_party
+  notes     String?
+  createdAt DateTime    @default(now())
+}
+
+// Money in/out against a party (buyer collection or supplier payment).
+model Payment {
+  id        String       @id @default(cuid())
+  voucherNo String       @unique
+  partyId   String
+  party     Party        @relation(fields: [partyId], references: [id])
+  orderId   String?
+  order     Order?       @relation(fields: [orderId], references: [id])
+  invoiceId String?
+  invoice   SalesInvoice? @relation(fields: [invoiceId], references: [id])
+  payDate   DateTime     @default(now())
+  finYear   String
+  direction String       @default("in") // in = receipt from buyer | out = payment to supplier
+  amount    Float        @default(0)
+  mode      String       @default("bank") // cash | bank | cheque | upi
+  reference String? // UTR / cheque no
+  notes     String?
+  createdAt DateTime     @default(now())
 }
 
 model FinYear {
