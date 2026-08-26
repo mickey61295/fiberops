@@ -116,3 +116,31 @@ export async function peekNumber(sequenceKey: string): Promise<string> {
   if (!seq) throw new Error(`NumberingService: unknown sequence ${sequenceKey}`)
   return nextFree(seq)
 }
+
+// ---------------------------------------------------------------------------
+// Low-level helpers, extracted VERBATIM from tools.ts (SPEC-M3 §5 Wave A).
+// Used by the posting services whose numbering is NOT covered by a SEQUENCES
+// entry (program PGM-, lineIssue LI-, rejection REJ-, payment RCP-/PMT-).
+// NOTE: these pad to 4 (PGM-0001 style) — tools with their own formats
+// (SO-1001 unpadded, PO-Y-001 3-padded) keep their inline logic in the service.
+// ---------------------------------------------------------------------------
+
+/** Next free sequential document number, e.g. nextNumber('cutOrder', 'cutNo', 'CUT-') → CUT-0007. */
+export async function nextNumber(model: string, field: string, prefix: string, pad = 4): Promise<string> {
+  const m = (db as any)[model]
+  const all = await m.findMany({ where: { [field]: { startsWith: prefix } } , select: { [field]: true } })
+  const used = new Set(all.map((r: any) => r[field]))
+  let n = 1
+  while (used.has(`${prefix}${String(n).padStart(pad, '0')}`)) n++
+  return `${prefix}${String(n).padStart(pad, '0')}`
+}
+
+/** Resolve a document number: honour an explicit user-supplied value if free, else auto-assign. */
+export async function resolveDocNo(model: string, field: string, prefix: string, desired?: string): Promise<string> {
+  if (desired?.trim()) {
+    const m = (db as any)[model]
+    const exists = await m.findUnique({ where: { [field]: desired.trim() } }).catch(() => null)
+    if (!exists) return desired.trim()
+  }
+  return nextNumber(model, field, prefix)
+}

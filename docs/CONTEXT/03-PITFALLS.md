@@ -152,3 +152,31 @@ RULES BORN FROM THIS:
     explicit schema/db adds are now part of the session-end protocol.
   - Binary db recovery from patches is possible only when the base blob is
     still in git — here it wasn't (db became tracked only in lost commits).
+
+17. govt-holiday parity test is DATE-COLLISION flaky (M3-A session) · 2026-08-26
+Symptom: `master-parity.test.ts` govt-holiday block fails with
+"expected 'M2E Holida' to be 'M2E-upd-…'" although NOTHING touched master code.
+Root cause: the test's computed date `2027-01-${10 + (n % 18)}` (n derived from
+Date.now()) occasionally lands on a date that ALREADY carries a seeded holiday
+(e.g. 2027-01-26 Republic Day). Update-by-date uses day-range findFirst →
+patches the SEEDED row, the assertion then reads the untouched created row.
+The failed run leaves `M2E-upd-…` residue which makes future collisions worse.
+Fix (manual, this session): `deleteMany where name startsWith 'M2E-upd-'` and
+re-run. REAL fix owed to a future session: make the test pick a date with no
+pre-existing rows (query first, then offset). NOT a code bug — a test-design trap.
+
+18. Latent inline-tool bugs only a parity test could find (M3 Wave A) · 2026-08-26
+The M3-A doc-parity test (first-ever coverage of PO + GRN through the
+reconstructed 54-model schema) exposed TWO bugs that had sat in the inline tool
+code since rollback #4's schema reconstruction:
+  a) `create_purchase_order`: nested `lines: { create: linesResolved }` passed
+     `itemCode` — not a POLine column → PrismaClientValidationError on EVERY PO
+     create. Nobody noticed because no test/agent-flow created a PO since.
+  b) `receive_grn` without deptCode: bucket key/create used `deptId: ''` →
+     CurrentStock→Department FK violation; the ''-keyed composite lookup also
+     never matched the null-keyed buckets that actually exist (double broken).
+Fixes live in `posting/purchase-order.ts` + `posting/grn.ts` with FIX comments.
+LESSONS: (1) "verbatim extraction" still needs at least one end-to-end
+execution per path — a test suite green on paths that never ran proves nothing;
+(2) '' vs NULL in composite-unique keys remains the #1 SQLite trap (cf. #4);
+(3) the two-door parity pattern doubles as a crash-test dummy for dormant code.

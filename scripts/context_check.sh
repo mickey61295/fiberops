@@ -30,10 +30,12 @@ echo
 
 echo "[code metrics — reality]"
 # tools: inline `name:` entries + factory-built master CRUD tools (SPEC-M2 §7)
+# + docTool delegates over posting services (SPEC-M3 Wave A)
 INLINE_TOOLS=$(grep -cE "^    name: '[a-z_0-9]+'," src/lib/agent/tools.ts)
 FACTORY_CREATE=$(grep -c "masterCreateTool('" src/lib/agent/tools.ts)
 FACTORY_UPDATE=$(grep -c "masterUpdateTool('" src/lib/agent/tools.ts)
-TOOLS=$((INLINE_TOOLS + FACTORY_CREATE + FACTORY_UPDATE))
+DOCTOOLS=$(grep -cE "^  docTool\($" src/lib/agent/tools.ts)
+TOOLS=$((INLINE_TOOLS + FACTORY_CREATE + FACTORY_UPDATE + DOCTOOLS))
 DOMAINS=$(grep -cE "^    domain: '" src/lib/agent/tools.ts)
 MODELS=$(grep -c "^model " prisma/schema.prisma)
 VIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
@@ -42,22 +44,28 @@ TESTS=$(grep -cE "^\s*(it|test)\(" tests/pipeline/industry-chain.test.ts 2>/dev/
 REGTESTS=$(grep -cE "^\s*it\(" tests/unit/menu-registry.test.ts 2>/dev/null)
 CFGTESTS=$(grep -cE "^\s*it\(" tests/unit/master-configs.test.ts 2>/dev/null)
 PARITYTESTS=$(grep -cE "^\s*it\(" tests/pipeline/master-parity.test.ts 2>/dev/null)
+DOCPARITYTESTS=$(grep -cE "^\s*it\(" tests/pipeline/doc-parity.test.ts 2>/dev/null)
 MENUITEMS=$(grep -cE "^    id: '[a-z0-9-]+', label:" src/lib/erp/menu-registry.ts)
 LIVEROUTES=$(grep -cE "^  '/[a-z/-]*'," src/lib/erp/menu-registry.ts)
 MASTERCFGS=$(ls src/lib/erp/master-configs/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | wc -l)
+SCHEMAFILES=$(ls src/lib/erp/schemas/*.ts 2>/dev/null | wc -l)
+POSTINGSVCS=$(ls src/lib/erp/posting/*.ts 2>/dev/null | wc -l)
+CHAINSTAGES=$(grep -cE "^  \{ step: " src/lib/erp/chain.ts)
 MAXSTEPS=$(grep -oE "MAX_STEPS = [0-9]+" src/app/api/agent/route.ts | grep -oE "[0-9]+")
 APIS=$(ls src/app/api/ | tr '\n' ' ')
-echo "  tools=$TOOLS (inline=$INLINE_TOOLS + factory=$FACTORY_CREATE+$FACTORY_UPDATE)  prisma-models=$MODELS  erp-views=$VIEWS  archetypes=$ARCHETYPES"
-echo "  pipeline-tests=$TESTS  registry-tests=$REGTESTS  master-cfg-tests=$CFGTESTS  master-parity-tests=$PARITYTESTS"
+echo "  tools=$TOOLS (inline=$INLINE_TOOLS + factory=$FACTORY_CREATE+$FACTORY_UPDATE + docTool=$DOCTOOLS)  prisma-models=$MODELS  erp-views=$VIEWS  archetypes=$ARCHETYPES"
+echo "  pipeline-tests=$TESTS  registry-tests=$REGTESTS  master-cfg-tests=$CFGTESTS  master-parity-tests=$PARITYTESTS  doc-parity-tests=$DOCPARITYTESTS"
 echo "  menu-items=$MENUITEMS  live-routes=$LIVEROUTES  master-configs=$MASTERCFGS  MAX_STEPS=$MAXSTEPS"
+echo "  m3-waveA: schemas=$SCHEMAFILES  posting-files=$POSTINGSVCS  chain-stages=$CHAINSTAGES"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-26 M2 session]"
-check "agent tools (inline+factory)" "120"    "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-26 M3-WaveA session]"
+check "agent tools (inline+factory+docTool)" "120" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
+check "docTool delegates (SPEC-M3 §5)" "21"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
 check "erp view/shell components"  "16"      "$VIEWS"
 check "archetype engines"          "1"       "$ARCHETYPES"
@@ -65,9 +73,13 @@ check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests"        "13"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
+check "doc parity tests"           "19"      "$DOCPARITYTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
 check "live routes"                "14"      "$LIVEROUTES"
 check "master configs"             "24"      "$MASTERCFGS"
+check "shared zod schema files"    "17"      "$SCHEMAFILES"
+check "posting service files"      "20"      "$POSTINGSVCS"
+check "chain stages"               "15"      "$CHAINSTAGES"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -75,13 +87,19 @@ echo "[file existence — critical assets]"
 for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/02-DECISIONS.md docs/CONTEXT/03-PITFALLS.md \
          docs/CONTEXT/04-CONVENTIONS.md docs/PLAN-2.0-MENU-PARITY.md \
-         docs/CONTEXT/specs/SPEC-M1.md docs/CONTEXT/specs/SPEC-M2.md docs/form-taxonomy.json \
+         docs/CONTEXT/specs/SPEC-M1.md docs/CONTEXT/specs/SPEC-M2.md \
+         docs/CONTEXT/specs/SPEC-M3.md docs/form-taxonomy.json \
          src/lib/agent/tools.ts src/lib/agent/docExtract.ts \
          src/lib/erp/menu-registry.ts src/lib/erp/master-configs/index.ts \
          src/lib/erp/master-configs/types.ts src/lib/erp/posting/master-service.ts \
+         src/lib/erp/chain.ts src/lib/erp/legacy-enums.ts \
+         src/lib/erp/posting/types.ts src/lib/erp/posting/ledger.ts \
+         src/lib/erp/posting/order.ts src/lib/erp/posting/grn.ts \
+         src/lib/erp/schemas/order.ts src/lib/erp/schemas/cancel.ts \
          src/components/archetypes/master-table.tsx \
          tests/pipeline/industry-chain.test.ts tests/unit/menu-registry.test.ts \
          tests/unit/master-configs.test.ts tests/pipeline/master-parity.test.ts \
+         tests/pipeline/doc-parity.test.ts \
          'src/app/(erp)/layout.tsx' 'src/app/(erp)/coming/[id]/page.tsx' \
          'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
          'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \

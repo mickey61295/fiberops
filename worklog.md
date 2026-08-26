@@ -236,3 +236,28 @@ Stage Summary:
 - SPEC-M3 frozen and committed BEFORE any M3 code (protocol rule #3 satisfied).
 - M3 is session-splittable: Wave A (pure extraction, zero UI) is the safe first session — industry-chain test must pass UNMODIFIED through it.
 - Next session bootstraps via 00-START-HERE → STATE → SPEC-M3 §14 Wave A.
+---
+Task ID: m3-wave-a
+Agent: main
+Task: Implement M3 Wave A per frozen spec docs/CONTEXT/specs/SPEC-M3.md §14 — pure extraction, no UI: chain.ts + schemas/ + posting/ (services + ledger) + tools.ts delegation + doc-parity tests. User: "commit and Start Wave A".
+
+Work Log:
+- Bootstrapped per protocol: context_check.sh 42/42 NO DRIFT; read STATE/PITFALLS/CONVENTIONS/SPEC-M3 + full tools.ts (2805 lines) + industry-chain/master-parity tests + approve route + parse-with-coercion.
+- Foundation: posting/types.ts (DocPlanResult ok|error union mirroring MasterPlan), posting/ledger.ts (postLedger+bumpStock moved verbatim, ADR-004 bucket-rule comment travels), legacy-enums.ts (STAGE_DEPT + documented DeptID −7/8/10 + rework 0/1/2 — ADR-012 residence), numbering.ts += nextNumber/resolveDocNo (verbatim from tools.ts).
+- chain.ts (ADR-007): CHAIN = the 15 PIPELINE stages verbatim + formUrl/formParam per SPEC §8 routes; computeChainState (the has-flags, shared with the future W1 bar), nextStage (mirrors the suggest_next_step if-chain exactly), stageFormUrl; CHAIN_ORDER_INCLUDE extracted.
+- schemas/ — 17 files, every field/optionality/.describe() copied VERBATIM (agent prompt contract): order, bom, program, purchase-order, grn, jobwork(out+in), cut, line-issue, production(entry+rework), rejection, despatch, invoice, debit-note, journal, cost-sheet, payment, cancel(×3).
+- posting/ — 17 op service files, 21 plan functions (order, bom, program, purchase-order, grn, jobwork×2, cut, line-issue, production×2, rejection, despatch, invoice, debit-note, journal, cost-sheet, payment, cancel×3) — logic verbatim, DocPlanResult shape.
+- tools.ts rewrite (2805 → 1705 lines): docTool factory (schema + plan delegate); 21 write tools converted; PIPELINE/STAGE_DEPT/postLedger/bumpStock/nextNumber/resolveDocNo locals DELETED; suggest_next_step now imports CHAIN/computeChainState (json output additive-only); deliberately-kept inline: approve_pending, adjust_stock, update_order, create_sizes (outside SPEC §5 inventory). Tool count stays 120 (context_check updated: inline+factory+docTool counting).
+- Fixed mid-refactor mistake: duplicate writeTools declaration from a mis-anchored edit → docTools array + spread; 3 duplicate docTool calls removed.
+- Verification: tsc 31 errors = known-noise set only (was 32; .next-cache entry gone) — ZERO new errors. vitest 111/111 green with industry-chain UNMODIFIED (zero-behavior-change gate passed).
+- tests/pipeline/doc-parity.test.ts (19 tests): 18 ops × agent-door (execute→plan→commit) vs form-door (service plan→commit) with variant-tagged orderNo/styleNo/docNos; per-op doc-field equality + known ledger effects (ready_to_cut_in 100, ready_to_cut_out 100, production_in 95, rejection_out 3, sales_delivery 92, purchase_grn 50 kgs, billAmount 19320, invoice settled+paid); test #19 = FULL-CHAIN StockLedger signature equality between doors + net-zero G1/G2 buckets; surgical afterAll cleanup (FK-safe order, bucket restore).
+- The parity test found TWO latent pre-existing bugs (PITFALLS #18): create_purchase_order passed itemCode into nested pOLine create → PrismaClientValidationError (fixed: strip in payload, keep in plan display); receive_grn without deptCode used deptId:'' bucket key/create → FK violation + never-matching lookup (fixed: null dims per ADR-004 pattern, dept-keyed buckets preserved when deptCode given). Both fixed with FIX comments in the services.
+- Also triaged a pre-existing FLAKY failure (NOT a regression, PITFALLS #17): master-parity govt-holiday date-collision with seeded Republic Day rows — residue cleaned (M2E-upd-* rows), test re-ran green; real fix owed later.
+- context_check.sh updated for Wave A: docTool counting, schemas=17, posting-files=20, chain-stages=15, doc-parity-tests=19, SPEC-M3 + chain/ledger/types in critical assets → 57/57 NO DRIFT.
+- 01-STATE.md updated (M3 WAVE A DONE, metrics, drift #6→31 tsc errors, drift #7 latent-bug record, Wave A notes, next actions = Wave B).
+
+Stage Summary:
+- Wave A COMPLETE per spec §14 exit criteria: 111 old tests green UNMODIFIED through the extraction + 19 new doc-parity tests green (130/130 total). ADR-001 now holds at transaction scale: all 21 SPEC-M3 §5 write ops are schema+delegate over posting services, test-enforced both doors.
+- Architecture landed: chain.ts (single 15-stage source, W1-ready), schemas/ (shared zod, form-safeParse-ready), posting/ (plan/commit services + ledger.ts), legacy-enums.ts (ADR-012). tools.ts is now thin: 51 inline reads + 4 deliberate inline writes + 48 factory masters + 21 docTool delegates = 120 tools.
+- Bonus: 2 latent pre-existing bugs fixed (PO create was 100% broken; GRN-without-dept was 100% broken since rollback #4) — first-ever PO/GRN coverage came from the parity suite.
+- Tag m3-wave-a. Next: Wave B (doc-configs/types + order config + doc-screen.tsx + doc-picker.tsx + /orders/new + /orders/[id] hub + BOM card + chain bar + nextFormUrl + agent-panel "Open form").

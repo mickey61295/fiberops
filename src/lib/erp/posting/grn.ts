@@ -1,0 +1,125 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// SPEC-M3 §5 row 5 — receive_grn service. Logic extracted from tools.ts
+// (Wave A) with TWO documented bug fixes found by the doc-parity test — the
+// legacy inline code was latently broken against the reconstructed 54-model
+// schema (see FIX comments below). NOTE: this op does NOT use postLedger; it
+// writes the StockLedger row + CurrentStock bucket inline (dept-keyed buckets
+// when a deptCode is given — legacy behaviour preserved). Ledger: purchase_grn IN.
+
+import { db } from '@/lib/db'
+import type { DocPlanResult } from './types'
+import type { GrnInput } from '../schemas/grn'
+
+export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
+  const po = await db.purchaseOrder.findUnique({
+    where: { poNo: args.poNo }, include: { party: true, lines: true },
+  })
+  if (!po) return { ok: false, error: `PO ${args.poNo} not found` }
+  const godown = await db.godown.findUnique({ where: { code: args.godownCode } })
+  if (!godown) return { ok: false, error: `Godown ${args.godownCode} not found` }
+  let dept: any = null
+  if (args.deptCode) dept = await db.department.findUnique({ where: { code: args.deptCode } })
+  const line = po.lines[0]
+  if (!line) return { ok: false, error: `PO has no lines` }
+  const actualQty = args.receivedQty
+  const totalValue = actualQty * line.rate
+  const finYear = '26-27'
+
+  // Resolve a free GRN number
+  const resolvedGrnNo = await (async () => {
+    const desired = args.grnNo?.trim()
+    if (desired) {
+      const exists = await db.gRN.findUnique({ where: { grnNo: desired } }).catch(() => null)
+      if (!exists) return desired
+    }
+    const all = await db.gRN.findMany({ where: { grnNo: { startsWith: 'GRN-' } } })
+    const used = new Set(all.map((g) => g.grnNo))
+    let n = 1
+    while (used.has(`GRN-${String(n).padStart(4, '0')}`)) n++
+    return `GRN-${String(n).padStart(4, '0')}`
+  })()
+
+  return {
+    ok: true,
+    text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
+    summary: `Receive GRN ${resolvedGrnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
+    creates: [
+      { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
+      { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
+      { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
+      { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
+    ],
+    updates: [
+      { table: 'purchaseOrder', id: po.id, data: { status: actualQty >= po.totalQty ? 'received' : 'partial' } },
+      { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
+    ],
+    sideEffects: ['Stock increases', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
+    async commit() {
+      return await db.$transaction(async (tx) => {
+        const grn = await tx.gRN.create({
+          data: {
+            grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
+            godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+            finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
+            lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
+          },
+        })
+        await tx.stockLedger.create({
+          data: {
+            txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
+            godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo,
+            docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+            finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+            inPcs: line.itemType === 'accessory' ? actualQty : 0,
+            rate: line.rate, partyId: po.partyId, refId: grn.id,
+          },
+        })
+        // Upsert current stock
+        // FIX #2 (found by doc-parity test, M3 Wave A): the legacy inline code
+        // keyed/created the bucket with `deptId: dept?.id || ''` — the '' value
+        // violates the CurrentStock→Department FK on create, and the ''-keyed
+        // unique lookup can never match the null-keyed buckets that actually
+        // exist. receive_grn WITHOUT a deptCode has been hard-broken since
+        // rollback #4's schema reconstruction. Nulls now match the ADR-004
+        // bucket pattern when no dept is given; dept-keyed buckets (legacy
+        // GRN-with-dept behaviour, cf. the seeded fabric bucket) are preserved.
+        const csWhere = {
+          itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: {
+            itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+            lotId: null, colourId: null, sizeId: null, deptId: dept?.id ?? null, orderId: null,
+          },
+        }
+        const existing = await tx.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+        if (existing) {
+          await tx.currentStock.update({
+            where: csWhere as any,
+            data: {
+              kgs: { increment: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0 },
+              pcs: { increment: line.itemType === 'accessory' ? actualQty : 0 },
+            },
+          })
+        } else {
+          await tx.currentStock.create({
+            data: {
+              itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+              deptId: dept?.id ?? null,
+              kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
+              pcs: line.itemType === 'accessory' ? actualQty : 0,
+              rate: line.rate,
+            },
+          })
+        }
+        // Update PO + POLine
+        await tx.purchaseOrder.update({
+          where: { id: po.id },
+          data: { status: actualQty >= po.totalQty ? 'received' : 'partial' },
+        })
+        await tx.pOLine.update({
+          where: { id: line.id },
+          data: { receivedQty: { increment: actualQty } },
+        })
+        return { id: grn.id, grnNo: grn.grnNo }
+      })
+    },
+  }
+}

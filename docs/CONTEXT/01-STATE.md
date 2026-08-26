@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-26 (session: rollback4-recovery)
+Last verified: 2026-08-26 (session: m3-wave-a)
 
 ## Milestone status
 
@@ -12,7 +12,7 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
 | M0 — Planning & context framework | deep dive + PLAN-2.0 + CONTEXT system | **DONE** |
 | M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
-| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **SPEC FROZEN** (`specs/SPEC-M3.md`, ADR-014) — implementation NOT STARTED, Wave A first |
+| M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 22 posting services + shared zod + DocScreen engine + 20 doc screens + Order Hub + pickers + /api/upload | **WAVE A DONE** (`specs/SPEC-M3.md` §14): extraction complete — chain.ts + 17 schemas + 17 posting services + ledger.ts + tools.ts thin delegates + doc-parity tests; UI waves B→D NOT STARTED |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | | NOT STARTED |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
@@ -22,8 +22,12 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
 | Metric | Value | How to verify |
 |---|---|---|
 | Git HEAD | `rollback4-recovery` commit (re-created after rollback #4; original m1/m2 commits lost — see PITFALLS #16) | `git rev-parse --short HEAD` |
-| Agent tools | **120** (72 inline + 24 factory create + 24 factory update) | `scripts/context_check.sh` |
+| Agent tools | **120** (51 inline + 24 factory create + 24 factory update + 21 docTool delegates) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
+| Shared zod schemas (M3-A) | **17 files** in `src/lib/erp/schemas/` (verbatim tool contracts) | context_check |
+| Posting services (M3-A) | **20 files** in `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts + master-service.ts) | context_check |
+| Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
+| tools.ts size | 2805 → 1705 lines (all 21 SPEC-M3 §5 write ops now thin delegates) | `wc -l` |
 | Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
 | ERP view/shell components | 16 (masters-view deleted in M2) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | 1 (`master-table.tsx` in `src/components/archetypes/`) | context_check |
@@ -31,6 +35,7 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
 | Live routes (M2) | 14: M1 set + `/admin/company`; `/masters` now the MasterTable hub (+ dynamic `/masters/[entity]` × 24) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | Parity (M2) | **4/113 items live** · 11/17 groups · legacy coverage 28.7% (73/254 distinct forms) | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
+| Doc form↔agent parity tests (M3-A) | **19 tests** (18 ops × both doors + full-chain ledger signature equality) | `npx vitest run` |
 | Registry unit tests | 13 | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
@@ -57,13 +62,25 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
    `scripts/rebuild_schema_54.py` (shapes derived from tools.ts + test usage —
    see PITFALLS #16). Original m1/m2 commits and tags are gone; patch exports
    0003/0004 in `download/` are the surviving evidence.
-6. **tsc noise is now 32 errors** — the 54-world orphans: `src/lib/erp/{flags,exposure,cumrate}.ts`
+6. **tsc noise is now 31 errors** (was 32 — the .next-cache entry disappeared; same
+   file set otherwise) — the 54-world orphans: `src/lib/erp/{flags,exposure,cumrate}.ts`
    (reference removed Phase-3/4 models Flag/Bill/prs — only `/api/config` imports
    flags), Phase-3/4 seed/cleanup scripts (`seed_commercial`, `seed_stages`,
    `cleanup_e2e_bills`, `cleanup_stale_t3`, `verify_money_loop`), plus the old
-   known noise (vitest.config poolOptions, examples/, skills/, .next cache).
+   known noise (vitest.config poolOptions, examples/, skills/).
    Do NOT chase these; they document the eaten Phase-3/4 lineage. Full list in
    PITFALLS #16.
+7. **Two LATENT pre-existing bugs found & fixed by the M3-A doc-parity test**
+   (both sat in the inline tool code since rollback #4's schema reconstruction,
+   uncovered because no test exercised those paths):
+   - `create_purchase_order` passed `itemCode` into the nested pOLine create →
+     PrismaClientValidationError (POLine has no such column). Fixed in
+     `posting/purchase-order.ts` (itemCode stays in the plan display only).
+   - `receive_grn` without deptCode keyed/created the CurrentStock bucket with
+     `deptId: ''` → FK violation on create, and the ''-keyed unique lookup never
+     matched the null-keyed buckets that exist. Fixed in `posting/grn.ts`
+     (null dims when no dept — ADR-004 pattern; dept-keyed buckets preserved).
+   See PITFALLS #18.
 
 ## What exists today (file inventory — the parts that matter)
 
@@ -77,7 +94,12 @@ Last verified: 2026-08-26 (session: rollback4-recovery)
 | `src/app/(erp)/masters/actions.ts` | `saveMasterAction` server action → same service as agent tools |
 | `src/app/(erp)/admin/company/page.tsx` | company profile + FinYear MasterTable (`company-finyear` item live) |
 | `src/lib/erp/menu-registry.ts` | M1 single navigation truth (LIVE_ROUTES grew: `/admin/company`) |
-| `src/lib/agent/tools.ts` | 120 tools; master CRUD = thin delegates over master-service (factory pattern) |
+| `src/lib/erp/chain.ts` | **M3-A: the ONE 15-stage chain def** (ADR-007) — CHAIN + computeChainState + nextStage + stageFormUrl; suggest_next_step + future W1 chain bar share it |
+| `src/lib/erp/schemas/` (17 files) | **M3-A: shared zod** — the agent tool schemas extracted VERBATIM (prompt contract); form actions will safeParse the same objects |
+| `src/lib/erp/posting/` (17 op services + ledger.ts + types.ts) | **M3-A: PostingEngine** — plan/commit per op; postLedger+bumpStock (ADR-004 comments); DocPlanResult types |
+| `src/lib/erp/legacy-enums.ts` | **M3-A: ADR-012 residence** — STAGE_DEPT + documented legacy DeptID/rework magic numbers |
+| `src/lib/agent/tools.ts` | 120 tools, ALL write ops now thin delegates: masterCreateTool/masterUpdateTool (M2) + docTool (M3-A); inline leftovers: approve_pending, adjust_stock, update_order, create_sizes (deliberate — outside SPEC-M3 §5 inventory) |
+| `tests/pipeline/doc-parity.test.ts` | **M3-A: the P2 guarantee at transaction scale** — 18 ops × agent-door vs form-door + full-chain StockLedger signature equality + net-zero bucket assertions |
 | `tests/pipeline/master-parity.test.ts` | **the P2 guarantee**: per-entity tool-path vs service-path equivalence |
 | `tests/unit/master-configs.test.ts` | config contract (delegates, tools, fields, columns) |
 | `src/app/(erp)/layout.tsx` + 11 module routes | routed shell (M1) |
@@ -98,12 +120,30 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. Implement M3 **Wave A** per `specs/SPEC-M3.md` §14: `chain.ts` + `schemas/` +
-   `posting/` extraction (22 services + ledger.ts) + tools.ts delegation +
-   `tests/pipeline/doc-parity.test.ts`. Exit: all tests green, zero behavior change.
-2. Waves B→D per spec §14 (engine + order family → chain screens → accounts/
-   inventory + AI-prefill). Tag `m3-done` after Wave D acceptance.
+1. Implement M3 **Wave B** per `specs/SPEC-M3.md` §14: doc-configs/types + order
+   config + `doc-screen.tsx` + `doc-picker.tsx` + `/orders/new` + `/orders/[id]`
+   hub + BOM card + chain bar + nextFormUrl + agent-panel "Open form". Exit:
+   acceptance #3 partially (order+BOM), #5, #6, #7 for order screens.
+2. Waves C→D per spec §14 (chain screens → accounts/inventory + AI-prefill).
+   Tag `m3-done` after Wave D acceptance.
 3. Update this file every wave (same commit).
+
+## M3 Wave A notes for future sessions
+
+- **Zero-logic-in-tools is now test-enforced**: doc-parity runs every op through
+  BOTH doors; re-inlining logic into a tool breaks the ledger-signature equality.
+- **Two latent bugs were fixed during extraction** (PO itemCode, GRN deptId:'' —
+  see drift #7 / PITFALLS #18). The `receive_grn` service still does NOT use
+  postLedger (inline StockLedger + dept-keyed CurrentStock buckets when deptCode
+  given) — preserved legacy behaviour, not an oversight.
+- `nextNumber`/`resolveDocNo` (pad-4 generic) now live in `numbering.ts`; tools
+  with bespoke formats (SO-1001 unpadded, PO-Y-001 3-pad) keep their inline
+  resolution in the service — do NOT "unify" them without an ADR (doc numbers
+  are user-visible contract).
+- `suggest_next_step` json gained additive fields (`state.order`, stage
+  `formUrl`/`formParam` on pipeline/nextStep) — existing consumers unaffected.
+- Wave A deliberately did NOT add `nextFormUrl` to suggest_next_step (Wave B
+  exit criterion) — chain.ts `stageFormUrl()` is ready but unwired.
 
 ## M2 notes for future sessions
 
