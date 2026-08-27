@@ -83,16 +83,21 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
         // rollback #4's schema reconstruction. Nulls now match the ADR-004
         // bucket pattern when no dept is given; dept-keyed buckets (legacy
         // GRN-with-dept behaviour, cf. the seeded fabric bucket) are preserved.
-        const csWhere = {
-          itemType_itemId_godownId_lotId_colourId_sizeId_deptId_orderId: {
-            itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
-            lotId: null, colourId: null, sizeId: null, deptId: dept?.id ?? null, orderId: null,
-          },
+        // FIX #3 (found by Wave D's bucket-count assertion, PITFALLS #18 lineage):
+        // findUnique THROWS when the compound-unique key carries nulls (Prisma
+        // rejects null in findUnique unique-input) — the .catch swallowed it and
+        // EVERY GRN created a duplicate 50-kg bucket instead of incrementing
+        // (46 junk rows had accumulated across test runs). findFirst with
+        // explicit nulls matches fine (the bumpStock pattern in ledger.ts);
+        // the update goes by row id so even pre-existing duplicates consolidate.
+        const bucketKey = {
+          itemType: line.itemType, itemId: line.itemId, godownId: godown.id,
+          lotId: null, colourId: null, sizeId: null, deptId: dept?.id ?? null, orderId: null,
         }
-        const existing = await tx.currentStock.findUnique({ where: csWhere as any }).catch(() => null)
+        const existing = await tx.currentStock.findFirst({ where: bucketKey })
         if (existing) {
           await tx.currentStock.update({
-            where: csWhere as any,
+            where: { id: existing.id },
             data: {
               kgs: { increment: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0 },
               pcs: { increment: line.itemType === 'accessory' ? actualQty : 0 },

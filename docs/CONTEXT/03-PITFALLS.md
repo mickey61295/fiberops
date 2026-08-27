@@ -226,3 +226,29 @@ FIX: discriminate with `instanceof z.ZodOptional` before unwrapping
 (tests/unit/doc-configs.test.ts, the every-config schema-mirror loop).
 LESSON: under zod v4, prefer instanceof checks over method-sniffing; several
 wrapper types share method names with different semantics.
+
+23. Prisma findUnique REJECTS nulls in compound-unique keys — and .catch(()=>null) turns that into silent duplicates · 2026-08-27 (Wave D)
+`db.currentStock.findUnique({ where: { itemType_itemId_..._orderId: { itemType, itemId, godownId, lotId: null, ..., orderId: null } } })`
+THROWS a validation error (nulls are not valid unique-input). `posting/grn.ts`
+wrapped it in `.catch(() => null)` → "not found" → CREATE branch on every call.
+Result: EVERY GRN created a fresh duplicate 50-kg CurrentStock bucket instead of
+incrementing — 46 junk rows had silently accumulated across ~23 test runs
+(discovered only because Wave D's parity test 20 asserted bucket-count === 1).
+SQLite never flagged it: NULLs are distinct in unique indexes, so duplicates
+are legal at the DB level. A one-time sweep (scripts/cleanup_junk_buckets.py)
+removed them; parity test 5 now carries the regression guard.
+FIX pattern: findFirst with EXPLICIT nulls in the where (matches fine) + update
+by row id — exactly what ledger.ts bumpStock has always done.
+LESSON: (a) never route findUnique through .catch(()=>null) — it converts
+validation errors into "not found"; (b) null-bearing compound keys = findFirst;
+(c) assert COUNTS, not just existence, when a path is supposed to be idempotent.
+
+24. StockLedger.docNo is NOT unique — number it by counting, never resolveDocNo · 2026-08-27 (Wave D)
+nextNumber/resolveDocNo use findUnique({ where: { [field]: ... } }) which
+requires a UNIQUE field — calling them against StockLedger.docNo throws at
+runtime. The Wave D ledger-only ops (ADJ-####, GT-####) count matching
+`docNo startsWith prefix` rows and increment (nextAdjNo/nextTransferNo in
+posting/stock-adj.ts / transfer.ts). Uniqueness is convention, not constraint —
+a transfer's out+in pair deliberately SHARES one docNo.
+LESSON: doc numbers on non-unique columns are display/grouping keys; derive
+them by count and never "resolve" them.

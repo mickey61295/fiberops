@@ -61,30 +61,32 @@ echo "  menu-items=$MENUITEMS  live-routes=$LIVEROUTES  master-configs=$MASTERCF
 echo "  m3-waveA: schemas=$SCHEMAFILES  posting-files=$POSTINGSVCS  chain-stages=$CHAINSTAGES"
 echo "  m3-waveB: doc-configs=$DOCCFGS  erp-shell-components=$DOCSCREENVIEWS"
 echo "  m3-waveC: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  erp-views=$VIEWS"
+echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
+echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M3-WaveC session]"
-check "agent tools (inline+factory+docTool)" "120" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M3-WaveD session]"
+check "agent tools (inline+factory+docTool)" "122" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5)" "21"    "$DOCTOOLS"
+check "docTool delegates (SPEC-M3 §5 + §11)" "23"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
 check "erp view/shell components (Wave B + Wave C recent-docs)" "20"      "$VIEWS"
 check "archetype engines"          "2"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests"        "14"      "$REGTESTS"
+check "menu registry tests"        "15"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
-check "doc parity tests"           "19"      "$DOCPARITYTESTS"
+check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M3 Wave C)"    "36"      "$LIVEROUTES"
+check "live routes (M3 Wave D)"    "48"      "$LIVEROUTES"
 check "master configs"             "24"      "$MASTERCFGS"
-check "shared zod schema files"    "17"      "$SCHEMAFILES"
-check "posting service files"      "20"      "$POSTINGSVCS"
+check "shared zod schema files"    "19"      "$SCHEMAFILES"
+check "posting service files"      "22"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 §7/§8 — 12 configs; jobwork+production files hold 2)" "10"       "$DOCCFGS"
+check "doc config files (SPEC-M3 §7/§8 — 19 configs; jobwork+production files hold 2)" "17"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -112,9 +114,18 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/doc-configs/cut.ts src/lib/erp/doc-configs/line-issue.ts \
          src/lib/erp/doc-configs/production.ts src/lib/erp/doc-configs/rejection.ts \
          src/lib/erp/doc-configs/despatch.ts \
+         src/lib/erp/doc-configs/invoice.ts src/lib/erp/doc-configs/debit-note.ts \
+         src/lib/erp/doc-configs/payment.ts src/lib/erp/doc-configs/journal.ts \
+         src/lib/erp/doc-configs/cost-sheet.ts \
+         src/lib/erp/doc-configs/stock-adjustment.ts \
+         src/lib/erp/doc-configs/godown-transfer.ts \
+         src/lib/erp/posting/stock-adj.ts src/lib/erp/posting/transfer.ts \
+         src/lib/erp/schemas/stock-adj.ts src/lib/erp/schemas/transfer.ts \
+         src/app/api/upload/route.ts \
          src/lib/erp/doc-configs/index.ts src/lib/erp/doc-configs/coerce.ts \
          tests/pipeline/industry-chain.test.ts tests/unit/menu-registry.test.ts \
          tests/unit/master-configs.test.ts tests/unit/doc-configs.test.ts \
+         tests/unit/upload-route.test.ts \
          tests/pipeline/master-parity.test.ts \
          tests/pipeline/doc-parity.test.ts \
          'src/app/(erp)/layout.tsx' 'src/app/(erp)/coming/[id]/page.tsx' \
@@ -131,6 +142,13 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/production/rework/page.tsx' \
          'src/app/(erp)/pieces/rejection/page.tsx' 'src/app/(erp)/pieces/rejection/[id]/page.tsx' \
          'src/app/(erp)/pieces/despatch/page.tsx' 'src/app/(erp)/pieces/despatch/[id]/page.tsx' \
+         'src/app/(erp)/accounts/invoice/page.tsx' 'src/app/(erp)/accounts/invoice/[id]/page.tsx' \
+         'src/app/(erp)/accounts/debit-note/page.tsx' 'src/app/(erp)/accounts/debit-note/[id]/page.tsx' \
+         'src/app/(erp)/accounts/payments/page.tsx' 'src/app/(erp)/accounts/payments/[id]/page.tsx' \
+         'src/app/(erp)/accounts/journal/page.tsx' 'src/app/(erp)/accounts/journal/[id]/page.tsx' \
+         'src/app/(erp)/costing/cost-sheet/page.tsx' 'src/app/(erp)/costing/cost-sheet/[id]/page.tsx' \
+         'src/app/(erp)/inventory/adjustment/page.tsx' \
+         'src/app/(erp)/inventory/transfer/page.tsx' \
          'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
          'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \
          prisma/schema.prisma; do
@@ -139,7 +157,7 @@ done
 
 echo
 echo "[known-missing (expected gaps, do not 'fix' silently)]"
-[ -f src/app/api/upload/route.ts ] && echo "  NOTE  /api/upload EXISTS now (was lost in rollback — update STATE)" || echo "  OK    /api/upload absent (known gap, rebuild in M3)"
+[ -f src/app/api/upload/route.ts ] && echo "  OK    /api/upload EXISTS (Wave D §12 rebuild — STATE updated)" || echo "  MISSING /api/upload (Wave D regression — rebuild it)"
 grep -q "PROMPT_VERSION" src/app/api/agent/route.ts && echo "  NOTE  PROMPT_VERSION exists now (update STATE)" || echo "  OK    no PROMPT_VERSION (matches STATE drift note #1)"
 [ -f src/components/erp/masters-view.tsx ] && echo "  NOTE  masters-view.tsx still exists (M2 should have deleted it)" || echo "  OK    masters-view.tsx deleted (M2)"
 

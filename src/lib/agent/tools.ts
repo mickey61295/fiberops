@@ -32,6 +32,8 @@ import { DEBIT_NOTE_SCHEMA } from '@/lib/erp/schemas/debit-note'
 import { JOURNAL_SCHEMA } from '@/lib/erp/schemas/journal'
 import { COST_SHEET_SCHEMA } from '@/lib/erp/schemas/cost-sheet'
 import { PAYMENT_SCHEMA } from '@/lib/erp/schemas/payment'
+import { STOCK_ADJ_SCHEMA } from '@/lib/erp/schemas/stock-adj'
+import { TRANSFER_SCHEMA } from '@/lib/erp/schemas/transfer'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -49,6 +51,8 @@ import { planDebitNote } from '@/lib/erp/posting/debit-note'
 import { planJournal } from '@/lib/erp/posting/journal'
 import { planCostSheet } from '@/lib/erp/posting/cost-sheet'
 import { planPayment } from '@/lib/erp/posting/payment'
+import { planStockAdjustment } from '@/lib/erp/posting/stock-adj'
+import { planTransfer } from '@/lib/erp/posting/transfer'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -1660,6 +1664,20 @@ const writeTools: AgentTool[] = [
     'accounting',
     PAYMENT_SCHEMA,
     planPayment,
+  ),
+  docTool(
+    'post_stock_adjustment',
+    'Adjust stock at a godown (Add or Less). docNo auto-assigned ADJ-####. Required: godownCode, itemType (yarn|fabric|accessory), itemCode, qty (positive; kgs for yarn/fabric, pcs for accessory), action (add|less), reason. Posts a stock_adjustment_add/less ledger row and updates current stock.',
+    'inventory',
+    STOCK_ADJ_SCHEMA,
+    planStockAdjustment,
+  ),
+  docTool(
+    'transfer_stock',
+    'Move stock between godowns. docNo auto-assigned GT-####. Required: itemType (yarn|fabric|accessory), itemCode, fromGodownCode, toGodownCode (must differ), qty (positive; kgs for yarn/fabric, pcs for accessory). Optional: notes, transferDate. Writes the godown_transfer_out + godown_transfer_in ledger pair in ONE transaction — total stock is unchanged.',
+    'inventory',
+    TRANSFER_SCHEMA,
+    planTransfer,
   ),
 ]
 

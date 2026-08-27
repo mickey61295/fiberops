@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 17 live items of 113 after M3 Wave C (+11 chain screens); 14/17 groups', () => {
+  it('parityStats: 24 live items of 113 after M3 Wave D (+7 accounts/inventory screens); 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(17)
-    expect(s.comingItems).toBe(96)
+    expect(s.liveItems).toBe(24)
+    expect(s.comingItems).toBe(89)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -116,6 +116,29 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
       expect(LIVE_ROUTES.has(r), r).toBe(true)
       expect(fs.existsSync(path.join(ERP_DIR, r, 'page.tsx')), r).toBe(true)
     }
+  })
+
+  it('Wave D: the 7 accounts/inventory item routes are live with [id] view routes (except the 2 ledger-only ops)', () => {
+    const waveDItems = [
+      '/accounts/invoice', '/accounts/debit-note', '/accounts/payments',
+      '/accounts/journal', '/costing/cost-sheet', '/inventory/adjustment', '/inventory/transfer',
+    ]
+    for (const r of waveDItems) {
+      expect(LIVE_ROUTES.has(r), r).toBe(true)
+      expect(isLive(findItemByRoute(r)!), r).toBe(true)
+    }
+    // view routes for the doc-model ops (adjustment/transfer: ledger rows are the record — none)
+    const waveDViews = [
+      '/accounts/invoice/[id]', '/accounts/debit-note/[id]', '/accounts/payments/[id]',
+      '/accounts/journal/[id]', '/costing/cost-sheet/[id]',
+    ]
+    for (const r of waveDViews) {
+      expect(LIVE_ROUTES.has(r), r).toBe(true)
+      expect(fs.existsSync(path.join(ERP_DIR, r, 'page.tsx')), r).toBe(true)
+    }
+    // the two NEW tools are wired to their items (post_stock_adjustment / transfer_stock)
+    expect(findItemByRoute('/inventory/adjustment')!.agentTools).toContain('post_stock_adjustment')
+    expect(findItemByRoute('/inventory/transfer')!.agentTools).toContain('transfer_stock')
   })
 
   it('items with agentTools have an agentPrompt or are live', () => {

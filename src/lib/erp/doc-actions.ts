@@ -36,9 +36,10 @@ function zodErrors(issues: Array<{ path: Array<string | number>; message: string
 }
 
 /**
- * Slug → screens that list this doc family (Wave C: all 12 screens).
- * revalidatePath on unknown paths is a harmless no-op in Next; the guards
- * keep this callable from vitest (outside a request scope).
+ * Slug → screens that list this doc family (Wave D: all 19 screens; the two
+ * ledger-only inventory ops revalidate their New screens + the inventory
+ * landing). revalidatePath on unknown paths is a harmless no-op in Next; the
+ * guards keep this callable from vitest (outside a request scope).
  */
 const SLUG_REVALIDATE: Record<string, string[]> = {
   order: ['/orders', '/orders/new'],
@@ -53,6 +54,13 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   rework: ['/production/rework', '/production/entry', '/production'],
   rejection: ['/pieces/rejection'],
   despatch: ['/pieces/despatch'],
+  invoice: ['/accounts/invoice', '/accounts'],
+  'debit-note': ['/accounts/debit-note', '/accounts'],
+  payment: ['/accounts/payments', '/accounts'],
+  journal: ['/accounts/journal', '/accounts'],
+  'cost-sheet': ['/costing/cost-sheet', '/costing'],
+  'stock-adjustment': ['/inventory/adjustment', '/inventory'],
+  'godown-transfer': ['/inventory/transfer', '/inventory'],
 }
 
 async function runPlan(slug: string, payload: DocFormPayload): Promise<

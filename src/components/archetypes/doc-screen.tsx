@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, ChevronLeft, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, Check, ChevronLeft, Loader2, Paperclip, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -224,6 +224,13 @@ export function DocScreen({
         </div>
         <Button
           size="sm" variant="outline"
+          onClick={() => openAgent(`Create a ${config.title.toLowerCase()} from the attached document — attach the buyer PO / invoice PDF with the paperclip, then ingest it and ask me for whatever details you still need.${header.orderNo ? ` The order is ${header.orderNo}.` : ''}`)}
+          title="AI-prefill: attach a document in the panel; the agent proposes the doc for approval (SPEC-M3 §12)"
+        >
+          <Paperclip className="h-3.5 w-3.5 mr-1" /> Fill with AI
+        </Button>
+        <Button
+          size="sm" variant="outline"
           onClick={() => openAgent(`Create a ${config.title.toLowerCase()} for me using the ${config.agentTools[0]} tool — ask me for whatever details you need`)}
           title="The other door to the same posting service"
         >
@@ -249,7 +256,35 @@ export function DocScreen({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
               {config.headerFields.map((f) => (
                 <div key={f.name} className={f.colSpan === 2 ? 'sm:col-span-2' : ''}>
-                  {f.type === 'picker' ? (
+                  {f.type === 'picker' && f.pickerFrom ? (
+                    // ERRATUM 6 (Wave D): typed header picker — the master slug
+                    // comes from a sibling header cell (itemCode ← itemType)
+                    header[f.pickerFrom] ? (
+                      <DocPicker
+                        slug={header[f.pickerFrom]}
+                        valueField={f.pickerValueField}
+                        value={header[f.name] ?? ''}
+                        onChange={(v) => setHeader((h) => ({ ...h, [f.name]: v }))}
+                        label={f.label}
+                        required={f.required}
+                      />
+                    ) : (
+                      <>
+                        <Label className="text-xs font-medium">
+                          {f.label}
+                          {f.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </Label>
+                        <Input
+                          className="mt-1 h-9 text-sm"
+                          type="text"
+                          value={header[f.name] ?? ''}
+                          onChange={(e) => setHeader((h) => ({ ...h, [f.name]: e.target.value }))}
+                          placeholder={`select ${f.pickerFrom.replace(/([A-Z])/g, ' $1').toLowerCase()} first`}
+                          aria-label={f.label}
+                        />
+                      </>
+                    )
+                  ) : f.type === 'picker' ? (
                     <DocPicker
                       slug={f.picker!}
                       valueField={f.pickerValueField}

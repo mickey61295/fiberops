@@ -1,5 +1,6 @@
 // SPEC-M3 §7/§8 — the doc-config registry. Grows per wave (Wave C adds the
-// chain configs — §8 rows 3-13; Wave D the accounts/inventory ones).
+// chain configs — §8 rows 3-13; Wave D the accounts/inventory ones — rows
+// 14-20).
 import type { DocConfig } from './types'
 import { orderConfig } from './order'
 import { programConfig } from './program'
@@ -11,6 +12,13 @@ import { lineIssueConfig } from './line-issue'
 import { productionConfig, reworkConfig } from './production'
 import { rejectionConfig } from './rejection'
 import { despatchConfig } from './despatch'
+import { invoiceConfig } from './invoice'
+import { debitNoteConfig } from './debit-note'
+import { paymentConfig } from './payment'
+import { journalConfig } from './journal'
+import { costSheetConfig } from './cost-sheet'
+import { stockAdjustmentConfig } from './stock-adjustment'
+import { godownTransferConfig } from './godown-transfer'
 
 export {
   orderConfig,
@@ -25,6 +33,13 @@ export {
   reworkConfig,
   rejectionConfig,
   despatchConfig,
+  invoiceConfig,
+  debitNoteConfig,
+  paymentConfig,
+  journalConfig,
+  costSheetConfig,
+  stockAdjustmentConfig,
+  godownTransferConfig,
 }
 
 export const DOC_CONFIGS: DocConfig[] = [
@@ -40,6 +55,13 @@ export const DOC_CONFIGS: DocConfig[] = [
   reworkConfig,
   rejectionConfig,
   despatchConfig,
+  invoiceConfig,
+  debitNoteConfig,
+  paymentConfig,
+  journalConfig,
+  costSheetConfig,
+  stockAdjustmentConfig,
+  godownTransferConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {

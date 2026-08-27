@@ -4,7 +4,7 @@
  * The coercion test is the form-side complement of doc-parity: it proves the
  * form action feeds the EXACT same schema the agent door uses.
  */
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
@@ -20,7 +20,7 @@ import { db } from '../../src/lib/db'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('doc-configs — SPEC-M3 §7 contracts', () => {
-  it('registry has exactly the Wave C set (order + 11 chain configs)', () => {
+  it('registry has exactly the Wave D set (order + 11 chain + 7 accounts/inventory configs)', () => {
     expect(DOC_CONFIGS.map((c) => c.slug)).toEqual([
       'order',
       'program',
@@ -34,6 +34,13 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'rework',
       'rejection',
       'despatch',
+      'invoice',
+      'debit-note',
+      'payment',
+      'journal',
+      'cost-sheet',
+      'stock-adjustment',
+      'godown-transfer',
     ])
   })
 
@@ -78,10 +85,17 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
     const slugs = new Set(MASTER_CONFIGS.map((m) => m.slug))
     for (const c of DOC_CONFIGS) {
       for (const f of c.headerFields) {
-        if (f.type === 'picker') expect(slugs.has(f.picker!), `${c.slug}.${f.name} → ${f.picker}`).toBe(true)
+        // ERRATUM 6 (Wave D): pickerFrom fields have a DYNAMIC slug (from the
+        // sibling select's option values) — asserted by the dedicated
+        // ERRATUM 6 test below; here only static pickers are checked.
+        if (f.type === 'picker' && !f.pickerFrom) {
+          expect(slugs.has(f.picker!), `${c.slug}.${f.name} → ${f.picker}`).toBe(true)
+        }
       }
       for (const f of c.lineFields ?? []) {
-        if (f.type === 'picker' && f.picker) expect(slugs.has(f.picker), `${c.slug} line.${f.name} → ${f.picker}`).toBe(true)
+        if (f.type === 'picker' && f.picker && !f.pickerFrom) {
+          expect(slugs.has(f.picker), `${c.slug} line.${f.name} → ${f.picker}`).toBe(true)
+        }
       }
     }
   })
@@ -119,8 +133,12 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       grn: '/procurement/grn', 'jobwork-out': '/jobwork/order', 'jobwork-in': '/jobwork/receipt',
       cut: '/cutting/job-order', 'line-issue': '/production/issue', production: '/production/entry',
       rejection: '/pieces/rejection', despatch: '/pieces/despatch',
+      invoice: '/accounts/invoice', 'cost-sheet': '/costing/cost-sheet', payment: '/accounts/payments',
     }
     for (const c of DOC_CONFIGS) {
+      // Wave D: accounts/inventory ops OUTSIDE the order chain (debit-note,
+      // journal, stock-adjustment, godown-transfer) carry NO chainStage.
+      if (c.chainStage === undefined) continue
       const stage = CHAIN.find((s) => s.step === c.chainStage)
       expect(stage, `${c.slug} chainStage ${c.chainStage} in CHAIN`).toBeTruthy()
       if (stageUrls[c.slug]) {
@@ -208,6 +226,46 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       if (w.view) {
         expect(LIVE_ROUTES.has(w.view), w.view).toBe(true)
         expect(fs.existsSync(path.join(ERP_DIR, w.view, 'page.tsx')), `${w.view}/page.tsx`).toBe(true)
+      }
+    }
+  })
+
+  it('routes: the 7 Wave D screens are LIVE with page files (§8 rows 14-20)', () => {
+    const waveD: { slug: string; route: string; view?: string }[] = [
+      { slug: 'invoice', route: '/accounts/invoice', view: '/accounts/invoice/[id]' },
+      { slug: 'debit-note', route: '/accounts/debit-note', view: '/accounts/debit-note/[id]' },
+      { slug: 'payment', route: '/accounts/payments', view: '/accounts/payments/[id]' },
+      { slug: 'journal', route: '/accounts/journal', view: '/accounts/journal/[id]' },
+      { slug: 'cost-sheet', route: '/costing/cost-sheet', view: '/costing/cost-sheet/[id]' },
+      { slug: 'stock-adjustment', route: '/inventory/adjustment' }, // ledger rows are the record — no [id] view
+      { slug: 'godown-transfer', route: '/inventory/transfer' }, // ledger pair is the record — no [id] view
+    ]
+    for (const w of waveD) {
+      expect(getDocConfig(w.slug), `config ${w.slug}`).toBeTruthy()
+      expect(LIVE_ROUTES.has(w.route), w.route).toBe(true)
+      expect(isLive(findItemByRoute(w.route)!), `item for ${w.route}`).toBe(true)
+      expect(fs.existsSync(path.join(ERP_DIR, w.route, 'page.tsx')), `${w.route}/page.tsx`).toBe(true)
+      if (w.view) {
+        expect(LIVE_ROUTES.has(w.view), w.view).toBe(true)
+        expect(fs.existsSync(path.join(ERP_DIR, w.view, 'page.tsx')), `${w.view}/page.tsx`).toBe(true)
+      }
+    }
+  })
+
+  it('ERRATUM 6 (Wave D): header pickerFrom targets are select option values of the sibling field', () => {
+    // the typed header picker pattern: itemCode ← itemType (yarn|fabric|accessory)
+    for (const slug of ['stock-adjustment', 'godown-transfer']) {
+      const c = getDocConfig(slug)!
+      const typed = c.headerFields.filter((f) => f.pickerFrom)
+      expect(typed.length, `${slug} has a pickerFrom field`).toBeGreaterThan(0)
+      for (const f of typed) {
+        const sibling = c.headerFields.find((g) => g.name === f.pickerFrom)
+        expect(sibling, `${slug}.${f.name}.pickerFrom → sibling ${f.pickerFrom}`).toBeTruthy()
+        expect(sibling!.type, `${slug}: sibling ${f.pickerFrom} must be a select`).toBe('select')
+        const opts = new Set((sibling!.options ?? []).map((o) => o.value))
+        for (const itemSlug of ['yarn', 'fabric', 'accessory']) {
+          expect(opts.has(itemSlug), `${slug}: sibling options must include master slug '${itemSlug}'`).toBe(true)
+        }
       }
     }
   })
@@ -485,5 +543,293 @@ describe('form-door integration — Wave C chain ops (ADR-001 through the generi
     const bad = await planDocAction('productionn', { header: {}, lines: [] })
     expect(bad.ok).toBe(false)
     if (!bad.ok) expect(bad.errors[0]).toContain('Unknown document type')
+  })
+})
+
+describe('form-door integration — Wave D accounts + inventory ops (ADR-001 through the generic actions)', () => {
+  // covers the Wave D shapes: GST-computing op (invoice), invoice-settling op
+  // (payment with companion JV), versioned op (cost-sheet), free voucher
+  // (journal), and the two NEW ledger-only inventory ops through the form door
+  // (their two-door parity is asserted in doc-parity tests 20-21).
+  const stamp = Date.now()
+  const orderNo = `WD-${stamp}`
+  const invNo = `WDINV-${stamp}`
+  const csStamp = `WD${stamp}`
+  const vNo = `WDV-${stamp}`
+  const dnNo = `WDDN-${stamp}`
+  const adjNo = `WDADJ-${stamp}`
+  const gtNo = `WDGT-${stamp}`
+  const CUSTOMER = 'CUS001'
+  const YARN = 'Y-30COT'
+  let orderId: string | undefined
+  let invoiceId: string | undefined
+  let paymentId: string | undefined
+  let costSheetId: string | undefined
+  let journalId: string | undefined
+  let debitNoteId: string | undefined
+  let paymentVoucherNo = '' // auto-assigned (RCP-####) — captured for cleanup
+  let yarnId = ''
+  // pre-test yarn buckets (form-door inventory ops write here)
+  let g1BucketBefore: { id: string; kgs: number } | null = null
+  let g2BucketBefore: { id: string; kgs: number } | null = null
+
+  beforeAll(async () => {
+    const yarn = await db.yarn.findUnique({ where: { code: YARN } })
+    if (!yarn) throw new Error(`seed yarn ${YARN} missing`)
+    yarnId = yarn.id
+    const [g1, g2] = await Promise.all([
+      db.godown.findUnique({ where: { code: 'G1' } }),
+      db.godown.findUnique({ where: { code: 'G2' } }),
+    ])
+    for (const [g, setter] of [
+      [g1, (b: { id: string; kgs: number } | null) => { g1BucketBefore = b }],
+      [g2, (b: { id: string; kgs: number } | null) => { g2BucketBefore = b }],
+    ] as const) {
+      const b = g
+        ? await db.currentStock.findFirst({
+            where: { itemType: 'yarn', itemId: yarnId, godownId: g.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+          })
+        : null
+      setter(b ? { id: b.id, kgs: b.kgs } : null)
+    }
+  })
+
+  afterAll(async () => {
+    const sw = (e: unknown) => e as any
+    // FK-safe, best-effort, children first
+    if (paymentId) await sw(db.payment.delete({ where: { id: paymentId } }).catch(() => {}))
+    if (paymentVoucherNo) {
+      await sw(db.journal.deleteMany({ where: { voucherNo: { in: [vNo, `JV-${paymentVoucherNo}`] } } }).catch(() => {}))
+    } else {
+      await sw(db.journal.deleteMany({ where: { voucherNo: vNo } }).catch(() => {}))
+    }
+    await sw(db.costSheet.deleteMany({ where: { orderId: orderId ?? 'none' } }).catch(() => {}))
+    await sw(db.salesInvoice.deleteMany({ where: { invoiceNo: invNo } }).catch(() => {}))
+    await sw(db.debitNote.deleteMany({ where: { noteNo: dnNo } }).catch(() => {}))
+    await sw(db.stockLedger.deleteMany({ where: { docNo: { in: [adjNo, gtNo] } } }).catch(() => {}))
+    await sw(db.orderLine.deleteMany({ where: { orderId: orderId ?? 'none' } }).catch(() => {}))
+    await sw(db.order.deleteMany({ where: { id: orderId ?? 'none' } }).catch(() => {}))
+    // yarn buckets: restore absolute pre-test state
+    const [g1, g2] = await Promise.all([
+      db.godown.findUnique({ where: { code: 'G1' } }),
+      db.godown.findUnique({ where: { code: 'G2' } }),
+    ])
+    for (const [g, before] of [
+      [g1, g1BucketBefore],
+      [g2, g2BucketBefore],
+    ] as const) {
+      if (!g) continue
+      if (before) {
+        await sw(db.currentStock.update({ where: { id: before.id }, data: { kgs: before.kgs } }).catch(() => {}))
+      } else {
+        await sw(db.currentStock.deleteMany({ where: { itemType: 'yarn', itemId: yarnId, godownId: g.id } }).catch(() => {}))
+      }
+    }
+    await db.$disconnect()
+  })
+
+  it('invoice: GST math through the form door (cgst_sgst split + billAmount)', async () => {
+    const orderRes = await commitDocAction('order', {
+      header: { orderNo, buyerCode: 'B001', styleNo: 'S-1001', deliveryDate: '2027-06-30' },
+      lines: [{ colourName: 'Navy', sizeName: 'L', qty: '50', rate: '300' }],
+    })
+    expect(orderRes.ok).toBe(true)
+    if (orderRes.ok) orderId = orderRes.doc?.id
+
+    const payload: DocFormPayload = {
+      header: {
+        invoiceNo: invNo,
+        orderNo,
+        partyCode: CUSTOMER,
+        billType: 'sales',          // select → string passthrough
+        totalQty: '50',             // number coercion
+        taxableValue: '15000',
+        gstRate: '12',
+        gstType: 'cgst_sgst',       // select
+        invoiceDate: '2027-05-10',
+        notes: '',
+      },
+      lines: [],
+    }
+    const plan = await planDocAction('invoice', payload)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) expect(plan.plan.creates?.[0].table).toBe('salesInvoice')
+    const commit = await commitDocAction('invoice', payload)
+    expect(commit.ok).toBe(true)
+    if (commit.ok) {
+      invoiceId = commit.doc?.id
+      expect(commit.doc?.invoiceNo).toBe(invNo)
+      expect(commit.doc?.billAmount).toBe(16800) // 15000 + 12% GST
+    }
+    const inv = await db.salesInvoice.findUnique({ where: { invoiceNo: invNo } })
+    expect(inv?.cgstRate).toBe(6)
+    expect(inv?.sgstRate).toBe(6)
+    expect(inv?.cgstAmt).toBe(900)
+    expect(inv?.sgstAmt).toBe(900)
+    expect(inv?.igstRate).toBe(0)
+    expect(inv?.status).toBe('issued')
+  })
+
+  it('payment: full receipt against the invoice settles it + writes the companion JV', async () => {
+    const res = await commitDocAction('payment', {
+      header: {
+        voucherNo: '',
+        partyCode: CUSTOMER,
+        amount: '16800',
+        direction: 'in',
+        invoiceNo: invNo,
+        orderNo,
+        mode: 'bank',
+        reference: 'UTR-WD-TEST',
+        payDate: '2027-05-12',
+        notes: '',
+      },
+      lines: [],
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      paymentId = res.doc?.id
+      paymentVoucherNo = String(res.doc?.voucherNo ?? '')
+      expect(res.doc?.invoiceSettled).toBe(true)
+    }
+    const inv = await db.salesInvoice.findUnique({ where: { invoiceNo: invNo } })
+    expect(inv?.status).toBe('paid')
+    const pay = await db.payment.findFirst({ where: { invoiceId: inv?.id } })
+    expect(pay?.direction).toBe('in')
+    expect(pay?.amount).toBe(16800)
+    const jv = await db.journal.findUnique({ where: { voucherNo: `JV-${paymentVoucherNo}` } })
+    expect(jv?.voucherType).toBe('receipt')
+    expect(jv?.amount).toBe(16800)
+  })
+
+  it('cost-sheet: version auto-increments + totals computed (no doc number — ERRATUM 4)', async () => {
+    const c = getDocConfig('cost-sheet')!
+    expect(c.numberPrefix).toBeUndefined()
+    expect(c.numberField).toBeUndefined()
+    const res = await commitDocAction('cost-sheet', {
+      header: {
+        orderNo,
+        fabricCost: '8000',
+        trimCost: '1500',
+        cmCost: '3000',
+        washingCost: '',
+        packingCost: '500',
+        overheads: '1000',
+        commissionPct: '2',
+        marginPct: '15',
+        sellingPrice: '18000',
+      },
+      lines: [],
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      costSheetId = res.doc?.id
+      expect(res.doc?.version).toBe(1)
+    }
+    const cs = await db.costSheet.findUnique({ where: { id: costSheetId ?? 'none' } })
+    expect(cs?.totalCost).toBe(14000)
+    expect(cs?.sellingPrice).toBe(18000)
+  })
+
+  it('journal: voucher commits with party link', async () => {
+    const res = await commitDocAction('journal', {
+      header: {
+        voucherNo: vNo,
+        voucherType: 'journal',
+        debitAccount: 'Freight Expense',
+        creditAccount: 'Cash',
+        amount: '2500.75',
+        partyCode: CUSTOMER,
+        narration: 'Wave D form-door test',
+        date: '2027-05-15',
+      },
+      lines: [],
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) journalId = res.doc?.id
+    const j = await db.journal.findUnique({ where: { voucherNo: vNo } })
+    expect(j?.amount).toBe(2500.75)
+    expect(j?.partyId).toBeTruthy()
+  })
+
+  it('debit-note: bad party surfaces structured error; good party commits', async () => {
+    const bad = await planDocAction('debit-note', {
+      header: { noteNo: dnNo, noteType: 'pcs', partyCode: 'NOPE-404', amount: '500', reason: 'x' },
+      lines: [],
+    })
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.errors.join(' ')).toContain('NOPE-404')
+
+    const good = await commitDocAction('debit-note', {
+      header: { noteNo: dnNo, noteType: 'pcs', partyCode: CUSTOMER, amount: '500', reason: 'quality claim', date: '2027-05-16' },
+      lines: [],
+    })
+    expect(good.ok).toBe(true)
+    if (good.ok) debitNoteId = good.doc?.id
+    const dn = await db.debitNote.findUnique({ where: { noteNo: dnNo } })
+    expect(dn?.status).toBe('raised')
+  })
+
+  it('stock-adjustment: form door → ledger row + CurrentStock bump (typed picker config)', async () => {
+    const res = await commitDocAction('stock-adjustment', {
+      header: {
+        docNo: adjNo,
+        godownCode: 'G1',
+        itemType: 'yarn',          // select drives the itemCode pickerFrom slug
+        itemCode: YARN,
+        qty: '5',
+        action: 'add',
+        reason: 'form-door audit correction',
+        adjDate: '2027-05-17',
+      },
+      lines: [],
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.doc?.docNo).toBe(adjNo)
+    const row = await db.stockLedger.findFirst({ where: { docNo: adjNo } })
+    expect(row?.txnType).toBe('stock_adjustment_add')
+    expect(row?.inKgs).toBe(5)
+    const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
+    const bucket = await db.currentStock.findFirst({
+      where: { itemType: 'yarn', itemId: yarnId, godownId: g1!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+    })
+    expect(bucket?.kgs).toBeCloseTo((g1BucketBefore?.kgs ?? 0) + 5, 5)
+  })
+
+  it('transfer: form door → out+in ledger pair sharing one docNo, net stock unchanged', async () => {
+    const netBefore = (await db.currentStock.findMany({ where: { itemType: 'yarn', itemId: yarnId } }))
+      .reduce((s, x) => s + x.kgs, 0)
+    const res = await commitDocAction('godown-transfer', {
+      header: {
+        docNo: gtNo,
+        itemType: 'yarn',
+        itemCode: YARN,
+        fromGodownCode: 'G1',
+        toGodownCode: 'G2',
+        qty: '3',
+        notes: 'form-door rebalancing',
+        transferDate: '2027-05-18',
+      },
+      lines: [],
+    })
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.doc?.docNo).toBe(gtNo)
+    const rows = await db.stockLedger.findMany({ where: { docNo: gtNo } })
+    expect(rows).toHaveLength(2)
+    const txnTypes = rows.map((r) => r.txnType).sort()
+    expect(txnTypes).toEqual(['godown_transfer_in', 'godown_transfer_out'])
+    const out = rows.find((r) => r.txnType === 'godown_transfer_out')!
+    const inn = rows.find((r) => r.txnType === 'godown_transfer_in')!
+    expect(out.outKgs).toBe(3)
+    expect(inn.inKgs).toBe(3)
+    const netAfter = (await db.currentStock.findMany({ where: { itemType: 'yarn', itemId: yarnId } }))
+      .reduce((s, x) => s + x.kgs, 0)
+    expect(netAfter).toBeCloseTo(netBefore, 5)
+    // G2 gained the 3 kgs
+    const g2 = await db.godown.findUnique({ where: { code: 'G2' } })
+    const bucket2 = await db.currentStock.findFirst({
+      where: { itemType: 'yarn', itemId: yarnId, godownId: g2!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+    })
+    expect(bucket2?.kgs).toBeCloseTo((g2BucketBefore?.kgs ?? 0) + 3, 5)
   })
 })

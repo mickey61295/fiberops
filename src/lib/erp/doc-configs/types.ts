@@ -25,6 +25,12 @@
 //    VALUE is the master slug for this row's picker (PO lines: itemCode's
 //    picker is yarn|fabric|accessory per the row's itemType cell). Falls back
 //    to a plain text input until the sibling cell is set.
+// SPEC-M3 ERRATUM (Wave D):
+// 6. DocField gains optional `pickerFrom` — the header-cell equivalent of the
+//    ERRATUM 5 line-field mechanism: a sibling header field whose VALUE is the
+//    master slug for this picker (stock-adjustment/godown-transfer itemCode ←
+//    the itemType cell: yarn|fabric|accessory). Falls back to a plain text
+//    input until the sibling cell is set.
 import type { z } from 'zod'
 import type { DocPlanResult } from '../posting/types'
 
@@ -40,6 +46,8 @@ export interface DocField {
   picker?: string
   /** ERRATUM 1 — master record field the picker emits (default: codeField ?? titleField) */
   pickerValueField?: string
+  /** ERRATUM 6 (Wave D) — sibling header-cell name whose value IS the master slug */
+  pickerFrom?: string
   options?: { value: string; label: string }[]
   readOnlyIn?: ('view')[]
   /** header grid width */

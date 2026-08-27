@@ -563,7 +563,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.salesInvoices ?? []).map((i: { id: string; invoiceNo: string; invoiceDate: Date; billAmount: number; status: string }) => (
                 <tr key={i.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{i.invoiceNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/accounts/invoice/${i.id}`} className="text-emerald-700 hover:underline">{i.invoiceNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(i.invoiceDate)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{inr(i.billAmount)}</td>
                   <td className="px-3 py-1.5 capitalize">{i.status}</td>
@@ -594,7 +596,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.costSheet ?? []).map((c: { id: string; version: number; createdAt: Date; totalCost: number; sellingPrice: number }) => (
                 <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5">v{c.version}</td>
+                  <td className="px-4 py-1.5">
+                    <Link href={`/costing/cost-sheet/${c.id}`} className="text-emerald-700 hover:underline">v{c.version}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(c.createdAt)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{inr(c.totalCost)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{inr(c.sellingPrice)}</td>
@@ -626,7 +630,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <tbody>
               {(order.payments ?? []).map((p: { id: string; voucherNo: string; payDate: Date; direction: string; amount: number; mode: string }) => (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-1.5 font-mono text-xs">{p.voucherNo}</td>
+                  <td className="px-4 py-1.5 font-mono text-xs">
+                    <Link href={`/accounts/payments/${p.id}`} className="text-emerald-700 hover:underline">{p.voucherNo}</Link>
+                  </td>
                   <td className="px-3 py-1.5">{d(p.payDate)}</td>
                   <td className="px-3 py-1.5 capitalize">{p.direction === 'in' ? 'Receipt' : 'Payment'}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{inr(p.amount)}</td>

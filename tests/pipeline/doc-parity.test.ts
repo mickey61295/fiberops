@@ -30,6 +30,8 @@ import { planDebitNote } from '@/lib/erp/posting/debit-note'
 import { planJournal } from '@/lib/erp/posting/journal'
 import { planCostSheet } from '@/lib/erp/posting/cost-sheet'
 import { planPayment } from '@/lib/erp/posting/payment'
+import { planStockAdjustment } from '@/lib/erp/posting/stock-adj'
+import { planTransfer } from '@/lib/erp/posting/transfer'
 
 const TS = Date.now()
 const BUYER = 'B001'
@@ -62,6 +64,10 @@ const vA = `V-A-${TS}`
 const vB = `V-B-${TS}`
 const rcpA = `RCP-A-${TS}`
 const rcpB = `RCP-B-${TS}`
+const adjA = `ADJ-A-${TS}`
+const adjB = `ADJ-B-${TS}`
+const gtA = `GT-A-${TS}`
+const gtB = `GT-B-${TS}`
 
 // ─────────────── door runners ───────────────
 
@@ -117,6 +123,8 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
   let yarnId = ''
   // pre-test state of the yarn G1 bucket (receive_grn writes deptId:'' buckets)
   let yarnBucketBefore: { id: string; kgs: number; existed: boolean } | null = null
+  // pre-test state of the yarn G2 bucket (Wave D transfer tests write here)
+  let yarnBucketG2Before: { id: string; kgs: number } | null = null
 
   beforeAll(async () => {
     // fresh styles per variant so BOM lines and order lines are test-owned
@@ -135,6 +143,13 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
       where: { itemType: 'yarn', itemId: yarnId, godownId: g1!.id, lotId: null, colourId: null, sizeId: null, orderId: null },
     })
     if (bucket) yarnBucketBefore = { id: bucket.id, kgs: bucket.kgs, existed: true }
+    const g2 = await db.godown.findUnique({ where: { code: 'G2' } })
+    const bucket2 = g2
+      ? await db.currentStock.findFirst({
+          where: { itemType: 'yarn', itemId: yarnId, godownId: g2.id, lotId: null, colourId: null, sizeId: null, orderId: null },
+        })
+      : null
+    if (bucket2) yarnBucketG2Before = { id: bucket2.id, kgs: bucket2.kgs }
   })
 
   it('1. create_order — both doors, identical order header + lines', async () => {
@@ -252,6 +267,15 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
     expect(poARow!.status).toBe('received'); expect(poBRow!.status).toBe('received')
     expect(poARow!.lines[0].receivedQty).toBe(50)
     expect(poBRow!.lines[0].receivedQty).toBe(50)
+    // FIX #3 regression guard (grn.ts): both doors must increment the SAME
+    // null-dims yarn-G1 bucket — the old findUnique-with-nulls path threw,
+    // was swallowed, and created a DUPLICATE 50-kg bucket per GRN.
+    const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
+    const yarnBuckets = await db.currentStock.findMany({
+      where: { itemType: 'yarn', itemId: yarnId, godownId: g1!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+    })
+    expect(yarnBuckets).toHaveLength(1)
+    expect(yarnBuckets[0].kgs).toBeCloseTo((yarnBucketBefore?.kgs ?? 0) + 100, 5) // +50 per door
   })
 
   it('6. create_jobwork_order — both doors, identical jobwork DC', async () => {
@@ -511,6 +535,79 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
     }
   })
 
+  it('20. post_stock_adjustment (Wave D) — both doors, identical adjustment ledger row', async () => {
+    // capture the null-dims G1 yarn bucket right before this test (delta-based —
+    // robust regardless of what earlier chain tests left in it)
+    const g1pre = await db.godown.findUnique({ where: { code: 'G1' } })
+    const preBucket = await db.currentStock.findFirst({
+      where: { itemType: 'yarn', itemId: yarnId, godownId: g1pre!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+    })
+    const preKgs = preBucket?.kgs ?? 0
+    const base = { godownCode: 'G1', itemType: 'yarn', itemCode: YARN, qty: 12.5, action: 'add', reason: 'parity audit found short' }
+    const { a, b } = await runBoth('post_stock_adjustment', planStockAdjustment,
+      { docNo: adjA, ...base },
+      { docNo: adjB, ...base })
+    expect(a.committed.docNo).toBe(adjA)
+    expect(b.committed.docNo).toBe(adjB)
+    const [rA, rB] = await Promise.all([
+      db.stockLedger.findFirst({ where: { docNo: adjA } }),
+      db.stockLedger.findFirst({ where: { docNo: adjB } }),
+    ])
+    expect(rA).toBeTruthy(); expect(rB).toBeTruthy()
+    expect(pick(rA!, ['txnType', 'itemType', 'itemId', 'godownId', 'inKgs', 'outKgs', 'inPcs', 'outPcs', 'rate', 'notes']))
+      .toEqual(pick(rB!, ['txnType', 'itemType', 'itemId', 'godownId', 'inKgs', 'outKgs', 'inPcs', 'outPcs', 'rate', 'notes']))
+    expect(rA!.txnType).toBe('stock_adjustment_add')
+    expect(rA!.inKgs).toBe(12.5)
+    expect(rA!.outKgs).toBe(0)
+    // both doors bumped the SAME CurrentStock bucket (ADR-004 null-dims key): +12.5 each
+    const buckets = await db.currentStock.findMany({
+      where: { itemType: 'yarn', itemId: yarnId, godownId: g1pre!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
+    })
+    expect(buckets).toHaveLength(1)
+    expect(buckets[0].kgs).toBeCloseTo(preKgs + 25, 5)
+  })
+
+  it('21. transfer_stock (Wave D) — both doors, identical out+in ledger PAIR sharing one docNo', async () => {
+    // net stock across ALL yarn buckets right before this test (transfers net zero)
+    const netBefore = (await db.currentStock.findMany({ where: { itemType: 'yarn', itemId: yarnId } }))
+      .reduce((s, x) => s + x.kgs, 0)
+    const base = { itemType: 'yarn', itemCode: YARN, fromGodownCode: 'G1', toGodownCode: 'G2', qty: 8 }
+    const { a, b } = await runBoth('transfer_stock', planTransfer,
+      { docNo: gtA, ...base },
+      { docNo: gtB, ...base })
+    expect(a.committed.docNo).toBe(gtA)
+    expect(b.committed.docNo).toBe(gtB)
+    const [g1, g2] = await Promise.all([
+      db.godown.findUnique({ where: { code: 'G1' } }),
+      db.godown.findUnique({ where: { code: 'G2' } }),
+    ])
+    for (const gt of [gtA, gtB]) {
+      const rows = await db.stockLedger.findMany({ where: { docNo: gt } })
+      expect(rows).toHaveLength(2)
+      const out = rows.find((r) => r.txnType === 'godown_transfer_out')!
+      const inn = rows.find((r) => r.txnType === 'godown_transfer_in')!
+      expect(out.godownId).toBe(g1!.id)
+      expect(out.outKgs).toBe(8)
+      expect(out.inKgs).toBe(0)
+      expect(inn.godownId).toBe(g2!.id)
+      expect(inn.inKgs).toBe(8)
+      expect(inn.outKgs).toBe(0)
+      // the pair is field-identical between doors except godownId/qty direction
+      expect(pick(out, ['itemType', 'itemId', 'rate'])).toEqual(pick(inn, ['itemType', 'itemId', 'rate']))
+    }
+    // cross-door comparison on the OUT legs
+    const [outA, outB] = await Promise.all([
+      db.stockLedger.findFirst({ where: { docNo: gtA, txnType: 'godown_transfer_out' } }),
+      db.stockLedger.findFirst({ where: { docNo: gtB, txnType: 'godown_transfer_out' } }),
+    ])
+    expect(pick(outA!, ['itemType', 'itemId', 'godownId', 'outKgs', 'inKgs', 'rate']))
+      .toEqual(pick(outB!, ['itemType', 'itemId', 'godownId', 'outKgs', 'inKgs', 'rate']))
+    // net stock across godowns unchanged by the transfers (each pair nets zero)
+    const netAfter = (await db.currentStock.findMany({ where: { itemType: 'yarn', itemId: yarnId } }))
+      .reduce((s, x) => s + x.kgs, 0)
+    expect(netAfter).toBeCloseTo(netBefore, 5)
+  })
+
   afterAll(async () => {
     const orderIds = [orderIdA, orderIdB].filter(Boolean)
     const sw = (e: unknown) => e as any
@@ -536,6 +633,8 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
     await sw(db.jobworkOrder.deleteMany({ where: { dcNo: { in: [jwA, jwB] } } }).catch(() => {}))
     await sw(db.stockLedger.deleteMany({ where: { orderId: { in: orderIds } } }).catch(() => {}))
     await sw(db.stockLedger.deleteMany({ where: { docNo: { in: [grnA, grnB] } } }).catch(() => {}))
+    // Wave D ledger rows (stock-adj + transfer pairs)
+    await sw(db.stockLedger.deleteMany({ where: { docNo: { in: [adjA, adjB, gtA, gtB] } } }).catch(() => {}))
     const grns = await db.gRN.findMany({ where: { grnNo: { in: [grnA, grnB] } } })
     if (grns.length) {
       await sw(db.gRNLine.deleteMany({ where: { grnId: { in: grns.map((g) => g.id) } } }).catch(() => {}))
@@ -555,17 +654,29 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
     await sw(db.order.deleteMany({ where: { id: { in: orderIds } } }).catch(() => {}))
     // pcs stock buckets created by the test
     await sw(db.currentStock.deleteMany({ where: { itemType: 'pcs', itemId: { in: orderIds } } }).catch(() => {}))
-    // yarn G1 bucket: restore pre-test state (GRN added 50 kgs via each door)
-    if (yarnBucketBefore) {
-      await sw(db.currentStock.update({
-        where: { id: yarnBucketBefore.id },
-        data: { kgs: yarnBucketBefore.kgs },
+    // yarn G1 bucket: wipe ALL test-written buckets, then recreate the exact
+    // pre-test row if one existed (the old update-only restore left junk rows
+    // behind whenever the before-state bucket coexisted with duplicates)
+    const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
+    if (g1) {
+      await sw(db.currentStock.deleteMany({
+        where: { itemType: 'yarn', itemId: yarnId, godownId: g1.id },
       }).catch(() => {}))
-    } else {
-      const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
-      if (g1) {
-        await sw(db.currentStock.deleteMany({
-          where: { itemType: 'yarn', itemId: yarnId, godownId: g1.id },
+      if (yarnBucketBefore?.existed) {
+        await sw(db.currentStock.create({
+          data: { itemType: 'yarn', itemId: yarnId, godownId: g1.id, kgs: yarnBucketBefore.kgs },
+        }).catch(() => {}))
+      }
+    }
+    // yarn G2 bucket: Wave D transfers wrote here — wipe + recreate pre-test state
+    const g2restore = await db.godown.findUnique({ where: { code: 'G2' } })
+    if (g2restore) {
+      await sw(db.currentStock.deleteMany({
+        where: { itemType: 'yarn', itemId: yarnId, godownId: g2restore.id },
+      }).catch(() => {}))
+      if (yarnBucketG2Before) {
+        await sw(db.currentStock.create({
+          data: { itemType: 'yarn', itemId: yarnId, godownId: g2restore.id, kgs: yarnBucketG2Before.kgs },
         }).catch(() => {}))
       }
     }

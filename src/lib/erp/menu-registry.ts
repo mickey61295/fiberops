@@ -70,6 +70,18 @@ export const LIVE_ROUTES = new Set<string>([
   '/pieces/rejection/[id]', // Rejection view (M3 Wave C)
   '/pieces/despatch', // Pcs DC Despatch (M3 Wave C) — pcs-dc
   '/pieces/despatch/[id]', // Despatch DC view (M3 Wave C)
+  '/accounts/invoice', // Sales Invoice (M3 Wave D) — sales-invoice
+  '/accounts/invoice/[id]', // Invoice view (M3 Wave D)
+  '/accounts/debit-note', // Debit Note (M3 Wave D) — debit-note
+  '/accounts/debit-note/[id]', // Debit Note view (M3 Wave D)
+  '/accounts/payments', // Payments & Receipts (M3 Wave D) — payments-receipts
+  '/accounts/payments/[id]', // Payment view (M3 Wave D)
+  '/accounts/journal', // Journal (M3 Wave D) — journal
+  '/accounts/journal/[id]', // Journal voucher view (M3 Wave D)
+  '/costing/cost-sheet', // Cost Sheet (M3 Wave D) — cost-sheet
+  '/costing/cost-sheet/[id]', // Cost Sheet view (M3 Wave D)
+  '/inventory/adjustment', // Stock Adjustment (M3 Wave D) — stock-adjustment (ledger rows are the record; no [id] view)
+  '/inventory/transfer', // Godown Transfer + Ack (M3 Wave D) — godown-transfer (ledger pair is the record; no [id] view)
   '/inventory', // InventoryView
   '/accounts', // InvoicesView
   '/costing', // CostingView
@@ -340,14 +352,15 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'stock-adjustment', label: 'Stock Adjustment', groupId: 'inventory', route: '/inventory/adjustment', arch: 'DS', phase: 'M3',
     description: 'Adjust stock with reason (shrinkage, audit correction).',
     legacyForms: ['frmStockAdjustment', 'frmStockAdjustment_Domestic'],
-    agentTools: ['adjust_stock'], pendingTools: [],
+    agentTools: ['post_stock_adjustment'], pendingTools: [],
     agentPrompt: 'I want to adjust stock',
   },
   {
     id: 'godown-transfer', label: 'Godown Transfer + Ack', groupId: 'inventory', route: '/inventory/transfer', arch: 'DS', phase: 'M3',
     description: 'Move stock between godowns; receiver acknowledges.',
     legacyForms: ['FrmStkTransfer', 'FrmChangeGodown', 'FrmGoDownAck', 'FrmGodownTransferAck'],
-    agentTools: [], pendingTools: ['transfer_stock'],
+    agentTools: ['transfer_stock'], pendingTools: [],
+    agentPrompt: 'I want to transfer stock between godowns',
   },
   {
     id: 'lot-tracking', label: 'Lot Tracking', groupId: 'inventory', route: '/inventory/lots', arch: 'RG', phase: 'M4',
