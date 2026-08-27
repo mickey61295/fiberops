@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m5-wave-d — M5 COMPLETE: ADR-015 seven new models 54→61 (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift) + 11 items live (samples-enquiry, gate-entry/pass, packing-list, lab-test-entry, expenses, shifts-hours MT, roll-tracking lot-split, contract-allotment, fabric-acc-allotment, production-bills) + 13 tools → 159; 77/113 live, 16/17 groups; 393 vitest green; tags `spec-m5-frozen`, `m5-wave-a`…`m5-wave-d`; remote PUSHED)
+Last verified: 2026-08-27 (session: m6-wave-a — M6 Wave A: ReportScreen archetype #4 + 28-report registry (15 register bindings + 13 new aggregates incl. daily-pnl, outstanding aging, gst-summary, line-wip) + /reports hub + /reports/packs + /reports/mis (DB over report services) + /costing/daily-pnl + render_report tool → 160; 81/113 live, 17/17 groups; 549 vitest green; tags `spec-m6-frozen`, `m6-wave-a`; remote PUSHED)
 
 ## Milestone status
 
@@ -15,14 +15,14 @@ Last verified: 2026-08-27 (session: m5-wave-d — M5 COMPLETE: ADR-015 seven new
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
-| M6 — Reports, MIS, admin, print | | NOT STARTED |
+| M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **183 tools**, 113/113 | IN PROGRESS (Wave A `m6-wave-a` DONE: ReportScreen engine + 28-report registry + hub/packs/MIS/daily-pnl routes + render_report + print CSS W7; 81/113 live, 17/17 groups, 549 vitest, route_smoke_m6a 67/67) |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
 | Git HEAD | M5 Wave D commit (M5 COMPLETE) — tags `m5-wave-d`, `m5-done`, prior `m5-wave-c/b/a`, `spec-m5-frozen`, `schema-54-baseline`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
-| Agent tools | **159** (67 inline + 25 factory create + 25 factory update + 42 docTool delegates — M5 Wave D +13: create_sample, create_gate_entry, create_gate_pass, create_packing_list, create_lab_test, create_expense, split_roll, allot_contract, create_allotment, create_production_bill + shift factory ×2 + list_shifts) | `scripts/context_check.sh` |
+| Agent tools | **160** (68 inline incl. render_report M6-A + 25 factory create + 25 factory update + 42 docTool delegates) | `scripts/context_check.sh` |
 | Prisma models | **61** (54 + ADR-015 ×7: Sample, GateEntry, PackingList, PackingListLine, LabTest, Expense, Shift — SPEC said "six…54→60", ERRATUM #3) | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
 | Posting services (M3-A/D + M5-A/B/D) | **34 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts + M5-B line-transfer.ts + M5-D sample.ts, gate.ts, packing-list.ts, lab-test.ts, expense.ts, roll-split.ts, contract-allotment.ts, program-allotment.ts, production-bill.ts) | context_check |
@@ -32,22 +32,23 @@ Last verified: 2026-08-27 (session: m5-wave-d — M5 COMPLETE: ADR-015 seven new
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
 | Wiring (M3-B/C/D) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo/?invoice prefill on all 19 New screens · **Wave D: accounts/inventory rows link their views in the Hub + Fill-with-AI button on every DocScreen** | context_check + route smoke |
 | Master configs | **25** (pure-data files in `src/lib/erp/master-configs/`; 24 M2 + shift M5-D) | context_check + `tests/unit/master-configs.test.ts` |
-| ERP view/shell components | **22** (21 + M4 Wave C recon-card.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
-| Archetype engines | **3** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx`) | context_check |
+| ERP view/shell components | **23** (22 + M6-A print-button.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
+| Archetype engines | **4** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx` + M6-A `report-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M5-D) | **108**: M5-C 91 + M5-D ×17 (11 screens + 6 view routes) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Live routes (M6-A) | **113**: M5-D 108 + M6-A ×5 (/reports, /reports/packs, /reports/mis, /reports/[slug], /costing/daily-pnl) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
+| `src/lib/erp/report-configs/` + `src/lib/erp/reports/` + `src/components/archetypes/report-screen.tsx` + `src/components/erp/print-button.tsx` | **M6-A: the RH archetype** — 28 pure-data report configs (6 packs; filters/columns reuse register types) + REPORT_SERVICES (15 register bindings via bind() + 13 new aggregates in core-reports.ts/chain-money-reports.ts) + report-csv.ts (makeReportCsvRouteHandler + getPrintHeader — degrades to null until ADR-016 Wave B) + ReportScreen engine (param form + print header/copy banner + CSV + pagination) + PrintButton (Original/Duplicate/Triplicate → ?copy=) |
 | Order Status Board (M4-C) | `/orders/status` — server component over queryOrderStatus (registers/order-status.ts): header KPIs (open orders/pcs/avg stages), per-row 15-dot ChainBar (flags shipped on the row), n/15 chip + next-stage chip, row → Order Hub; NOT a RegisterScreen (§10) | route_smoke_waveE.sh |
 | Wiring (M4-C) | W2: register rows drill into doc views (TXN_DOC_FAMILY + resolveDocRef; every family href test-pinned) · W6: ReconCard on PO view (PO↔GRNs), invoice view (Invoice↔Payments), jobwork view (out↔in), Order Hub despatch section (Despatch↔Invoice) — math in registers/recon.ts, test-asserted · §8.3 KPI deep-links on the dashboard tiles (Open Orders→/orders/register?status=open, Pending POs→/procurement/party-balance, Stock Value→/inventory (ERRATUM: /inventory/stock was never a route), Today Pcs→/production/register?from&to, Pending Approvals→/approvals, Open Invoices→/accounts/bills-register?status=issued) | route_smoke_waveE.sh 19/19 |
 | Register configs/services (M5-B) | **19 configs** in `src/lib/erp/register-configs/` + **21 service files** in `src/lib/erp/registers/` (19 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts + recon.ts; M5-B adds production-wages/wages.ts) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
-| Parity (M5-D — M5 COMPLETE) | **77/113 items live (68.1%)** · **16/17 groups** (Wave D: +samples-enquiry, gate-entry, gate-pass, packing-list, lab-test-entry, expenses, shifts-hours, production-bills, roll-tracking, contract-allotment, fabric-acc-allotment — reports group is M6) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Parity (M6-A) | **81/113 items live (71.7%)** · **17/17 groups** (M6-A opened reports: +report-hub, report-packs, mis-dashboard, daily-unit-pnl; remaining 32 = Waves B/C/D) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
 | Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **393 passing** (378 M5-C + doc-parity-m5d 10 (all 10 new write ops × both doors + roll-split net-zero + packing Σpcs = despatch + bill = Σ period amounts + gate variant injection via commitDocAction) + doc-configs Wave D block + menu-registry Wave D block + master-parity shift ×3 (25-config loop)) | `npx vitest run` |
+| **Total vitest** | **549 passing** (393 M5-D + M6-A: report-configs 148 (28-config loop: bijection + packs + filters + formats + tools + service smokes + binding rule) + report-services math 7 (daily-pnl produced−wages−expenses, outstanding AR/AP aging buckets, gst rate×month, current-stock value, line-wip, order-status-summary == computeChainState, render_report same-service) + menu-registry M6-A block) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -192,15 +193,23 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. **M5 COMPLETE** (this session, tag `m5-done`): Wave D shipped all 11 §7-D
-   items — ADR-015 seven models 54→61, 13 tools → 159, 77/113 live (68.1%),
-   16/17 groups, 393 vitest green, route_smoke_m5d 70/70, context_check
-   230/230. **Push after EVERY commit** (standing user instruction, PAT
-   configured in the remote).
-2. **M6 — Reports, MIS, admin, print** (last milestone): freeze SPEC-M6 first
-   per wave discipline (reports group is the last closed group — 16/17; the
-   remaining 36 coming-soon items are mostly M6 report/prints + admin).
-3. Update this file every wave (same commit); push after the commit.
+1. **M6 Wave A DONE** (tag `m6-wave-a`): SPEC-M6 frozen (`spec-m6-frozen`);
+   ReportScreen archetype + 28-report registry + render_report → 160 tools,
+   81/113 live, 17/17 groups, 549 vitest, route_smoke_m6a 67/67,
+   context_check 250/250. **Push after EVERY commit** (standing user
+   instruction, PAT configured in the remote).
+2. **M6 Wave B — admin & dispatch tail + ADR-016** (SPEC-M6 §7-B): tag
+   `schema-61-baseline` → add User, UserGroup, AppOption, Hsn, TestParameter
+   (61→66 models) → `db push` + `generate` + **RESTART the dev server**
+   (PITFALLS #31) → masters #26-30 (user, user-group, app-option, hsn,
+   test-parameter — masters hub gains an Admin & Compliance category) →
+   /admin/users (two MasterTables, ?tab=) + /admin/menu-rights (rights matrix
+   over UserGroup.rights Json) + /admin/options → courier-dc + loading
+   despatch variants (planPcsDespatch mode/status injection, M5 §4 recipe) →
+   +8 tools → 168; parity 81→86.
+3. Then Wave C (registers & lifecycle, 9 items) → Wave D (process tail, 18
+   items) → 113/113 M6 COMPLETE. Update this file every wave (same commit);
+   push after the commit.
 
 ## M5 Wave D notes for future sessions
 
@@ -568,3 +577,32 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   `m3-done` (Wave D: 7 accounts/inventory screens + 2 new tools + /api/upload).
   Before rollback #4: `m2-done` (re-created on the recovery commit — tree is
   M2-final), `rollback4-recovered`.
+
+## M6 Wave A notes for future sessions
+
+- **The report layer is the registers' twin, not a fork**: REPORT_SERVICES
+  binds 15 reports to the SAME register service functions (`bind()` throws at
+  import if a binding is missing) — the contract test asserts
+  `REPORT_SERVICES[slug] === REGISTER_SERVICES[slug]` for every bound slug.
+  New aggregates live in `reports/core-reports.ts` (8) and
+  `reports/chain-money-reports.ts` (5). Adding a report = config + (service)
+  + ERRATA append to SPEC-M6 §4 (never silent — the 28-slug set is pinned).
+- **Report runner is ONE dynamic route** `/reports/[slug]` + ONE csv route
+  `/reports/[slug]/csv` (no 28 route copies). Unknown slug → 404. LIVE_ROUTES
+  carries the literal `/reports/[slug]`.
+- **PcsDespatch/Sample/Expense relation-less FK columns** (drift #11 lineage)
+  bit AGAIN in the report services: buyer/order names resolve via batched
+  id-maps (chain-money-reports.ts despatch-packing, core-reports.ts expenses
+  + samples). Never `include:` on those.
+- **Fixture isolation for aggregate tests** (report-services.test.ts): period
+  totals (daily-pnl expenses band, gst month rows) see ALL rows — seed
+  fixtures in a unique window (2024-02) and/or unique rates (gst 1.25+1.25)
+  so other data can never merge into the asserted row. The outstanding
+  summary needed the party filter applied to the GRN query too (AR and AP
+  both narrow, totals included).
+- **getPrintHeader()** reads AppOption print.* keys but catches everything —
+  the table does not exist until ADR-016 (Wave B). It returns null → the
+  print header falls back to 'FiberOps'. Wave B wires it for real.
+- **The dev server died mid-session again** (port 3000 stopped listening
+  after ~40 min idle — not a code crash): restart with
+  `nohup npx next dev -p 3000 > dev.log 2>&1 &`.

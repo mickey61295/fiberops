@@ -1427,6 +1427,56 @@ const readTools: AgentTool[] = [
       }
     },
   },
+  {
+    // SPEC-M6 §4 rule (c) — the ONE report door: runs the SAME service the
+    // /reports/[slug] runner calls (one query layer, two doors).
+    name: 'render_report',
+    description: 'Render any report from the report hub by slug. Returns rows + totals as json. Use list_reportspacks-style slugs: order-register, order-status-summary, sample-status, despatch-packing-summary, production-status, daily-in-out, line-wip, rejection-summary, operation-summary, stock-register, current-stock, stock-ledger, lot-tracking, io-history, bills-register, supplier-bills, party-ledger, party-balance, outstanding-summary, gst-summary, budget-vs-actual, daily-unit-pnl, expenses-summary, production-wages, cost-sheet-summary, lab-tests, approval-audit.',
+    domain: 'reports',
+    isWrite: false,
+    schema: z.object({
+      slug: z.string().describe('Report slug from the report hub (e.g. outstanding-summary, daily-unit-pnl)'),
+      from: z.string().optional().describe('Date from (YYYY-MM-DD)'),
+      to: z.string().optional().describe('Date to (YYYY-MM-DD)'),
+      party: z.string().optional().describe('Party code'),
+      order: z.string().optional().describe('Order no like SO-1001'),
+      godown: z.string().optional().describe('Godown code'),
+      itemType: z.string().optional().describe('yarn|fabric|accessory|pcs'),
+      status: z.string().optional().describe('Status/type filter (per report)'),
+      limit: z.number().optional().default(100),
+    }),
+    async execute(args) {
+      const { REPORT_SERVICES } = await import('@/lib/erp/reports')
+      const { getReportConfig, REPORTS } = await import('@/lib/erp/report-configs')
+      const { REPORT_PACKS } = await import('@/lib/erp/report-configs/types')
+      const config = getReportConfig(args.slug)
+      const service = REPORT_SERVICES[args.slug]
+      if (!config || !service) {
+        const packs = REPORT_PACKS.map((p) => `${p.id}: ${REPORTS.filter((r) => r.pack === p.id).map((r) => r.slug).join(', ')}`).join(' | ')
+        return { text: `Unknown report '${args.slug}'. Available — ${packs}` }
+      }
+      const fromDate = args.from ? new Date(args.from) : undefined
+      const toDate = args.to ? new Date(args.to) : undefined
+      if (toDate) toDate.setHours(23, 59, 59, 999)
+      const result = await service({
+        from: fromDate && !isNaN(fromDate.getTime()) ? fromDate : undefined,
+        to: toDate && !isNaN(toDate.getTime()) ? toDate : undefined,
+        party: args.party, order: args.order, godown: args.godown,
+        itemType: args.itemType, status: args.status,
+        limit: args.limit ?? 100, page: 1,
+      })
+      return {
+        text: `${config.title}: ${result.summary}`,
+        json: {
+          report: config.slug, title: config.title,
+          columns: config.columns.map((c) => c.label),
+          totals: result.totals ?? [],
+          count: result.count,
+          rows: result.rows.slice(0, args.limit ?? 100),
+        },
+      }
+    },
+  },
 ]
 
 // ───────────── WRITE TOOLS (plan-then-commit) ─────────────

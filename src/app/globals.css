@@ -120,3 +120,53 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Print styles — SPEC-M6 §4 W7 (the print slice): browser print → clean PDF.
+ * Sidebar, topbar, agent panel, filter bars and pagination hide; tables go
+ * full-width with visible borders. The ReportScreen/DocScreen print-only
+ * header + copy banner (Original | Duplicate | Triplicate) rides `print:`.
+ * --------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  body {
+    background: #fff !important;
+  }
+  /* the app chrome hides */
+  nav,
+  aside,
+  header,
+  [data-print='hide'],
+  .print\:hidden {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+  table {
+    width: 100% !important;
+    font-size: 10px !important;
+    border-collapse: collapse !important;
+  }
+  th,
+  td {
+    border: 1px solid #d4d4d8 !important;
+    padding: 3px 6px !important;
+    color: #000 !important;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  a {
+    text-decoration: none !important;
+    color: #000 !important;
+  }
+}

@@ -155,6 +155,11 @@ export const LIVE_ROUTES = new Set<string>([
   '/approvals', // WorkflowView — Approval Inbox shell
   '/parity', // parity tracker page
   '/coming', // prefix for dynamic coming-soon pages
+  '/reports', // Report Hub (M6 Wave A) — report-hub (28-report registry)
+  '/reports/packs', // Report Packs (M6 Wave A) — report-packs (6 domain packs)
+  '/reports/mis', // MIS Dashboard (M6 Wave A) — mis-dashboard (DB over report services)
+  '/reports/[slug]', // Report runner (M6 Wave A) — dynamic slug over REPORT_SERVICES
+  '/costing/daily-pnl', // Daily Unit P&L (M6 Wave A) — daily-unit-pnl (ReportScreen)
 ])
 
 // ---------------------------------------------------------------------------
@@ -176,7 +181,7 @@ export const MENU_GROUPS: MenuGroup[] = [
   { id: 'hr', label: 'HR & Payroll', icon: 'Users', landingRoute: '/hr', order: 13, description: 'Employees, shifts, wages' },
   { id: 'quality', label: 'Quality & Lab', icon: 'FlaskConical', landingRoute: '/quality/reprocess-approval', order: 14, description: 'Lab tests, parameters, approvals' },
   { id: 'approvals', label: 'Approvals & Workflow', icon: 'CheckCircle2', landingRoute: '/approvals', order: 15, description: 'Cross-module approval inbox + audit' },
-  { id: 'reports', label: 'Reports & Analytics', icon: 'BarChart3', landingRoute: '/coming/reports', order: 16, description: 'Report hub, packs, MIS' },
+  { id: 'reports', label: 'Reports & Analytics', icon: 'BarChart3', landingRoute: '/reports', order: 16, description: 'Report hub, packs, MIS' },
   { id: 'masters-admin', label: 'Masters & Admin', icon: 'Database', landingRoute: '/masters', order: 17, description: '~40 masters, users, rights, options' },
 ]
 
@@ -855,7 +860,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'daily-unit-pnl', label: 'Daily Unit P&L', groupId: 'costing', route: '/costing/daily-pnl', arch: 'RH', phase: 'M6',
     description: 'Daily profit & loss per unit.',
     legacyForms: ['Sp_DailyUnitPANDL'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['render_report'], pendingTools: [],
+    notes: 'ReportScreen for slug daily-unit-pnl (SPEC-M6 §4 rule b)',
   },
   {
     id: 'piece-rate-confirmation', label: 'Piece-Rate Confirmation', groupId: 'costing', route: '/costing/piece-rate', arch: 'RH', phase: 'M5',
@@ -947,21 +953,22 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'report-hub', label: 'Report Hub', groupId: 'reports', route: '/reports', arch: 'RH', phase: 'M6',
     description: 'All ~80 unique legacy reports, parameterized, preview + PDF/CSV.',
     legacyForms: [],
-    agentTools: [], pendingTools: ['render_report'],
-    notes: '491 report files dedup to ~80 unique outputs (plan §1.2)',
+    agentTools: ['render_report'], pendingTools: [],
+    notes: '28-report registry over ONE service layer (SPEC-M6 §4); the legacy 491 files dedup to these packs',
   },
   {
     id: 'report-packs', label: 'Order / Production / Inventory / Accounts packs', groupId: 'reports', route: '/reports/packs', arch: 'RH', phase: 'M6',
     description: 'Domain-wise report packs.',
     legacyForms: [],
-    agentTools: [], pendingTools: [],
-    notes: 'Domain .rpt/.mrt sets',
+    agentTools: ['render_report'], pendingTools: [],
+    notes: '6 packs incl. costing-HR + quality (SPEC-M6 §4)',
   },
   {
     id: 'mis-dashboard', label: 'MIS Dashboard', groupId: 'reports', route: '/reports/mis', arch: 'DB', phase: 'M6',
     description: 'Management information dashboards.',
     legacyForms: ['frmMIS', 'FrmMISSetting'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_dashboard_kpis', 'render_report'], pendingTools: [],
+    notes: 'Tiles + 14-day production bars, all from REPORT_SERVICES (SPEC-M6 §4)',
   },
 
   // ---- masters-admin (5) ----

@@ -42,6 +42,8 @@ VIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
 ARCHETYPES=$(ls src/components/archetypes/*.tsx 2>/dev/null | wc -l)
 REGCFGS=$(ls src/lib/erp/register-configs/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | wc -l)
 REGSVCFILES=$(ls src/lib/erp/registers/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | grep -v resolve.ts | grep -v csv.ts | wc -l)
+REPORTCFGS=$(grep -cE "^    slug: '" src/lib/erp/report-configs/index.ts 2>/dev/null)
+REPORTSVCFILES=$(ls src/lib/erp/reports/*.ts 2>/dev/null | grep -v index.ts | grep -v report-csv.ts | wc -l)
 REGCFGTESTS=$(grep -cE "^\s*it\(" tests/unit/register-configs.test.ts 2>/dev/null)
 TESTS=$(grep -cE "^\s*(it|test)\(" tests/pipeline/industry-chain.test.ts 2>/dev/null)
 REGTESTS=$(grep -cE "^\s*it\(" tests/unit/menu-registry.test.ts 2>/dev/null)
@@ -66,26 +68,29 @@ echo "  m3-waveB: doc-configs=$DOCCFGS  erp-shell-components=$DOCSCREENVIEWS"
 echo "  m3-waveC: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  erp-views=$VIEWS"
 echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
 echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  register-cfg-tests=$REGCFGTESTS"
+echo "  m6-waveA: report-configs=$REPORTCFGS  report-service-files=$REPORTSVCFILES"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveD session (M5 COMPLETE)]"
-check "agent tools (inline+factory+docTool)" "159" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M6-WaveA session (reports engine live)]"
+check "agent tools (inline+factory+docTool)" "160" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "25"      "$FACTORY_CREATE"
 check "factory update tools"       "25"      "$FACTORY_UPDATE"
 check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B/D)" "42"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7)" "61"      "$MODELS"
-check "erp view/shell components (+recon-card)" "22"      "$VIEWS"
-check "archetype engines (+register-screen)" "3"       "$ARCHETYPES"
+check "erp view/shell components (+recon-card +print-button)" "23"      "$VIEWS"
+check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D block)" "22"      "$REGTESTS"
+check "menu registry tests (M5-D block + M6-A block)" "23"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M5 Wave D — M5 COMPLETE)" "108"    "$LIVEROUTES"
+check "live routes (M6 Wave A — reports group open)" "113"    "$LIVEROUTES"
+check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
+check "report service files (13 new aggregates)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 fleet + M5-A rates + M5-B wages)" "19"       "$REGCFGS"
 check "register service files (M4 fleet + order-status + recon + M5-A/B)" "21"       "$REGSVCFILES"
 check "master configs (24 M2 + shift)" "25"      "$MASTERCFGS"
@@ -230,6 +235,17 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/costing/input/page.tsx' \
          'src/app/(erp)/hr/wages/page.tsx' 'src/app/(erp)/hr/wages/csv/route.ts' \
          'src/app/(erp)/hr/wage-payments/page.tsx' \
+         src/lib/erp/report-configs/index.ts src/lib/erp/report-configs/types.ts \
+         src/lib/erp/reports/index.ts src/lib/erp/reports/core-reports.ts \
+         src/lib/erp/reports/chain-money-reports.ts src/lib/erp/reports/report-csv.ts \
+         src/components/archetypes/report-screen.tsx src/components/erp/print-button.tsx \
+         'src/app/(erp)/reports/page.tsx' 'src/app/(erp)/reports/packs/page.tsx' \
+         'src/app/(erp)/reports/mis/page.tsx' 'src/app/(erp)/reports/[slug]/page.tsx' \
+         'src/app/(erp)/reports/[slug]/csv/route.ts' \
+         'src/app/(erp)/costing/daily-pnl/page.tsx' \
+         docs/CONTEXT/specs/SPEC-M6.md \
+         tests/unit/report-configs.test.ts tests/pipeline/report-services.test.ts \
+         scripts/route_smoke_m6a.sh \
          prisma/schema.prisma; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done

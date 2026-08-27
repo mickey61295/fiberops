@@ -75,14 +75,39 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 77 live items of 113 after M5 Wave D (M5 COMPLETE — 68%); 16/17 groups (reports = M6)', () => {
+  it('parityStats: 81 live items of 113 after M6 Wave A (reports group opens — 17/17 groups; 72%)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(77)
-    expect(s.comingItems).toBe(36)
-    expect(s.liveGroups).toBe(16)
+    expect(s.liveItems).toBe(81)
+    expect(s.comingItems).toBe(32)
+    expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
+  })
+
+  it('Wave A (M6): the 4 reports items are live — hub, packs, MIS, daily-pnl — with render_report door (SPEC-M6 §2 rows 1-4)', () => {
+    const waveA = [
+      { route: '/reports', id: 'report-hub' },
+      { route: '/reports/packs', id: 'report-packs' },
+      { route: '/reports/mis', id: 'mis-dashboard' },
+      { route: '/costing/daily-pnl', id: 'daily-unit-pnl' },
+    ]
+    for (const { route, id } of waveA) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain('render_report')
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+    }
+    expect(fs.existsSync(path.join(ERP_DIR, 'reports/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'reports/packs/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'reports/mis/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'reports/[slug]/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'reports/[slug]/csv/route.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'costing/daily-pnl/page.tsx'))).toBe(true)
+    // the reports group landing now points at the live hub (was /coming/reports)
+    expect(findGroupById('reports')!.landingRoute).toBe('/reports')
+    // the runner + csv live under the dynamic [slug] segment — covered by the
+    // report-configs contract test (28-slug bijection)
   })
 
   it('Wave C (M5): the 4 approval-gate IN screens are live with kind-filtered inbox views (SPEC-M5 §6)', () => {

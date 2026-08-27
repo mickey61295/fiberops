@@ -542,3 +542,30 @@ Stage Summary:
 - Pattern wins: one-service-two-variants held for the gate pair (config + docTool both inject gateType); ProgBalance got its write door without a new engine (find-first-or-create rides the register's read side); the production bill reuses the §7-B-20 wage-bill accounts so hr/wages and accounts/production-bills can never disagree.
 - Tags: schema-54-baseline + m5-wave-d + m5-done to follow; push-after-commit honored.
 - Next: M6 — Reports, MIS, admin, print (the last milestone; freeze SPEC-M6 first; reports group is the last closed group).
+
+---
+Task ID: m6-wave-a
+Agent: main
+Task: Continue from M5 COMPLETE (session continuation: "continue") — freeze SPEC-M6 per wave discipline, then implement M6 Wave A (the report engine: report-hub, report-packs, mis-dashboard, daily-unit-pnl) per the standing push-after-commit rule.
+
+Work Log:
+- Read worklog + STATE + git: M5 complete at 4156974, remote in sync, clean tree. Triaged the 36 non-live items (9 M6-phase + 22 M3 + 5 M2 leftovers) with per-item mechanisms.
+- Froze SPEC-M6 (docs/CONTEXT/specs/SPEC-M6.md, 410 lines): 4 waves (A reports 4 / B admin+dispatch 5 + ADR-016 5 models 61→66 / C registers+lifecycle 9 / D process tail 18), mechanisms (ReportScreen engine, ADR-016, variant docs, approval-kind IN screens, 5 aliases), tools 159→183, acceptance 113/113 + ≥430 vitest. Commit 3a66b05 + tag spec-m6-frozen + PUSHED.
+- Wave A engine: report-configs (types + 28 configs in index + REPORT_PACKS 6) — bound reports mirror register configs VERBATIM (dumped all 19 register configs and aligned columns/filters one by one); reports layer (index REPORT_SERVICES with bind() over REGISTER_SERVICES ×15 + 13 new services in core-reports.ts ×8 + chain-money-reports.ts ×5; report-csv.ts makeReportCsvRouteHandler + getPrintHeader with ADR-016-missing catch).
+- Components: report-screen.tsx (server engine — pack breadcrumb, filter bar reuse, print-only header + copy banner, CSV, totals, pagination) + print-button.tsx (client dropdown Original/Duplicate/Triplicate → ?copy= → window.print).
+- Pages: /reports hub (search + 6 pack cards), /reports/packs, /reports/mis (DB — 5 KPI tiles + 14-day CSS production bars + top-5 buyers, ALL from REPORT_SERVICES + queryOrderStatus, zero new queries), /reports/[slug] runner (dynamic, 404 unknown), /reports/[slug]/csv (one route for all 28), /costing/daily-pnl (renders slug daily-unit-pnl).
+- render_report tool in tools.ts readTools (slug + from/to/party/order/godown/itemType/status/limit → same service, json rows+totals+columns; unknown slug lists packs).
+- Menu registry: LIVE_ROUTES +5 (113 total), reports group landing /coming/reports → /reports, agentTools flips on the 4 items (render_report; mis also get_dashboard_kpis).
+- Print CSS in globals.css (@media print A4 landscape; nav/aside/header hidden; table borders; the W7 slice).
+- tsc caught the PITFALLS #21 lineage AGAIN: PcsDespatch.buyer/orderId, Sample.buyerId/styleId, Expense.orderId are relation-less — fixed with batched id-maps (despatch-packing, sample-status, expenses-summary). Omit-on-index-signature lost qty/outstanding in two map-spreads — explicit RegisterRow[] annotations. REPORT_PACKS import path fixed.
+- Tests: report-configs.test.ts (148 — 28-slug frozen set, bijection, 6 packs with sizes, filter/format shapes, tool existence, per-config service smokes, binding rule REPORT_SERVICES[slug] === REGISTER_SERVICES[slug]) + report-services.test.ts (7 — daily-pnl produced−wages−expenses, outstanding AR/AP aging buckets incl. b0 today-invoice, gst unique-rate row, current-stock value math, line-wip, order-status-summary == computeChainState + despatch rollup, render_report same-service + unknown-slug error). Fixture isolation lesson: unique 2024-02 window + unique gst rate; outstanding needed party filter on the GRN query too (totals were polluted).
+- Count pins bumped (the every-wave ritual): approval-kinds + register-configs 159→160.
+- route_smoke_m6a.sh: 67/67 GREEN (4 screens + 28 slugs + 404 + CSV + filters + print param + 24-route regression set + parity=81 content check).
+- context_check.sh: +report-configs/report-service metrics, tools 160, archetypes 4, views 23, menu tests 23, live routes 113, Wave A files in existence list → 250/250 NO DRIFT.
+- Docs: STATE.md (M6 row IN PROGRESS, parity 81/113 17/17 groups, vitest 549, tools 160, routes 113, next actions → Wave B, file inventory row, M6 Wave A notes), this worklog.
+
+Stage Summary:
+- M6 Wave A COMPLETE: 4/4 report items live; 160 tools; 81/113 items (71.7%); 17/17 groups (reports opened); 113 live routes; 28-report registry (15 bindings + 13 new services); 549 vitest green (393 existing unmodified except 2 count-pin bumps); route_smoke_m6a 67/67; context_check 250/250; tsc zero new src errors.
+- Pattern wins: bind() makes "ONE service, two screens" mechanically enforced (import-time throw + identity assertion in tests); the dynamic [slug] runner replaced 28 route copies; MIS dashboard computes every tile from REPORT_SERVICES (no dashboard-specific queries to drift).
+- Tags: spec-m6-frozen + m6-wave-a to follow; push-after-commit honored.
+- Next: M6 Wave B — ADR-016 schema (tag schema-61-baseline first; db push + generate + RESTART SERVER per PITFALLS #31), masters #26-30, /admin/users + /admin/menu-rights + /admin/options, courier-dc + loading despatch variants, +8 tools → 168, parity 81→86.
