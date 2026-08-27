@@ -23,6 +23,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
 import { REGISTER_SERVICES } from '@/lib/erp/registers'
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
+import { poRecon, invoiceRecon, jobworkRecon, despatchRecon } from '@/lib/erp/registers/recon'
 import { getTool } from '@/lib/agent/tools'
 
 const TS = Date.now()
@@ -137,8 +138,9 @@ describe('register services math (SPEC-M4 §5)', () => {
     await db.salesInvoice.create({
       data: { invoiceNo: INV, orderId, partyId, billAmount: BILL_AMOUNT, totalQty: INVOICED_QTY, status: 'issued', finYear: 'FY26' },
     })
+    const invRow = await db.salesInvoice.findUnique({ where: { invoiceNo: INV } })
     await db.payment.create({
-      data: { voucherNo: RCP, partyId, direction: 'in', amount: RECEIVED_AMT, finYear: 'FY26' },
+      data: { voucherNo: RCP, partyId, direction: 'in', amount: RECEIVED_AMT, invoiceId: invRow!.id, finYear: 'FY26' },
     })
 
     // jobwork (40 at party) + production (60 qty, 10 rework)
@@ -365,6 +367,42 @@ describe('register services math (SPEC-M4 §5)', () => {
     expect(row.stagesDone).toBe(4)
     expect(row.nextStage).toContain('Bill of Materials')
     expect(row.href).toBe(`/orders/${orderId}`)
+  })
+
+  // ---- §9 W6: recon cards (Wave C) ----
+  it('poRecon: ordered − received = balance (19 − 6 = 13), GRN rows link their views', async () => {
+    const r = await poRecon(poId)!
+    expect(r).toBeTruthy()
+    expect(r!.mathLine).toContain('ordered 19')
+    expect(r!.mathLine).toContain('received 6')
+    expect(r!.balance).toBe(PO_QTY + BUDGET_PO_QTY - GRN_QTY)
+    expect(r!.rows).toHaveLength(1)
+    expect(r!.rows[0].href).toBe(`/procurement/grn/${grnId}`)
+  })
+
+  it('invoiceRecon: billed − collected = outstanding (5000 − 2000 = 3000)', async () => {
+    const inv = await db.salesInvoice.findUnique({ where: { invoiceNo: INV } })
+    const r = await invoiceRecon(inv!.id)!
+    expect(r).toBeTruthy()
+    expect(r!.balance).toBe(BILL_AMOUNT - RECEIVED_AMT)
+    expect(r!.rows).toHaveLength(1)
+    expect(r!.rows[0].label).toContain(RCP)
+  })
+
+  it('jobworkRecon: sent 40 at party, siblings listed', async () => {
+    const jw = await db.jobworkOrder.findUnique({ where: { dcNo: JW } })
+    const r = await jobworkRecon(jw!.id)!
+    expect(r).toBeTruthy()
+    expect(r!.balance).toBe(JW_QTY) // sent → all at party
+    expect(r!.mathLine).toContain('at party (all DCs) 40')
+    expect(r!.rows.some((x) => x.label.includes(JW))).toBe(true)
+  })
+
+  it('despatchRecon (order scope): despatched 30 − invoiced 50 = −20 (over-invoiced)', async () => {
+    const r = await despatchRecon(orderId)!
+    expect(r).toBeTruthy()
+    expect(r!.balance).toBe(DESPATCHED_PCS - INVOICED_QTY)
+    expect(r!.rows.some((x) => x.label.includes(DC))).toBe(true)
   })
 
   // ---- delegated-tool regression pins (§12: catch delegation drift) ----

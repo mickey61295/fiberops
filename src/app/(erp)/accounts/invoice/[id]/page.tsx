@@ -10,6 +10,8 @@ import { invoiceConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
 import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
+import { ReconCard } from '@/components/erp/recon-card'
+import { invoiceRecon } from '@/lib/erp/registers/recon'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +38,7 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
 
   // chain state from the order include (W1): the invoice is step 13
   const chainState = inv.order ? computeChainState(inv.order) : undefined
+  const recon = await invoiceRecon(inv.id)
 
   return (
     <div className="space-y-5">
@@ -48,6 +51,7 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
         chainState={chainState}
         chainCtx={inv.order ? { orderNo: inv.order.orderNo, id: inv.order.id } : undefined}
       />
+      {recon && <ReconCard recon={recon} />}
       <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">GST computation (service-derived)</div>
         <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 text-slate-700">

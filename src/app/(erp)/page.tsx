@@ -13,6 +13,7 @@ export default function DashboardPage() {
   return (
     <Dashboard
       onNavigate={(v: ViewKey) => router.push(VIEW_ROUTE[v] ?? '/')}
+      kpiHref={(path: string) => router.push(path)}
     />
   )
 }

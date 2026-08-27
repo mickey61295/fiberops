@@ -9,6 +9,8 @@
 import { db } from '@/lib/db'
 import { CHAIN_ORDER_INCLUDE, computeChainState, nextStage } from '@/lib/erp/chain'
 
+import type { ChainStateFlags } from '@/lib/erp/chain'
+
 export interface OrderStatusRow {
   id: string
   orderNo: string
@@ -18,6 +20,8 @@ export interface OrderStatusRow {
   stagesDone: number
   nextStage: string | null
   href: string
+  /** chain flags — the Wave C board feeds these to ChainBar */
+  flags: ChainStateFlags
 }
 
 export interface OrderStatusResult {
@@ -50,6 +54,7 @@ export async function queryOrderStatus(opts?: { orderNo?: string }): Promise<Ord
         stagesDone,
         nextStage: next ? next.name : null,
         href: `/orders/${order.id}`,
+        flags,
       }],
       summary: `${order.orderNo}: ${stagesDone}/${Object.keys(flags).length} stages done${next ? ` · next: ${next.name}` : ' · chain complete'}`,
       totalOpenOrders: 1,
@@ -84,6 +89,7 @@ export async function queryOrderStatus(opts?: { orderNo?: string }): Promise<Ord
       stagesDone,
       nextStage: next ? next.name : null,
       href: `/orders/${o.id}`,
+      flags,
     }
   })
 

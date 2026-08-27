@@ -8,6 +8,8 @@ import { db } from '@/lib/db'
 import { purchaseOrderConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { ReconCard } from '@/components/erp/recon-card'
+import { poRecon } from '@/lib/erp/registers/recon'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,10 +48,13 @@ export default async function PurchaseOrderViewPage({ params }: { params: Promis
     })),
   }
 
+  const recon = await poRecon(po.id)
+
   return (
     <div className="space-y-5">
       <DocBreadcrumb href="/procurement/po" label="Purchase Orders" title={po.poNo} />
       <DocScreen config={toScreenConfig(purchaseOrderConfig)} mode="view" docNo={po.poNo} initial={initial} />
+      {recon && <ReconCard recon={recon} />}
     </div>
   )
 }

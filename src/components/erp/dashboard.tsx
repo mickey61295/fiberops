@@ -11,6 +11,8 @@ import { toast } from 'sonner'
 
 interface DashboardProps {
   onNavigate: (v: ViewKey) => void
+  /** KPI deep-links (SPEC-M4 §8.3) — full paths incl. query params */
+  kpiHref?: (path: string) => void
 }
 
 interface KpiData {
@@ -28,7 +30,7 @@ interface KpiData {
   recentInvoices: any[]
 }
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, kpiHref }: DashboardProps) {
   const [data, setData] = useState<KpiData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -65,14 +67,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </div>
       </Card>
 
-      {/* KPI tiles */}
+      {/* KPI tiles — W2 deep-links (SPEC-M4 §8.3): title+number land on the
+          register with the filter pre-applied; fall back to the group view */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KpiTile icon={Package} label="Open Orders" value={kpis.openOrders} color="emerald" onClick={() => onNavigate('orders')} />
-        <KpiTile icon={ShoppingCart} label="Pending POs" value={kpis.pendingPos} color="amber" onClick={() => onNavigate('procurement')} />
-        <KpiTile icon={Boxes} label="Stock Value" value={`₹${(kpis.stockValue / 100000).toFixed(1)}L`} color="teal" onClick={() => onNavigate('inventory')} />
-        <KpiTile icon={Factory} label="Today Pcs" value={kpis.todayPcs} color="slate" onClick={() => onNavigate('production')} />
-        <KpiTile icon={GitBranch} label="Pending Approvals" value={kpis.pendingApprovals} color="rose" onClick={() => onNavigate('workflow')} />
-        <KpiTile icon={FileText} label="Open Invoices" value={kpis.openInvoices} color="violet" onClick={() => onNavigate('invoices')} />
+        <KpiTile icon={Package} label="Open Orders" value={kpis.openOrders} color="emerald" onClick={() => (kpiHref ? kpiHref('/orders/register?status=open') : onNavigate('orders'))} />
+        <KpiTile icon={ShoppingCart} label="Pending POs" value={kpis.pendingPos} color="amber" onClick={() => (kpiHref ? kpiHref('/procurement/party-balance') : onNavigate('procurement'))} />
+        {/* Stock Value tile: the M2 stock table lives on the /inventory group
+            view (SPEC-M4 §8.3 ERRATUM — /inventory/stock was never a route). */}
+        <KpiTile icon={Boxes} label="Stock Value" value={`₹${(kpis.stockValue / 100000).toFixed(1)}L`} color="teal" onClick={() => (kpiHref ? kpiHref('/inventory') : onNavigate('inventory'))} />
+        <KpiTile icon={Factory} label="Today Pcs" value={kpis.todayPcs} color="slate" onClick={() => {
+          if (kpiHref) {
+            const today = new Date().toISOString().slice(0, 10)
+            kpiHref(`/production/register?from=${today}&to=${today}`)
+          } else {
+            onNavigate('production')
+          }
+        }} />
+        <KpiTile icon={GitBranch} label="Pending Approvals" value={kpis.pendingApprovals} color="rose" onClick={() => (kpiHref ? kpiHref('/approvals') : onNavigate('workflow'))} />
+        <KpiTile icon={FileText} label="Open Invoices" value={kpis.openInvoices} color="violet" onClick={() => (kpiHref ? kpiHref('/accounts/bills-register?status=issued') : onNavigate('invoices'))} />
       </div>
 
       {/* Recent activity */}

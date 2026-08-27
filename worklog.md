@@ -415,3 +415,23 @@ Stage Summary:
 - M4 Wave B COMPLETE: 16/17 register screens live (only the Wave C board remains), 130 tools, 64 live routes, 40/113 menu items, 311 tests green.
 - Deliverables: 13 configs, 14 services, 26 route files, 7 tools, 5 delegations, 2 test files, route_smoke_waveB.sh, STATE/PITFALLS/worklog updates.
 - Next: M4 Wave C — recon cards (§9) + KPI deep-links (§8.3) + Order Status Board UI (/orders/status, service already shipped) + breadcrumbs audit + route_smoke_waveE.sh → tag m4-done.
+
+---
+Task ID: m4-wave-c
+Agent: main
+Task: SPEC-M4 Wave C — M4 finale: W6 recon cards (§9) + KPI deep-links (§8.3) + Order Status Board (§10) + route_smoke_waveE + STATE/PITFALLS + tag m4-done.
+
+Work Log:
+- registers/recon.ts (pure fns: poRecon/invoiceRecon/jobworkRecon/despatchRecon) + components/erp/recon-card.tsx (server card: title, mathLine, balance chip, counterpart rows with links).
+- Wired ReconCard into 4 views: /procurement/po/[id] (PO↔GRNs), /accounts/invoice/[id] (Invoice↔Payments), /jobwork/order/[id] (out↔in + jobworker siblings), Order Hub despatch section (Despatch↔Invoice, order scope).
+- Order Status Board /orders/status: server table over queryOrderStatus (extended OrderStatusRow with `flags` for ChainBar), header KPIs (open orders/pcs/avg stages), n/15 + next-stage chips, rows → Order Hub; LIVE_ROUTES +1 → 65; menu item live → 41/113.
+- KPI deep-links (§8.3): dashboard tiles now push full paths with filters — Open Orders→/orders/register?status=open, Pending POs→/procurement/party-balance, Stock Value→/inventory (§8.3 ERRATUM: /inventory/stock was never a route), Today Pcs→/production/register?from&to, Pending Approvals→/approvals, Open Invoices→/accounts/bills-register?status=issued (bills-register config gained the status filter so the deep-link actually filters).
+- Tests: +4 recon math tests in register-services suite (fixture payment now carries invoiceId); menu-registry +1 board-live block → 316 total green.
+- scripts/route_smoke_waveE.sh 19/19 GREEN (board + recon-card content checks via real doc numbers + JW-SMOKE-1 idempotent seed via scripts/seed_wave_smoke.ts + 6 KPI deep-link targets + fleet regression).
+- context_check.sh: views 22, menu tests 18, live routes 65, register service files 18 → 129/129 NO DRIFT after STATE refresh.
+- Breadcrumbs: RegisterScreen ships them (Wave A); board + doc views keep their group breadcrumbs — §8.2 audit pass, no changes needed.
+- Committed as the m4-done wave; push still blocked (no GitHub credentials — see Wave B worklog note).
+
+Stage Summary:
+- M4 COMPLETE: 17/17 register/board screens live, 130 tools, 65 live routes, 41/113 menu items, 316 tests, all route smokes green.
+- Next: M5 (extended doc families) — freeze SPEC-M5 first per wave discipline.

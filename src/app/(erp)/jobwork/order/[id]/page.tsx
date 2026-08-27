@@ -13,6 +13,8 @@ import { jobworkOutConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { ReconCard } from '@/components/erp/recon-card'
+import { jobworkRecon } from '@/lib/erp/registers/recon'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +42,7 @@ export default async function JobworkOrderViewPage({ params }: { params: Promise
   }
   const state = parent ? computeChainState(parent) : undefined
   const chainCtx = parent ? { orderNo: parent.orderNo, id: parent.id } : undefined
+  const recon = await jobworkRecon(jw.id)
 
   return (
     <div className="space-y-5">
@@ -68,6 +71,7 @@ export default async function JobworkOrderViewPage({ params }: { params: Promise
         chainState={state}
         chainCtx={chainCtx}
       />
+      {recon && <ReconCard recon={recon} />}
     </div>
   )
 }

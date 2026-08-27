@@ -9,6 +9,17 @@ export const billsRegisterConfig: RegisterConfig = {
     { key: 'from', label: 'From', type: 'dateRange' },
     { key: 'to', label: 'To', type: 'dateRange' },
     { key: 'party', label: 'Party', type: 'party', placeholder: 'code or name' },
+    {
+      key: 'status',
+      label: 'Invoice status',
+      type: 'status',
+      options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'issued', label: 'Issued' },
+        { value: 'paid', label: 'Paid' },
+        { value: 'cancelled', label: 'Cancelled' },
+      ],
+    },
   ],
   columns: [
     { name: 'date', label: 'Date', format: 'date' },

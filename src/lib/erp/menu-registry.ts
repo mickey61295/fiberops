@@ -99,6 +99,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/accounts/party-ledger', // Party Ledger (M4 Wave B) — party-ledger
   '/costing/budget-vs-actual', // Budget vs Actual (M4 Wave B) — budget-vs-actual
   '/approvals/audit', // Approval Audit Trail (M4 Wave B) — approval-audit-trail
+  '/orders/status', // Order Status Board (M4 Wave C) — order-status-board
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView

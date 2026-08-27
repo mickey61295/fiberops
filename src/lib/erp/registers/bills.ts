@@ -14,10 +14,13 @@ export async function queryBillsRegister(q: RegisterQuery): Promise<RegisterResu
     if (!p) return { rows: [], summary: `Party ${q.party} not found`, count: 0 }
     where.partyId = p.id
   }
+  // invoice-status filter (KPI deep-link ?status=issued — SPEC-M4 §8.3):
+  // narrows the day-book's invoice rows; debit notes/payments stay unfiltered.
+  const invoiceWhere = q.status ? { ...where, status: q.status } : where
 
   const [invoices, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({
-      where,
+      where: invoiceWhere,
       include: { party: true },
       orderBy: { invoiceDate: 'desc' },
       take: 1000,

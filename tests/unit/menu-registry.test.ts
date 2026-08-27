@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 40 live items of 113 after M4 Wave B (+13 registers); 14/17 groups', () => {
+  it('parityStats: 41 live items of 113 after M4 Wave C (+board); 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(40)
-    expect(s.comingItems).toBe(73)
+    expect(s.liveItems).toBe(41)
+    expect(s.comingItems).toBe(72)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -127,6 +127,12 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     }
     // order-status-board gets the new tool now (board screen itself is Wave C)
     expect((findItemById('order-status-board') as MenuItem).agentTools).toContain('get_order_status')
+  })
+
+  it('Wave C (M4): the Order Status Board is live (page file, board archetype)', () => {
+    expect(LIVE_ROUTES.has('/orders/status')).toBe(true)
+    expect(isLive(findItemById('order-status-board') as MenuItem)).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'orders/status/page.tsx'))).toBe(true)
   })
 
   it('every LIVE route (except /coming prefix) has a page file on disk', () => {

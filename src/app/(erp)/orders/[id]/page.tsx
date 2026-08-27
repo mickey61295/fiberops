@@ -16,6 +16,8 @@ import { findItemByRoute, getHref, isLive } from '@/lib/erp/menu-registry'
 import { ChainBar } from '@/components/erp/chain-bar'
 import { BomCard, type BomDisplayLine } from '@/components/erp/bom-card'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
+import { ReconCard } from '@/components/erp/recon-card'
+import { despatchRecon } from '@/lib/erp/registers/recon'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +92,8 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
     db.jobworkOrder.findMany({ where: { orderId: order.id }, include: { jobworker: true } }),
     db.pcsDespatch.findMany({ where: { orderId: order.id } }),
   ])
+  // W6 despatch↔invoice recon card (SPEC-M4 §9, order scope)
+  const despatchReconResult = despatches.length > 0 ? await despatchRecon(order.id) : null
 
   const state = computeChainState(order)
   const chainCtx = { id: order.id, orderNo: order.orderNo }
@@ -542,6 +546,9 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
           </table>
         )}
       </FamilySection>
+
+      {/* Despatch ↔ Invoice recon (W6 — SPEC-M4 §9) */}
+      {despatchReconResult && <ReconCard recon={despatchReconResult} />}
 
       {/* Invoices */}
       <FamilySection
