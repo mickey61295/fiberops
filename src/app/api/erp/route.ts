@@ -156,13 +156,16 @@ export async function GET(req: Request) {
           orderBy: { createdAt: 'desc' },
         })
         const enriched = await Promise.all(approvals.map(async (a) => {
-          let entity: any = null
+          // Keep `entity` as the type string ('po' | 'grn' | ...) — the client renders
+          // it as text. The fetched record goes under `entityData` so a PO object
+          // can never end up rendered as a React child.
+          let entityData: any = null
           if (a.entity === 'po') {
-            entity = await db.purchaseOrder.findUnique({
+            entityData = await db.purchaseOrder.findUnique({
               where: { id: a.entityId }, include: { party: true, lines: true },
             })
           }
-          return { ...a, entity }
+          return { ...a, entityData }
         }))
         return Response.json(enriched)
       }

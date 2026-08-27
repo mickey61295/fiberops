@@ -542,13 +542,14 @@ const readTools: AgentTool[] = [
         orderBy: { createdAt: 'desc' },
       })
       const enriched = await Promise.all(approvals.map(async (a) => {
-        let entity: any = null
+        // Keep `entity` as the type string; the fetched record goes under `entityData`.
+        let entityData: any = null
         if (a.entity === 'po') {
-          entity = await db.purchaseOrder.findUnique({
+          entityData = await db.purchaseOrder.findUnique({
             where: { id: a.entityId }, include: { party: true, lines: true },
           })
         }
-        return { ...a, entity }
+        return { ...a, entityData }
       }))
       return {
         text: `${enriched.length} pending approvals.`,

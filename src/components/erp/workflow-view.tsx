@@ -51,20 +51,20 @@ export function WorkflowView() {
                     <Clock className="h-5 w-5 text-amber-700" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold uppercase">{a.entity}</div>
+                    <div className="text-sm font-bold uppercase">{a.entity === 'po' ? `Purchase Order · ${a.entityData?.poNo ?? ''}` : a.entity}</div>
                     <div className="text-xs text-slate-500">Requested by {a.requestedBy} · {fmtDate(a.createdAt)}</div>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">Pending</Badge>
               </div>
-              {a.entity === 'po' && a.entity && (
+              {a.entity === 'po' && a.entityData && (
                 <div className="mt-3 p-3 bg-slate-50 rounded text-xs space-y-1">
-                  <div className="flex justify-between"><span className="text-slate-500">PO No</span><span className="font-mono">{a.entity?.poNo}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Supplier</span><span>{a.entity?.party?.name}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Type</span><span className="uppercase">{a.entity?.poType}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Qty</span><span>{a.entity?.totalQty}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Value</span><span className="font-semibold">{fmtINR(a.entity?.totalValue || 0)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Delivery</span><span>{a.entity?.deliveryDate ? fmtDate(a.entity.deliveryDate) : '-'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">PO No</span><span className="font-mono">{a.entityData.poNo}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Supplier</span><span>{a.entityData.party?.name ?? '-'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Type</span><span className="uppercase">{a.entityData.poType}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Qty</span><span>{a.entityData.totalQty}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Value</span><span className="font-semibold">{fmtINR(a.entityData.totalValue || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Delivery</span><span>{a.entityData.deliveryDate ? fmtDate(a.entityData.deliveryDate) : '-'}</span></div>
                 </div>
               )}
               <div className="mt-3 flex gap-2">

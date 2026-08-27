@@ -352,3 +352,18 @@ Work Log:
 
 Stage Summary:
 - download/ now holds 0000-0010 (7 files). m3-done tag stays on 44a6520; the docs commit sits after it (same pattern as m3-wave-c's ffb65ab).
+
+---
+Task ID: fix-approvals-crash
+Agent: main
+Task: User-reported runtime crash on /approvals — "Objects are not valid as a React child (found: object with keys {id, poNo, poType, …})". Commit everything, fix, continue.
+
+Work Log:
+- Root cause: /api/erp?resource=approvals enriched rows via `{ ...a, entity }` — overwriting the Approval.entity TYPE STRING with the fetched PO object. WorkflowView rendered `{a.entity}` as text → crash with any pending approval present (10 existed).
+- Fixed in 3 places, consistent shape `entity` = type string + `entityData` = fetched record: api/erp/route.ts, agent tools.ts get_pending_approvals, workflow-view.tsx (title now "Purchase Order · <poNo>", detail card reads entityData).
+- Verified: vitest 174/174; tsc known-noise only (zero in touched files); scripts/verify_approvals_fix.ts (new) asserts per-row shape; dev-server smoke: GET / 200, GET /approvals 200, API returns entity:"po" + entityData:{poNo:…}.
+- PITFALLS #25 appended (spread-collision + smoke-blindness lesson).
+
+Stage Summary:
+- /approvals crash eliminated; approval cards now render PO detail (no/supplier/type/qty/value/delivery). No schema/service changes — pure response-shape fix, no test fallout (174 green).
+- Next per STATE: write + freeze SPEC-M4 (RegisterScreen engine + registers + W2/W6), commit, then M4 Wave A.

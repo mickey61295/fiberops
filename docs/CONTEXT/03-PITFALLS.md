@@ -252,3 +252,19 @@ posting/stock-adj.ts / transfer.ts). Uniqueness is convention, not constraint �
 a transfer's out+in pair deliberately SHARES one docNo.
 LESSON: doc numbers on non-unique columns are display/grouping keys; derive
 them by count and never "resolve" them.
+25. API enrichment that SPREADS a fetched object over a string column name → React "Objects are not valid as a React child" · 2026-08-27 (post-M3, user-reported)
+`GET /api/erp?resource=approvals` (and the get_pending_approvals tool) enriched
+each row with `{ ...a, entity }` where `a.entity` was the Approval table's
+TYPE STRING ('po' | 'grn' | …) and the new `entity` was the FETCHED PO RECORD.
+The spread silently replaced the string with an object. WorkflowView then
+rendered `{a.entity}` as a heading → full-page crash the moment any pending
+approval existed (empty list rendered fine — which is why it survived every
+route smoke; smokes check status codes on SSR, and the data arrives
+client-side after fetch).
+FIX pattern: enrichment keys must NEVER collide with row columns — the fetched
+record now lives under `entityData`; `entity` stays the type string. Fixed in
+all three places (api/erp route, agent tool, WorkflowView). Verification:
+scripts/verify_approvals_fix.ts asserts string+object shape per row.
+LESSON: (a) `{ ...row, x }` is a column-name collision waiting to happen —
+name enrichment keys with a suffix no column uses; (b) route smokes can't
+catch client-render crashes — verify API response SHAPES, not just 200s.
