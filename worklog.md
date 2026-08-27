@@ -786,6 +786,7 @@ Work Log:
 - context_check.sh: print-lib pin 4→5 (fetchers-b.ts), +families-20 check, +doors-19 check (grep -rl over (erp) pages + gate-view), metrics line m8-waveB, +4 file-existence entries (fetchers-b/print-docs-b.test/route_smoke_m8b/gate-view) → 369/369 NO DRIFT.
 - Verified: tsc src/ 0 errors · vitest 691/691 (673+18) · route_smoke_m8b 38/38 · context_check 369/369 · next build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145 (pins unchanged).
 - Docs: 01-STATE.md (Last-verified m8-wave-b line, M8 milestone row → COMPLETE, next-actions #9), SPEC-M8 §8 (Wave B family table + decisions + acceptance).
+- Browser verification (agent-browser, post-commit): login → /print/journal/JV-RCP-0001 renders RECEIPT VOUCHER (voucherType-driven title live-verified — a receipt journal), copy banner + doc-no + Dr/Cr lines ₹2,05,065; /print/lab-test/LT-M5D-1 renders LAB TEST REPORT with the values-JSON parameter rows (gsm); /accounts/journal/JV-RCP-0001 carries the Print door; ZERO console errors; screenshot download/m8b-print-journal-preview.png. (Note: the platform reaps background dev servers — the system-managed `bun run dev` must be up for browser checks; route smoke ran against it green 38/38.)
 
 Stage Summary:
 - M8 COMPLETE: every doc detail page (20 families across 19 view files) prints a proper A4 portrait sheet via the one engine + one registry route.
