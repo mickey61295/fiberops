@@ -133,3 +133,26 @@ Consequence: live items 24/113 after M3 (not 42); plan §6 M3 line annotated;
 SPEC-M2's deferrals (post_opening → M3, BOM editor → Order Hub card) are honored —
 post_opening lands as a Wave-D stock-adjustment companion if budget allows, else
 M5 with ADR note.
+
+ADR-017 — Zero-dependency auth: scrypt passwords + HMAC session cookie (M7-A) · 2026-08-27 · ACTIVE
+Context: SPEC-M6 §3 deferred login and rights guarding to M7; ADR-016 landed
+User/UserGroup (rights Json) but the app ran single-user dev mode with every
+page and API open. The 598-test suite and the ingestion/smoke scripts hit APIs
+cookie-less, so a big-bang auth would break everything at once.
+Decision: M7 lands in waves. Wave A = login core only: ADR-017 schema is
+FIELD-additive on User (passwordHash String? — null means "cannot log in yet";
+lastLoginAt DateTime?; still 65 models; schema-65-baseline tagged). Auth is
+zero-dependency: scrypt (node:crypto) passwords stored `scrypt$salt$hash`;
+stateless HMAC-SHA256 session token (`userId.exp.sig`, Web Crypto only) in the
+httpOnly cookie `fo_session` (7-day TTL); `src/lib/auth/session.ts` stays
+EDGE-PURE (no node:crypto/Prisma imports — enforced by a unit test) because
+edge middleware verifies the cookie without db access; the Node half
+(cookies() + db lookup) lives in current-user.ts. Middleware guards PAGES only
+(307 → /login?next=); the (erp) layout re-checks the user row. First-admin
+bootstrap (/api/auth/bootstrap) is allowed only while NO user has a password,
+then self-locks 403 forever. AUTH_SECRET env with dev fallback constant.
+Consequence: APIs (/api/erp, /api/agent, /api/upload) remain open until Wave B
+(401 JSON + cookie fixtures for the HTTP test suites); rights enforcement
+(sidebar filtering, per-route checks, admin password reset UI) is Wave C;
+rotating AUTH_SECRET invalidates all sessions (users just re-login). Dev
+credentials: admin@fiberpro.local / admin123 via scripts/seed_admin.ts.

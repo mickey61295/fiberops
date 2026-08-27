@@ -69,6 +69,7 @@ echo "  m3-waveC: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  erp-views=$VIEW
 echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
 echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  register-cfg-tests=$REGCFGTESTS"
 echo "  m6-waveA: report-configs=$REPORTCFGS  report-service-files=$REPORTSVCFILES"
+echo "  m7-waveA: auth-lib=$(ls src/lib/auth/*.ts 2>/dev/null | wc -l) auth-api-routes=$(ls -d src/app/api/auth/*/ 2>/dev/null | wc -l)"
 echo "  api-routes: $APIS"
 
 echo
@@ -99,6 +100,8 @@ check "posting service files"      "35"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
 check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D 2)" "40"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
+check "m7-waveA auth lib files (password/session/current-user)" "3" "$(ls src/lib/auth/*.ts 2>/dev/null | wc -l)"
+check "m7-waveA auth api routes (login/logout/session/bootstrap)" "4" "$(ls -d src/app/api/auth/*/ 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"
@@ -281,7 +284,13 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/accounts/hsn-gst/page.tsx' 'src/app/(erp)/hr/employees/page.tsx' \
          'src/app/(erp)/quality/parameters/page.tsx' \
          tests/pipeline/doc-parity-m6d.test.ts scripts/route_smoke_m6d.sh \
-         prisma/schema.prisma; do
+         docs/CONTEXT/specs/SPEC-M7.md src/middleware.ts \
+         src/lib/auth/password.ts src/lib/auth/session.ts src/lib/auth/current-user.ts \
+         src/app/login/page.tsx src/app/login/login-form.tsx src/app/login/first-admin-form.tsx \
+         src/app/api/auth/login/route.ts src/app/api/auth/logout/route.ts \
+         src/app/api/auth/session/route.ts src/app/api/auth/bootstrap/route.ts \
+         scripts/seed_admin.ts scripts/route_smoke_m7a.sh \
+         tests/unit/auth.test.ts prisma/schema.prisma; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

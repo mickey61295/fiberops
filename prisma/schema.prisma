@@ -12,14 +12,16 @@ datasource db {
 
 // ============== ORG / SECURITY ==============
 model User {
-  id          String     @id @default(cuid())
-  email       String     @unique
-  name        String
-  role        String     @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
-  userGroupId String? // ADR-016 (M6-B): the group whose rights matrix applies
-  userGroup   UserGroup? @relation(fields: [userGroupId], references: [id])
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  role         String     @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
+  userGroupId  String? // ADR-016 (M6-B): the group whose rights matrix applies
+  userGroup    UserGroup? @relation(fields: [userGroupId], references: [id])
+  active       Boolean    @default(true)
+  passwordHash String? // ADR-017 (M7-A): scrypt$<salt>$<hash>; null = cannot log in yet
+  lastLoginAt  DateTime? // ADR-017 (M7-A): set on each successful login
+  createdAt    DateTime   @default(now())
 }
 
 model AgentTurn {

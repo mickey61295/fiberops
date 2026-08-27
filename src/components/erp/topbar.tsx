@@ -1,20 +1,32 @@
 'use client'
 
 /**
- * Topbar with registry-derived breadcrumbs (SPEC-M1 §7).
+ * Topbar with registry-derived breadcrumbs (SPEC-M1 §7) + session user chip
+ * and logout (SPEC-M7 §3 — Wave A).
  */
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Menu, RefreshCw, Sparkles, ChevronRight } from 'lucide-react'
+import { LogOut, Menu, RefreshCw, Sparkles, ChevronRight } from 'lucide-react'
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import {
   findItemByRoute, findGroupByLanding, findGroupByRoutePrefix,
   findItemById, groupLandingHref, isLive,
 } from '@/lib/erp/menu-registry'
 
-export function Topbar({ onMenu, onRefresh }: { onMenu: () => void; onRefresh: () => void }) {
+export type TopbarUser = { name: string; email: string; role: string }
+
+export function Topbar({
+  onMenu,
+  onRefresh,
+  user,
+}: {
+  onMenu: () => void
+  onRefresh: () => void
+  user?: TopbarUser
+}) {
   const pathname = usePathname()
+  const router = useRouter()
   const { openAgent } = useAgent()
 
   const group = findGroupByLanding(pathname) ?? findGroupByRoutePrefix(pathname)
@@ -59,6 +71,14 @@ export function Topbar({ onMenu, onRefresh }: { onMenu: () => void; onRefresh: (
         </nav>
       </div>
       <div className="flex items-center gap-2">
+        {user && (
+          <div className="hidden sm:flex items-center gap-1.5 mr-1" title={user.email}>
+            <span className="text-sm font-medium text-slate-700 truncate max-w-[140px]">{user.name}</span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+              {user.role}
+            </span>
+          </div>
+        )}
         <Button variant="ghost" size="sm" onClick={onRefresh} title="Refresh data">
           <RefreshCw className="h-4 w-4" />
         </Button>
@@ -70,6 +90,20 @@ export function Topbar({ onMenu, onRefresh }: { onMenu: () => void; onRefresh: (
           <Sparkles className="h-4 w-4 mr-1" />
           Agent <kbd className="ml-1 text-[10px] opacity-70">⌘K</kbd>
         </Button>
+        {user && (
+          <Button
+            variant="ghost"
+            size="sm"
+            title={`Sign out (${user.email})`}
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+              router.replace('/login')
+              router.refresh()
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </header>
   )

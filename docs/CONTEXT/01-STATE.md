@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m6-wave-d — the process tail, M6 COMPLETE: 18 items live → **113/113** (100%): multi-process-grn (MP-#### multi-line process_return) + dc-entry/process-dc (MDC-/PDC- via ONE create_dc tool — material DCs post process_delivery OUT) + dc-return (RTN-#### process_receipt IN) + opening-stock (OPN-#### over planStockAdjustment) + pcs-transfer (PT-#### — pcs buckets key on the ORDER, sibling service) + ready-to-cut (RTC-#### ready_to_cut_out/-in; virtual dept = D3-KEYED bucket) + cutting-issue (line-issue variant validating line.deptId=D3) + cutting-production + line-output (production variants) + 4 manual-queue approval kinds (grn_acceptance/cutting_ack/pcs_acceptance/lot — WorkflowView + queue cards via sendToAcceptanceAction + 4 gate tools) + hsn-gst & test-parameters MasterTables + pcs-receipt & employees aliases → 188 tools; 598 vitest; route_smoke_m6d 60/60; context_check 310/310; tag `m6-wave-d`; remote PUSHED) — (prior: m6-wave-c — 95/113, 584 vitest)
+Last verified: 2026-08-27 (session: m7-wave-a — auth login core: ADR-017 User +passwordHash/+lastLoginAt (models stay 65) + zero-dep auth (scrypt password + HMAC-SHA256 Web-Crypto session cookie `fo_session`) + /login (LoginForm + first-admin FirstAdminForm bootstrap while no password exists) + 4 API routes (/api/auth/login|logout|session|bootstrap — bootstrap self-locks 403 once any password exists) + edge middleware page guard (307 → /login?next=) + (erp)/layout second guard + topbar user chip + logout + scripts/seed_admin.ts (admin@fiberpro.local/admin123) + tests/unit/auth.test.ts (11) + route_smoke_m7a 27/27 → 609 vitest; tools stay 188; APIs stay OPEN until Wave B (SPEC-M7 §2); tag `m7-wave-a`; remote PUSHED) — (prior: m6-wave-d — 113/113 M6 COMPLETE, 598 vitest)
 
 ## Milestone status
 
@@ -16,14 +16,15 @@ Last verified: 2026-08-27 (session: m6-wave-d — the process tail, M6 COMPLETE:
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
 | M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **188 tools**, 113/113 | **COMPLETE** (`m6-wave-d`): Wave D — 10 DS variants (MP/MDC/PDC/RTN/OPN/PT/RTC/cutting-issue/cutting-production/line-output) + 4 manual-queue approval kinds + 2 MasterTables + 2 aliases; 113/113 live (100%), 598 vitest, route_smoke_m6d 60/60, context_check 310/310 |
+| M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks) | **IN PROGRESS** (`m7-wave-a`): ADR-017 (User +passwordHash/+lastLoginAt, field-additive) + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin + 11 auth tests + smoke 27/27 → 609 vitest; spec `spec-m7-frozen` |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M5 Wave D commit (M5 COMPLETE) — tags `m5-wave-d`, `m5-done`, prior `m5-wave-c/b/a`, `spec-m5-frozen`, `schema-54-baseline`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
+| Git HEAD | M7 Wave A commit (auth login core) — tags `m7-wave-a`, `spec-m7-frozen`, `schema-65-baseline`, prior `m6-wave-d`, `m6-complete`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
 | Agent tools | **188** (72 inline + 30 factory create + 30 factory update + 51 docTool delegates — M6-D +7: post_opening, ready_to_cut, create_dc docTools + accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot gates) | `scripts/context_check.sh` |
-| Prisma models | **65** (61 + ADR-016 ×4: UserGroup, AppOption, Hsn, TestParameter; User AMENDED with userGroupId + active — ERRATUM #1) | `grep -c "^model " prisma/schema.prisma` |
+| Prisma models | **65** (61 + ADR-016 ×4: UserGroup, AppOption, Hsn, TestParameter; User AMENDED with userGroupId + active — ERRATUM #1; **M7-A ADR-017: User +passwordHash String? +lastLoginAt DateTime? — FIELD-additive, still 65 models**) | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
 | Posting services (M3-A/D + M5-A/B/D) | **34 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts + M5-B line-transfer.ts + M5-D sample.ts, gate.ts, packing-list.ts, lab-test.ts, expense.ts, roll-split.ts, contract-allotment.ts, program-allotment.ts, production-bill.ts) | context_check |
 | Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
@@ -48,11 +49,12 @@ Last verified: 2026-08-27 (session: m6-wave-d — the process tail, M6 COMPLETE:
 | Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **598 passing** (584 M6-C + M6-D: doc-parity-m6d 13 (OPN both doors + guard, PT pair net-zero + buckets, RTC store−/D3+ with total unchanged, MP lines + ledger, MDC/PDC one-tool two-spaces + bare reject, RTN process_receipt IN, cutting dept guard + form door, cutting-production/line-output incl. lineId-required, 4 gates find-or-create + idempotent + queue action) + menu-registry Wave D block + approval-kinds 8-kinds + pins 181→188) (M6-C: doc-parity-m6c 4 + register-configs 21-config loop + menu-registry Wave C block + report-configs current-stock binding move) (549 M6-A + M6-B: doc-parity-m6b 4 (courier × both doors + courierName guard + LAD space/status/ledger + rights round trip via update_user_group) + master-parity 30-config loop (+15) + menu-registry Wave B block + master-configs 30 pin) | `npx vitest run` |
+| **Total vitest** | **609 passing** (598 M6 + 11 M7-A auth: scrypt round-trip/salt/wrong/null/garbage, HMAC round-trip/tamper/expired/malformed, constants frozen, session.ts edge-purity) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
-| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` | ls `src/app/api/` |
+| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` + **M7-A: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`, `/api/auth/bootstrap`** (open in Wave A — guarding is Wave B) | ls `src/app/api/` |
+| Auth (M7-A) | Login core live: session cookie `fo_session` (HMAC-SHA256, Web Crypto, edge-safe `src/lib/auth/session.ts`; secret = `AUTH_SECRET` env w/ dev fallback — ADR-017) · scrypt passwords `src/lib/auth/password.ts` · edge page guard `src/middleware.ts` (307 → /login?next=; matcher excludes /api, /login, _next, dotted) · second guard in `(erp)/layout.tsx` (deleted/deactivated mid-session → /login) · topbar user chip + logout · first-admin bootstrap locks 403 forever once any password exists · dev credentials `admin@fiberpro.local` / `admin123` (scripts/seed_admin.ts) | route_smoke_m7a.sh |
 
 ## Known drift / gaps
 
@@ -218,6 +220,15 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    context_check 310/310. THE PARITY MISSION IS COMPLETE — every one of the
    113 legacy menu items renders. M7+ candidates: auth/login (SPEC-M6 §3-1),
    rights-based route guarding (§3-2), Tally export (§3-3).
+5. **M7 Wave A DONE** (tag `m7-wave-a`, spec `spec-m7-frozen`): the login
+   core — ADR-017 (User +passwordHash/+lastLoginAt, field-additive;
+   `schema-65-baseline` tagged first), zero-dep auth (scrypt + HMAC-SHA256
+   Web-Crypto session cookie, edge-safe session.ts), /login with first-admin
+   bootstrap (self-locking 403), 4 /api/auth/* routes, edge middleware page
+   guard, topbar user chip + logout, seed_admin.ts. 609 vitest, smoke 27/27,
+   context_check 327/327. **Next: M7 Wave B** — guard /api/erp + /api/agent +
+   /api/upload (401 JSON without session; cookie fixtures for the HTTP test
+   suites), stamp AgentTurn.userId + approval actor from the session.
 
 ## M5 Wave D notes for future sessions
 
@@ -703,3 +714,26 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 - **Tool-count pins live in**: register-configs.test.ts + approval-kinds.test
   (both 188 now). The docTool grep counts only `^  docTool(` calls — the 4
   approval gates are inline tools (51 docTools + they bring inline 72).
+
+## M7 Wave A notes for future sessions
+
+- **session.ts is EDGE-PURE by test** (`tests/unit/auth.test.ts` edge-purity
+  block): it must never import node:crypto, @prisma/client, or @/lib/db —
+  middleware runs on the edge runtime and imports it. The Node-only half
+  (cookies() + db lookup) lives in `src/lib/auth/current-user.ts`.
+- **Two guard layers**: middleware verifies the cookie cryptographically
+  (307 → /login?next=); `(erp)/layout.tsx` re-checks the user ROW (deleted /
+  deactivated mid-session → redirect). Do not remove either.
+- **APIs are still OPEN in Wave A** (deliberate — SPEC-M7 §2): /api/erp,
+  /api/agent, /api/upload accept cookie-less requests so the 609 vitest +
+  ingest scripts stay green. Wave B adds 401 JSON + cookie fixtures.
+- **Bootstrap self-locks**: /api/auth/bootstrap works ONLY while zero users
+  have a passwordHash; the moment one exists it 403s forever. Dev credentials
+  come from `scripts/seed_admin.ts` (admin@fiberpro.local / admin123 —
+  override via arg or ADMIN_PASSWORD). Running the seed CLOSES bootstrap.
+- **AUTH_SECRET**: env var with dev fallback constant (single-tenant dev —
+  ADR-017). Setting it in production rotates all sessions (tokens are
+  HMAC'd with it); no migration needed — users just log in again.
+- **middleware matcher** excludes /api, /login, _next/* and any dotted path
+  (`.*\..*`). Adding API guarding in Wave B means either changing the matcher
+  or guarding inside each route (prefer the latter: 401 JSON ≠ redirect).

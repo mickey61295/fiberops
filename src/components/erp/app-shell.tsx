@@ -9,11 +9,11 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { NavSidebar } from '@/components/erp/nav-sidebar'
-import { Topbar } from '@/components/erp/topbar'
+import { Topbar, type TopbarUser } from '@/components/erp/topbar'
 import { ParityFooter } from '@/components/erp/parity-footer'
 import { AgentPanelProvider } from '@/components/agent/agent-panel-provider'
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, user }: { children: ReactNode; user?: TopbarUser }) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Main */}
         <main className="flex-1 flex flex-col min-w-0">
-          <Topbar onMenu={() => setSidebarOpen(true)} onRefresh={refresh} />
+          <Topbar onMenu={() => setSidebarOpen(true)} onRefresh={refresh} user={user} />
           <div className="flex-1 overflow-auto p-4 md:p-6" key={refreshKey}>
             {children}
           </div>
