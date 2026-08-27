@@ -17,3 +17,15 @@ export const STOCK_ADJ_SCHEMA = z.object({
 })
 
 export type StockAdjInput = z.infer<typeof STOCK_ADJ_SCHEMA>
+
+// SPEC-M6 §7-D-1 (Wave D) — opening-stock VARIANT (/inventory/opening-stock,
+// legacy frmOpeningStock). The §4 recipe: the variant schema relaxes ONLY the
+// keys the wrapper injects (action + reason); planOpeningStock resolves the
+// OPN-#### docNo and fixes action='add' + reason='Opening stock' before
+// delegating to planStockAdjustment (which stays VERBATIM).
+export const OPENING_STOCK_SCHEMA = STOCK_ADJ_SCHEMA.extend({
+  action: z.string().optional().describe('Fixed to add by the variant — no need to pass.'),
+  reason: z.string().optional().describe('Fixed to "Opening stock" by the variant — no need to pass.'),
+})
+
+export type OpeningStockInput = z.infer<typeof OPENING_STOCK_SCHEMA>

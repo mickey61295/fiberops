@@ -73,6 +73,17 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'contract-allotment',
       'program-allotment',
       'production-bill',
+      // M6 Wave D (SPEC-M6 §7-D — process tail)
+      'multi-process-grn',
+      'dc-return',
+      'dc-entry',
+      'process-dc',
+      'pcs-transfer',
+      'ready-to-cut',
+      'opening-stock',
+      'cutting-issue',
+      'cutting-production',
+      'line-output',
     ])
   })
 

@@ -99,6 +99,13 @@ import { planCostSheet } from '@/lib/erp/posting/cost-sheet'
 import { planPayment } from '@/lib/erp/posting/payment'
 import { planStockAdjustment } from '@/lib/erp/posting/stock-adj'
 import { planTransfer } from '@/lib/erp/posting/transfer'
+// SPEC-M6 §7-D (Wave D) — process-tail variant services + schemas
+import { planOpeningStock } from '@/lib/erp/posting/stock-adj'
+import { planPcsTransfer, planReadyToCut } from '@/lib/erp/posting/transfer'
+import { planMaterialDc } from '@/lib/erp/posting/jobwork'
+import { MATERIAL_DC_SCHEMA } from '@/lib/erp/schemas/dispatch-variants'
+import { OPENING_STOCK_SCHEMA } from '@/lib/erp/schemas/stock-adj'
+import { PCS_TRANSFER_SCHEMA, READY_TO_CUT_SCHEMA } from '@/lib/erp/schemas/transfer-variants'
 // M5 Wave D (SPEC-M5 §8)
 import { planSample } from '@/lib/erp/posting/sample'
 import { planGateEntry } from '@/lib/erp/posting/gate'
@@ -2093,6 +2100,75 @@ const writeTools: AgentTool[] = [
       return proposeApprovalGate('non_return_dc', r, args.comments)
     },
   },
+  // ───────── SPEC-M6 §6 (Wave D) — manual-queue approval gates (+4) ─────────
+  // The four legacy acceptance queues were human-stepped: no posting hook
+  // leaves these rows — the IN screens' queue cards (or these tools, via the
+  // find-or-create rule) raise them. approve → the same proposeApprovalGate
+  // contract as Wave C.
+  {
+    name: 'accept_grn',
+    description: 'Accept received goods on a GRN (the GRN Acceptance queue). Required: grnNo. Optional: comments. Creates the pending grn_acceptance approval first when the GRN lacks one (the queue is manual — nothing is auto-raised), then approves it.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      grnNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
+      if (!grn) return { text: `GRN ${args.grnNo} not found` }
+      const r = { entityId: grn.id, title: grn.grnNo, detail: `GRN acceptance ${grn.grnNo} · ${grn.party?.name ?? 'party'} · ${grn.totalQty} units · ${grn.grnType}`, href: approvalRefHref('grn_acceptance', grn.id) }
+      return proposeApprovalGate('grn_acceptance', r, args.comments)
+    },
+  },
+  {
+    name: 'acknowledge_cutting_issue',
+    description: 'Acknowledge that fabric issued to a cutting line reached the cutting table (the Cutting Ack queue). Required: issueNo (the LI-#### number). Optional: comments. Creates the pending cutting_ack approval first when the issue lacks one, then approves it.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      issueNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const li = await db.lineIssue.findUnique({ where: { issueNo: args.issueNo }, include: { line: true, order: true } })
+      if (!li) return { text: `Line issue ${args.issueNo} not found` }
+      const r = { entityId: li.id, title: li.issueNo, detail: `cutting ack ${li.issueNo} · line ${li.line?.code ?? '-'} · ${li.qty} pcs · order ${li.order?.orderNo ?? '-'}`, href: approvalRefHref('cutting_ack', li.id) }
+      return proposeApprovalGate('cutting_ack', r, args.comments)
+    },
+  },
+  {
+    name: 'accept_jobwork_pcs',
+    description: 'Accept pieces received back from a jobworker (the GAN queue over received jobwork DCs — receipts park pending acceptance before stock posts, PITFALLS #12). Required: dcNo (the JW-#### jobwork DC). Optional: comments. Creates the pending pcs_acceptance approval first when the DC lacks one, then approves it.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      dcNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo }, include: { jobworker: true } })
+      if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
+      const r = { entityId: jw.id, title: jw.dcNo, detail: `pcs GAN ${jw.dcNo} · ${jw.jobworker?.name ?? 'jobworker'} · ${jw.processType} · ${jw.totalQty} units · ${jw.status}`, href: approvalRefHref('pcs_acceptance', jw.id) }
+      return proposeApprovalGate('pcs_acceptance', r, args.comments)
+    },
+  },
+  {
+    name: 'approve_lot',
+    description: 'Approve a dyeing/knitting lot into stock (the Lot Approval queue over dye/knit GRN lots). Required: grnNo (the GRN carrying the lot lines). Optional: comments. Creates the pending lot approval first when the GRN lacks one, then approves it.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      grnNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true, lines: true, department: true } })
+      if (!grn) return { text: `GRN ${args.grnNo} not found` }
+      const r = { entityId: grn.id, title: grn.grnNo, detail: `lot approval ${grn.grnNo} · ${grn.department?.name ?? 'dept'} · ${grn.lines.length} line(s) · ${grn.totalQty} units`, href: approvalRefHref('lot', grn.id) }
+      return proposeApprovalGate('lot', r, args.comments)
+    },
+  },
   {
     name: 'adjust_stock',
     description: 'Adjust stock (Add or Less). Required: godownCode, itemType, itemCode, qty (kgs), action (add|less), reason.',
@@ -2301,6 +2377,32 @@ const writeTools: AgentTool[] = [
     'costing',
     COST_SHEET_SCHEMA,
     planCostSheet,
+  ),
+
+  // ───────────── SPEC-M6 §7-D (Wave D) — process-tail docTools (+3) ─────────────
+  docTool(
+    // §7-D-1 — opening stock (OPN-#### variant over planStockAdjustment)
+    'post_opening',
+    'Post an OPENING STOCK balance when onboarding a godown/item (OPN-#### auto). action is fixed to add and reason to "Opening stock". Required: godownCode, itemType (yarn|fabric|accessory), itemCode, qty (kgs for yarn/fabric, pcs for accessory). Optional: docNo, adjDate.',
+    'inventory',
+    OPENING_STOCK_SCHEMA,
+    planOpeningStock,
+  ),
+  docTool(
+    // §7-D-1 — ready to cut (the virtual Cutting dept pool)
+    'ready_to_cut',
+    'Move program stock into the ready-to-cut (virtual Cutting dept) pool — RTC-#### auto. Posts ready_to_cut_out (store pool −) + ready_to_cut_in (D3-keyed cutting pool +) sharing one number; total godown stock unchanged. Required: itemCode, qty (kgs). Optional: itemType (fabric default | yarn), fromGodownCode (G1 default), orderNo (program flag), docNo, transferDate, notes.',
+    'cutting',
+    READY_TO_CUT_SCHEMA,
+    planReadyToCut,
+  ),
+  docTool(
+    // §7-D-1 — the generalized material DC (BOTH doors: MDC- single / PDC- multi)
+    'create_dc',
+    'Raise a material Delivery Challan to ANY party (process/jobwork). dcNo auto: MDC-#### single material / PDC-#### when lines[] present. Posts process_delivery OUT per line (material leaves the godown). Single-material door: itemType + itemCode + qty (+rate). Multi-component door: lines (array of {itemType (yarn|fabric|accessory), itemCode, qty, rate}). Optional: partyCode, processType (default general), godownCode (G1 default), dcDate, vehicleNo, notes.',
+    'dispatch',
+    MATERIAL_DC_SCHEMA,
+    planMaterialDc,
   ),
 
   // ───────────── UPDATE / CANCEL TOOLS ─────────────

@@ -62,3 +62,30 @@ export async function planStockAdjustment(args: StockAdjInput): Promise<DocPlanR
     },
   }
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — opening-stock variant (§4 rule-2 wrapper) ─────────
+
+import type { OpeningStockInput } from '../schemas/stock-adj'
+
+/** OPN-#### from StockLedger docNos (docNo is NOT unique — count, don't resolveDocNo). */
+async function nextOpeningNo(): Promise<string> {
+  const all = await db.stockLedger.findMany({ where: { docNo: { startsWith: 'OPN-' } }, select: { docNo: true } })
+  const used = new Set(all.map((r) => r.docNo))
+  let n = 1
+  while (used.has(`OPN-${String(n).padStart(4, '0')}`)) n++
+  return `OPN-${String(n).padStart(4, '0')}`
+}
+
+/** frmOpeningStock — Opening Stock (/inventory/opening-stock). The §4 recipe
+ *  verbatim: wrap the EXISTING planStockAdjustment injecting the frozen
+ *  defaults (action='add', reason='Opening stock') + the OPN-#### docNo space;
+ *  the base service (and its post_stock_adjustment tool) stays byte-identical. */
+export async function planOpeningStock(args: OpeningStockInput): Promise<DocPlanResult> {
+  const docNo = args.docNo?.trim() || (await nextOpeningNo())
+  return planStockAdjustment({
+    ...args,
+    docNo,
+    action: 'add',
+    reason: 'Opening stock',
+  } as Parameters<typeof planStockAdjustment>[0])
+}

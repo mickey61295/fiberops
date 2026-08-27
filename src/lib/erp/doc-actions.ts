@@ -94,6 +94,17 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   'contract-allotment': ['/jobwork/contract', '/jobwork/order', '/jobwork'],
   'program-allotment': ['/programs/allotment', '/programs', '/production'],
   'production-bill': ['/accounts/production-bills', '/hr/wages', '/accounts'],
+  // M6 Wave D (SPEC-M6 §7-D — process tail)
+  'multi-process-grn': ['/procurement/grn/multi-process', '/procurement/grn', '/procurement'],
+  'dc-return': ['/dispatch/dc-return', '/dispatch', '/procurement/grn'],
+  'dc-entry': ['/dispatch/dc', '/dispatch'],
+  'process-dc': ['/dispatch/dc/process', '/dispatch'],
+  'pcs-transfer': ['/pieces/transfer', '/pieces', '/inventory'],
+  'ready-to-cut': ['/cutting/ready-to-cut', '/cutting', '/inventory'],
+  'opening-stock': ['/inventory/opening-stock', '/inventory'],
+  'cutting-issue': ['/cutting/issue', '/cutting', '/production/issue'],
+  'cutting-production': ['/cutting/production', '/cutting', '/production/entry'],
+  'line-output': ['/production/line-output', '/production/entry', '/production'],
 }
 
 async function runPlan(slug: string, payload: DocFormPayload): Promise<

@@ -21,6 +21,7 @@ import {
   parityStats,
   type MenuItem,
 } from '../../src/lib/erp/menu-registry'
+import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
@@ -69,17 +70,17 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     }
   })
 
-  it('isLive: dashboard + grn-entry true (Wave C), pcs-receipt still coming', () => {
+  it('isLive: dashboard + grn-entry + pcs-receipt all true (M6 Wave D — 113/113)', () => {
     expect(isLive(findItemById('dashboard') as MenuItem)).toBe(true)
     expect(isLive(findItemById('grn-entry') as MenuItem)).toBe(true)
-    expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
+    expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(true)
   })
 
-  it('parityStats: 95 live items of 113 after M6 Wave C (registers & lifecycle — 84%)', () => {
+  it('parityStats: 113/113 live after M6 Wave D (process tail — M6 COMPLETE)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(95)
-    expect(s.comingItems).toBe(18)
+    expect(s.liveItems).toBe(113)
+    expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -152,6 +153,44 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     // the two new registers carry CSV routes
     expect(fs.existsSync(path.join(ERP_DIR, 'programs/status/csv/route.ts'))).toBe(true)
     expect(fs.existsSync(path.join(ERP_DIR, 'inventory/stock/csv/route.ts'))).toBe(true)
+  })
+
+  it('Wave D (M6): the 18 process-tail items are live with page files + tool doors (SPEC-M6 §2 rows 19-36 — 113/113 M6 COMPLETE)', () => {
+    const waveD: { route: string; id: string; tool: string }[] = [
+      { route: '/procurement/grn/multi-process', id: 'multi-process-grn', tool: 'receive_grn' },
+      { route: '/procurement/grn/acceptance', id: 'grn-acceptance', tool: 'accept_grn' },
+      { route: '/inventory/opening-stock', id: 'opening-stock', tool: 'post_opening' },
+      { route: '/cutting/issue', id: 'cutting-issue', tool: 'create_line_issue' },
+      { route: '/cutting/ready-to-cut', id: 'ready-to-cut', tool: 'ready_to_cut' },
+      { route: '/cutting/production', id: 'cutting-production', tool: 'post_production_entry' },
+      { route: '/cutting/ack', id: 'cutting-ack', tool: 'acknowledge_cutting_issue' },
+      { route: '/pieces/receipt', id: 'pcs-receipt', tool: 'receive_jobwork' },
+      { route: '/pieces/gan', id: 'pcs-grn-acceptance', tool: 'accept_jobwork_pcs' },
+      { route: '/pieces/transfer', id: 'pcs-transfer', tool: 'transfer_stock' },
+      { route: '/production/line-output', id: 'line-output', tool: 'post_production_entry' },
+      { route: '/dispatch/dc', id: 'dc-entry', tool: 'create_dc' },
+      { route: '/dispatch/dc/process', id: 'process-dc', tool: 'create_dc' },
+      { route: '/dispatch/dc-return', id: 'dc-return', tool: 'receive_grn' },
+      { route: '/quality/lot-approval', id: 'lot-approval', tool: 'approve_lot' },
+      { route: '/accounts/hsn-gst', id: 'hsn-gst-setup', tool: 'create_hsn' },
+      { route: '/hr/employees', id: 'employees', tool: 'create_employee' },
+      { route: '/quality/parameters', id: 'test-parameters', tool: 'create_test_parameter' },
+    ]
+    expect(waveD.length).toBe(18)
+    for (const { route, id, tool } of waveD) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      const item = findItemById(id) as MenuItem
+      expect(item, id).toBeTruthy()
+      expect(isLive(item), id).toBe(true)
+      expect(item.agentTools, `${id} tool door`).toContain(tool)
+      expect(item.pendingTools, `${id} pendingTools`).toEqual([])
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // ZERO non-live items remain — the parity mission is complete
+    const nonLive = MENU_ITEMS.filter((i) => !LIVE_ROUTES.has(i.route))
+    expect(nonLive).toEqual([])
+    // the four IN screens feed the 8-kind approval inbox (SPEC-M6 §6)
+    expect(APPROVAL_KINDS.length).toBe(8)
   })
 
   it('Wave C (M5): the 4 approval-gate IN screens are live with kind-filtered inbox views (SPEC-M5 §6)', () => {

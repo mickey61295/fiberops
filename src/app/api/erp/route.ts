@@ -187,6 +187,19 @@ export async function GET(req: Request) {
             })
           } else if (a.entity === 'non_return_dc') {
             entityData = await db.pcsDespatch.findUnique({ where: { id: a.entityId } })
+          } else if (a.entity === 'grn_acceptance' || a.entity === 'lot') {
+            // SPEC-M6 §6 (Wave D) — GRN-shaped kinds (entityId = the GRN id)
+            entityData = await db.gRN.findUnique({
+              where: { id: a.entityId }, include: { party: true, lines: true, department: true },
+            })
+          } else if (a.entity === 'cutting_ack') {
+            entityData = await db.lineIssue.findUnique({
+              where: { id: a.entityId }, include: { line: true, order: true },
+            })
+          } else if (a.entity === 'pcs_acceptance') {
+            entityData = await db.jobworkOrder.findUnique({
+              where: { id: a.entityId }, include: { jobworker: true },
+            })
           }
           return { ...a, entityData, refHref: approvalRefHref(a.entity, a.entityId) }
         }))

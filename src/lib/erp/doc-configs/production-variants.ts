@@ -199,3 +199,40 @@ export const panelExcessConfig: DocConfig = {
   recentCount: 20,
   agentTools: ['post_production_entry'],
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — line-output (manual tally) ─────────
+import { LINE_OUTPUT_SCHEMA } from '../schemas/production-variants'
+import { planLineOutput } from '../posting/production'
+
+export const lineOutputConfig: DocConfig = {
+  docType: 'line-output',
+  slug: 'line-output',
+  title: 'Line Output (manual tally)',
+  schema: LINE_OUTPUT_SCHEMA,
+  service: { plan: (input: any) => planLineOutput(input) },
+  headerFields: [
+    { name: 'orderNo', label: 'Order No', type: 'text', required: true, colSpan: 1 },
+    { name: 'lineId', label: 'Line (tally sheet)', type: 'picker', picker: 'line', pickerValueField: 'id', required: true, colSpan: 1 },
+    { name: 'deptCode', label: 'Department (D4 default)', type: 'picker', picker: 'department', colSpan: 1 },
+    { name: 'prodDate', label: 'Prod Date', type: 'date', required: true, colSpan: 1 },
+    { name: 'bundleNo', label: 'Bundle / Tally Ref', type: 'text', required: true, colSpan: 1 },
+    { name: 'operatorCode', label: 'Operator', type: 'picker', picker: 'employee', required: true, colSpan: 1 },
+    { name: 'qty', label: 'Qty (pcs)', type: 'number', required: true, colSpan: 1 },
+    { name: 'rate', label: 'Rate (₹/pc)', type: 'number', required: true, colSpan: 1 },
+    { name: 'styleNo', label: 'Style', type: 'picker', picker: 'style', colSpan: 1 },
+    { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
+    { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
+  ],
+  listColumns: [
+    { name: 'orderNo', label: 'Order' },
+    { name: 'lineName', label: 'Line' },
+    { name: 'deptName', label: 'Dept' },
+    { name: 'prodDate', label: 'Date' },
+    { name: 'bundleNo', label: 'Tally Ref' },
+    { name: 'operatorName', label: 'Operator' },
+    { name: 'qty', label: 'Qty', align: 'right' },
+    { name: 'amount', label: 'Amount (₹)', align: 'right' },
+  ],
+  recentCount: 20,
+  agentTools: ['post_production_entry'],
+}

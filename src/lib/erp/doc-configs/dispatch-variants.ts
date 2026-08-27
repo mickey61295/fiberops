@@ -83,3 +83,82 @@ export const loadingConfig: DocConfig = {
   recentCount: 20,
   agentTools: ['create_loading_challan'],
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — the material-DC variants (MDC / PDC) ─────────
+import { DC_ENTRY_SCHEMA, PROCESS_DC_SCHEMA } from '../schemas/dispatch-variants'
+import { planMaterialDc } from '../posting/jobwork'
+
+const dcLineFields = [
+  { name: 'itemType', label: 'Type', type: 'select' as const, options: [
+    { value: 'yarn', label: 'Yarn' }, { value: 'fabric', label: 'Fabric' }, { value: 'accessory', label: 'Accessory' },
+  ] },
+  { name: 'itemCode', label: 'Item', type: 'picker' as const, pickerFrom: 'itemType' },
+  { name: 'qty', label: 'Qty', type: 'number' as const, required: true },
+  { name: 'rate', label: 'Rate (₹)', type: 'number' as const },
+]
+
+export const dcEntryConfig: DocConfig = {
+  docType: 'dc-entry',
+  slug: 'dc-entry',
+  title: 'Material DC (Fabric / Yarn / Acc / Gen)',
+  numberPrefix: 'MDC-',
+  numberField: 'dcNo',
+  schema: DC_ENTRY_SCHEMA,
+  service: { plan: (input: any) => planMaterialDc(input) },
+  headerFields: [
+    { name: 'dcNo', label: 'DC No', type: 'text', colSpan: 1 },
+    { name: 'partyCode', label: 'Party (any)', type: 'picker', picker: 'party', required: true, colSpan: 1 },
+    { name: 'processType', label: 'Process (washing/dyeing/printing…)', type: 'text', colSpan: 1 },
+    { name: 'itemType', label: 'Material', type: 'select', options: [
+      { value: 'fabric', label: 'Fabric' }, { value: 'yarn', label: 'Yarn' }, { value: 'accessory', label: 'Accessory' },
+    ], required: true, colSpan: 1 },
+    { name: 'itemCode', label: 'Item', type: 'picker', pickerFrom: 'itemType', required: true, colSpan: 1 },
+    { name: 'qty', label: 'Qty Out', type: 'number', required: true, colSpan: 1 },
+    { name: 'rate', label: 'Rate (₹)', type: 'number', colSpan: 1 },
+    { name: 'godownCode', label: 'From Godown (G1 default)', type: 'picker', picker: 'godown', colSpan: 1 },
+    { name: 'dcDate', label: 'DC Date', type: 'date', colSpan: 1 },
+    { name: 'vehicleNo', label: 'Vehicle No', type: 'text', colSpan: 1 },
+    { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
+  ],
+  listColumns: [
+    { name: 'dcNo', label: 'DC No' },
+    { name: 'partyName', label: 'Party' },
+    { name: 'processType', label: 'Process' },
+    { name: 'totalQty', label: 'Qty', align: 'right' },
+    { name: 'outDate', label: 'Date' },
+    { name: 'status', label: 'Status' },
+  ],
+  recentCount: 20,
+  agentTools: ['create_dc'],
+}
+
+export const processDcConfig: DocConfig = {
+  docType: 'process-dc',
+  slug: 'process-dc',
+  title: 'Process DC (multi-component)',
+  numberPrefix: 'PDC-',
+  numberField: 'dcNo',
+  schema: PROCESS_DC_SCHEMA,
+  service: { plan: (input: any) => planMaterialDc(input) },
+  headerFields: [
+    { name: 'dcNo', label: 'DC No', type: 'text', colSpan: 1 },
+    { name: 'partyCode', label: 'Party (any)', type: 'picker', picker: 'party', required: true, colSpan: 1 },
+    { name: 'processType', label: 'Process (washing/dyeing/printing…)', type: 'text', required: true, colSpan: 1 },
+    { name: 'godownCode', label: 'From Godown (G1 default)', type: 'picker', picker: 'godown', colSpan: 1 },
+    { name: 'dcDate', label: 'DC Date', type: 'date', colSpan: 1 },
+    { name: 'vehicleNo', label: 'Vehicle No', type: 'text', colSpan: 1 },
+    { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
+  ],
+  lineFields: dcLineFields as any,
+  linesKey: 'lines',
+  listColumns: [
+    { name: 'dcNo', label: 'DC No' },
+    { name: 'partyName', label: 'Party' },
+    { name: 'processType', label: 'Process' },
+    { name: 'totalQty', label: 'Qty', align: 'right' },
+    { name: 'outDate', label: 'Date' },
+    { name: 'status', label: 'Status' },
+  ],
+  recentCount: 20,
+  agentTools: ['create_dc'],
+}

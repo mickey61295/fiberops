@@ -27,6 +27,9 @@ export interface ApprovalKind {
   tool: string
   /** W2 drill: Approval.entityId → underlying doc view href (null = no view). */
   refResolver: (entityId: string) => string | null
+  /** SPEC-M6 §6 (Wave D): true when the row is raised MANUALLY from the
+   *  queue card (no posting-service hook) — the inbox copy switches. */
+  manual?: boolean
 }
 
 export const APPROVAL_KINDS: ApprovalKind[] = [
@@ -62,6 +65,46 @@ export const APPROVAL_KINDS: ApprovalKind[] = [
     route: '/quality/non-return-dc',
     tool: 'approve_non_return_dc',
     refResolver: (dcId) => `/pieces/despatch/${dcId}`,
+  },
+  // ───────── SPEC-M6 §6 (Wave D) — the four MANUAL-queue kinds ─────────
+  // Legacy queues were explicitly human-stepped (unlike Wave C's automatic
+  // hooks): the IN screen's queue card button writes the Approval row.
+  {
+    entity: 'grn_acceptance',
+    label: 'GRN Acceptance',
+    description: 'Accept/reject received goods (purchase & process GRN queue)',
+    route: '/procurement/grn/acceptance',
+    tool: 'accept_grn',
+    refResolver: (grnId) => `/procurement/grn/${grnId}`,
+    manual: true,
+  },
+  {
+    entity: 'cutting_ack',
+    label: 'Cutting Ack',
+    description: 'Acknowledge issued fabric reached the cutting table',
+    route: '/cutting/ack',
+    tool: 'acknowledge_cutting_issue',
+    // No per-issue doc view — drill to the cutting-issue list anchor (§6).
+    refResolver: () => '/cutting/issue',
+    manual: true,
+  },
+  {
+    entity: 'pcs_acceptance',
+    label: 'Pcs GAN',
+    description: 'GAN: goods acceptance note for received pieces (jobwork receipts park pending acceptance — PITFALLS #12)',
+    route: '/pieces/gan',
+    tool: 'accept_jobwork_pcs',
+    refResolver: (jwId) => `/jobwork/order/${jwId}`,
+    manual: true,
+  },
+  {
+    entity: 'lot',
+    label: 'Lot Approval',
+    description: 'Approve dyeing/knitting lots into stock',
+    route: '/quality/lot-approval',
+    tool: 'approve_lot',
+    refResolver: (grnId) => `/procurement/grn/${grnId}`,
+    manual: true,
   },
 ]
 

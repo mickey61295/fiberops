@@ -26,6 +26,10 @@ function cardTitle(a: any): string {
     if (a.entity === 'supplier_bill' || a.entity === 'reprocess') return `${kind.label} · ${a.entityData?.grnNo ?? ''}`
     if (a.entity === 'godown_transfer') return `${kind.label} · ${a.entityId}`
     if (a.entity === 'non_return_dc') return `${kind.label} · ${a.entityData?.dcNo ?? a.entityId}`
+    // SPEC-M6 §6 (Wave D) — the manual-queue kinds
+    if (a.entity === 'grn_acceptance' || a.entity === 'lot') return `${kind.label} · ${a.entityData?.grnNo ?? ''}`
+    if (a.entity === 'cutting_ack') return `${kind.label} · ${a.entityData?.issueNo ?? a.entityId}`
+    if (a.entity === 'pcs_acceptance') return `${kind.label} · ${a.entityData?.dcNo ?? a.entityId}`
   }
   if (a.entity === 'po') return `Purchase Order · ${a.entityData?.poNo ?? ''}`
   return a.entity
@@ -43,6 +47,46 @@ function detailRows(a: any): Array<[string, string]> {
       ['Qty', String(d.totalQty ?? '-')],
       ['Value', fmtINR(d.totalValue || 0)],
       ['Date', d.grnDate ? fmtDate(d.grnDate) : '-'],
+    ]
+  }
+  if (a.entity === 'grn_acceptance') {
+    return [
+      ['GRN', d.grnNo ?? '-'],
+      ['Party', d.party?.name ?? '-'],
+      ['Type', d.grnType ?? '-'],
+      ['Qty', String(d.totalQty ?? '-')],
+      ['Value', fmtINR(d.totalValue || 0)],
+      ['Date', d.grnDate ? fmtDate(d.grnDate) : '-'],
+    ]
+  }
+  if (a.entity === 'lot') {
+    return [
+      ['GRN', d.grnNo ?? '-'],
+      ['Party', d.party?.name ?? '-'],
+      ['Dept', d.dept?.name ?? '-'],
+      ['Lines', String(Array.isArray(d.lines) ? d.lines.length : '-')],
+      ['Qty', String(d.totalQty ?? '-')],
+      ['Date', d.grnDate ? fmtDate(d.grnDate) : '-'],
+    ]
+  }
+  if (a.entity === 'cutting_ack' && !Array.isArray(d)) {
+    return [
+      ['Issue', d.issueNo ?? '-'],
+      ['Order', d.order?.orderNo ?? '-'],
+      ['Line', d.line?.code ?? '-'],
+      ['Qty', String(d.qty ?? '-')],
+      ['Date', d.issueDate ? fmtDate(d.issueDate) : '-'],
+      ['Status', d.status ?? '-'],
+    ]
+  }
+  if (a.entity === 'pcs_acceptance' && !Array.isArray(d)) {
+    return [
+      ['Jobwork DC', d.dcNo ?? '-'],
+      ['Jobworker', d.jobworker?.name ?? '-'],
+      ['Process', d.processType ?? '-'],
+      ['Qty', String(d.totalQty ?? '-')],
+      ['Status', d.status ?? '-'],
+      ['Received', d.receivedDate ? fmtDate(d.receivedDate) : '-'],
     ]
   }
   if (a.entity === 'godown_transfer' && Array.isArray(d)) {
@@ -114,7 +158,9 @@ export function WorkflowView({ kind }: { kind?: string }) {
 
       {activeKind && (
         <p className="text-sm text-slate-500">
-          {activeKind.description} — raised by the posting hooks, approved via the <span className="font-mono text-xs">{activeKind.tool}</span> agent tool.
+          {activeKind.description} — {activeKind.manual
+            ? <>raised manually from the queue, approved via the <span className="font-mono text-xs">{activeKind.tool}</span> agent tool.</>
+            : <>raised by the posting hooks, approved via the <span className="font-mono text-xs">{activeKind.tool}</span> agent tool.</>}
         </p>
       )}
 

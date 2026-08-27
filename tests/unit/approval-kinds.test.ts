@@ -37,8 +37,12 @@ async function agentDoor(toolName: string, args: Record<string, unknown>) {
 }
 
 describe('M5 Wave C — approval kinds registry (SPEC-M5 §12-4)', () => {
-  it('kinds registry: 4 frozen kinds with label/route/tool/refResolver', () => {
-    expect(APPROVAL_KIND_ENTITIES).toEqual(['supplier_bill', 'godown_transfer', 'reprocess', 'non_return_dc'])
+  it('kinds registry: 8 kinds (4 hook-raised + 4 manual-queue Wave D) with label/route/tool/refResolver', () => {
+    expect(APPROVAL_KIND_ENTITIES).toEqual([
+      'supplier_bill', 'godown_transfer', 'reprocess', 'non_return_dc',
+      // SPEC-M6 §6 (Wave D) — the manual-queue kinds
+      'grn_acceptance', 'cutting_ack', 'pcs_acceptance', 'lot',
+    ])
     const bill = findApprovalKind('supplier_bill')!
     expect(bill.label).toBe('Bill Pass')
     expect(bill.route).toBe('/accounts/bill-pass')
@@ -47,13 +51,26 @@ describe('M5 Wave C — approval kinds registry (SPEC-M5 §12-4)', () => {
     expect(findApprovalKind('reprocess')!.refResolver('g')).toBe('/procurement/grn/g')
     expect(findApprovalKind('non_return_dc')!.refResolver('dc')).toBe('/pieces/despatch/dc')
     expect(findApprovalKind('godown_transfer')!.refResolver('GT-0001')).toBe('/inventory/io-history')
+    // Wave D kinds: manual flag + frozen routes/tools/drills (SPEC-M6 §6)
+    const gan = findApprovalKind('pcs_acceptance')!
+    expect(gan.manual).toBe(true)
+    expect(gan.route).toBe('/pieces/gan')
+    expect(gan.tool).toBe('accept_jobwork_pcs')
+    expect(gan.refResolver('jw-1')).toBe('/jobwork/order/jw-1')
+    expect(findApprovalKind('grn_acceptance')!.refResolver('g')).toBe('/procurement/grn/g')
+    expect(findApprovalKind('lot')!.refResolver('g')).toBe('/procurement/grn/g')
+    expect(findApprovalKind('cutting_ack')!.refResolver('li')).toBe('/cutting/issue')
+    // the Wave-C kinds carry NO manual flag (hook-raised)
+    for (const e of ['supplier_bill', 'godown_transfer', 'reprocess', 'non_return_dc']) {
+      expect(findApprovalKind(e)!.manual ?? false).toBe(false)
+    }
     // unknown entities have no kind → null drill (never a crash)
     expect(findApprovalKind('po')).toBeUndefined()
     expect(approvalRefHref('po', 'x')).toBeNull()
   })
 
   it('registry ↔ menu ↔ LIVE_ROUTES wiring: every kind screen is live with its wrapper tool', () => {
-    expect(allTools.length).toBe(181) // 177 M6-B + lifecycle ×4 (M6 Wave C)
+    expect(allTools.length).toBe(188) // 181 M6-C + Wave D ×7 (post_opening, ready_to_cut, create_dc + 4 gates)
     for (const k of APPROVAL_KINDS) {
       expect(LIVE_ROUTES.has(k.route)).toBe(true)
       const item = MENU_ITEMS.find((m) => m.route === k.route)

@@ -144,3 +144,18 @@ export async function planScanBundle(args: ScanBundleInput): Promise<DocPlanResu
     sizeName: size?.name,
   })
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — line-output variant (§4 rule-2 wrapper) ─────────
+
+import type { LineOutputInput } from '../schemas/production-variants'
+
+/** frmLineOutputManual — Line Output (/production/line-output). Manual tally
+ *  entry per line: lineId REQUIRED (variant schema), deptCode relaxed with the
+ *  D4 Sewing default injected — the base planProductionEntry + its tool stay
+ *  byte-identical. */
+export async function planLineOutput(args: LineOutputInput): Promise<DocPlanResult> {
+  return planProductionEntry({
+    ...args,
+    deptCode: args.deptCode?.trim() || 'D4',
+  } as Parameters<typeof planProductionEntry>[0])
+}

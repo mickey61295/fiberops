@@ -407,8 +407,6 @@ deep-link reports (§4). Menu search already covers reports group.
 
 ## 13. ERRATA (living — append as discovered, never rewrite history)
 
-(none yet)
-
 **ERRATUM #1 (Wave B, schema)** — §5 said "5 new models 61→66 incl. User".
 The schema ALREADY had a `User` model (Phase-1 org model: email/name/role —
 AgentTurn.userId is a plain string, not even an FK). ADR-016 therefore
@@ -416,3 +414,35 @@ AMENDS the existing User (adds `userGroupId` + `active` columns additively —
 login ≡ email, the unique field) and adds FOUR new models: UserGroup,
 AppOption, Hsn, TestParameter → **61 → 65 models**. Masters #26-30 unchanged
 (user, user-group, app-option, hsn, test-parameter). Tool count unchanged.
+
+**ERRATUM #2 (Wave D, tool count)** — §8 said tools 159→183 (Wave D +11,
+of which 4 were hsn/test-parameter factories). Wave B already landed those
+4 factories (+ the 5 list tools the master-configs contract requires), so
+Wave D adds only +7: post_opening, ready_to_cut, create_dc (docTools ×3) +
+accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot
+(proposeApprovalGate wrappers ×4). Final count: **181 + 7 = 188** (inline 72
++ factory 60 + docTool 51 — the docTool grep counts only `^  docTool(`
+calls; the 4 gates are inline tools).
+
+**ERRATUM #3 (Wave D, frozen agentTools chips that cannot emit the rows)** —
+§2 rows 19/28/32 name existing tools as the agent doors for the GRN/transfer
+variants: multi-process-grn + dc-return → receive_grn ("EXISTING schema
+already multi-line" — it is NOT: receive_grn is PO-based single-qty), and
+pcs-transfer → transfer_stock ("schema takes itemType" — the service
+REJECTS itemType 'pcs'; pcs buckets key itemId = the ORDER id). The chips
+are kept as frozen, but the FORM door (commitDocAction → the variant
+service) is the real path; doc-parity-m6d asserts form door ≡ service for
+these families. Same lineage for cutting-issue ("create_line_issue,
+deptCode param" — no such param exists; the dept rides line.deptId and the
+planCuttingIssue wrapper validates it === D3).
+
+**ERRATUM #4 (Wave D, ready-to-cut mechanism)** — §2 row 23 said
+"planTransfer to cutting dept": there is NO cutting godown (G1 Main, G2 FG,
+G3 Jobworker Yard), and planTransfer forces godown-transfer semantics.
+The landed implementation is the legacy-faithful pair (PITFALLS #12,
+TrType 20): planReadyToCut posts ready_to_cut_out (null-dept store bucket −,
+via postLedger) + ready_to_cut_in (ledger row carries deptId D3; the bucket
+is D3-KEYED via bumpStock directly — postLedger forces null-dept buckets by
+the ADR-004 rule, and the dept-keyed bucket is the sanctioned planGrm
+precedent). RTC-#### docNo; total godown stock unchanged — the D3 bucket IS
+the virtual cutting dept.

@@ -20,6 +20,7 @@ import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { GrnInput } from '../schemas/grn'
 import type { JobworkPcsReturnInput } from '../schemas/grn-variants'
+import type { MultiProcessGrnInput, DcReturnInput } from '../schemas/grn-variants'
 
 export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
   const po = await db.purchaseOrder.findUnique({
@@ -200,6 +201,147 @@ export async function planJobworkPcsReturn(args: JobworkPcsReturnInput): Promise
           notes: `Jobwork pcs return ${retNo} — ${notes}`,
         })
         return { id: grn.id, grnNo: grn.grnNo }
+      })
+    },
+  }
+}
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — GRN-family variants (§4 rule-2 siblings) ─────────
+
+/** frmPrsGRNMulti — Multi-Process GRN (/procurement/grn/multi-process).
+ *  Returns components across MULTIPLE lines to a processor in ONE MP-#### GRN
+ *  (grnType='process_return'); StockLedger process_delivery OUT per line —
+ *  the jobwork-pcs-return direction (material goes BACK to the processor).
+ *  Views reuse /procurement/grn/[id] (a return IS a GRN row). */
+export async function planMultiProcessGrn(args: MultiProcessGrnInput): Promise<DocPlanResult> {
+  const party = await db.party.findUnique({ where: { code: args.partyCode } })
+  if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
+  const godownCode = args.godownCode?.trim() || 'G1'
+  const godown = await db.godown.findUnique({ where: { code: godownCode } })
+  if (!godown) return { ok: false, error: `Godown ${godownCode} not found` }
+  const lines = args.lines ?? []
+  if (lines.length === 0) return { ok: false, error: 'At least one component line is required' }
+
+  // resolve every item master (relation-less itemId — PITFALLS #21)
+  const ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory' }
+  const UOM: Record<string, string> = { yarn: 'kgs', fabric: 'kgs', accessory: 'pcs' }
+  const resolved: Array<{ itemType: 'yarn' | 'fabric' | 'accessory'; itemId: string; code: string; qty: number; rate: number; uom: string }> = []
+  for (const l of lines) {
+    const model = ITEM_MODELS[l.itemType]
+    const item = model ? await (db as any)[model].findUnique({ where: { code: l.itemCode } }) : null
+    if (!item) return { ok: false, error: `${l.itemType} ${l.itemCode} not found` }
+    resolved.push({ itemType: l.itemType, itemId: item.id, code: l.itemCode, qty: l.qty, rate: l.rate ?? 0, uom: UOM[l.itemType] })
+  }
+
+  const grnNo = await resolveDocNo('gRN', 'grnNo', 'MP-', args.grnNo)
+  const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
+  const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
+  const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)
+  const notes = args.notes?.trim() || `Multi-process return to ${party.name}`
+
+  return {
+    ok: true,
+    text: `Proposed multi-process GRN ${grnNo}: ${resolved.length} component lines, ${totalQty} units back to ${party.name}.`,
+    summary: `Multi-process GRN ${grnNo} | ${party.name} | ${resolved.length} lines | ${totalQty} units | out of ${godown.code} | ₹${totalValue}`,
+    creates: [
+      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: '26-27', partyDcRef: notes, totalQty, totalValue } },
+      ...resolved.map((l) => ({ table: 'grnLine', data: { itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate } })),
+      ...resolved.map((l) => ({
+        table: 'stockLedger',
+        data: { txnType: 'process_delivery', itemType: l.itemType, itemId: l.itemId, godownId: godown.id, docNo: grnNo, docDate: grnDate, outKgs: l.uom === 'kgs' ? l.qty : 0, outPcs: l.uom === 'pcs' ? l.qty : 0, rate: l.rate, partyId: party.id, notes: `MP return ${l.code}` },
+      })),
+    ],
+    sideEffects: [
+      `StockLedger: ${resolved.length} process_delivery rows OUT of ${godown.code} (components back to the processor)`,
+      'Party ledger will reflect the process return',
+    ],
+    async commit() {
+      return await db.$transaction(async (tx) => {
+        const grn = await tx.gRN.create({
+          data: {
+            grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
+            grnDate, finYear: '26-27', partyDcRef: notes, totalQty, totalValue,
+            lines: { create: resolved.map((l) => ({ itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate })) },
+          },
+        })
+        for (const l of resolved) {
+          await postLedger(tx, {
+            txnType: 'process_delivery', itemType: l.itemType, itemId: l.itemId,
+            godownId: godown.id, docNo: grnNo, docDate: grnDate, partyId: party.id,
+            out: l.uom === 'kgs' ? { kgs: l.qty } : { pcs: l.qty },
+            rate: l.rate, notes: `MP return ${l.code} — ${notes}`,
+          })
+        }
+        return { id: grn.id, grnNo: grn.grnNo, lines: resolved.length }
+      })
+    },
+  }
+}
+
+/** FrmFabDel_Return / FrmAccDel_Return — DC Return (/dispatch/dc-return).
+ *  Books material that went out on a DC back INTO stock: one RTN-#### GRN
+ *  (grnType='process_return', partyDcRef = the DC no) with StockLedger
+ *  process_receipt IN per line — the mirror of the DC's process_delivery OUT. */
+export async function planDcReturn(args: DcReturnInput): Promise<DocPlanResult> {
+  const party = await db.party.findUnique({ where: { code: args.partyCode } })
+  if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
+  const godownCode = args.godownCode?.trim() || 'G1'
+  const godown = await db.godown.findUnique({ where: { code: godownCode } })
+  if (!godown) return { ok: false, error: `Godown ${godownCode} not found` }
+  const lines = args.lines ?? []
+  if (lines.length === 0) return { ok: false, error: 'At least one line is required' }
+
+  const ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory' }
+  const UOM: Record<string, string> = { yarn: 'kgs', fabric: 'kgs', accessory: 'pcs' }
+  const resolved: Array<{ itemType: 'yarn' | 'fabric' | 'accessory'; itemId: string; code: string; qty: number; rate: number; uom: string }> = []
+  for (const l of lines) {
+    const model = ITEM_MODELS[l.itemType]
+    const item = model ? await (db as any)[model].findUnique({ where: { code: l.itemCode } }) : null
+    if (!item) return { ok: false, error: `${l.itemType} ${l.itemCode} not found` }
+    resolved.push({ itemType: l.itemType, itemId: item.id, code: l.itemCode, qty: l.qty, rate: l.rate ?? 0, uom: UOM[l.itemType] })
+  }
+
+  const grnNo = await resolveDocNo('gRN', 'grnNo', 'RTN-', args.grnNo)
+  const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
+  const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
+  const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)
+  const dcRef = args.dcNo.trim()
+  const notes = args.notes?.trim() || `Return against DC ${dcRef}`
+
+  return {
+    ok: true,
+    text: `Proposed DC return ${grnNo}: ${totalQty} units back from ${party.name} against ${dcRef}.`,
+    summary: `DC return ${grnNo} | against ${dcRef} | ${party.name} | ${resolved.length} lines | ${totalQty} units | into ${godown.code} | ₹${totalValue}`,
+    creates: [
+      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: '26-27', docNo: dcRef, partyDcRef: notes, totalQty, totalValue } },
+      ...resolved.map((l) => ({ table: 'grnLine', data: { itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate } })),
+      ...resolved.map((l) => ({
+        table: 'stockLedger',
+        data: { txnType: 'process_receipt', itemType: l.itemType, itemId: l.itemId, godownId: godown.id, docNo: grnNo, docDate: grnDate, inKgs: l.uom === 'kgs' ? l.qty : 0, inPcs: l.uom === 'pcs' ? l.qty : 0, rate: l.rate, partyId: party.id, notes: `RTN ${l.code} vs ${dcRef}` },
+      })),
+    ],
+    sideEffects: [
+      `StockLedger: ${resolved.length} process_receipt rows INTO ${godown.code} (material back from the DC)`,
+      'Party ledger will reflect the return',
+    ],
+    async commit() {
+      return await db.$transaction(async (tx) => {
+        const grn = await tx.gRN.create({
+          data: {
+            grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
+            grnDate, finYear: '26-27', docNo: dcRef, partyDcRef: notes, totalQty, totalValue,
+            lines: { create: resolved.map((l) => ({ itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate })) },
+          },
+        })
+        for (const l of resolved) {
+          await postLedger(tx, {
+            txnType: 'process_receipt', itemType: l.itemType, itemId: l.itemId,
+            godownId: godown.id, docNo: grnNo, docDate: grnDate, partyId: party.id,
+            in: l.uom === 'kgs' ? { kgs: l.qty } : { pcs: l.qty },
+            rate: l.rate, notes: `DC return ${l.code} vs ${dcRef} — ${notes}`,
+          })
+        }
+        return { id: grn.id, grnNo: grn.grnNo, dcNo: dcRef, lines: resolved.length }
       })
     },
   }

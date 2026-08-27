@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m6-wave-c — registers & lifecycle: order-enquiry alias + program-status/current-stock registers (get_program_status body extracted; the current-stock report now BINDS to the register — no fork) + line-status WIP board + order-amendments (update_order extracted to planOrderAmend) + order-close/program-cancel/program-complete/po-close lifecycle screens (+4 tools with guards: 95%+invoice, ledger net-zero, balance≤0, receipt-aware) → 181 tools; 95/113 live; 584 vitest green; tag `m6-wave-c`; remote PUSHED) — (prior: m6-wave-b — M6 Wave B: ADR-016 (UserGroup, AppOption, Hsn, TestParameter + User amended — ERRATUM #1, 61→65 models) + masters 25→30 (user, user-group, app-option, hsn, test-parameter + Admin & Compliance category) + /admin/users (two MasterTables) + /admin/menu-rights (rights matrix over UserGroup.rights × MENU_GROUPS via the update_user_group door) + /admin/options (AppOption grouped; print.* keys feed getPrintHeader) + courier-dc & loading despatch variants (mode injection, LAD-#### space) → 177 tools; 86/113 live; 565 vitest green; tags `schema-61-baseline`, `m6-wave-b`; remote PUSHED)
+Last verified: 2026-08-27 (session: m6-wave-d — the process tail, M6 COMPLETE: 18 items live → **113/113** (100%): multi-process-grn (MP-#### multi-line process_return) + dc-entry/process-dc (MDC-/PDC- via ONE create_dc tool — material DCs post process_delivery OUT) + dc-return (RTN-#### process_receipt IN) + opening-stock (OPN-#### over planStockAdjustment) + pcs-transfer (PT-#### — pcs buckets key on the ORDER, sibling service) + ready-to-cut (RTC-#### ready_to_cut_out/-in; virtual dept = D3-KEYED bucket) + cutting-issue (line-issue variant validating line.deptId=D3) + cutting-production + line-output (production variants) + 4 manual-queue approval kinds (grn_acceptance/cutting_ack/pcs_acceptance/lot — WorkflowView + queue cards via sendToAcceptanceAction + 4 gate tools) + hsn-gst & test-parameters MasterTables + pcs-receipt & employees aliases → 188 tools; 598 vitest; route_smoke_m6d 60/60; context_check 310/310; tag `m6-wave-d`; remote PUSHED) — (prior: m6-wave-c — 95/113, 584 vitest)
 
 ## Milestone status
 
@@ -15,40 +15,40 @@ Last verified: 2026-08-27 (session: m6-wave-c — registers & lifecycle: order-e
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
-| M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **192 tools**, 113/113 | IN PROGRESS (A+B+C DONE: Wave C `m6-wave-c` — 9 items live incl. lifecycle guards + 2 new registers + WIP board + 1 alias; 95/113 live (84%), 584 vitest, route_smoke_m6c 31/31; Wave D = last 18) |
+| M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **188 tools**, 113/113 | **COMPLETE** (`m6-wave-d`): Wave D — 10 DS variants (MP/MDC/PDC/RTN/OPN/PT/RTC/cutting-issue/cutting-production/line-output) + 4 manual-queue approval kinds + 2 MasterTables + 2 aliases; 113/113 live (100%), 598 vitest, route_smoke_m6d 60/60, context_check 310/310 |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
 | Git HEAD | M5 Wave D commit (M5 COMPLETE) — tags `m5-wave-d`, `m5-done`, prior `m5-wave-c/b/a`, `spec-m5-frozen`, `schema-54-baseline`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
-| Agent tools | **181** (68 inline + 30 factory create + 30 factory update + 48 docTool delegates — M6-C +4: close_order, cancel_program, complete_program, complete_purchase_order) | `scripts/context_check.sh` |
+| Agent tools | **188** (72 inline + 30 factory create + 30 factory update + 51 docTool delegates — M6-D +7: post_opening, ready_to_cut, create_dc docTools + accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot gates) | `scripts/context_check.sh` |
 | Prisma models | **65** (61 + ADR-016 ×4: UserGroup, AppOption, Hsn, TestParameter; User AMENDED with userGroupId + active — ERRATUM #1) | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
 | Posting services (M3-A/D + M5-A/B/D) | **34 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts + M5-B line-transfer.ts + M5-D sample.ts, gate.ts, packing-list.ts, lab-test.ts, expense.ts, roll-split.ts, contract-allotment.ts, program-allotment.ts, production-bill.ts) | context_check |
 | Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
 | tools.ts size | 2805 → 1693 lines (all 21 SPEC-M3 §5 write ops thin delegates; suggest_next_step gained nextFormUrl) | `wc -l` |
-| Doc configs (M5-D) | **47 configs in 37 files** (M3 19 + M5-A 5 + M5-B 13 + M5-D 10: sample, gate ×2, packing-list, lab-test, expense, roll-split, contract-allotment, program-allotment, production-bill) in `src/lib/erp/doc-configs/` | context_check |
+| Doc configs (M6-D) | **57 configs in 40 files** (M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 2 + M6-D 10: multi-process-grn, dc-return, dc-entry, process-dc, pcs-transfer, ready-to-cut, opening-stock, cutting-issue, cutting-production, line-output) in `src/lib/erp/doc-configs/` | context_check |
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
 | Wiring (M3-B/C/D) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo/?invoice prefill on all 19 New screens · **Wave D: accounts/inventory rows link their views in the Hub + Fill-with-AI button on every DocScreen** | context_check + route smoke |
 | Master configs | **30** (24 M2 + shift M5-D + 5 ADR-016 M6-B: user, user-group, app-option, hsn, test-parameter) | context_check + `tests/unit/master-configs.test.ts` |
-| ERP view/shell components | **23** (22 + M6-A print-button.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
+| ERP view/shell components | **25** (23 + M6-C lifecycle-form.tsx + M6-D approval-queue.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | **4** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx` + M6-A `report-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M6-C) | **127**: M6-B 118 + M6-C ×9 (+2 CSV routes) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Live routes (M6-D) | **145**: M6-C 127 + M6-D ×18 (10 DS + 4 IN + 2 MT + 2 aliases) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
 | `src/lib/erp/report-configs/` + `src/lib/erp/reports/` + `src/components/archetypes/report-screen.tsx` + `src/components/erp/print-button.tsx` | **M6-A: the RH archetype** — 28 pure-data report configs (6 packs; filters/columns reuse register types) + REPORT_SERVICES (15 register bindings via bind() + 13 new aggregates in core-reports.ts/chain-money-reports.ts) + report-csv.ts (makeReportCsvRouteHandler + getPrintHeader — degrades to null until ADR-016 Wave B) + ReportScreen engine (param form + print header/copy banner + CSV + pagination) + PrintButton (Original/Duplicate/Triplicate → ?copy=) |
 | Order Status Board (M4-C) | `/orders/status` — server component over queryOrderStatus (registers/order-status.ts): header KPIs (open orders/pcs/avg stages), per-row 15-dot ChainBar (flags shipped on the row), n/15 chip + next-stage chip, row → Order Hub; NOT a RegisterScreen (§10) | route_smoke_waveE.sh |
 | Wiring (M4-C) | W2: register rows drill into doc views (TXN_DOC_FAMILY + resolveDocRef; every family href test-pinned) · W6: ReconCard on PO view (PO↔GRNs), invoice view (Invoice↔Payments), jobwork view (out↔in), Order Hub despatch section (Despatch↔Invoice) — math in registers/recon.ts, test-asserted · §8.3 KPI deep-links on the dashboard tiles (Open Orders→/orders/register?status=open, Pending POs→/procurement/party-balance, Stock Value→/inventory (ERRATUM: /inventory/stock was never a route), Today Pcs→/production/register?from&to, Pending Approvals→/approvals, Open Invoices→/accounts/bills-register?status=issued) | route_smoke_waveE.sh 19/19 |
 | Register configs/services (M6-C) | **21 configs** in `src/lib/erp/register-configs/` + **21 service files** in `src/lib/erp/registers/` (21 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts + recon.ts; M5-B adds production-wages/wages.ts) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
-| Parity (M6-C) | **95/113 items live (84.1%)** · **17/17 groups** (+order-enquiry, program-status, stock-view, line-status, order-amendments, order-close, program-cancel, program-complete, po-cancel-complete; remaining 18 = Wave D) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Parity (M6-D — MISSION COMPLETE) | **113/113 items live (100%)** · **17/17 groups** (+multi-process-grn, grn-acceptance, opening-stock, cutting-issue, ready-to-cut, cutting-production, cutting-ack, pcs-receipt, pcs-grn-acceptance, pcs-transfer, line-output, dc-entry, process-dc, dc-return, lot-approval, hsn-gst-setup, employees, test-parameters) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
 | Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **584 passing** (565 M6-B + M6-C: doc-parity-m6c 4 (close guards + force + both doors, cancel/complete program guards, PO lifecycle receipt-aware, update_order delegation) + register-configs 21-config loop + menu-registry Wave C block + report-configs current-stock binding move) (549 M6-A + M6-B: doc-parity-m6b 4 (courier × both doors + courierName guard + LAD space/status/ledger + rights round trip via update_user_group) + master-parity 30-config loop (+15) + menu-registry Wave B block + master-configs 30 pin) | `npx vitest run` |
+| **Total vitest** | **598 passing** (584 M6-C + M6-D: doc-parity-m6d 13 (OPN both doors + guard, PT pair net-zero + buckets, RTC store−/D3+ with total unchanged, MP lines + ledger, MDC/PDC one-tool two-spaces + bare reject, RTN process_receipt IN, cutting dept guard + form door, cutting-production/line-output incl. lineId-required, 4 gates find-or-create + idempotent + queue action) + menu-registry Wave D block + approval-kinds 8-kinds + pins 181→188) (M6-C: doc-parity-m6c 4 + register-configs 21-config loop + menu-registry Wave C block + report-configs current-stock binding move) (549 M6-A + M6-B: doc-parity-m6b 4 (courier × both doors + courierName guard + LAD space/status/ledger + rights round trip via update_user_group) + master-parity 30-config loop (+15) + menu-registry Wave B block + master-configs 30 pin) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -212,8 +212,12 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    program-complete / po-cancel-complete (+4 tools: close_order,
    cancel_program, complete_program, complete_purchase_order) → 181 tools;
    parity 86→95.
-4. Then Wave D (process tail, 18 items) → 113/113 M6 COMPLETE. Update this
-   file every wave (same commit); push after the commit.
+4. **M6 Wave D DONE — 113/113 M6 COMPLETE** (tag `m6-wave-d`): the 18-item
+   process tail (10 DS variants + 4 manual-queue approval kinds + 2
+   MasterTables + 2 aliases). 188 tools, 598 vitest, route_smoke_m6d 60/60,
+   context_check 310/310. THE PARITY MISSION IS COMPLETE — every one of the
+   113 legacy menu items renders. M7+ candidates: auth/login (SPEC-M6 §3-1),
+   rights-based route guarding (§3-2), Tally export (§3-3).
 
 ## M5 Wave D notes for future sessions
 
@@ -642,3 +646,60 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   `{ header: {string values}, lines: [{string cells}] }` — a flat object
   with arrays breaks coerceCell (raw.trim is not a function). The m6b
   parity test uses the correct shape.
+
+## M6 Wave C notes for future sessions
+
+- **Lifecycle guards live in the SERVICE** (posting/lifecycle.ts): close_order
+  (≥95% despatched + invoiced), cancel_program (ledger net-zero), complete
+  program (balance ≤ 0), planPoLifecycle (receipt-aware; cancel DELEGATES to
+  planCancelPo — one cancel service). Both doors enforce identically.
+- **update_order was extracted to planOrderAmend** (posting/order-amend.ts):
+  the /orders/amendments DocScreen and the update_order tool share it; the
+  tool's json contract is frozen by test.
+- **Aliases are 3-line re-exports** only when the target page is
+  searchParams-driven (/orders/enquiry ← order-register). Param-driven pages
+  (/masters/[entity]) need a thin pinned-entity page instead (/hr/employees).
+- **The report current-stock aggregate was DELETED and rebound via bind()**
+  when the stock-view register landed — never fork a read path.
+
+## M6 Wave D notes for future sessions
+
+- **THE PARITY MISSION IS COMPLETE: 113/113, 17/17 groups.** Every legacy
+  menu item renders; `parityStats().comingItems === 0`.
+- **Wave D ERRATA (SPEC-M6 §13 #2-#4)**: (a) tool count 188, not 183 (Wave B
+  pulled the hsn/test-param factories + 5 list tools forward); (b) the frozen
+  agentTools chips for multi-process-grn/dc-return name receive_grn and for
+  pcs-transfer name transfer_stock — those tools CANNOT emit the variant rows
+  (receive_grn is PO-based single-line; transfer_stock rejects itemType
+  'pcs'); the FORM door (commitDocAction) is the variant path and doc-parity
+  asserts form ≡ service; (c) create_line_issue has no deptCode param — the
+  cutting-issue wrapper validates line.deptId === D3 instead.
+- **The virtual cutting dept is a DEPT-KEYED CurrentStock bucket** (the
+  planGrn precedent), NOT a new godown: planReadyToCut posts
+  ready_to_cut_out via postLedger (null-dept bucket −) + ready_to_cut_in
+  with a DIRECT stockLedger.create + bumpStock(deptId=D3) (postLedger forces
+  null-dept buckets by the ADR-004 rule — the sanctioned exception). Total
+  godown stock unchanged; the D3 row IS the cutting pool.
+- **The 4 Wave D approval kinds are MANUAL-QUEUE** (`manual: true` on
+  ApprovalKind): no posting hook raises them. The IN screens pair the
+  kind-filtered WorkflowView with ApprovalQueue cards calling
+  sendToAcceptanceAction (src/lib/erp/approval-queue.ts, 'use server',
+  idempotent, revalidatePath guarded for vitest). The accept doors are the 4
+  proposeApprovalGate wrappers (find-or-create + approve, idempotent) — the
+  queue button and the tool interleave safely.
+- **ONE create_dc tool serves BOTH DC doors**: MATERIAL_DC_SCHEMA (the tool)
+  accepts single-material keys OR lines[]; the per-SCREEN schemas are
+  DC_ENTRY_SCHEMA (omit lines) / PROCESS_DC_SCHEMA (lines required) because
+  the doc-configs schema-mirror test requires config fields ≡ schema keys.
+  MDC-#### when single, PDC-#### when lines present — never the despatch
+  DC- space.
+- **MP/RTN GRNs and MDC/PDC DCs post REAL ledger rows**: process_delivery
+  OUT per line (material to a processor — the jobwork-pcs-return direction)
+  for MP + DCs; process_receipt IN per line for RTN (material back). GRN.docNo
+  carries the returned-against DC ref; partyDcRef carries the note.
+- **pcs-transfer keys itemId = the ORDER id** (pcs buckets have no item
+  master) — planPcsTransfer is a transfer.ts sibling, not a planTransfer
+  call.
+- **Tool-count pins live in**: register-configs.test.ts + approval-kinds.test
+  (both 188 now). The docTool grep counts only `^  docTool(` calls — the 4
+  approval gates are inline tools (51 docTools + they bring inline 72).

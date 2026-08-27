@@ -34,3 +34,80 @@ export const jobworkPcsReturnConfig: DocConfig = {
   recentCount: 20,
   agentTools: ['return_jobwork_pcs'],
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — the two GRN-family variants ─────────
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { MULTI_PROCESS_GRN_SCHEMA, DC_RETURN_SCHEMA } from '../schemas/grn-variants'
+import { planMultiProcessGrn, planDcReturn } from '../posting/grn'
+
+const variantLineFields = [
+  { name: 'itemType', label: 'Type', type: 'select' as const, options: [
+    { value: 'yarn', label: 'Yarn' }, { value: 'fabric', label: 'Fabric' }, { value: 'accessory', label: 'Accessory' },
+  ] },
+  { name: 'itemCode', label: 'Item', type: 'picker' as const, pickerFrom: 'itemType' },
+  { name: 'qty', label: 'Qty', type: 'number' as const, required: true },
+  { name: 'rate', label: 'Rate (₹)', type: 'number' as const },
+]
+
+export const multiProcessGrnConfig: DocConfig = {
+  docType: 'multi-process-grn',
+  slug: 'multi-process-grn',
+  title: 'Multi-Process GRN',
+  numberPrefix: 'MP-',
+  numberField: 'grnNo',
+  schema: MULTI_PROCESS_GRN_SCHEMA,
+  service: { plan: (input: unknown) => planMultiProcessGrn(input as Parameters<typeof planMultiProcessGrn>[0]) },
+  headerFields: [
+    { name: 'grnNo', label: 'GRN No', type: 'text', colSpan: 1 },
+    { name: 'partyCode', label: 'Processor (party)', type: 'picker', picker: 'party', required: true, colSpan: 1 },
+    { name: 'godownCode', label: 'From Godown (G1 default)', type: 'picker', picker: 'godown', colSpan: 1 },
+    { name: 'grnDate', label: 'GRN Date', type: 'date', colSpan: 1 },
+    { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
+  ],
+  lineFields: variantLineFields as any,
+  linesKey: 'lines',
+  listColumns: [
+    { name: 'grnNo', label: 'GRN No' },
+    { name: 'partyName', label: 'Processor' },
+    { name: 'totalQty', label: 'Qty', align: 'right' },
+    { name: 'totalValue', label: 'Value (₹)', align: 'right' },
+    { name: 'grnType', label: 'Type' },
+    { name: 'grnDate', label: 'Date' },
+  ],
+  recentCount: 20,
+  // Frozen mechanism row 19: the agent door named on the screen is
+  // receive_grn (ERRATUM: it cannot emit MP- rows — PO-based single-line; the
+  // form door below is the MP path).
+  agentTools: ['receive_grn'],
+}
+
+export const dcReturnConfig: DocConfig = {
+  docType: 'dc-return',
+  slug: 'dc-return',
+  title: 'DC Return',
+  numberPrefix: 'RTN-',
+  numberField: 'grnNo',
+  schema: DC_RETURN_SCHEMA,
+  service: { plan: (input: unknown) => planDcReturn(input as Parameters<typeof planDcReturn>[0]) },
+  headerFields: [
+    { name: 'grnNo', label: 'Return No', type: 'text', colSpan: 1 },
+    { name: 'partyCode', label: 'Party (returns from)', type: 'picker', picker: 'party', required: true, colSpan: 1 },
+    { name: 'dcNo', label: 'Against DC No', type: 'text', required: true, colSpan: 1 },
+    { name: 'godownCode', label: 'Into Godown (G1 default)', type: 'picker', picker: 'godown', colSpan: 1 },
+    { name: 'grnDate', label: 'Return Date', type: 'date', colSpan: 1 },
+    { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
+  ],
+  lineFields: variantLineFields as any,
+  linesKey: 'lines',
+  listColumns: [
+    { name: 'grnNo', label: 'Return No' },
+    { name: 'docNo', label: 'Against DC' },
+    { name: 'partyName', label: 'Party' },
+    { name: 'totalQty', label: 'Qty', align: 'right' },
+    { name: 'grnDate', label: 'Date' },
+  ],
+  recentCount: 20,
+  // Frozen mechanism row 32: agent door named = receive_grn (ERRATUM: the RTN
+  // path is the form door below; receive_grn cannot reference a DC).
+  agentTools: ['receive_grn'],
+}

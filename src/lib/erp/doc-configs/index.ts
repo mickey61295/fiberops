@@ -52,6 +52,13 @@ import { rollSplitConfig } from './roll-split'
 import { contractAllotmentConfig } from './contract-allotment'
 import { programAllotmentConfig } from './program-allotment'
 import { productionBillConfig } from './production-bill'
+// M6 Wave D (SPEC-M6 §7-D — process tail variants + approval-kind IN screens)
+import { multiProcessGrnConfig, dcReturnConfig } from './grn-variants'
+import { dcEntryConfig, processDcConfig } from './dispatch-variants'
+import { pcsTransferConfig, readyToCutConfig } from './transfer-variants'
+import { openingStockConfig } from './inventory-variants'
+import { cuttingIssueConfig, cuttingProductionConfig } from './cut-variants'
+import { lineOutputConfig } from './production-variants'
 
 export {
   orderConfig,
@@ -105,6 +112,17 @@ export {
   contractAllotmentConfig,
   programAllotmentConfig,
   productionBillConfig,
+  // M6 Wave D (SPEC-M6 §7-D)
+  multiProcessGrnConfig,
+  dcReturnConfig,
+  dcEntryConfig,
+  processDcConfig,
+  pcsTransferConfig,
+  readyToCutConfig,
+  openingStockConfig,
+  cuttingIssueConfig,
+  cuttingProductionConfig,
+  lineOutputConfig,
 }
 
 export const DOC_CONFIGS: DocConfig[] = [
@@ -159,6 +177,17 @@ export const DOC_CONFIGS: DocConfig[] = [
   contractAllotmentConfig,
   programAllotmentConfig,
   productionBillConfig,
+  // M6 Wave D (SPEC-M6 §7-D)
+  multiProcessGrnConfig,
+  dcReturnConfig,
+  dcEntryConfig,
+  processDcConfig,
+  pcsTransferConfig,
+  readyToCutConfig,
+  openingStockConfig,
+  cuttingIssueConfig,
+  cuttingProductionConfig,
+  lineOutputConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {

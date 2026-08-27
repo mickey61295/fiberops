@@ -51,3 +51,27 @@ export async function planLineIssue(args: LineIssueInput): Promise<DocPlanResult
     },
   }
 }
+
+// ───────── SPEC-M6 §7-D-1 (Wave D) — cutting-issue variant (§4 rule-2 wrapper) ─────────
+
+import { STAGE_DEPT } from '../legacy-enums'
+
+/** frmCuttingIssue — Cutting Issue (/cutting/issue). Issue fabric rolls to the
+ *  cutting table: a LineIssue whose LINE belongs to the Cutting department
+ *  (dept fixed to Cutting — the wrapper VALIDATES line.deptId; the base
+ *  planLineIssue + create_line_issue stay byte-identical. ERRATUM: the frozen
+ *  mechanism said "create_line_issue, deptCode param" — no such param exists;
+ *  the dept rides line.deptId and this door enforces it). */
+export async function planCuttingIssue(args: LineIssueInput): Promise<DocPlanResult> {
+  const line = await db.line.findUnique({ where: { code: args.lineCode } })
+  if (!line) return { ok: false, error: `Line ${args.lineCode} not found (create it with create_line)` }
+  const cutDept = await db.department.findUnique({ where: { code: STAGE_DEPT.cutting } })
+  if (!cutDept) return { ok: false, error: `Cutting department ${STAGE_DEPT.cutting} not found` }
+  if (line.deptId !== cutDept.id) {
+    return { ok: false, error: `Line ${args.lineCode} does not belong to the Cutting department (${STAGE_DEPT.cutting}) — use /production/issue for sewing lines` }
+  }
+  return planLineIssue({
+    ...args,
+    notes: args.notes ? `Cutting issue (rolls): ${args.notes}` : 'Cutting issue (rolls)',
+  })
+}

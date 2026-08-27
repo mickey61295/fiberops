@@ -174,6 +174,25 @@ export const LIVE_ROUTES = new Set<string>([
   '/programs/cancel', // Program Cancel (M6 Wave C) — program-cancel (planCancelProgram)
   '/programs/complete', // Program Complete (M6 Wave C) — program-complete (planCompleteProgram)
   '/procurement/po/close', // PO Cancel/Complete (M6 Wave C) — po-cancel-complete (planPoLifecycle)
+  // M6 Wave D (SPEC-M6 §7-D — process tail: 18 items → 113/113)
+  '/procurement/grn/multi-process', // Multi-Process GRN (M6 Wave D) — multi-process-grn (MP-#### variant)
+  '/procurement/grn/acceptance', // GRN Acceptance (M6 Wave D) — grn-acceptance (kind grn_acceptance)
+  '/inventory/opening-stock', // Opening Stock (M6 Wave D) — opening-stock (OPN-#### variant)
+  '/cutting/issue', // Cutting Issue (M6 Wave D) — cutting-issue (line-issue variant, dept D3)
+  '/cutting/ready-to-cut', // Ready to Cut (M6 Wave D) — ready-to-cut (RTC-#### virtual cutting pool)
+  '/cutting/production', // Cutting Production (M6 Wave D) — cutting-production (D3 variant)
+  '/cutting/ack', // Cutting Ack (M6 Wave D) — cutting-ack (kind cutting_ack)
+  '/pieces/receipt', // Pcs Receipt (M6 Wave D) — pcs-receipt (ALIAS of /jobwork/receipt)
+  '/pieces/gan', // Pcs GAN (M6 Wave D) — pcs-grn-acceptance (kind pcs_acceptance)
+  '/pieces/transfer', // Pcs Transfer (M6 Wave D) — pcs-transfer (PT-#### variant)
+  '/production/line-output', // Line Output (M6 Wave D) — line-output (manual tally variant)
+  '/dispatch/dc', // Material DC (M6 Wave D) — dc-entry (MDC-#### variant)
+  '/dispatch/dc/process', // Process DC (M6 Wave D) — process-dc (PDC-#### variant)
+  '/dispatch/dc-return', // DC Return (M6 Wave D) — dc-return (RTN-#### variant)
+  '/quality/lot-approval', // Lot Approval (M6 Wave D) — lot-approval (kind lot)
+  '/accounts/hsn-gst', // HSN / GST Setup (M6 Wave D) — hsn-gst-setup (Hsn MasterTable)
+  '/hr/employees', // Employees & Contractors (M6 Wave D) — employees (ALIAS of /masters/employee)
+  '/quality/parameters', // Test Parameters (M6 Wave D) — test-parameters (TestParameter MasterTable)
 ])
 
 // ---------------------------------------------------------------------------
@@ -382,13 +401,14 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'multi-process-grn', label: 'Multi-Process GRN', groupId: 'procurement', route: '/procurement/grn/multi-process', arch: 'DS', phase: 'M3',
     description: 'GRN for process returns across components.',
     legacyForms: ['frmGRN_MultiProcess', 'frmPrsGRNMulti', 'frmPrsGRNMulti_Compwise'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['receive_grn'], pendingTools: [],
+    notes: 'M6-D: MP-#### variant (planMultiProcessGrn). Frozen mechanism names receive_grn as the agent door — ERRATUM: it cannot emit MP- rows (PO-based single-line); the form door is the MP path.',
   },
   {
     id: 'grn-acceptance', label: 'GRN Acceptance', groupId: 'procurement', route: '/procurement/grn/acceptance', arch: 'IN', phase: 'M3',
     description: 'Accept/reject received goods (purchase & process GRN queue).',
     legacyForms: ['FrmPurGrnAccept', 'FrmProGrnAccept'],
-    agentTools: ['approve_pending'], pendingTools: [],
+    agentTools: ['accept_grn'], pendingTools: [],
     agentPrompt: 'Show me pending approvals',
   },
   {
@@ -438,7 +458,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'opening-stock', label: 'Opening Stock', groupId: 'inventory', route: '/inventory/opening-stock', arch: 'DS', phase: 'M2',
     description: 'Set opening balances when onboarding a godown/item.',
     legacyForms: ['frmOpeningStock', 'frmOpeningStock_CompWise', 'frmPcsStagewiseOpeningStock'],
-    agentTools: [], pendingTools: ['post_opening'],
+    agentTools: ['post_opening'], pendingTools: [],
   },
   {
     id: 'stock-adjustment', label: 'Stock Adjustment', groupId: 'inventory', route: '/inventory/adjustment', arch: 'DS', phase: 'M3',
@@ -487,14 +507,15 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'cutting-issue', label: 'Cutting Issue', groupId: 'cutting', route: '/cutting/issue', arch: 'DS', phase: 'M3',
     description: 'Issue fabric rolls to the cutting table.',
     legacyForms: ['frmCuttingIssue'],
-    agentTools: [], pendingTools: ['issue_fabric_to_cut'],
+    agentTools: ['create_line_issue'], pendingTools: [],
+    notes: 'M6-D: the wrapper validates line.deptId = D3 (ERRATUM: create_line_issue has no deptCode param — the dept rides line.deptId).',
   },
   {
     id: 'ready-to-cut', label: 'Ready to Cut', groupId: 'cutting', route: '/cutting/ready-to-cut', arch: 'DS', phase: 'M3',
     description: 'Move program stock into the ready-to-cut virtual department.',
     legacyForms: ['frmReadytoCut'],
-    agentTools: [], pendingTools: ['ready_to_cut'],
-    notes: 'Legacy virtual dept -7; named enum arrives with legacy-enums.ts (M2)',
+    agentTools: ['ready_to_cut'], pendingTools: [],
+    notes: 'M6-D: RTC-#### — ready_to_cut_out/-in pair; the virtual dept is a D3-keyed bucket (PITFALLS #12 legacy -7 → dept-keyed bucket).',
   },
   {
     id: 'cutting-production', label: 'Cutting Production', groupId: 'cutting', route: '/cutting/production', arch: 'DS', phase: 'M3',
@@ -507,7 +528,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'cutting-ack', label: 'Cutting Ack', groupId: 'cutting', route: '/cutting/ack', arch: 'IN', phase: 'M3',
     description: 'Acknowledge issued fabric reached cutting.',
     legacyForms: ['frmcuttingack'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['acknowledge_cutting_issue'], pendingTools: [],
   },
   {
     id: 'panel-cutting', label: 'Panel Cutting / Add', groupId: 'cutting', route: '/cutting/panel', arch: 'DS', phase: 'M5',
@@ -560,14 +581,15 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'pcs-grn-acceptance', label: 'Pcs GRN Acceptance (GAN)', groupId: 'pieces', route: '/pieces/gan', arch: 'IN', phase: 'M3',
     description: 'GAN: goods acceptance note for received pieces.',
     legacyForms: ['FrmProGrnAccept'],
-    agentTools: [], pendingTools: [],
-    notes: 'GAN semantics — PITFALLS #12',
+    agentTools: ['accept_jobwork_pcs'], pendingTools: [],
+    notes: 'GAN semantics — PITFALLS #12 (receipts park pending acceptance before stock posts)',
   },
   {
     id: 'pcs-transfer', label: 'Pcs Transfer', groupId: 'pieces', route: '/pieces/transfer', arch: 'DS', phase: 'M3',
     description: 'Transfer finished pieces between godowns/units.',
     legacyForms: ['FrmPcsGodTransfer'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['transfer_stock'], pendingTools: [],
+    notes: 'M6-D: PT-#### (planPcsTransfer — pcs buckets key on the ORDER; ERRATUM: base transfer_stock rejects itemType pcs).',
   },
   {
     id: 'pcs-rejection', label: 'Pcs Rejection', groupId: 'pieces', route: '/pieces/rejection', arch: 'DS', phase: 'M3',
@@ -623,7 +645,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'line-output', label: 'Line Output', groupId: 'production', route: '/production/line-output', arch: 'DS', phase: 'M3',
     description: 'Record line output (manual entry).',
     legacyForms: ['frmLineOutputManual', 'frmLineOutputManual_New'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_production_entry'], pendingTools: [],
   },
   {
     id: 'line-status', label: 'Line Status / WIP', groupId: 'production', route: '/production/line-status', arch: 'DB', phase: 'M3',
@@ -713,20 +735,21 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'dc-entry', label: 'Fabric/Yarn/Acc/Gen DC', groupId: 'dispatch', route: '/dispatch/dc', arch: 'DS', phase: 'M3',
     description: 'Delivery challans for material going out (process/jobwork).',
     legacyForms: ['FrmFabDel', 'FrmAccDel', 'FrmGenDC', 'FrmYarnDel'],
-    agentTools: [], pendingTools: ['create_dc'],
-    notes: 'Also Yarn DC variants',
+    agentTools: ['create_dc'], pendingTools: [],
+    notes: 'M6-D: MDC-#### (DC- space shared with despatch FORBIDDEN — SPEC-M6 §2 row 30)',
   },
   {
     id: 'process-dc', label: 'Process DC (multi)', groupId: 'dispatch', route: '/dispatch/dc/process', arch: 'DS', phase: 'M3',
     description: 'Multi-component process delivery challans.',
     legacyForms: ['frmPrsDelMulti', 'frmPrsDelMulti_Acc', 'frmPrsDelMulti_Compwise'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_dc'], pendingTools: [],
   },
   {
     id: 'dc-return', label: 'DC Return', groupId: 'dispatch', route: '/dispatch/dc-return', arch: 'DS', phase: 'M3',
     description: 'Return unsent/rejected material against a DC.',
     legacyForms: ['FrmAccDel_Return', 'FrmFabDel_Return', 'RPtFabDcRet'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['receive_grn'], pendingTools: [],
+    notes: 'M6-D: RTN-#### (planDcReturn — process_receipt IN; ERRATUM: receive_grn cannot reference a DC — the form door is the RTN path).',
   },
   {
     id: 'gate-entry', label: 'Gate Entry', groupId: 'dispatch', route: '/dispatch/gate-entry', arch: 'DS', phase: 'M5',
@@ -840,7 +863,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'hsn-gst-setup', label: 'HSN / GST Setup', groupId: 'accounts', route: '/accounts/hsn-gst', arch: 'ST', phase: 'M2',
     description: 'HSN codes and GST rates per item.',
     legacyForms: ['FrmHSN', 'FrmHSNPce', 'FrmTally_GSTSetup'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_hsn', 'update_hsn', 'list_hsns'], pendingTools: [],
   },
 
   // ---- costing (7) ----
@@ -932,13 +955,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'test-parameters', label: 'Test Parameters / Stages', groupId: 'quality', route: '/quality/parameters', arch: 'MT', phase: 'M2',
     description: 'Lab test parameters and stage definitions.',
     legacyForms: ['FrmLabTestParameters', 'FrmLabTestParameters_Stages', 'FrmLabTestParameters_InputParameters'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_test_parameter', 'update_test_parameter', 'list_test_parameters'], pendingTools: [],
   },
   {
     id: 'lot-approval', label: 'Lot Approval', groupId: 'quality', route: '/quality/lot-approval', arch: 'IN', phase: 'M3',
     description: 'Approve dyeing/knitting lots into stock.',
     legacyForms: ['frmLotApproval'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['approve_lot'], pendingTools: [],
   },
   {
     id: 'reprocess-approval', label: 'Reprocess Approval', groupId: 'quality', route: '/quality/reprocess-approval', arch: 'IN', phase: 'M5',
