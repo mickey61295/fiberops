@@ -338,3 +338,17 @@ Stage Summary:
 - M3 architecture complete: ONE DocConfig per family drives the engine; the form door is a first-class twin of the agent door at full transaction scale; /api/upload closes the AI-ingest loop (upload → extract → agent proposes → approve commits — same posting services the forms call).
 - Bonus: third latent bug fixed (GRN duplicate-bucket), with a regression guard that now watches the invariant forever.
 - Next: SPEC-M4 (RegisterScreen engine + registers + W2/W6) per STATE next-actions — commit BEFORE coding.
+
+---
+Task ID: m3-wave-d (post-commit addendum)
+Agent: main
+Task: Patch-export follow-up.
+
+Work Log:
+- Discovered download/ had been wiped a SECOND time by a sandbox restore (0000-0008 gone; only the fresh 0009 existed).
+- Regenerated the full set from git: 0005 (3f09291..cea63c8), 0006 (cea63c8..7a1bc7c), 0007 (7a1bc7c..d24af15), 0008 (6b28c65..85d464e), 0009 (85d464e..335bbaa = Wave C incl. ffb65ab), 0010 (335bbaa..44a6520 = Wave D/m3-done).
+- Wrote 0000-PATCH-INDEX.md with the regeneration commands + lost-patch notes (second wipe documented; download/ is gitignored — the INDEX is the recovery map).
+- STATE patch list corrected (0009 = wave-c, 0010 = wave-d); committed (1f7590e).
+
+Stage Summary:
+- download/ now holds 0000-0010 (7 files). m3-done tag stays on 44a6520; the docs commit sits after it (same pattern as m3-wave-c's ffb65ab).
