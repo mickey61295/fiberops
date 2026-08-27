@@ -367,3 +367,25 @@ Work Log:
 Stage Summary:
 - /approvals crash eliminated; approval cards now render PO detail (no/supplier/type/qty/value/delivery). No schema/service changes — pure response-shape fix, no test fallout (174 green).
 - Next per STATE: write + freeze SPEC-M4 (RegisterScreen engine + registers + W2/W6), commit, then M4 Wave A.
+
+---
+Task ID: m4-wave-a
+Agent: main
+Task: SPEC-M4 freeze + Wave A (register engine + 3 flagship registers) per docs/CONTEXT/specs/SPEC-M4.md §13. Session start: user reported /approvals runtime crash ("Objects are not valid as a React child") + "commit everything then continue".
+
+Work Log:
+- Fixed the /approvals crash FIRST (see Task fix-approvals-crash, commit b344ae8, PITFALLS #25): API enrichment `{...a, entity}` overwrote the Approval.entity type string with the PO object; WorkflowView rendered it as text. Fixed in api/erp route + agent tool + WorkflowView; shape now entity=string + entityData=record; verified via scripts/verify_approvals_fix.ts + dev-server smoke (10 pending PO approvals render).
+- Wrote + froze SPEC-M4 (commit 0dd0335, tag spec-m4-frozen): 17 items (15 RG + order-status-board DB + stock-register RH-lite), read-side ADR-001 twin, 8 planned new tools (→130), W2/W6/W5(b) wiring, 3 waves. Sources verified against schema (GRN.poId IS a relation; Payment.invoiceId/JobworkOrder.orderId/PcsDespatch.orderId are plain columns; StockLedger.docNo NOT unique; JobworkOrder has NO receivedQty).
+- Wave A implementation:
+  - lib: registers/{types,resolve,csv,index}.ts + 3 services (stock-ledger, order-register, daily-inout) + register-configs/{types,index}.ts + 3 pure-data configs.
+  - engine: components/archetypes/register-screen.tsx (server: breadcrumb, filter bar, summary, W2 first-col links, totals band, pagination, CSV link) + components/erp/register-filter-bar.tsx (client: shareable searchParams; master_search datalist for party/godown).
+  - pages: /registers/daily-in-out, /orders/register, /inventory/ledger + sibling csv/route.ts each (PAGES CANNOT RETURN RESPONSES — ?format=csv on the page 500'd; sibling route handler is the fix).
+  - W2: TXN_DOC_FAMILY txnType→family map + resolveDocRef (id OR doc-number, findFirst OR) — ledger rows drill to GRN/jobwork/despatch views by docNo (refId unreliable); order rows → hub. Verified live: rendered HTML carries /orders/<id> + /pieces/despatch/<id> hrefs.
+  - tools: get_daily_in_out NEW (123 total); list_orders + get_stock_ledger delegate to the shared services (zod + json shapes VERBATIM — pinned by new tests).
+  - menu-registry: LIVE_ROUTES 48→51; daily-in-out agentTools wired.
+  - tests: tests/unit/register-configs.test.ts NEW (30 runtime: contracts ×3 configs, bijection, parse/clamp/ignore, tool-shape pins, service smoke incl. unknown-godown degradation, TXN map) + menu-registry 15→16 (27/113 live, Wave A routes+tool doors).
+- Verification: vitest 205/205; tsc 32 = known noise only (3 transient .next/dev validator entries vanish after first route hit); route smoke: 3 new routes + status/godown/date filters + 3 CSV exports all 200, CSV content-type + disposition correct, drill-down hrefs present in HTML; context_check 129/129 NO DRIFT.
+
+Stage Summary:
+- M4 Wave A COMPLETE per SPEC-M4 §13: engine + services + 3 flagships live (daily-in-out, order-register, stock-ledger); 27/113 items live; read-side twin of ADR-001 established (one service, two doors, shapes pinned).
+- Tag m4-wave-a. Next: Wave B (13 remaining registers + 7 new tools + delegations + math suite) then Wave C (recon cards + KPI deep-links + Order Status Board → m4-done).

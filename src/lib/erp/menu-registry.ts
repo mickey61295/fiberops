@@ -83,6 +83,9 @@ export const LIVE_ROUTES = new Set<string>([
   '/inventory/adjustment', // Stock Adjustment (M3 Wave D) — stock-adjustment (ledger rows are the record; no [id] view)
   '/inventory/transfer', // Godown Transfer + Ack (M3 Wave D) — godown-transfer (ledger pair is the record; no [id] view)
   '/inventory', // InventoryView
+  '/registers/daily-in-out', // Daily In/Out register (M4 Wave A) — daily-in-out
+  '/orders/register', // Order Register (M4 Wave A) — order-register
+  '/inventory/ledger', // Stock Ledger register (M4 Wave A) — stock-ledger
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -166,7 +169,8 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: 'daily-in-out', label: 'Daily In/Out', groupId: 'home', route: '/registers/daily-in-out', arch: 'RG', phase: 'M4',
     description: 'Day-book of all stock in/out movements across godowns.',
-    legacyForms: ['frmDailyinout'], agentTools: [], pendingTools: [],
+    legacyForms: ['frmDailyinout'], agentTools: ['get_daily_in_out'], pendingTools: [],
+    agentPrompt: 'Show me today\u2019s stock in and out',
   },
 
   // ---- orders (9) ----

@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m4-spec — **SPEC-M4 FROZEN**, commits b344ae8 + spec)
+Last verified: 2026-08-27 (session: m4-wave-a — SPEC-M4 frozen + Wave A engine/flagships DONE; commits b344ae8, 0dd0335, wave-a)
 
 ## Milestone status
 
@@ -21,8 +21,8 @@ Last verified: 2026-08-27 (session: m4-spec — **SPEC-M4 FROZEN**, commits b344
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | `m3-done` commit (Wave D: 7 accounts/inventory doc screens + 2 new tools + /api/upload — M3 COMPLETE) | `git rev-parse --short HEAD` |
-| Agent tools | **122** (51 inline + 24 factory create + 24 factory update + 23 docTool delegates — Wave D +post_stock_adjustment +transfer_stock) | `scripts/context_check.sh` |
+| Git HEAD | M4 Wave A commit (register engine + 3 flagship registers + get_daily_in_out + tool delegations) — tag `m4-wave-a`; prior: spec-m4-frozen 0dd0335, fix b344ae8, m3-done 44a6520 | `git rev-parse --short HEAD` |
+| Agent tools | **123** (52 inline + 24 factory create + 24 factory update + 23 docTool delegates — M4 Wave A +get_daily_in_out; list_orders/get_stock_ledger now delegate to the shared register services, schemas+json VERBATIM) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D) | **19 files** in `src/lib/erp/schemas/` (verbatim tool contracts + Wave D stock-adj/transfer) | context_check |
 | Posting services (M3-A/D) | **22 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts) | context_check |
@@ -32,16 +32,19 @@ Last verified: 2026-08-27 (session: m4-spec — **SPEC-M4 FROZEN**, commits b344
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
 | Wiring (M3-B/C/D) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo/?invoice prefill on all 19 New screens · **Wave D: accounts/inventory rows link their views in the Hub + Fill-with-AI button on every DocScreen** | context_check + route smoke |
 | Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
-| ERP view/shell components | **20** (19 + Wave C recent-docs.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
-| Archetype engines | **2** (`master-table.tsx` + `doc-screen.tsx`) | context_check |
+| ERP view/shell components | **21** (20 + M4 Wave A register-filter-bar.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
+| Archetype engines | **3** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M3-D) | **48**: M3-C set + Wave D 7 item routes + 5 view routes (stock-adjustment + godown-transfer have NO [id] view — the StockLedger rows ARE the record, like rework) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
-| Parity (M3-D) | **24/113 items live** · 14/17 groups (+programs `/programs/new`, +pieces `/pieces/despatch`, +jobwork `/jobwork/order` landings) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Live routes (M4-A) | **51**: M3-D 48 + /registers/daily-in-out + /orders/register + /inventory/ledger (each with a sibling csv/route.ts export) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
+| Register configs/services (M4-A) | **3 flagship configs** (stock-ledger, order-register, daily-in-out) in `src/lib/erp/register-configs/` + **3 services** in `src/lib/erp/registers/` (queryStockLedger/queryOrderRegister/queryDailyInOut; REGISTER_SERVICES slug bijection test-enforced) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY W2 drill map + resolveDocRef) + csv.ts (makeCsvRouteHandler — pages CANNOT return Responses) | context_check |
+| Parity (M4-A) | **27/113 items live** · 14/17 groups (Wave A: daily-in-out, order-register, stock-ledger) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
-| Registry unit tests | 15 | `npx vitest run` |
-| **Total vitest** | **174 passing** (+6 /api/upload route tests) | `npx vitest run` |
+| Registry unit tests | 16 (M4 Wave A: +1 Wave A register-route/tool-door block) | `npx vitest run` |
+| Register-config contract tests (M4-A) | **30 at runtime** (20 source its; per-config loop ×3: columns/filters/agentTools/route+page-file/askPrompt + bijection + parse + tool-shape pins + service smoke) | `npx vitest run` |
+| **Total vitest** | **205 passing** (174 + 30 register-configs + 1 menu-registry Wave A block) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -186,19 +189,44 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. **M3 IS DONE** — all 11 acceptance criteria in `specs/SPEC-M3.md` §2 met:
-   23 posting services (zero write logic in tools.ts), 19 shared schemas,
-   19 doc configs / 27 doc screens, W1/W3/W4 wired, 122 tools, /api/upload,
-   174 vitest green, route smoke 49/49, 24/113 items live (21.2%), 14/17 groups.
-2. Write + freeze **SPEC-M4** per PLAN-2.0 (RegisterScreen engine + registers +
-   wiring W2/W6) BEFORE any M4 code (protocol rule #3). Commit the spec.
-   **DONE 2026-08-27** — `specs/SPEC-M4.md` frozen + tagged `spec-m4-frozen`:
-   17 items (15 RG + order-status-board DB + stock-register RH-lite),
-   read-side ADR-001 twin (services own queries; tools delegate, zod verbatim),
-   8 new tools (→130), W2 drill-down + KPI deep-links + W6 recon cards ×4,
-   waves A (engine+3 flagships) / B (fleet) / C (wiring+board → m4-done).
-   Also this session: /approvals crash fixed (PITFALLS #25, commit b344ae8).
-3. Update this file every wave (same commit).
+1. **M4 Wave A DONE** (this session): SPEC-M4 frozen (tag `spec-m4-frozen`) +
+   /approvals crash fix (PITFALLS #25, b344ae8) + RegisterScreen engine + 3
+   flagship registers + tool delegations + get_daily_in_out. 205 vitest green,
+   route smoke 3/3 + filters + CSV, context_check 129/129.
+2. **M4 Wave B** (SPEC-M4 §13): the fleet — 13 remaining configs + services +
+   pages + 7 new tools (list_inhand_orders, list_io_history,
+   get_production_status, get_bills_register, list_supplier_bills,
+   get_approval_audit, get_order_status) + delegations (get_party_ledger,
+   list_lots, list_jobworks, get_budget_vs_actual, get_stock) + cut family in
+   TXN_DOC_FAMILY + register-services math suite. Exit: acceptance #3/#4/#5/#10.
+3. **M4 Wave C** (SPEC-M4 §13): recon.ts + recon-card.tsx on 4 doc views +
+   KPI deep-links + Order Status Board + breadcrumbs + route_smoke_waveE.sh →
+   tag `m4-done`.
+4. Update this file every wave (same commit).
+
+## M4 Wave A notes for future sessions
+
+- **RegisterScreen recipe**: config (pure data) in `register-configs/` + service
+  in `registers/` + REGISTER_SERVICES entry + page (searchParams →
+  parseRegisterQuery → service → RegisterScreen) + optional `csv/route.ts`
+  (makeCsvRouteHandler(slug)) + LIVE_ROUTES + config test loop. Wave A shipped
+  3 flagships; Wave B is 13 more of the same shape.
+- **Pages CANNOT return `Response` objects** (Next.js rule — the csv export
+  first tried `?format=csv` on the page and 500'd with "Only plain objects…
+  can be passed to Client Components"). CSV = sibling `csv/route.ts`.
+- **Read-tool delegation recipe**: move the tool's inline query into the
+  service VERBATIM; tool execute maps its own json subset (frozen shape);
+  zod schema untouched. Register screens may use richer filters (additive).
+- **W2 drill-down**: `TXN_DOC_FAMILY` maps txnType → family; `resolveDocRef`
+  resolves id OR doc-number (findFirst OR-query); ledger rows resolve by
+  docNo (refId is '<pending>' on legacy rows — unreliable). Unresolvable →
+  unlinked row, never a dead href. Cut family (ready_to_cut_*) joins in Wave B.
+- **Filter UX**: dateRange renders two inputs (from/to keys both typed
+  'dateRange'); selects push immediately; text inputs push on Enter/blur;
+  party/godown get an async datalist from master_search (progressive).
+- **tsc noise now 32** (was 29-31): +3 transient .next/dev validator entries
+  appear while the dev server hasn't compiled new routes — they vanish after
+  the routes are first hit. Don't chase them.
 
 ## M3 Wave D notes for future sessions
 

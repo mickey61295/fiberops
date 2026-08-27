@@ -40,6 +40,9 @@ DOMAINS=$(grep -cE "^    domain: '" src/lib/agent/tools.ts)
 MODELS=$(grep -c "^model " prisma/schema.prisma)
 VIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
 ARCHETYPES=$(ls src/components/archetypes/*.tsx 2>/dev/null | wc -l)
+REGCFGS=$(ls src/lib/erp/register-configs/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | wc -l)
+REGSVCFILES=$(ls src/lib/erp/registers/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | grep -v resolve.ts | grep -v csv.ts | wc -l)
+REGCFGTESTS=$(grep -cE "^\s*it\(" tests/unit/register-configs.test.ts 2>/dev/null)
 TESTS=$(grep -cE "^\s*(it|test)\(" tests/pipeline/industry-chain.test.ts 2>/dev/null)
 REGTESTS=$(grep -cE "^\s*it\(" tests/unit/menu-registry.test.ts 2>/dev/null)
 CFGTESTS=$(grep -cE "^\s*it\(" tests/unit/master-configs.test.ts 2>/dev/null)
@@ -62,26 +65,29 @@ echo "  m3-waveA: schemas=$SCHEMAFILES  posting-files=$POSTINGSVCS  chain-stages
 echo "  m3-waveB: doc-configs=$DOCCFGS  erp-shell-components=$DOCSCREENVIEWS"
 echo "  m3-waveC: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  erp-views=$VIEWS"
 echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
-echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOOLS  upload-route=yes"
+echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  register-cfg-tests=$REGCFGTESTS"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M3-WaveD session]"
-check "agent tools (inline+factory+docTool)" "122" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M4-WaveA session]"
+check "agent tools (inline+factory+docTool)" "123" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
 check "docTool delegates (SPEC-M3 §5 + §11)" "23"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
-check "erp view/shell components (Wave B + Wave C recent-docs)" "20"      "$VIEWS"
-check "archetype engines"          "2"       "$ARCHETYPES"
+check "erp view/shell components (Wave A + register-filter-bar)" "21"      "$VIEWS"
+check "archetype engines (+register-screen)" "3"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests"        "15"      "$REGTESTS"
+check "menu registry tests"        "16"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
+check "register config tests (M4 Wave A; source its — runtime 30 via 3× per-config loop)" "20"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M3 Wave D)"    "48"      "$LIVEROUTES"
+check "live routes (M4 Wave A)"    "51"      "$LIVEROUTES"
+check "register config files (M4 Wave A flagships)" "3"       "$REGCFGS"
+check "register service files (M4 Wave A flagships)" "3"       "$REGSVCFILES"
 check "master configs"             "24"      "$MASTERCFGS"
 check "shared zod schema files"    "19"      "$SCHEMAFILES"
 check "posting service files"      "22"      "$POSTINGSVCS"

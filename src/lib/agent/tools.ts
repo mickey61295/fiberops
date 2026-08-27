@@ -10,6 +10,11 @@ import { z } from 'zod'
 import { listUploadDir, extractDocument } from './docExtract'
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { buildMasterSchema, planMasterCreate, planMasterUpdate } from '@/lib/erp/posting/master-service'
+// SPEC-M4 — register read tools delegate to the shared register services
+// (the read-side twin of ADR-001): same query path as the register screens.
+import { queryStockLedger } from '@/lib/erp/registers/stock-ledger'
+import { queryDailyInOut } from '@/lib/erp/registers/daily-inout'
+import { queryOrderRegister } from '@/lib/erp/registers/order-register'
 // SPEC-M3 Wave A — the transaction write tools are now THIN delegates over the
 // posting services (ADR-001 at transaction scale). Schemas move VERBATIM into
 // src/lib/erp/schemas/ (the agent prompt contract must not drift); the chain
@@ -109,16 +114,18 @@ const readTools: AgentTool[] = [
       limit: z.number().optional().default(50),
     }),
     async execute(args) {
-      const orders = await db.order.findMany({
-        where: { status: args.status },
-        take: args.limit,
-        orderBy: { orderDate: 'desc' },
-        include: { buyer: true, style: true },
+      // Delegates to the shared register service (SPEC-M4 §5) — the same read
+      // path the /orders/register screen uses. json shape frozen (M3 contract);
+      // buyerId stays ignored exactly as before (verbatim behavior).
+      const res = await queryOrderRegister({
+        status: args.status,
+        limit: args.limit ?? 50,
+        page: 1,
       })
       return {
-        text: `Found ${orders.length} orders.`,
-        json: orders.map((o) => ({
-          id: o.id, orderNo: o.orderNo, buyer: o.buyer?.name, style: o.style?.styleNo,
+        text: `Found ${res.rows.length} orders.`,
+        json: res.rows.map((o) => ({
+          id: o.id, orderNo: o.orderNo, buyer: o.buyer, style: o.style,
           totalPcs: o.totalPcs, totalValue: o.totalValue, status: o.status,
           deliveryDate: o.deliveryDate, orderDate: o.orderDate,
         })),
@@ -230,23 +237,50 @@ const readTools: AgentTool[] = [
       limit: z.number().optional().default(50),
     }),
     async execute(args) {
-      const where: any = {}
-      if (args.itemType) where.itemType = args.itemType
-      if (args.godownCode) {
-        const g = await db.godown.findUnique({ where: { code: args.godownCode } })
-        if (g) where.godownId = g.id
-      }
-      const ledger = await db.stockLedger.findMany({
-        where, take: args.limit, orderBy: { docDate: 'desc' },
-        include: { godown: true, party: true },
+      // Delegates to the shared register service (SPEC-M4 §5) — the same read
+      // path the /inventory/ledger screen uses. json shape frozen (M3 contract).
+      const res = await queryStockLedger({
+        itemType: args.itemType,
+        godown: args.godownCode,
+        limit: args.limit ?? 50,
+        page: 1,
       })
       return {
-        text: `Found ${ledger.length} ledger entries.`,
-        json: ledger.map((l) => ({
+        text: `Found ${res.rows.length} ledger entries.`,
+        json: res.rows.map((l) => ({
           txnType: l.txnType, itemType: l.itemType,
           inKgs: l.inKgs, outKgs: l.outKgs, inPcs: l.inPcs, outPcs: l.outPcs,
           rate: l.rate, docNo: l.docNo, docDate: l.docDate,
-          godown: l.godown?.code, party: l.party?.name,
+          godown: l.godown, party: l.party,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_daily_in_out',
+    description: 'Get the daily stock in/out day-book (all movements) optionally filtered by date and godown. Totals are per-uom.',
+    domain: 'inventory',
+    isWrite: false,
+    schema: z.object({
+      date: z.string().optional().describe('YYYY-MM-DD — movements for this day'),
+      godownCode: z.string().optional(),
+    }),
+    async execute(args) {
+      const day = args.date ? new Date(args.date) : undefined
+      const res = await queryDailyInOut({
+        from: day && !isNaN(day.getTime()) ? day : undefined,
+        to: day && !isNaN(day.getTime()) ? day : undefined,
+        godown: args.godownCode,
+        limit: 200,
+        page: 1,
+      })
+      const t = res.totals?.map((t) => `${t.label} ${typeof t.value === 'number' ? t.value.toLocaleString('en-IN') : t.value}`).join(', ') ?? ''
+      return {
+        text: `${res.count} movements. ${t}`,
+        json: res.rows.map((l) => ({
+          date: l.docDate, godown: l.godown, txnType: l.txnType, docNo: l.docNo,
+          itemCode: l.itemCode, party: l.party,
+          inKgs: l.inKgs, outKgs: l.outKgs, inPcs: l.inPcs, outPcs: l.outPcs,
         })),
       }
     },

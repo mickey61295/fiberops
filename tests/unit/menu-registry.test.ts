@@ -75,14 +75,27 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 24 live items of 113 after M3 Wave D (+7 accounts/inventory screens); 14/17 groups', () => {
+  it('parityStats: 27 live items of 113 after M4 Wave A (+3 flagship registers); 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(24)
-    expect(s.comingItems).toBe(89)
+    expect(s.liveItems).toBe(27)
+    expect(s.comingItems).toBe(86)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
+  })
+
+  it('Wave A (M4): the 3 flagship register routes are live with page files + tool doors', () => {
+    const waveA = [
+      { route: '/registers/daily-in-out', id: 'daily-in-out', tool: 'get_daily_in_out' },
+      { route: '/orders/register', id: 'order-register', tool: 'list_orders' },
+      { route: '/inventory/ledger', id: 'stock-ledger', tool: 'get_stock_ledger' },
+    ]
+    for (const { route, id, tool } of waveA) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+    }
   })
 
   it('every LIVE route (except /coming prefix) has a page file on disk', () => {
