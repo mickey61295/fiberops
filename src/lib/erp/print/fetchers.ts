@@ -3,16 +3,19 @@
  * Each resolves by db id OR doc no (the view-page pattern, verbatim) and
  * builds a normalized PrintDoc with all display strings pre-formatted
  * (ISO dates, en-IN money, ₹ prefix) so PrintSheet stays a dumb renderer.
+ * The shared helpers (d/inr/qty/partyBlock/getCompanyName) are exported for
+ * the Wave-B fetchers (fetchers-b.ts) — ONE formatting convention across
+ * every family.
  */
 import { db } from '@/lib/db'
 import type { PrintDoc, PrintParty } from './types'
 import { amountInWords } from './amount-words'
 
-const d = (dt: Date | null | undefined) => (dt ? new Date(dt).toISOString().slice(0, 10) : '—')
-const inr = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`
-const qty = (n: number) => Number(n || 0).toLocaleString('en-IN')
+export const d = (dt: Date | null | undefined) => (dt ? new Date(dt).toISOString().slice(0, 10) : '—')
+export const inr = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`
+export const qty = (n: number) => Number(n || 0).toLocaleString('en-IN')
 
-function partyBlock(
+export function partyBlock(
   p: { code: string; name: string; address?: string | null; city?: string | null; state?: string | null; gstin?: string | null; phone?: string | null } | null | undefined,
   label: string,
 ): PrintParty | undefined {
@@ -109,7 +112,7 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
 }
 
 let cachedCompanyName: string | null = null
-async function getCompanyName(): Promise<string> {
+export async function getCompanyName(): Promise<string> {
   if (cachedCompanyName) return cachedCompanyName
   try {
     const row = await db.appOption.findUnique({ where: { key: 'print.companyName' } })

@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { debitNoteConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export const dynamic = 'force-dynamic'
 
@@ -30,7 +31,10 @@ export default async function DebitNoteViewPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/accounts/debit-note" label="Debit Notes" title={note.noteNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/accounts/debit-note" label="Debit Notes" title={note.noteNo} />
+        <DocPrintLink docType="debit-note" id={note.noteNo} />
+      </div>
       <DocScreen
         config={toScreenConfig(debitNoteConfig)}
         mode="view"

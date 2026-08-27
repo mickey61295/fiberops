@@ -10,6 +10,7 @@ import { despatchConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +51,10 @@ export default async function PcsDespatchViewPage({ params }: { params: Promise<
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/pieces/despatch" label="Despatch DCs" title={dc.dcNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/pieces/despatch" label="Despatch DCs" title={dc.dcNo} />
+        <DocPrintLink docType="pcs-despatch" id={dc.dcNo} />
+      </div>
       <DocScreen
         config={toScreenConfig(despatchConfig)}
         mode="view"

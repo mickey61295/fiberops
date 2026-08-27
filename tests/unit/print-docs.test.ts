@@ -1,7 +1,8 @@
 /**
  * print-docs tests — SPEC-M8 §6: registry completeness + the 5 Wave-A
  * fetchers against seeded fixtures (the doc-parity pattern: create rows,
- * assert the normalized PrintDoc shape, clean up).
+ * assert the normalized PrintDoc shape, clean up). Wave B grew the registry
+ * to 20 families (print-docs-b.test.ts covers the 15 new fetchers).
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
@@ -84,9 +85,10 @@ describe('M8 Wave A print docs (SPEC-M8 §6)', () => {
     await sw(db.party.deleteMany({ where: { id: partyId } }).catch(() => {}))
   })
 
-  it('registry has the 5 Wave-A docTypes', () => {
-    expect(getPrintDocTypes().sort()).toEqual(['dc', 'grn', 'invoice', 'payment', 'po'])
-    expect(Object.keys(PRINT_DOCS)).toHaveLength(5)
+  it('registry has the 5 Wave-A docTypes (20 with Wave B)', () => {
+    const types = getPrintDocTypes()
+    for (const t of ['dc', 'grn', 'invoice', 'payment', 'po']) expect(types).toContain(t)
+    expect(Object.keys(PRINT_DOCS)).toHaveLength(20)
   })
 
   it('invoice: TAX INVOICE with the CGST+SGST split and words', async () => {

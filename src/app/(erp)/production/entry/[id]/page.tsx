@@ -11,6 +11,7 @@ import { productionConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,10 @@ export default async function ProductionEntryViewPage({ params }: { params: Prom
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/production/entry" label="Production Entries" title={entry.bundleNo ?? 'entry'} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/production/entry" label="Production Entries" title={entry.bundleNo ?? 'entry'} />
+        <DocPrintLink docType="production-entry" id={entry.id} />
+      </div>
       {entry.rework && (
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">Rework entry</span>

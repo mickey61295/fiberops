@@ -6,6 +6,7 @@
 import Link from 'next/link'
 import { db } from '@/lib/db'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export async function GateEntryView({ id, backLabel, backHref }: { id: string; backLabel: string; backHref: string }) {
   const entry = await db.gateEntry.findUnique({ where: { id } }).catch(() => null)
@@ -21,7 +22,10 @@ export async function GateEntryView({ id, backLabel, backHref }: { id: string; b
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href={backHref} label={backLabel} title={`${isIn ? 'Gate Entry' : 'Gate Pass'} · ${entry.entryNo}`} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href={backHref} label={backLabel} title={`${isIn ? 'Gate Entry' : 'Gate Pass'} · ${entry.entryNo}`} />
+        <DocPrintLink docType={isIn ? 'gate-entry' : 'gate-pass'} id={entry.entryNo} />
+      </div>
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
           <div>

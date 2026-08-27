@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { costSheetConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
 
 export const dynamic = 'force-dynamic'
@@ -34,7 +35,10 @@ export default async function CostSheetViewPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/costing/cost-sheet" label="Cost Sheets" title={`v${cs.version}`} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/costing/cost-sheet" label="Cost Sheets" title={`v${cs.version}`} />
+        <DocPrintLink docType="cost-sheet" id={cs.id} />
+      </div>
       <DocScreen
         config={toScreenConfig(costSheetConfig)}
         mode="view"

@@ -767,3 +767,28 @@ Stage Summary:
 - Pattern wins: one engine + registry route means each remaining family (15 more doc detail pages) is a ~40-line fetcher (Wave B); inline @page beats the global landscape without touching reports; fetchers re-use the view-page id-OR-docNo resolution.
 - 673 vitest (653+20) · route_smoke_m8a 16/16 · context_check 363/363 · build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145 (page routes 146).
 - Next: M8 Wave B (remaining print fetchers), E2E hardening, or agent prompt polish per STATE next-actions #8.
+
+---
+Task ID: 10
+Agent: main (Super Z)
+Task: M8 Wave B — print fetchers for the remaining 15 doc detail families (STATE next-actions #8 → M8 COMPLETE).
+
+Work Log:
+- Read worklog tail + STATE: last session ended at m8-wave-a (commit d76414f); next-actions #8 named Wave B as the next item in order — continued with it (user said "continue").
+- Studied the Wave-A pattern: types.ts (PrintDoc), fetchers.ts (5 fetchers + helpers), index.ts (PRINT_DOCS), /print/[docType]/[id] route, DocPrintLink/DocPrintButton, print-sheet.tsx renderer, print-docs.test.ts fixture pattern, route_smoke_m8a.sh.
+- Enumerated the 15 remaining families from the [id] view pages (exactly STATE #8's list): debit-note, journal, budget, cost-sheet, expenses, cutting job-order, gate-entry, gate-pass, samples, despatch, packing-list, rejection, production entry, production issue, lab-tests.
+- fetchers.ts: exported the shared helpers (d/inr/qty/partyBlock/getCompanyName) — ONE formatting convention across all 20 families.
+- Created src/lib/erp/print/fetchers-b.ts: 15 fetchers (~560 lines). Key decisions: id-ONLY resolution for budget/cost-sheet/production-entry (no unique doc-no field — budget docNo becomes BGT-<orderNo>, production-entry uses bundleNo display but id resolution, cost-sheet v<version>); gate-entry/gate-pass = ONE shared fetchGatePrint(idOrNo, gateType) with a TYPE FILTER (an IN entry 404s under /print/gate-pass — §4 rule-2 honest behavior); journal title from voucherType (RECEIPT/PAYMENT/CONTRA/JOURNAL VOUCHER) with Dr/Cr two-row table; lab-test values JSON parsed into parameter/result rows; buyer-party blocks for sample/pcs-despatch/packing-list (Buyer has no gstin/address — manual PrintParty); free-FK lookups via partyById/orderNoById (PITFALLS #21).
+- index.ts: PRINT_DOCS registry 5→20 (kebab-case docType keys for multi-word families).
+- Wired DocPrintLink doors on the 14 remaining view pages (breadcrumb-wrapped, the invoice-page pattern); dispatch/gate-view.tsx shared by both gate routes picks docType by gateType → 19 files carry doors.
+- Tests: tests/unit/print-docs-b.test.ts (18 tests) — full fixture graph (party/buyer/order/dept/line/employee + 15 docs, children-first cleanup), per-family shape assertions (titles/meta/lines/totals), gate type-mismatch → null both directions, id-vs-docNo dual resolution, unknown→null matrix over all 15. Updated print-docs.test.ts registry pin (5→20; the Wave-A shape assertions unchanged).
+- scripts/route_smoke_m8b.sh (38 checks): unauth 307, admin login, resolve-a-doc per family (SEEDS debit-note + budget when those tables are empty — they were — and cleans them up), 15× /print/<type>/<id> 200 + title grep, copy=duplicate banner + doc-no, gate type-mismatch 404, unknown docType/id 404s, 15 view-page door checks. 38/38 GREEN against the live dev server.
+- context_check.sh: print-lib pin 4→5 (fetchers-b.ts), +families-20 check, +doors-19 check (grep -rl over (erp) pages + gate-view), metrics line m8-waveB, +4 file-existence entries (fetchers-b/print-docs-b.test/route_smoke_m8b/gate-view) → 369/369 NO DRIFT.
+- Verified: tsc src/ 0 errors · vitest 691/691 (673+18) · route_smoke_m8b 38/38 · context_check 369/369 · next build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145 (pins unchanged).
+- Docs: 01-STATE.md (Last-verified m8-wave-b line, M8 milestone row → COMPLETE, next-actions #9), SPEC-M8 §8 (Wave B family table + decisions + acceptance).
+
+Stage Summary:
+- M8 COMPLETE: every doc detail page (20 families across 19 view files) prints a proper A4 portrait sheet via the one engine + one registry route.
+- The registry pattern held exactly as SPEC-M8 §2 predicted — each family WAS a ~40-line fetcher; zero engine/route/sheet changes needed.
+- 691 vitest (673+18) · route_smoke_m8b 38/38 · context_check 369/369 · build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145.
+- Next candidates (STATE #9): E2E hardening over the route surface, agent prompt polish over the 188-tool registry, /admin/settings flags UI over the repaired /api/config.

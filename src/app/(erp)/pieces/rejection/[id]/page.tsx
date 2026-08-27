@@ -8,6 +8,7 @@ import { rejectionConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +35,10 @@ export default async function RejectionViewPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/pieces/rejection" label="Rejections" title={rej.rejNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/pieces/rejection" label="Rejections" title={rej.rejNo} />
+        <DocPrintLink docType="rejection" id={rej.rejNo} />
+      </div>
       <DocScreen
         config={toScreenConfig(rejectionConfig)}
         mode="view"

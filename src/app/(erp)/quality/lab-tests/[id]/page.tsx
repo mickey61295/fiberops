@@ -5,6 +5,7 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,10 @@ export default async function LabTestViewPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/quality/lab-tests" label="Lab Tests" title={`Lab Test · ${test.testNo}`} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/quality/lab-tests" label="Lab Tests" title={`Lab Test · ${test.testNo}`} />
+        <DocPrintLink docType="lab-test" id={test.testNo} />
+      </div>
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
           <div>

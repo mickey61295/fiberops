@@ -121,3 +121,48 @@ get a `DocPrintButton` (client) next to the breadcrumb: `Link` to
 - context_check: +print-lib counter (src/lib/erp/print/*.ts = 4), +print route
   EXISTS probe, +print-sheet/print-auto/DocPrintButton existence, menu-registry
   test count unchanged.
+
+## 8. Wave B — the remaining 15 doc detail families (DONE, tag `m8-wave-b`)
+
+§2's Wave-B candidates list, closed. One file (`src/lib/erp/print/fetchers-b.ts`,
+~560 lines) + registry entries + view-page doors; the Wave-A engine/route/
+sheet needed ZERO changes — the registry pattern held exactly as §2 predicted
+(~40 lines per family).
+
+| docType | Model | Resolution | Sheet title | Notes |
+|---|---|---|---|---|
+| `debit-note` | DebitNote | id OR noteNo | DEBIT NOTE | party ledger adjustment; cancelled banner |
+| `journal` | Journal | id OR voucherNo | `${voucherType} VOUCHER` | Dr/Cr two-line table; narration footer |
+| `budget` | Budget | **id only** | BUDGET | docNo `BGT-<orderNo>` (no unique doc-no field); BudgetLine rows + Budgeted/Actual/Variance totals |
+| `cost-sheet` | CostSheet | **id only** | COST SHEET | docNo `v<version>`; component lines; Total Cost → Selling Price totals |
+| `expense` | Expense | id OR expNo | EXPENSE VOUCHER | party via free-FK lookup (PITFALLS #21) |
+| `cut-order` | CutOrder | id OR cutNo | CUTTING ORDER | marker/plies/efficiency meta; bundle count |
+| `gate-entry` | GateEntry | id OR entryNo, **gateType='in' filter** | GATE ENTRY | §4 rule-2: an OUT entry 404s here |
+| `gate-pass` | GateEntry | id OR entryNo, **gateType='out' filter** | GATE PASS | same model, opposite filter |
+| `sample` | Sample | id OR sampleNo | SAMPLE CARD | buyer party block; approved/rejected notes |
+| `pcs-despatch` | PcsDespatch | id OR dcNo | DESPATCH CHALLAN (PIECES) | colour/size name maps (view-page pattern); line value + words |
+| `packing-list` | PackingList | id OR packNo | PACKING LIST | carton lines + net/gross kgs totals; despatch DC meta |
+| `rejection` | RejectionEntry | id OR rejNo | REJECTION NOTE | rejType/action meta; qty totals |
+| `production-entry` | ProductionEntry | **id only** | PRODUCTION ENTRY / REWORK ENTRY (rework flip) | docNo = bundleNo (not unique — id resolution only) |
+| `line-issue` | LineIssue | id OR issueNo | LINE ISSUE SLIP | line code via relation |
+| `lab-test` | LabTest | id OR testNo | LAB TEST REPORT | values JSON → parameter/result rows; Result total |
+
+**Doors**: `DocPrintLink` on the 14 remaining view pages — gate-view.tsx is
+shared by /dispatch/gate-entry/[id] and /dispatch/gate-pass/[id] and picks the
+docType by gateType, so 19 files carry doors for 20 families' worth of routes.
+
+**Wave-B helpers**: Wave-A's `d/inr/qty/partyBlock/getCompanyName` are now
+exported from fetchers.ts — ONE formatting convention across all 20 families.
+
+**Tests**: `tests/unit/print-docs-b.test.ts` (18) — full fixture graph
+(party/buyer/order/department/line/employee + 15 docs), per-family shape
+assertions, gate type-mismatch null, id-vs-docNo resolution, unknown→null
+matrix over all 15. Route smoke `scripts/route_smoke_m8b.sh` (38 checks):
+unauth 307, 15×200+title-grep, copy banner, gate mismatch 404, unknown 404s,
+15 view-page doors, seeds+cleans debit-note/budget fixtures when those
+tables are empty (they were empty in the dev DB at freeze time).
+
+**Acceptance**: tsc src/ 0 errors · vitest 691/691 (673+18) ·
+route_smoke_m8b 38/38 · context_check 369/369 (+6 checks: families-20,
+doors-19, 4 file-existence; print-lib pin 4→5 for fetchers-b.ts) ·
+next build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145 — all pins held.
