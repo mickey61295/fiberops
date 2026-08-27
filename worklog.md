@@ -490,3 +490,28 @@ Stage Summary:
 - Pattern wins: posting-file wrappers (§4 rule 1) kept every base service byte-identical; ERRATUM 7 gives any picker a server-side filter; the wage bill rides the SAME journal door the agent uses.
 - Remote: backlog pushed; m5-wave-b commit + tag to follow immediately (push-after-commit).
 - Next: M5 Wave C — approval kinds (§6/§7-C, 4 IN items + 4 approve wrappers → 146 tools).
+
+---
+Task ID: m5-wave-c
+Agent: main
+Task: Continue from m5-wave-b baseline (session continuation: "continue") — recover the accidental working-tree residue, then implement SPEC-M5 Wave C (approval gates, §6) per the standing push-after-commit rule.
+
+Work Log:
+- Working-tree triage: 254 "modified" files were ALL 100644→100755 mode noise + ONE accidental deletion (src/app/api/upload/route.ts — actively used by agent-panel paperclip + tested by upload-route.test.ts). Restored via git checkout -- . — no content changes lost (m5-wave-b was fully committed). The approvals PO-object React error was ALREADY FIXED in a prior session (API separates entity string / entityData object) — verified in /api/erp/route.ts.
+- Baseline verified BEFORE any new work: 363 vitest green, remote = local (PAT already configured in origin URL), all tags pushed.
+- KINDS registry src/lib/erp/approval-kinds.ts: {entity, label, description, route, tool, refResolver} ×4 (supplier_bill→/procurement/grn/[id], godown_transfer→/inventory/io-history (entityId = GT-#### docNo), reprocess→/procurement/grn/[id], non_return_dc→/pieces/despatch/[id]).
+- Posting hooks (opt-in booleans, Approval row created INSIDE the service transaction): TRANSFER_SCHEMA+requiresAck → planTransfer leaves pending godown_transfer row (entityId = GT docNo); GRN_SCHEMA+reprocess → planGrn leaves pending reprocess row (entityId = grn id; sanctioned §6 amendment to the Wave-B "byte-identical" note, default behaviour unchanged); DESPATCH_SCHEMA+returnable (default true) → planPcsDespatch with false leaves pending non_return_dc row.
+- 4 wrapper tools via shared proposeApprovalGate() in tools.ts: create_bill_pass (grnNo), acknowledge_unit_transfer (GT docNo), approve_reprocess (grnNo), approve_non_return_dc (dcNo) — find-latest → already-approved informational / pending → approve / missing → create-then-approve (§8 rule); one-transaction commit; idempotent. 142→146 tools.
+- Inbox kind layer: /api/erp?resource=approvals&kind= (entity-equality filter) + per-kind entityData enrichment (GRN+party / ledger pair / despatch) + refHref on every row; WorkflowView gains kind prop + All/4-kind tabs (always rendered, SSR-visible) + per-kind card detail rows (ALL primitives — detailRows/cardTitle return strings only) + View-doc button; /approvals reads ?kind= (unknown kinds degrade to All); 4 thin IN pages under (erp).
+- supplier-bills register: Bill-pass badge column (Passed/Pending/— from supplier_bill approvals — GRN has no status column, so this IS the §6 "GRN billed status"); list_supplier_bills json +billPass (additive).
+- Menu wiring: LIVE_ROUTES +4 (87→91); agentTools flipped on bill-pass/unit-transfer-ack/reprocess-approval/non-return-dc-approval (+get_pending_approvals); dispatch + quality groups OPENED (landings → /dispatch/unit-transfer-ack, /quality/reprocess-approval) → 66/113 items, 16/17 groups.
+- Tests 363→378 GREEN: NEW tests/unit/approval-kinds.test.ts (14: registry shape + wiring loop + kind===entity contract + all 3 hooks incl. flag-less control + all 4 wrapper tools incl. create-when-missing + idempotence + unknown-doc text + register billPass + tool json) with SCOPED cleanup (per-entityId deletes, yarn-bucket snapshot-restore); menu-registry +Wave C block (66/113, 16/17); register-configs tool pin 146; doc-configs mirror rule +AGENT_ONLY_HOOK_KEYS skip (requiresAck/reprocess/returnable are agent-door-only — NOT form fields, zero engine churn).
+- Verification: tsc zero new src errors (8 legacy); scripts/route_smoke_m5c.sh 62/62 GREEN (4 screens + kind tabs + API filter incl. bogus-kind → [] + seed_m5c_smoke.ts idempotent 4 pending kind rows + supplier-bills Bill-pass column + 38-route regression spot set); context_check 189/189 NO DRIFT after counter updates (146 tools, 21 menu tests, 91 routes, M5-WaveC session tag).
+- Docs: STATE.md (M5 row Wave C DONE, ground truth, next actions, Wave C notes section) + SPEC-M5 ERRATA ×2 (#1 §8 tool-count arithmetic 144→146, #2 agent-only hook flags decision).
+- Committed 2f2e584, tagged m5-wave-c, PUSHED to origin (271dfae..2f2e584 + tag; origin/main..HEAD = 0).
+
+Stage Summary:
+- M5 Wave C COMPLETE: all 4 approval-gate IN items live; 146 tools; 66/113 menu items (58.4%); 16/17 groups; 91 live routes; 378 vitest green; route_smoke_m5c 62/62; context_check 189/189.
+- Pattern wins: kind === Approval.entity keeps the inbox a plain entity filter (no new code paths); posting hooks ride optional schema flags (default = legacy, zero engine churn); the supplier_bill Approval IS the bill-pass document (register column, no schema growth).
+- Remote synced: m5-wave-c pushed with tag. Push-after-commit honored.
+- Next: M5 Wave D — ADR-015 six new models 54→60 (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift) + 10 items + 8 tools → 154 → then tag m5-done.
