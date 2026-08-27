@@ -724,3 +724,23 @@ Stage Summary:
 - Known contract (ADR-018): revoking a menu applies on next page load; granting a new menu applies at next login (stale edge cookie denies until then — both directions smoke-asserted).
 - 653 vitest green (620 + 33); route_smoke_m7c 36/36; m7a 27/27 + m7b 25/25 regression; context_check 347/347; tsc zero new src errors; tools stay 188, models stay 65, routes stay 145.
 - Dev credentials unchanged: admin@fiberpro.local / admin123. Next: M8 candidates per STATE next-actions #7 (hardening / print templates / agent prompt polish / multi-company chain deferred from SPEC-M7 §2).
+
+---
+Task ID: 8
+Agent: main (Super Z)
+Task: Continue after m7-wave-c — verify the reported `OPERATION_ENTRY_SCHEMA doesn't exist` build error, then health-pass the tree.
+
+Work Log:
+- Verified the `OPERATION_ENTRY_SCHEMA` build error is NOT live: commit bf5d296 already proved it transient (mid-Wave-D state); `cut-variants.ts:46` imports from `schemas/production-variants` correctly and the export exists (line 15). `next build` EXIT 0 today confirms.
+- Triaged a NOISY `git status` (415 files modified): pure mode-bit noise (100644→100755) — silenced with `git config core.fileMode false`; `git diff --numstat` exposed the ONE real change: `src/app/api/upload/route.ts` DELETED from the working tree → RESTORED from HEAD (context_check's `/api/upload EXISTS` probe + 7 upload-route tests depend on it).
+- Root-caused 8 src/ tsc errors as Phase-3/4 orphans (PITFALLS #16 lineage): `flags.ts` (LIVE — imported by `/api/config`) + `exposure.ts`/`cumrate.ts` (DEAD — zero importers). Confirmed `/api/config` 500'd live (`db.flag` undefined — Flag model removed by rollback #4).
+- FIX: rewired `flags.ts` to AppOption storage (key `flag:<name>`, group 'flags', label=description; valueType/category stay in the registry code). Signatures + coercion verbatim: ensureFlags/getFlags/getFlag/setFlag/flagRegistry. Zero schema change — 65-model pin intact. `/api/config` now 200 with typed values (booleans/numbers coerced).
+- DELETED dead orphans `src/lib/erp/{exposure,cumrate}.ts` (referenced removed Bill/BillPass/prs; nothing imports them; lineage stays in PITFALLS #16 + git history). tolerance.ts unaffected (imports getFlags — now healthy). Phase-3/4 scripts left as documented noise.
+- Verification: tsc src/ 0 errors (was 8) · vitest 653/653 · context_check 347/347 NO DRIFT · `next build` EXIT 0 (29s compile) · /api/config 200 live.
+- Docs: 01-STATE.md (Last-verified session line + note #6 rewritten), 03-PITFALLS.md entry #33 (live-orphan vs dead-orphan triage rule, numstat-over-status rule, AppOption-as-config-home rule).
+- Answered the user's standing "aslam" question: `scripts/seed_admin.ts` / `scripts/seed.ts` seed the dev admin as name 'Aslam Admin' (admin@fiberpro.local) — a Tirupur-trade-plausible placeholder name, chosen for the SPEC-M7 login-door dev/CI seed.
+
+Stage Summary:
+- Post-M7 health pass COMPLETE: working tree clean (only intended changes), src/ typechecks 100% clean for the first time since rollback #4, live /api/config route repaired (500→200), upload route restored.
+- All gates green: 653 vitest · 347/347 context_check · build EXIT 0 · tools 188 / models 65 / routes 145 (pins unchanged).
+- Key decision: orphan triage by importer count — LIVE orphans get fixed (flags.ts→AppOption), DEAD orphans get deleted (exposure/cumrate), historical scripts stay as documented lineage.

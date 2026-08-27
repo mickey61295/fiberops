@@ -346,3 +346,29 @@ FIX pattern: sequential `const rows = ids.length ? await db.x.findMany({...}) : 
 per lookup (the budget-page precedent), or explicitly type the empty branch.
 LESSON: ternary-into-Promise.all is a tsc trap in RSC pages; await makes the
 union collapse correctly.
+
+33. A "type-only" orphan can hide a LIVE runtime 500 — flags.ts / /api/config · 2026-08-28 (post-M7 health pass)
+CONTEXT: STATE note #6 said "do NOT chase the tsc orphans — they document the
+eaten Phase-3/4 lineage." That guidance was right for its era but missed one
+distinction: `flags.ts` was not dead — `/api/config/route.ts` imports it, so
+its `db.flag.*` calls (Flag model removed by rollback #4's schema
+reconstruction, PITFALLS #16) meant the route 500'd on EVERY hit
+(`ignoreBuildErrors: true` + vitest's no-typecheck kept every gate green while
+a shipped route crashed). `exposure.ts`/`cumrate.ts` were the true dead orphans
+(zero importers).
+FIX pattern: before writing off tsc orphans as noise, run
+`grep -r "from '.*<module>'" src/` — importer count separates LIVE orphans
+(fix the code) from DEAD orphans (delete the file). flags.ts was rewired to
+AppOption storage (key `flag:<name>`, group 'flags' — the 65-model pin stays
+intact; valueType/category stay in the registry code, not the row) with the
+getFlags/getFlag/setFlag/flagRegistry/ensureFlags signatures and coercion
+logic preserved verbatim → /api/config 200 with typed values.
+ALSO: the working tree had `src/app/api/upload/route.ts` DELETED (415 other
+files showed as modified = pure mode-bit noise, silenced via
+`git config core.fileMode false`; numstat exposed the one real deletion).
+context_check's "/api/upload EXISTS" probe is what caught it.
+LESSON: (1) tsc errors in imported modules are runtime bugs wearing a type
+costume — importer analysis is the triage. (2) On a noisy `git status`, trust
+`git diff --numstat`, not the file count. (3) A generic key-value model
+(AppOption) is the schema-free home for cross-cutting config — namespacing the
+key (`flag:`) keeps it collision-proof and greppable.

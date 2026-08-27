@@ -2,7 +2,9 @@
 // ============== FEATURE-FLAG REGISTRY (LLD 07 Part 2 port, subset-first) ==============
 // ~25 load-bearing flags of the legacy 189 (decision C4). Legacy names are
 // kept verbatim so behavior discussions map 1:1 to the LLD catalog.
-// Storage: Flag table (per company, single-tenant v1). Coercion on read.
+// Storage: AppOption rows (key `flag:<name>`, group 'flags') — NOT a dedicated
+// Flag table (the 65-model schema is frozen; AppOption is the sanctioned
+// key-value store, and list_app_options already exposes it). Coercion on read.
 // Enforcement points: tolerance.ts (all *dev / *_check flags) + the tools
 // that consult it. GET /api/config mirrors the FlagsProvider contract.
 
@@ -55,17 +57,20 @@ export const FLAG_DEFS: FlagDef[] = [
 ]
 
 const defByName = new Map(FLAG_DEFS.map((f) => [f.name, f]))
+const optKey = (name: string) => `flag:${name}`
 
 let seeded = false
 
 /** Idempotent seed: inserts any missing flag rows with registry defaults. */
 export async function ensureFlags(): Promise<void> {
   if (seeded) return
-  const existing = await db.flag.findMany({ select: { name: true } })
-  const have = new Set(existing.map((f) => f.name))
+  const existing = await db.appOption.findMany({ where: { key: { startsWith: 'flag:' } }, select: { key: true } })
+  const have = new Set(existing.map((r) => r.key.slice('flag:'.length)))
   const missing = FLAG_DEFS.filter((f) => !have.has(f.name))
   if (missing.length) {
-    await db.flag.createMany({ data: missing.map((f) => ({ name: f.name, value: f.value, valueType: f.valueType, category: f.category, defaultValue: f.value, description: f.description })) })
+    await db.appOption.createMany({
+      data: missing.map((f) => ({ key: optKey(f.name), value: f.value, group: 'flags', label: f.description })),
+    })
   }
   seeded = true
 }
@@ -90,8 +95,10 @@ function coerce(raw: string | undefined, def: FlagDef): any {
 /** Read flags as a typed record (names optional; registry defaults fill gaps). */
 export async function getFlags(names?: string[]): Promise<Record<string, any>> {
   await ensureFlags()
-  const rows = await db.flag.findMany(names?.length ? { where: { name: { in: names } } } : undefined)
-  const byName = new Map(rows.map((r) => [r.name, r.value]))
+  const rows = await db.appOption.findMany({
+    where: names?.length ? { key: { in: names.map(optKey) } } : { key: { startsWith: 'flag:' } },
+  })
+  const byName = new Map(rows.map((r) => [r.key.slice('flag:'.length), r.value]))
   const defs = names?.length ? names.map((n) => defByName.get(n)).filter(Boolean) as FlagDef[] : FLAG_DEFS
   const out: Record<string, any> = {}
   for (const d of defs) out[d.name] = coerce(byName.get(d.name), d)
@@ -103,7 +110,7 @@ export async function getFlag<T = any>(name: string): Promise<T> {
   const def = defByName.get(name)
   if (!def) throw new Error(`Unknown flag: ${name} (not in registry)`)
   await ensureFlags()
-  const row = await db.flag.findUnique({ where: { name } })
+  const row = await db.appOption.findUnique({ where: { key: optKey(name) } })
   return coerce(row?.value, def) as T
 }
 
@@ -123,10 +130,10 @@ export async function setFlag(name: string, value: any): Promise<any> {
     stored = String(value)
   }
   await ensureFlags()
-  await db.flag.upsert({
-    where: { name },
+  await db.appOption.upsert({
+    where: { key: optKey(name) },
     update: { value: stored },
-    create: { name, value: stored, valueType: def.valueType, category: def.category, defaultValue: def.value, description: def.description },
+    create: { key: optKey(name), value: stored, group: 'flags', label: def.description },
   })
   return coerce(stored, def)
 }

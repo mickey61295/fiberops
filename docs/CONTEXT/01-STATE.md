@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-28 (session: m7-wave-c — rights enforcement: edge-safe `src/lib/auth/rights.ts` (signed `fo_rights` cookie = login-time {role,rights} snapshot + `computeAllowedGroupIds` — the ONE rule: admin/no-group/[] = all, else listed ∩ valid ∪ home) · login+bootstrap set BOTH cookies via `src/lib/auth/login-cookies.ts` (one door) · middleware per-route rights pre-check (findGroupForPath over menu-registry; denied → 307 first-allowed landing '/'; missing/tampered/stale cookie merely skips the pre-check) + stamps `x-pathname` for the layout · `(erp)/layout.tsx` FRESH layer-2: rights re-derived from DB per full load → NavSidebar filtered + route re-checked (mid-session revocation works; stale grants need re-login — ADR-018) · `/admin/users` PasswordAdmin card (admins) + `POST /api/auth/admin/set-password` (401/403/zod/404/clear-self-400 guards; set/clear) · `/api/seed` admin-only + Seed button hidden for non-admins · deactivated mid-session → 307 /login (verified live) · tests: rights 20 + set-password 11 + api-guard +1 (group snapshot) + menu-registry findGroupForPath 1 → 653 vitest · route_smoke_m7c 36/36 (allowed/denied matrix + SSR sidebar filter + strip/tamper/stale fo_rights + admin bypass + set-password door + deactivate + seed 403) · context_check 347/347; tools stay 188, models stay 65; M7 COMPLETE) — (prior: m7-wave-b — API guarding, 620 vitest)
+Last verified: 2026-08-28 (session: post-m7 health pass — restored `/api/upload/route.ts` (working-tree deletion caught by context_check's EXISTS probe; 7 upload tests depend on it) · FIXED the latent `/api/config` 500: `flags.ts` was a Phase-3 port that read the removed `Flag` model (rollback #4, PITFALLS #16) — REWIRED to AppOption storage (key `flag:<name>`, group 'flags', valueType/category stay in the registry code; getFlags/getFlag/setFlag/flagRegistry signatures unchanged, coercion verbatim) → route 200 with typed values, tolerance.ts import healthy, zero schema change (65-model pin intact) · DELETED dead orphans `src/lib/erp/{exposure,cumrate}.ts` (zero importers, referenced removed Bill/BillPass/prs) → `src/` tsc 100% clean (was 8 errors) · verified: 653 vitest green, context_check 347/347 NO DRIFT, `next build` EXIT 0, `/api/config` 200 live; tools stay 188, models stay 65, routes stay 145) — (prior: m7-wave-c — rights enforcement, M7 COMPLETE, 653 vitest)
 
 ## Milestone status
 
@@ -80,13 +80,17 @@ Last verified: 2026-08-28 (session: m7-wave-c — rights enforcement: edge-safe 
    `scripts/rebuild_schema_54.py` (shapes derived from tools.ts + test usage —
    see PITFALLS #16). Original m1/m2 commits and tags are gone; patch exports
    0003/0004 in `download/` are the surviving evidence.
-6. **tsc noise is now ~30 errors** (fluctuates 29-31 with the .next cache) — the
-   54-world orphans: `src/lib/erp/{flags,exposure,cumrate}.ts`
-   (reference removed Phase-3/4 models Flag/Bill/prs — only `/api/config` imports
-   flags), Phase-3/4 seed/cleanup scripts (`seed_commercial`, `seed_stages`,
-   `cleanup_e2e_bills`, `cleanup_stale_t3`, `verify_money_loop`), plus the old
-   known noise (vitest.config poolOptions, skills/).
-   Do NOT chase these; they document the eaten Phase-3/4 lineage. Full list in
+6. **tsc noise is now scripts/tests-only** (2026-08-28 session — see PITFALLS #33):
+   `src/` is 100% CLEAN (0 errors). The 54-world orphans were resolved —
+   `flags.ts` REWIRED to AppOption storage (key `flag:<name>`, group 'flags' —
+   fixes the live `/api/config` 500; the LLD 07 FlagsProvider contract is
+   preserved, signatures unchanged, tolerance.ts unaffected);
+   `exposure.ts` + `cumrate.ts` DELETED (dead code — zero importers, referenced
+   the removed Bill/BillPass/prs models; lineage stays documented in PITFALLS
+   #16 + git history). REMAINING noise (do not chase): Phase-3/4 seed/cleanup
+   scripts (`seed_commercial`, `seed_stages`, `cleanup_e2e_bills`,
+   `cleanup_stale_t3`, `verify_money_loop`), plus the old known noise
+   (vitest.config poolOptions, skills/, tests/ narrowing). Full list in
    PITFALLS #16.
 7. **Two LATENT pre-existing bugs found & fixed by the M3-A doc-parity test**
    (both sat in the inline tool code since rollback #4's schema reconstruction,
