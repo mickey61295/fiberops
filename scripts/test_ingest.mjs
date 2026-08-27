@@ -4,13 +4,18 @@
    2. Approve every pending write plan via /api/agent/approve
    3. Say "continue" (phase 2: orders)
    4. Report every tool call + args so we can verify data fidelity
+   SPEC-M7 Wave B — the APIs are session-guarded now: log in first and send
+   the fo_session cookie on every call (scripts/lib/api-auth.mjs fixture).
 */
+import { login } from './lib/api-auth.mjs'
+
 const BASE = 'http://localhost:3000'
+const { cookie } = await login(BASE)
 
 async function callAgent(messages) {
   const res = await fetch(`${BASE}/api/agent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ messages }),
   })
   const text = await res.text()
@@ -47,7 +52,7 @@ async function approveAll(events) {
   for (const e of ends) {
     const res = await fetch(`${BASE}/api/agent/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
       body: JSON.stringify({ toolName: e.toolName, args: e.args }),
     })
     const data = await res.json()

@@ -8,13 +8,17 @@
    Each write plan approved via /api/agent/approve; final state verified via API reads.
    NOTE: uses seeded masters (godown G1, dept D2, an existing party+PO) —
    creates nothing that persists beyond the bill chain (bill/pay rows are the E2E evidence).
+   SPEC-M7 Wave B — APIs are session-guarded: login fixture sends fo_session.
 */
+import { login } from './lib/api-auth.mjs'
+
 const BASE = 'http://localhost:3000'
+const { cookie } = await login(BASE)
 
 async function callAgent(prompt) {
   const res = await fetch(`${BASE}/api/agent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
   })
   const text = await res.text()
@@ -47,7 +51,7 @@ async function approveAll(events) {
   for (const e of ends) {
     const res = await fetch(`${BASE}/api/agent/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
       body: JSON.stringify({ toolName: e.toolName, args: e.args }),
     })
     const data = await res.json()

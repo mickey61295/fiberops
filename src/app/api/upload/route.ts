@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { sanitizeFileName, listUploadDir, extractDocument, UPLOAD_DIR } from '@/lib/agent/docExtract'
+import { requireApiSession } from '@/lib/auth/api-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,9 @@ const MAX_BYTES = 20 * 1024 * 1024 // 20 MB
 const ALLOWED_EXTS = ['.pdf', '.txt', '.csv', '.md', '.json', '.tsv', '.log']
 
 export async function POST(req: NextRequest) {
+  // SPEC-M7 Wave B — guarded (the paperclip is an authenticated-panel door)
+  const guard = await requireApiSession()
+  if (guard.error) return guard.error
   try {
     const form = await req.formData()
     const file = form.get('file')
@@ -71,6 +75,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  // SPEC-M7 Wave B — guarded (document listing is an authenticated-panel door)
+  const guard = await requireApiSession()
+  if (guard.error) return guard.error
   const files = await listUploadDir()
   return NextResponse.json({ ok: true, count: files.length, files })
 }

@@ -670,3 +670,28 @@ Stage Summary:
 - Dev credentials: admin@fiberpro.local / admin123 (set by the smoke run's seed — bootstrap is now closed; use the login form or seed another password by clearing passwordHash).
 - Tags: spec-m7-frozen + schema-65-baseline (pushed) + m7-wave-a (to follow); push-after-commit honored.
 - Next: M7 Wave B — API guarding (401 JSON on /api/erp + /api/agent + /api/upload without session; cookie fixtures for HTTP test suites) + agent user context (AgentTurn.userId stamping, approval actor on commits).
+
+---
+Task ID: m7-wave-b
+Agent: main
+Task: M7 Wave B (SPEC-M7 §4) — API guarding (401 JSON on /api/erp|agent|upload without session; cookie fixtures) + agent user context (AgentTurn.userId stamping, approval actor on commits). Session opened with a user question ("why the name aslam?") — answered: 'Aslam Admin' is the arbitrary demo/seed admin name in scripts/seed.ts + seed_admin.ts, chosen as a realistic Tirupur-knitwear-belt name consistent with the other seed names (Priya Sharma, Mohammed Ali, Sri Balaji Washers, exporter 'Baalaji Garments'); not a real person, trivially renamable.
+
+Work Log:
+- Explored the API surface: 5 ERP route files (erp GET, agent POST SSE, agent/approve POST, upload POST+GET, seed POST child_process) + 4 auth routes (stay open) + config (FlagsProvider is server-side — zero client fetchers; left open) + root /api/route.ts (hello-world stub). Confirmed NO vitest test hits APIs via HTTP except tests/unit/upload-route.test.ts (imports the handler directly — cookie-less).
+- NEW src/lib/auth/api-guard.ts: requireApiSession() → {user}|{error: 401 JSON {"error":"Authentication required"}} over the Node-only getSessionUser (deleted/deactivated user fails too — the two-layer rule).
+- Guards applied: /api/erp GET, /api/agent POST, /api/agent/approve POST, /api/upload POST+GET, /api/seed POST (documented defense-in-depth addition beyond the frozen erp|agent|upload list — unauth child_process shell-out is unacceptable; zero callers anywhere).
+- Actor threading: AgentTool.execute gained optional (args, actor?: AgentActor) 2nd param — invisible to the ~175 tools that ignore it. approve_pending + proposeApprovalGate + all 8 gate wrappers (create_bill_pass, acknowledge_unit_transfer, approve_reprocess, approve_non_return_dc, accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot) stamp approvedBy = actor.email ?? 'agent' in plan AND commit (back-compat without actor).
+- /api/agent: AgentTurn.userId = session user id (was hardcoded 'admin'); execute(parsed.value, actor) threads the actor.
+- /api/agent/approve: execute(args, actor) → commits carry the human actor; AgentTurn updateMany now SCOPED to the actor's userId (was global) + approvedBy = email.
+- agent-panel.tsx: 401 → toast + window.location '/login' on all three fetches (/api/agent, /api/upload, /api/agent/approve); FIXED latent contract bug — upload handler checked data.success but the SPEC-M3 §12 route returns {ok: true} (paperclip attach flow never fired).
+- Cookie fixtures: NEW scripts/lib/api-auth.mjs (login → {cookie, user}; Node fetch has no cookie jar — explicit Cookie header). Wired into test_ingest.mjs, eval_ingest.mjs, test_money_loop.mjs. Historical route_smoke_m5*/waveD/waveE API calls left as era artifacts (superseded by m7b smoke).
+- Tests: NEW tests/unit/api-guard.test.ts (6: 401 no-cookie/garbage/tampered/deleted-user/deactivated-user + valid-token passthrough; vi.hoisted cookieStore mock of next/headers) + NEW tests/unit/agent-actor.test.ts (4: approve_pending±actor, accept_grn find-or-create actor stamp, 188 registry pin) + upload-route.test.ts gained the 401 block + session fixture (mocked cookies + real user row + createSessionToken) → 620 vitest green (609 + 11). One flaky parallel-run failure observed once, then 4 consecutive green full runs.
+- route_smoke_m7b.sh 25/25 GREEN: 8-way unauth 401-JSON matrix (incl. multipart POST upload) + /api/auth/session open {user:null} + login/jar + 6 authed API 200s + authed multipart upload round-trip + actor e2e (fixture setup → accept_grn GRN-001 via the human door → fixture verify approvedBy=admin@fiberpro.local requestedBy=agent) + approve-door 400 guards (read-only/unknown tool) + page-guard regression (307 login?next / authed 200). NEW scripts/m7b_smoke_fixture.ts (setup|verify) for the e2e cleanup/assertion.
+- context_check.sh: auth-lib 3→4 + guarded-API-routes 5/5 grep + cookie-fixture-scripts 3/3 metrics + 5 file-existence entries → 335/335 NO DRIFT.
+- Docs: 01-STATE.md (Last-verified line, M7 milestone row, Git HEAD, vitest 620, API-routes + Auth M7-B ground-truth rows, next-actions #6 → Wave C, M7 Wave B notes section), this worklog.
+
+Stage Summary:
+- M7 WAVE B COMPLETE: all 5 ERP API route files session-guarded (401 JSON); AgentTurn.userId = session user; approval actor = the human (approvedBy email through the approve door, requestedBy stays 'agent'); cookie fixtures for the 3 HTTP scripts; agent-panel 401 UX; 620 vitest green; route_smoke_m7b 25/25; context_check 335/335; tsc zero new src errors; tools stay 188, models stay 65, routes stay 145.
+- Pattern wins: the optional actor param threads user identity through the plan/commit contract with ZERO changes to non-approval tools; requireApiSession reuses the Node-only getSessionUser so the deactivated-user second layer applies to APIs too.
+- Tags: m7-wave-b to follow; push-after-commit honored.
+- Next: M7 Wave C — rights enforcement (NavSidebar filtered by UserGroup.rights []=all, middleware per-route rights check vs MENU_GROUPS, /admin/users password set/reset, deactivated-user redirect).

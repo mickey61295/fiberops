@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
 import { db } from '@/lib/db'
+import { requireApiSession } from '@/lib/auth/api-guard'
 
 export const maxDuration = 60
 
@@ -257,6 +258,12 @@ function parseWithCoercion(schema: any, args: any): { ok: true; value: any } | {
 }
 
 export async function POST(req: Request) {
+  // SPEC-M7 Wave B — guarded: no session → 401 JSON (the SSE stream never
+  // starts). The session user becomes the AgentTurn.userId + the actor
+  // threaded into execute() so approval plans record who will commit.
+  const guard = await requireApiSession()
+  if (guard.error) return guard.error
+  const actor = { userId: guard.user.id, email: guard.user.email, name: guard.user.name }
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
@@ -413,8 +420,9 @@ export async function POST(req: Request) {
                 result = { error: `Invalid arguments for ${toolName}: ${issues || parsed.error?.message || 'validation failed'}` }
               } else {
                 try {
-                  result = await t.execute(parsed.value)
-                  // Persist audit log
+                  result = await t.execute(parsed.value, actor)
+                  // Persist audit log — SPEC-M7 Wave B: userId = the logged-in
+                  // user (was hardcoded 'admin')
                   await db.agentTurn
                     .create({
                       data: {
@@ -430,7 +438,7 @@ export async function POST(req: Request) {
                           JSON.stringify(result.json || '')
                         ).slice(0, 2000),
                         approved: !t.isWrite,
-                        userId: 'admin',
+                        userId: actor.userId,
                       },
                     })
                     .catch(() => {})

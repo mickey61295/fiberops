@@ -13,13 +13,17 @@
  * Gate: overall accuracy ≥ 95% fields.
  * Run:  node scripts/eval_ingest.mjs            (server must be up)
  *       node scripts/eval_ingest.mjs --static   (LLP check only, no LLM)
+ * SPEC-M7 Wave B — the agent/approve APIs are session-guarded: the login
+ * fixture (scripts/lib/api-auth.mjs) supplies the fo_session cookie.
  */
 import { writeFileSync, copyFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs'
+import { login } from './lib/api-auth.mjs'
 
 const BASE = 'http://localhost:3000'
 const UPLOAD = '/home/z/my-project/upload'
 const RUN = Date.now()
 const STATIC_ONLY = process.argv.includes('--static')
+const { cookie: SESSION_COOKIE } = STATIC_ONLY ? { cookie: '' } : await login(BASE)
 
 // ───────────────────────── agent plumbing ─────────────────────────
 async function callAgent(prompt, retries = 4) {
@@ -30,7 +34,7 @@ async function callAgent2(messages, retries = 4) {
     try {
       const res = await fetch(`${BASE}/api/agent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Cookie: SESSION_COOKIE },
         body: JSON.stringify({ messages }),
       })
       const text = await res.text()
@@ -62,7 +66,7 @@ async function approveAll(events) {
   for (const e of ends) {
     const res = await fetch(`${BASE}/api/agent/approve`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Cookie: SESSION_COOKIE },
       body: JSON.stringify({ toolName: e.toolName, args: e.args }),
     })
     const data = await res.json()

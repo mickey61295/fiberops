@@ -122,6 +122,14 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
         signal: controller.signal,
       })
 
+      // SPEC-M7 Wave B — the API is guarded; an expired session is a JSON 401
+      // (not an SSE stream) → send the user back through the login door.
+      if (res.status === 401) {
+        toast.error('Session expired — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
+
       if (!res.body) {
         toast.error('No response stream')
         return
@@ -248,8 +256,15 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      if (res.status === 401) {
+        toast.error('Session expired — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
       const data = await res.json()
-      if (data.success) {
+      // SPEC-M3 §12 upload contract returns { ok, fileName, … } (M7B fix:
+      // this used to check data.success and the attach flow never fired)
+      if (data.ok) {
         setAttachedFile(data.fileName)
         toast.success(`Attached ${data.fileName} (${(data.sizeBytes / 1024).toFixed(0)} KB). Now say "ingest this" or ask a question about it.`)
       } else {
@@ -272,6 +287,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ toolName: pending.toolName, args: pending.args }),
       })
+      if (res.status === 401) {
+        toast.error('Session expired — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
       const data = await res.json()
       if (data.success) {
         toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)

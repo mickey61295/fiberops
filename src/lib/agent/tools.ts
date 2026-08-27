@@ -133,13 +133,23 @@ export type ToolResult = {
   commit?: () => Promise<any>
 }
 
+/** SPEC-M7 Wave B — agent user context. The API routes stamp the session
+ * user on every execute() call; approval-committing tools record it as the
+ * Approval.approvedBy actor (falls back to 'agent' for direct/test calls,
+ * preserving the pre-M7B contract). */
+export type AgentActor = {
+  userId: string
+  email: string
+  name: string
+}
+
 export interface AgentTool {
   name: string
   description: string
   domain: string
   isWrite: boolean
   schema: z.ZodObject<any, any>
-  execute: (args: any) => Promise<ToolResult>
+  execute: (args: any, actor?: AgentActor) => Promise<ToolResult>
 }
 
 // helper to safely query masters
@@ -1955,8 +1965,12 @@ async function proposeApprovalGate(
   entity: string,
   r: { entityId: string; title: string; detail: string; href: string | null },
   comments?: string,
+  actor?: AgentActor,
 ) {
   const kind = findApprovalKind(entity)!
+  // SPEC-M7 Wave B — the human who clicks Approve (via /api/agent/approve)
+  // becomes the recorded actor; the plan/commit pair must agree.
+  const approvedBy = actor?.email ?? 'agent'
   const existing = await db.approval.findFirst({
     where: { entity, entityId: r.entityId },
     orderBy: { createdAt: 'desc' },
@@ -1975,7 +1989,7 @@ async function proposeApprovalGate(
       creates: willCreate
         ? [{ table: 'approval', data: { entity, entityId: r.entityId, step: 1, requestedBy: 'agent', status: 'pending' } }]
         : [],
-      updates: [{ table: 'approval', id: existing?.id ?? '<new>', data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments } }],
+      updates: [{ table: 'approval', id: existing?.id ?? '<new>', data: { status: 'approved', approvedBy, approvedAt: new Date(), comments } }],
       sideEffects: [
         `${r.title} is marked ${kind.label.toLowerCase()}-approved`,
         r.href ? `Document view: ${r.href}` : 'Decision recorded in the approval audit trail',
@@ -1991,7 +2005,7 @@ async function proposeApprovalGate(
         }
         const updated = await tx.approval.update({
           where: { id: row.id },
-          data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments },
+          data: { status: 'approved', approvedBy, approvedAt: new Date(), comments },
         })
         return { id: updated.id, entity, entityId: r.entityId, ref: r.title, status: updated.status }
       })
@@ -2010,21 +2024,22 @@ const writeTools: AgentTool[] = [
       approvalId: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const ap = await db.approval.findUnique({ where: { id: args.approvalId } })
       if (!ap) return { text: `Approval ${args.approvalId} not found` }
       if (ap.status !== 'pending') return { text: `Approval already ${ap.status}` }
+      const approvedBy = actor?.email ?? 'agent'
       return {
         text: `Proposed approval of ${ap.entity} ${ap.entityId}.`,
         plan: {
           summary: `Approve ${ap.entity} (id: ${ap.entityId}) - requested by ${ap.requestedBy}`,
-          updates: [{ table: 'approval', id: ap.id, data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments: args.comments } }],
+          updates: [{ table: 'approval', id: ap.id, data: { status: 'approved', approvedBy, approvedAt: new Date(), comments: args.comments } }],
           sideEffects: ['Entity becomes approved', 'If PO, status becomes "open" (already open) and ready to receive'],
         },
         async commit() {
           await db.approval.update({
             where: { id: ap.id },
-            data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments: args.comments },
+            data: { status: 'approved', approvedBy, approvedAt: new Date(), comments: args.comments },
           })
           return { id: ap.id, status: 'approved' }
         },
@@ -2045,11 +2060,11 @@ const writeTools: AgentTool[] = [
       grnNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
       if (!grn) return { text: `GRN ${args.grnNo} not found` }
       const r = { entityId: grn.id, title: grn.grnNo, detail: `${grn.party?.name ?? 'party'} · ₹${Math.round(grn.totalValue).toLocaleString('en-IN')} · ${grn.grnType}`, href: approvalRefHref('supplier_bill', grn.id) }
-      return proposeApprovalGate('supplier_bill', r, args.comments)
+      return proposeApprovalGate('supplier_bill', r, args.comments, actor)
     },
   },
   {
@@ -2061,11 +2076,11 @@ const writeTools: AgentTool[] = [
       docNo: z.string().describe('The GT-#### godown-transfer doc number'),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const pair = await db.stockLedger.findFirst({ where: { docNo: args.docNo, txnType: { in: ['godown_transfer_out', 'godown_transfer_in'] } } })
       if (!pair) return { text: `No godown transfer ${args.docNo} found (expected a GT-#### doc number)` }
       const r = { entityId: args.docNo, title: args.docNo, detail: `godown transfer ${args.docNo} · acknowledged by receiving unit`, href: approvalRefHref('godown_transfer', args.docNo) }
-      return proposeApprovalGate('godown_transfer', r, args.comments)
+      return proposeApprovalGate('godown_transfer', r, args.comments, actor)
     },
   },
   {
@@ -2077,11 +2092,11 @@ const writeTools: AgentTool[] = [
       grnNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
       if (!grn) return { text: `GRN ${args.grnNo} not found` }
       const r = { entityId: grn.id, title: grn.grnNo, detail: `reprocess ${grn.grnNo} · ${grn.party?.name ?? 'party'} · ${grn.totalQty} units`, href: approvalRefHref('reprocess', grn.id) }
-      return proposeApprovalGate('reprocess', r, args.comments)
+      return proposeApprovalGate('reprocess', r, args.comments, actor)
     },
   },
   {
@@ -2093,11 +2108,11 @@ const writeTools: AgentTool[] = [
       dcNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const dc = await db.pcsDespatch.findUnique({ where: { dcNo: args.dcNo } })
       if (!dc) return { text: `Despatch DC ${args.dcNo} not found` }
       const r = { entityId: dc.id, title: dc.dcNo, detail: `non-return DC ${dc.dcNo} · ${dc.totalPcs} pcs · vehicle ${dc.vehicleNo || '-'}`, href: approvalRefHref('non_return_dc', dc.id) }
-      return proposeApprovalGate('non_return_dc', r, args.comments)
+      return proposeApprovalGate('non_return_dc', r, args.comments, actor)
     },
   },
   // ───────── SPEC-M6 §6 (Wave D) — manual-queue approval gates (+4) ─────────
@@ -2114,11 +2129,11 @@ const writeTools: AgentTool[] = [
       grnNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
       if (!grn) return { text: `GRN ${args.grnNo} not found` }
       const r = { entityId: grn.id, title: grn.grnNo, detail: `GRN acceptance ${grn.grnNo} · ${grn.party?.name ?? 'party'} · ${grn.totalQty} units · ${grn.grnType}`, href: approvalRefHref('grn_acceptance', grn.id) }
-      return proposeApprovalGate('grn_acceptance', r, args.comments)
+      return proposeApprovalGate('grn_acceptance', r, args.comments, actor)
     },
   },
   {
@@ -2130,11 +2145,11 @@ const writeTools: AgentTool[] = [
       issueNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const li = await db.lineIssue.findUnique({ where: { issueNo: args.issueNo }, include: { line: true, order: true } })
       if (!li) return { text: `Line issue ${args.issueNo} not found` }
       const r = { entityId: li.id, title: li.issueNo, detail: `cutting ack ${li.issueNo} · line ${li.line?.code ?? '-'} · ${li.qty} pcs · order ${li.order?.orderNo ?? '-'}`, href: approvalRefHref('cutting_ack', li.id) }
-      return proposeApprovalGate('cutting_ack', r, args.comments)
+      return proposeApprovalGate('cutting_ack', r, args.comments, actor)
     },
   },
   {
@@ -2146,11 +2161,11 @@ const writeTools: AgentTool[] = [
       dcNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo }, include: { jobworker: true } })
       if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
       const r = { entityId: jw.id, title: jw.dcNo, detail: `pcs GAN ${jw.dcNo} · ${jw.jobworker?.name ?? 'jobworker'} · ${jw.processType} · ${jw.totalQty} units · ${jw.status}`, href: approvalRefHref('pcs_acceptance', jw.id) }
-      return proposeApprovalGate('pcs_acceptance', r, args.comments)
+      return proposeApprovalGate('pcs_acceptance', r, args.comments, actor)
     },
   },
   {
@@ -2162,11 +2177,11 @@ const writeTools: AgentTool[] = [
       grnNo: z.string(),
       comments: z.string().optional(),
     }),
-    async execute(args) {
+    async execute(args, actor) {
       const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true, lines: true, department: true } })
       if (!grn) return { text: `GRN ${args.grnNo} not found` }
       const r = { entityId: grn.id, title: grn.grnNo, detail: `lot approval ${grn.grnNo} · ${grn.department?.name ?? 'dept'} · ${grn.lines.length} line(s) · ${grn.totalQty} units`, href: approvalRefHref('lot', grn.id) }
-      return proposeApprovalGate('lot', r, args.comments)
+      return proposeApprovalGate('lot', r, args.comments, actor)
     },
   },
   {

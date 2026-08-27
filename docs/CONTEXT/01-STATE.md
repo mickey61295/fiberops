@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m7-wave-a — auth login core: ADR-017 User +passwordHash/+lastLoginAt (models stay 65) + zero-dep auth (scrypt password + HMAC-SHA256 Web-Crypto session cookie `fo_session`) + /login (LoginForm + first-admin FirstAdminForm bootstrap while no password exists) + 4 API routes (/api/auth/login|logout|session|bootstrap — bootstrap self-locks 403 once any password exists) + edge middleware page guard (307 → /login?next=) + (erp)/layout second guard + topbar user chip + logout + scripts/seed_admin.ts (admin@fiberpro.local/admin123) + tests/unit/auth.test.ts (11) + route_smoke_m7a 27/27 → 609 vitest; tools stay 188; APIs stay OPEN until Wave B (SPEC-M7 §2); tag `m7-wave-a`; remote PUSHED) — (prior: m6-wave-d — 113/113 M6 COMPLETE, 598 vitest)
+Last verified: 2026-08-27 (session: m7-wave-b — API guarding + agent user context: `requireApiSession()` 401-JSON guard on /api/erp + /api/agent + /api/agent/approve + /api/upload (GET+POST) + /api/seed (defense-in-depth addition) · AgentTurn.userId = session user id (was 'admin') · approval actor on commits: /api/agent/approve passes the session user into execute() → approve_pending + 8 proposeApprovalGate wrappers stamp Approval.approvedBy = human email (requestedBy stays 'agent'); AgentTurn updateMany scoped to the actor + approvedBy = email · agent-panel 401 → /login redirect (+ fixed the latent data.success vs ok upload-toast contract bug) · cookie fixture scripts/lib/api-auth.mjs wired into test_ingest/eval_ingest/test_money_loop · tests: api-guard 6 + agent-actor 4 + upload-route 401 block (619→620 vitest) · route_smoke_m7b 25/25 (401 matrix + authed 200s + multipart round-trip + accept_grn actor e2e approvedBy=admin@fiberpro.local + page-guard regression) · context_check 335/335; tools stay 188, models stay 65; tag `m7-wave-b`) — (prior: m7-wave-a — login core, 609 vitest)
 
 ## Milestone status
 
@@ -16,13 +16,13 @@ Last verified: 2026-08-27 (session: m7-wave-a — auth login core: ADR-017 User 
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
 | M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **188 tools**, 113/113 | **COMPLETE** (`m6-wave-d`): Wave D — 10 DS variants (MP/MDC/PDC/RTN/OPN/PT/RTC/cutting-issue/cutting-production/line-output) + 4 manual-queue approval kinds + 2 MasterTables + 2 aliases; 113/113 live (100%), 598 vitest, route_smoke_m6d 60/60, context_check 310/310 |
-| M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks) | **IN PROGRESS** (`m7-wave-a`): ADR-017 (User +passwordHash/+lastLoginAt, field-additive) + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin + 11 auth tests + smoke 27/27 → 609 vitest; spec `spec-m7-frozen` |
+| M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context (done) → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks) | **IN PROGRESS** (`m7-wave-b`): Wave A — ADR-017 + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin; Wave B — 401-JSON guard on all 5 ERP API route files + AgentTurn.userId session stamping + approval actor (approvedBy = human email through the approve door) + cookie fixtures for HTTP scripts → 620 vitest; remaining: Wave C rights enforcement; spec `spec-m7-frozen` |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M7 Wave A commit (auth login core) — tags `m7-wave-a`, `spec-m7-frozen`, `schema-65-baseline`, prior `m6-wave-d`, `m6-complete`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
+| Git HEAD | M7 Wave B commit (API guarding + agent user context) — tags `m7-wave-b`, `m7-wave-a`, `spec-m7-frozen`, `schema-65-baseline`, prior `m6-wave-d`, `m6-complete`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
 | Agent tools | **188** (72 inline + 30 factory create + 30 factory update + 51 docTool delegates — M6-D +7: post_opening, ready_to_cut, create_dc docTools + accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot gates) | `scripts/context_check.sh` |
 | Prisma models | **65** (61 + ADR-016 ×4: UserGroup, AppOption, Hsn, TestParameter; User AMENDED with userGroupId + active — ERRATUM #1; **M7-A ADR-017: User +passwordHash String? +lastLoginAt DateTime? — FIELD-additive, still 65 models**) | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
@@ -49,12 +49,13 @@ Last verified: 2026-08-27 (session: m7-wave-a — auth login core: ADR-017 User 
 | Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **609 passing** (598 M6 + 11 M7-A auth: scrypt round-trip/salt/wrong/null/garbage, HMAC round-trip/tamper/expired/malformed, constants frozen, session.ts edge-purity) | `npx vitest run` |
+| **Total vitest** | **620 passing** (609 M6/M7-A + 11 M7-B: api-guard 6 — 401 no-cookie/garbage/tampered/deleted-user/deactivated-user + valid-token passthrough; agent-actor 4 — approve_pending±actor back-compat + accept_grn find-or-create actor stamp + 188 registry pin; upload-route +1 — 401 guard block) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
-| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` + **M7-A: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`, `/api/auth/bootstrap`** (open in Wave A — guarding is Wave B) | ls `src/app/api/` |
+| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` + `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`, `/api/auth/bootstrap` — **M7-B: the 5 ERP route files are SESSION-GUARDED (requireApiSession → 401 JSON; /api/auth/* deliberately open; /api/config left open — server-side FlagsProvider, no client fetchers)** | ls `src/app/api/` |
 | Auth (M7-A) | Login core live: session cookie `fo_session` (HMAC-SHA256, Web Crypto, edge-safe `src/lib/auth/session.ts`; secret = `AUTH_SECRET` env w/ dev fallback — ADR-017) · scrypt passwords `src/lib/auth/password.ts` · edge page guard `src/middleware.ts` (307 → /login?next=; matcher excludes /api, /login, _next, dotted) · second guard in `(erp)/layout.tsx` (deleted/deactivated mid-session → /login) · topbar user chip + logout · first-admin bootstrap locks 403 forever once any password exists · dev credentials `admin@fiberpro.local` / `admin123` (scripts/seed_admin.ts) | route_smoke_m7a.sh |
+| Auth (M7-B) | API guard `src/lib/auth/api-guard.ts` (requireApiSession → 401 `{"error":"Authentication required"}`; Node-only reuses getSessionUser) applied to erp/agent/agent-approve/upload/seed · AgentTurn.userId = session user id · approval actor: `AgentTool.execute(args, actor?)` optional 2nd param — approve_pending + 8 gate wrappers stamp `approvedBy = actor.email ?? 'agent'`; approve route scopes its updateMany to the actor · cookie fixture `scripts/lib/api-auth.mjs` (login → Cookie header) for test_ingest/eval_ingest/test_money_loop · agent-panel redirects to /login on 401 | route_smoke_m7b.sh |
 
 ## Known drift / gaps
 
@@ -226,9 +227,17 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    Web-Crypto session cookie, edge-safe session.ts), /login with first-admin
    bootstrap (self-locking 403), 4 /api/auth/* routes, edge middleware page
    guard, topbar user chip + logout, seed_admin.ts. 609 vitest, smoke 27/27,
-   context_check 327/327. **Next: M7 Wave B** — guard /api/erp + /api/agent +
-   /api/upload (401 JSON without session; cookie fixtures for the HTTP test
-   suites), stamp AgentTurn.userId + approval actor from the session.
+   context_check 327/327.
+6. **M7 Wave B DONE** (tag `m7-wave-b`): API guarding + agent user context.
+   requireApiSession 401-JSON guard on /api/erp, /api/agent, /api/agent/approve,
+   /api/upload, /api/seed; AgentTurn.userId = session user; approval actor
+   stamped through the human approve door (approve_pending + 8 gate wrappers);
+   cookie fixture scripts/lib/api-auth.mjs for the 3 HTTP .mjs scripts;
+   agent-panel 401 → /login. 620 vitest, route_smoke_m7b 25/25, context_check
+   335/335. **Next: M7 Wave C** — rights enforcement: NavSidebar filtered by
+   UserGroup.rights ([] = all), middleware per-route rights check vs
+   MENU_GROUPS, /admin/users password set/reset field, deactivated-user
+   redirect (SPEC-M7 §4).
 
 ## M5 Wave D notes for future sessions
 
@@ -737,3 +746,45 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 - **middleware matcher** excludes /api, /login, _next/* and any dotted path
   (`.*\..*`). Adding API guarding in Wave B means either changing the matcher
   or guarding inside each route (prefer the latter: 401 JSON ≠ redirect).
+
+## M7 Wave B notes for future sessions
+
+- **API guarding is INSIDE the route handlers, not middleware** (per the Wave A
+  note): `src/lib/auth/api-guard.ts` `requireApiSession()` → 401 JSON
+  `{"error":"Authentication required"}` — browsers send fo_session same-origin
+  automatically, so no client fetch needed changing (only the 401 UX:
+  agent-panel now redirects to /login). Guarded: erp, agent, agent/approve,
+  upload (GET+POST), seed. Deliberately OPEN: /api/auth/* (the login door),
+  /api/config (server-side FlagsProvider — zero client fetchers).
+- **/api/seed was guarded beyond the frozen spec list** (erp|agent|upload):
+  an unauthenticated route that shells out to child_process is unacceptable.
+  Zero in-app callers (the dev workflow runs seed.ts directly; no test or
+  smoke POSTs there) — documented deviation, defense-in-depth.
+- **The actor contract**: `AgentTool.execute(args, actor?)` — optional second
+  parameter, invisible to the ~175 tools that ignore it. Only the
+  approval-committing tools consume it: approve_pending + the 8
+  proposeApprovalGate wrappers stamp `approvedBy = actor.email ?? 'agent'`
+  (plan AND commit agree). requestedBy stays 'agent' — the AGENT proposes,
+  the HUMAN approves; that split is the audit semantics.
+- **AgentTurn.userId** is now the session user's id (was hardcoded 'admin');
+  old rows keep 'admin'. The approve route's updateMany is SCOPED to the
+  actor's userId (pre-M7B it marked every pending turn globally approved).
+- **Cookie fixtures**: scripts hitting guarded APIs must login first —
+  `scripts/lib/api-auth.mjs` `login(base)` → `{ cookie, user }`; attach
+  `Cookie: fo_session=…` to every fetch (Node fetch does NOT jar cookies).
+  Wired: test_ingest.mjs, eval_ingest.mjs, test_money_loop.mjs. Historical
+  route_smoke_m5*/waveD/waveE scripts that hit APIs cookie-less are ERA
+  artifacts — superseded by route_smoke_m7b.sh, do not "fix" them.
+- **Latent bug fixed in passing**: agent-panel's upload handler checked
+  `data.success` but the SPEC-M3 §12 route returns `{ ok: true, … }` — the
+  paperclip attach toast/flow never fired. Now checks `data.ok`.
+- **vitest db-fixture pattern** (api-guard/agent-actor/upload-route): mock
+  `next/headers` cookies with `vi.hoisted` cookieStore + create a real user
+  row + `createSessionToken(userId)` — the guard's second layer (db lookup)
+  is exercised for real. One early flaky parallel run was observed before the
+  final green x4 streak; if a one-off failure appears, re-run before
+  debugging (SQLite + parallel workers occasionally contend).
+- **route_smoke_m7b fixture**: `scripts/m7b_smoke_fixture.ts setup|verify`
+  (GRN-001 grn_acceptance cleanup + actor assertion) — setup deletes stale
+  rows so re-runs hit the find-or-create path; verify asserts
+  approvedBy=admin@fiberpro.local AND requestedBy=agent.

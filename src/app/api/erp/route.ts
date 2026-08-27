@@ -3,9 +3,14 @@ import { db } from '@/lib/db'
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { listMasters } from '@/lib/erp/posting/master-service'
 import { approvalRefHref } from '@/lib/erp/approval-kinds'
+import { requireApiSession } from '@/lib/auth/api-guard'
 
 // GET /api/erp?resource=orders|purchase_orders|inventory|cutting|production|invoices|costing|hr|approvals|masters|master_search&...
+// SPEC-M7 Wave B — guarded: no session → 401 JSON (browser fetches send the
+// fo_session cookie same-origin automatically; scripts use the cookie fixture).
 export async function GET(req: Request) {
+  const guard = await requireApiSession()
+  if (guard.error) return guard.error
   try {
     const url = new URL(req.url)
     const resource = url.searchParams.get('resource')
