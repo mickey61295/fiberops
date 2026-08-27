@@ -15,6 +15,19 @@ import { buildMasterSchema, planMasterCreate, planMasterUpdate } from '@/lib/erp
 import { queryStockLedger } from '@/lib/erp/registers/stock-ledger'
 import { queryDailyInOut } from '@/lib/erp/registers/daily-inout'
 import { queryOrderRegister } from '@/lib/erp/registers/order-register'
+import { queryInhandOrders } from '@/lib/erp/registers/inhand'
+import { queryPartyBalance, getPartyPoBalances } from '@/lib/erp/registers/party-balance'
+import { fetchCurrentStock } from '@/lib/erp/registers/stock-register'
+import { queryLots } from '@/lib/erp/registers/lots'
+import { queryIoHistory } from '@/lib/erp/registers/io-history'
+import { queryProductionStatus } from '@/lib/erp/registers/production-status'
+import { queryJobwork } from '@/lib/erp/registers/jobwork'
+import { queryBillsRegister } from '@/lib/erp/registers/bills'
+import { querySupplierBills } from '@/lib/erp/registers/supplier-bills'
+import { getPartyLedgerSummary } from '@/lib/erp/registers/party-ledger'
+import { getOrderBudgetActual } from '@/lib/erp/registers/budget'
+import { queryApprovalAudit } from '@/lib/erp/registers/approval-audit'
+import { queryOrderStatus } from '@/lib/erp/registers/order-status'
 // SPEC-M3 Wave A — the transaction write tools are now THIN delegates over the
 // posting services (ADR-001 at transaction scale). Schemas move VERBATIM into
 // src/lib/erp/schemas/ (the agent prompt contract must not drift); the chain
@@ -205,16 +218,10 @@ const readTools: AgentTool[] = [
       itemType: z.string().optional().describe('yarn|fabric|accessory|pcs'),
     }),
     async execute(args) {
-      const where: any = {}
-      if (args.itemType) where.itemType = args.itemType
-      if (args.godownCode) {
-        const g = await db.godown.findUnique({ where: { code: args.godownCode } })
-        if (g) where.godownId = g.id
-      }
-      const stocks = await db.currentStock.findMany({
-        where,
-        include: { godown: true, colour: true, size: true, department: true },
-      })
+      // Delegates to the shared register fetch (SPEC-M4 §5 row 9) — the same
+      // CurrentStock read path the stock registers use. json shape frozen.
+      const stocks = await fetchCurrentStock({ itemType: args.itemType, godown: args.godownCode })
+      if (stocks === null) return { text: `Godown ${args.godownCode} not found.` }
       return {
         text: `Found ${stocks.length} stock entries.`,
         json: stocks.map((s) => ({
@@ -393,24 +400,26 @@ const readTools: AgentTool[] = [
     isWrite: false,
     schema: z.object({ partyCode: z.string() }),
     async execute(args) {
+      // Delegates to the shared register services (SPEC-M4 §5 rows 4/14) — the
+      // same read path the party-balance + party-ledger screens use. json shape
+      // frozen (M3 contract) + ADDITIVE poBalances[] (§5 row 4).
       const party = await db.party.findUnique({ where: { code: args.partyCode } })
       if (!party) return { text: `Party ${args.partyCode} not found` }
-      const [invoices, journals, debitNotes] = await Promise.all([
-        db.salesInvoice.findMany({ where: { partyId: party.id } }),
-        db.journal.findMany({ where: { partyId: party.id } }),
-        db.debitNote.findMany({ where: { partyId: party.id } }),
+      const [summary, poBalances] = await Promise.all([
+        getPartyLedgerSummary(party.id),
+        getPartyPoBalances(party.id),
       ])
-      const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
-      const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
-      const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
+      if (!summary) return { text: `Party ${args.partyCode} not found` }
       return {
-        text: `Party ${party.name}: billed=${totalBilled}, debit notes=${totalDebit}, journals=${totalJournal}`,
+        text: `Party ${party.name}: billed=${summary.totalBilled}, debit notes=${summary.totalDebit}, journals=${summary.totalJournal}, received=${summary.totalReceived}, paid=${summary.totalPaid}, balance=${Math.round(summary.balance)}${poBalances.length ? `, ${poBalances.length} POs (pending qty ${Math.round(poBalances.reduce((s, p) => s + p.pendingQty, 0))})` : ''}`,
         json: {
           party: { code: party.code, name: party.name, opening: party.openingBalance },
-          invoices: invoices.length, totalBilled, totalDebit, totalJournal,
-          recentInvoices: invoices.slice(0, 5).map((i) => ({
-            invoiceNo: i.invoiceNo, date: i.invoiceDate, amount: i.billAmount, status: i.status,
-          })),
+          invoices: summary.invoices, totalBilled: summary.totalBilled,
+          totalDebit: summary.totalDebit, totalJournal: summary.totalJournal,
+          totalReceived: summary.totalReceived, totalPaid: summary.totalPaid,
+          balance: summary.balance,
+          recentInvoices: summary.recentInvoices,
+          poBalances,
         },
       }
     },
@@ -540,26 +549,20 @@ const readTools: AgentTool[] = [
     isWrite: false,
     schema: z.object({ orderNo: z.string() }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+      // Delegates to the shared register service (SPEC-M4 §5 row 15) — the same
+      // read path the /costing/budget-vs-actual screen uses. json shape frozen.
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, select: { id: true } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
-      const [poLines, prodEntries, costs] = await Promise.all([
-        db.pOLine.findMany({ where: { orderId: order.id } }),
-        db.productionEntry.findMany({ where: { orderId: order.id } }),
-        db.costSheet.findMany({ where: { orderId: order.id } }),
-      ])
-      const poValue = poLines.reduce((s, p) => s + (p.qty * p.rate), 0)
-      const prodCost = prodEntries.reduce((s, e) => s + e.amount, 0)
-      const shiftWages = prodEntries.reduce((s, e) => s + e.shiftWages, 0)
-      const budgetedCost = costs.reduce((s, c) => s + c.totalCost, 0)
-      const actualCost = poValue + prodCost + shiftWages
+      const r = await getOrderBudgetActual(order.id)
+      if (!r) return { text: `Order ${args.orderNo} not found` }
       return {
-        text: `${args.orderNo}: budgeted=${budgetedCost}, actual=${actualCost}, variance=${budgetedCost - actualCost}`,
+        text: `${args.orderNo}: budgeted=${r.budgeted}, actual=${r.actual}, variance=${r.variance}`,
         json: {
           orderNo: args.orderNo,
-          budget: { total: budgetedCost, poBudget: poValue, prodBudget: prodCost },
-          actual: { total: actualCost, poValue, prodCost, shiftWages },
-          variance: budgetedCost - actualCost,
-          pctVariance: budgetedCost ? ((budgetedCost - actualCost) / budgetedCost) * 100 : 0,
+          budget: { total: r.budgeted, poBudget: r.poValue, prodBudget: r.prodCost },
+          actual: { total: r.actual, poValue: r.poValue, prodCost: r.prodCost, shiftWages: r.shiftWages },
+          variance: r.variance,
+          pctVariance: r.budgeted ? (r.variance / r.budgeted) * 100 : 0,
         },
       }
     },
@@ -733,10 +736,13 @@ const readTools: AgentTool[] = [
     isWrite: false,
     schema: z.object({}),
     async execute() {
-      const ls = await db.lot.findMany({ include: { party: true }, orderBy: { lotNo: 'asc' } })
+      // Delegates to the shared register service (SPEC-M4 §5 row 7) — the same
+      // read path the /inventory/lots screen uses. json shape frozen
+      // ({ lotNo, party }); stock rollup keys are additive.
+      const res = await queryLots({ limit: 100, page: 1 })
       return {
-        text: `${ls.length} lots`,
-        json: ls.map((l) => ({ lotNo: l.lotNo, party: l.party?.name })),
+        text: `${res.count} lots`,
+        json: res.rows.map((l) => ({ lotNo: l.lotNo, party: l.party })),
       }
     },
   },
@@ -819,23 +825,16 @@ const readTools: AgentTool[] = [
       status: z.string().optional().describe('sent | received | billed'),
     }),
     async execute(args) {
-      const jws = await db.jobworkOrder.findMany({
-        where: args.status ? { status: args.status } : {},
-        orderBy: { outDate: 'desc' },
-        take: 50,
-      })
-      // Resolve jobworker party + order via separate lookups (schema declares plain FKs, not relations)
-      const partyIds = [...new Set(jws.map((j) => j.jobworkerId))]
-      const orderIds = [...new Set(jws.map((j) => j.orderId).filter(Boolean) as string[])]
-      const [parties, orders] = await Promise.all([
-        partyIds.length ? db.party.findMany({ where: { id: { in: partyIds } } }) : Promise.resolve([] as Awaited<ReturnType<typeof db.party.findMany>>),
-        orderIds.length ? db.order.findMany({ where: { id: { in: orderIds } } }) : Promise.resolve([] as Awaited<ReturnType<typeof db.order.findMany>>),
-      ])
-      const partyMap = new Map(parties.map((p) => [p.id, p]))
-      const orderMap = new Map(orders.map((o) => [o.id, o]))
+      // Delegates to the shared register service (SPEC-M4 §5 row 11) — the same
+      // read path the /jobwork/register screen uses. json shape frozen.
+      const res = await queryJobwork({ status: args.status, limit: 50, page: 1 })
       return {
-        text: `${jws.length} jobwork DCs`,
-        json: jws.map((j) => ({ dcNo: j.dcNo, jobworker: partyMap.get(j.jobworkerId)?.name, processType: j.processType, totalQty: j.totalQty, totalValue: j.totalValue, status: j.status, orderNo: j.orderId ? orderMap.get(j.orderId)?.orderNo : null, outDate: j.outDate, expectedInDate: j.expectedInDate, receivedDate: j.receivedDate })),
+        text: `${res.count} jobwork DCs`,
+        json: res.rows.map((j) => ({
+          dcNo: j.dcNo, jobworker: j.jobworker, processType: j.processType,
+          totalQty: j.totalQty, totalValue: j.totalValue, status: j.status,
+          orderNo: j.orderNo, outDate: j.outDate, expectedInDate: j.expectedInDate, receivedDate: j.receivedDate,
+        })),
       }
     },
   },
@@ -1148,6 +1147,176 @@ const readTools: AgentTool[] = [
       return {
         text: `Program status for ${order.orderNo}:\n` + lines.join('\n'),
         json: { orderNo: order.orderNo, programs: produced },
+      }
+    },
+  },
+  // ---- SPEC-M4 §11 — new register read tools (Wave B) ----
+  {
+    name: 'list_inhand_orders',
+    description: 'List orders in hand (open/in_progress): ordered vs despatched vs pending pcs per order.',
+    domain: 'orders',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const res = await queryInhandOrders({ limit: 50, page: 1 })
+      return {
+        text: `${res.count} orders in hand · ${res.totals?.find((t) => t.label === 'Pending pcs')?.value ?? 0} pcs pending`,
+        json: res.rows.map((o) => ({
+          orderNo: o.orderNo, buyer: o.buyer, style: o.style, deliveryDate: o.deliveryDate,
+          totalPcs: o.totalPcs, despatchedPcs: o.despatchedPcs, pendingPcs: o.pendingPcs,
+          invoicedQty: o.invoicedQty, status: o.status,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_io_history',
+    description: 'In/out history per item or party with a running balance (chronological ledger).',
+    domain: 'inventory',
+    isWrite: false,
+    schema: z.object({
+      itemType: z.string().optional().describe('yarn|fabric|accessory|pcs'),
+      itemId: z.string().optional().describe('Item code (e.g. YRN-001)'),
+      partyCode: z.string().optional(),
+      limit: z.number().optional().default(50),
+    }),
+    async execute(args) {
+      const res = await queryIoHistory({
+        itemType: args.itemType,
+        q: args.itemId,
+        party: args.partyCode,
+        limit: args.limit ?? 50,
+        page: 1,
+      })
+      return {
+        text: `${res.count} movements (chronological, running balance).`,
+        json: res.rows.map((l) => ({
+          date: l.docDate, txnType: l.txnType, docNo: l.docNo, itemCode: l.itemCode,
+          godown: l.godown, party: l.party,
+          inKgs: l.inKgs, outKgs: l.outKgs, balKgs: l.balKgs,
+          inMtrs: l.inMtrs, outMtrs: l.outMtrs, balMtrs: l.balMtrs,
+          inPcs: l.inPcs, outPcs: l.outPcs, balPcs: l.balPcs,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_production_status',
+    description: 'Production status per order × department — qty, rework split, jobwork qty, wages.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().optional().describe('Narrow to one order (e.g. SO-1001)'),
+      deptCode: z.string().optional().describe('Narrow to one department code'),
+    }),
+    async execute(args) {
+      const res = await queryProductionStatus({ order: args.orderNo, q: args.deptCode, limit: 100, page: 1 })
+      return {
+        text: res.summary,
+        json: res.rows.map((r) => ({
+          orderNo: r.orderNo, buyer: r.buyer, dept: r.dept,
+          qty: r.qty, reworkQty: r.reworkQty, jobworkQty: r.jobworkQty,
+          amount: r.amount, shiftWages: r.shiftWages,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_bills_register',
+    description: 'Bills register day-book: invoices + debit notes + payments, with billed/deductions/collected/outstanding totals.',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      from: z.string().optional().describe('YYYY-MM-DD'),
+      to: z.string().optional().describe('YYYY-MM-DD'),
+      partyCode: z.string().optional(),
+    }),
+    async execute(args) {
+      const from = args.from ? new Date(args.from) : undefined
+      const to = args.to ? new Date(args.to) : undefined
+      const res = await queryBillsRegister({
+        from: from && !isNaN(from.getTime()) ? from : undefined,
+        to: to && !isNaN(to.getTime()) ? to : undefined,
+        party: args.partyCode,
+        limit: 200,
+        page: 1,
+      })
+      const totals = res.totals?.map((t) => `${t.label} ${typeof t.value === 'number' ? t.value.toLocaleString('en-IN') : t.value}`).join(', ') ?? ''
+      return {
+        text: `${res.count} rows. ${totals}`,
+        json: res.rows.map((r) => ({
+          date: r.date, docNo: r.docNo, party: r.party, docType: r.docType,
+          billAmount: r.billAmount, deduction: r.deduction, collected: r.collected, status: r.status,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_supplier_bills',
+    description: 'Supplier bill register: GRN day-book with supplier + PO linkage and values.',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      partyCode: z.string().optional(),
+      from: z.string().optional().describe('YYYY-MM-DD'),
+      to: z.string().optional().describe('YYYY-MM-DD'),
+    }),
+    async execute(args) {
+      const from = args.from ? new Date(args.from) : undefined
+      const to = args.to ? new Date(args.to) : undefined
+      const res = await querySupplierBills({
+        party: args.partyCode,
+        from: from && !isNaN(from.getTime()) ? from : undefined,
+        to: to && !isNaN(to.getTime()) ? to : undefined,
+        limit: 100,
+        page: 1,
+      })
+      return {
+        text: res.summary,
+        json: res.rows.map((g) => ({
+          grnNo: g.grnNo, grnType: g.grnType, party: g.party, poNo: g.poNo,
+          grnDate: g.grnDate, totalQty: g.totalQty, totalValue: g.totalValue,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_approval_audit',
+    description: 'Approval audit trail: who approved what, when (every decision logged).',
+    domain: 'workflow',
+    isWrite: false,
+    schema: z.object({
+      status: z.string().optional().describe('pending | approved | rejected'),
+      limit: z.number().optional().default(50),
+    }),
+    async execute(args) {
+      const res = await queryApprovalAudit({ status: args.status, limit: args.limit ?? 50, page: 1 })
+      return {
+        text: res.summary,
+        json: res.rows.map((a) => ({
+          createdAt: a.createdAt, entity: a.entity, entityId: a.entityId, step: a.step,
+          requestedBy: a.requestedBy, approvedBy: a.approvedBy, approvedAt: a.approvedAt,
+          status: a.status, comments: a.comments,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_order_status',
+    description: 'Order status board: per open order — stages done out of 15, next stage. Omit orderNo for the full board summary.',
+    domain: 'orders',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().optional().describe('One order (e.g. SO-1001); omit for the board'),
+    }),
+    async execute(args) {
+      const res = await queryOrderStatus({ orderNo: args.orderNo })
+      return {
+        text: res.summary,
+        json: res.rows.map((r) => ({
+          orderNo: r.orderNo, buyer: r.buyer, deliveryDate: r.deliveryDate,
+          totalPcs: r.totalPcs, stagesDone: r.stagesDone, nextStage: r.nextStage,
+        })),
       }
     },
   },

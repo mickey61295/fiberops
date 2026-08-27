@@ -389,3 +389,29 @@ Work Log:
 Stage Summary:
 - M4 Wave A COMPLETE per SPEC-M4 §13: engine + services + 3 flagships live (daily-in-out, order-register, stock-ledger); 27/113 items live; read-side twin of ADR-001 established (one service, two doors, shapes pinned).
 - Tag m4-wave-a. Next: Wave B (13 remaining registers + 7 new tools + delegations + math suite) then Wave C (recon cards + KPI deep-links + Order Status Board → m4-done).
+
+---
+Task ID: m4-wave-b
+Agent: main
+Task: SPEC-M4 Wave B — "the fleet": 13 remaining register configs + services + pages + 7 new agent tools + 5 tool delegations + register-services math suite + menu-registry 40/113.
+
+Work Log:
+- Studied Wave A patterns (configs/services/engine/csv/LIVE_ROUTES/test loop) from SPEC-M4 §4-§14.
+- Wrote 13 register configs (inhand-orders, party-balance, stock-register, lot-tracking, io-history, pcs-stock, production-status, jobwork-register, bills-register, supplier-bills, party-ledger, budget-vs-actual, approval-audit) — configs stay PURE DATA; grnType select rides the frozen `status` key (§4).
+- Wrote 14 service files: 13 fleet services + registers/order-status.ts (queryOrderStatus — board service, deliberately OUTSIDE REGISTER_SERVICES; §10 DB archetype) + shared buildItemCodeMaps() in resolve.ts (pcs → style.styleNo; PITFALLS #27).
+- get_stock delegation preserved VERBATIM via fetchCurrentStock (stock-register.ts) — register variants group on top; json shape frozen.
+- Created 13 pages (page.tsx + csv/route.ts each) under (erp): orders/in-hand, procurement/party-balance, inventory/{register,lots,io-history}, pieces/stock, production/register, jobwork/register, accounts/{bills-register,supplier-bills,party-ledger}, costing/budget-vs-actual, approvals/audit.
+- tools.ts: +7 new read tools (list_inhand_orders, list_io_history, get_production_status, get_bills_register, list_supplier_bills, get_approval_audit, get_order_status → 130 total) + 5 delegations (get_stock, get_party_ledger [+additive poBalances[]], list_lots, list_jobworks, get_budget_vs_actual) — schemas+json shapes VERBATIM.
+- menu-registry: LIVE_ROUTES 51→64 (+13), agentTools wired on all 13 items + order-status-board gets get_order_status; parity 40/113.
+- Tests: register-configs.test.ts expanded to 16-config loop (113 runtime its incl. 7-new-tool registration + 13 service smokes); NEW tests/pipeline/register-services.test.ts (22 tests) — seeded TS-tagged fixture chain asserts §5 math + delegated-tool regression pins, surgical cleanup.
+- BUGS FOUND & FIXED by the math suite: (1) latent Wave A bug — resolve.ts FAMILY_SPEC used db.grn instead of db.gRN so EVERY GRN-family drill-down silently rendered unlinked (PITFALLS #26); (2) party-ledger balance sign — received must REDUCE balance (bills-register convention), now `opening + billed − debit − journals − received + paid`.
+- context_check.sh updated (130 tools; wave-B counters) → 129/129 NO DRIFT after STATE.md refresh (milestone row, ground-truth table, next actions, Wave B notes).
+- Route smoke: scripts/route_smoke_waveB.sh — 39/39 GREEN (13 screens + 13 CSVs + 8 filter deep-links + 2 invalid-filter degradations + 3 Wave A regressions).
+- Full suite: 311 vitest green (was 205). tsc: all Wave B files clean (pre-existing ~30 orphan errors unchanged).
+- NOTE: route_smoke_waveD.sh shows 2 pre-existing 404s (DN-SMOKE-1 / V-SMOKE-1 seed rows were wiped by earlier test-cleanup residue — b313fd8 lineage); the 404 is the DESIGNED unknown-doc behavior, doc-parity tests prove the views work. Not a Wave B regression.
+- Git push BLOCKED: no GitHub credentials in this sandbox (no ~/.git-credentials, no gh CLI, no token env). 27+ commits now local-only on main. USER ACTION NEEDED: provide a PAT (git remote set-url origin https://<TOKEN>@github.com/mickey61295/fiberops.git) or run the push from a credentialed machine.
+
+Stage Summary:
+- M4 Wave B COMPLETE: 16/17 register screens live (only the Wave C board remains), 130 tools, 64 live routes, 40/113 menu items, 311 tests green.
+- Deliverables: 13 configs, 14 services, 26 route files, 7 tools, 5 delegations, 2 test files, route_smoke_waveB.sh, STATE/PITFALLS/worklog updates.
+- Next: M4 Wave C — recon cards (§9) + KPI deep-links (§8.3) + Order Status Board UI (/orders/status, service already shipped) + breadcrumbs audit + route_smoke_waveE.sh → tag m4-done.

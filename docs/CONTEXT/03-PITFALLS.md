@@ -268,3 +268,27 @@ scripts/verify_approvals_fix.ts asserts string+object shape per row.
 LESSON: (a) `{ ...row, x }` is a column-name collision waiting to happen —
 name enrichment keys with a suffix no column uses; (b) route smokes can't
 catch client-render crashes — verify API response SHAPES, not just 200s.
+
+26. Prisma's client accessor for model `GRN` is `db.gRN` — NOT `db.grn` · 2026-08-27 (Wave B)
+FAMILY_SPEC in `registers/resolve.ts` (Wave A) carried `model: 'grn'`;
+resolveDocRef does `(db as any)['grn']` → undefined → silent `return null`.
+Every purchase_grn / sales_return ledger row therefore rendered UNLINKED
+across stock-ledger / daily-in-out / io-history for all of Wave A — no error,
+no test failure (the Wave A smokes only asserted order-hub hrefs, which use
+the `order` family). The Wave B math suite asserted the GRN drill href and
+caught it in one run.
+FIX pattern: `model: 'gRN'` (verify against `db` keys before adding a family);
+the register-services suite now pins the grn-family href.
+LESSON: `(db as any)[name]` typos degrade to "no link", never to an error —
+every TXN_DOC_FAMILY family needs a href assertion somewhere.
+
+27. pcs items have NO master of their own — their "code" is Style.styleNo · 2026-08-27 (Wave B)
+CurrentStock/StockLedger rows with itemType='pcs' point itemId at the STYLE
+master, and Style has `styleNo`, not `code`. Naive per-type code lookups
+(`(db as any)['pcs']`) are undefined → raw cuids rendered in item columns;
+querying `style.code` throws a Prisma unknown-field error.
+FIX pattern: shared `buildItemCodeMaps()` in registers/resolve.ts maps
+pcs → db.style.styleNo (everything else → db[type].code); io-history's
+q-search queries style on styleNo.
+LESSON: itemType is a polymorphic FK — resolve codes through ONE helper that
+knows the pcs→style exception, never inline per service.

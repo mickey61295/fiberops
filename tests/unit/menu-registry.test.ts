@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 27 live items of 113 after M4 Wave A (+3 flagship registers); 14/17 groups', () => {
+  it('parityStats: 40 live items of 113 after M4 Wave B (+13 registers); 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(27)
-    expect(s.comingItems).toBe(86)
+    expect(s.liveItems).toBe(40)
+    expect(s.comingItems).toBe(73)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -96,6 +96,37 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
       expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
       expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
     }
+  })
+
+  it('Wave B (M4): the 13 register routes are live with page + csv files + tool doors wired', () => {
+    const waveB = [
+      { route: '/orders/in-hand', id: 'inhand-orders', tool: 'list_inhand_orders' },
+      { route: '/procurement/party-balance', id: 'party-balance', tool: 'get_party_ledger' },
+      { route: '/inventory/register', id: 'stock-register', tool: 'get_stock_ledger' },
+      { route: '/inventory/lots', id: 'lot-tracking', tool: 'list_lots' },
+      { route: '/inventory/io-history', id: 'io-history', tool: 'list_io_history' },
+      { route: '/pieces/stock', id: 'pcs-stock', tool: 'get_stock' },
+      { route: '/production/register', id: 'production-status-register', tool: 'get_production_status' },
+      { route: '/jobwork/register', id: 'job-order-list', tool: 'list_jobworks' },
+      { route: '/accounts/bills-register', id: 'bills-register', tool: 'get_bills_register' },
+      { route: '/accounts/supplier-bills', id: 'supplier-bill-register', tool: 'list_supplier_bills' },
+      { route: '/accounts/party-ledger', id: 'party-ledger', tool: 'get_party_ledger' },
+      { route: '/costing/budget-vs-actual', id: 'budget-vs-actual', tool: 'get_budget_vs_actual' },
+      { route: '/approvals/audit', id: 'approval-audit-trail', tool: 'get_approval_audit' },
+    ]
+    for (const { route, id, tool } of waveB) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'csv/route.ts')), `${route} csv`).toBe(true)
+    }
+    // no pendingTools left on the Wave B fleet
+    for (const { id } of waveB) {
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+    }
+    // order-status-board gets the new tool now (board screen itself is Wave C)
+    expect((findItemById('order-status-board') as MenuItem).agentTools).toContain('get_order_status')
   })
 
   it('every LIVE route (except /coming prefix) has a page file on disk', () => {

@@ -86,6 +86,19 @@ export const LIVE_ROUTES = new Set<string>([
   '/registers/daily-in-out', // Daily In/Out register (M4 Wave A) — daily-in-out
   '/orders/register', // Order Register (M4 Wave A) — order-register
   '/inventory/ledger', // Stock Ledger register (M4 Wave A) — stock-ledger
+  '/orders/in-hand', // In-Hand Orders (M4 Wave B) — inhand-orders
+  '/procurement/party-balance', // Party Balance (M4 Wave B) — party-balance
+  '/inventory/register', // Stock Register (M4 Wave B) — stock-register
+  '/inventory/lots', // Lot Tracking (M4 Wave B) — lot-tracking
+  '/inventory/io-history', // IO History (M4 Wave B) — io-history
+  '/pieces/stock', // Pcs Stock (M4 Wave B) — pcs-stock
+  '/production/register', // Production Status Register (M4 Wave B) — production-status-register
+  '/jobwork/register', // Job Order List / Balance (M4 Wave B) — job-order-list
+  '/accounts/bills-register', // Bills Register (M4 Wave B) — bills-register
+  '/accounts/supplier-bills', // Supplier Bill Register (M4 Wave B) — supplier-bill-register
+  '/accounts/party-ledger', // Party Ledger (M4 Wave B) — party-ledger
+  '/costing/budget-vs-actual', // Budget vs Actual (M4 Wave B) — budget-vs-actual
+  '/approvals/audit', // Approval Audit Trail (M4 Wave B) — approval-audit-trail
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -163,7 +176,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'order-status-board', label: 'Order Status Board', groupId: 'home', route: '/orders/status', arch: 'DB', phase: 'M4',
     description: 'Per-order 15-stage progress board with despatch/completion status.',
     legacyForms: ['frmOrdStat', 'FrmBuyerStatus', 'FrmOrderDespatchCompletion'],
-    agentTools: ['suggest_next_step'], pendingTools: [],
+    agentTools: ['suggest_next_step', 'get_order_status'], pendingTools: [],
     agentPrompt: 'Show me the current order status and what to do next',
   },
   {
@@ -220,7 +233,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'inhand-orders', label: 'In-Hand Orders', groupId: 'orders', route: '/orders/in-hand', arch: 'RG', phase: 'M4',
     description: 'Orders in hand: qty pending to produce/despatch per order.',
     legacyForms: ['ST_Ord_inHand'],
-    agentTools: [], pendingTools: ['list_inhand_orders'],
+    agentTools: ['list_inhand_orders'], pendingTools: [],
+    agentPrompt: 'Which orders are in hand and how much is pending',
   },
   {
     id: 'samples-enquiry', label: 'Samples & Enquiry', groupId: 'orders', route: '/orders/samples', arch: 'DS', phase: 'M5',
@@ -344,7 +358,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'stock-register', label: 'Stock Register', groupId: 'inventory', route: '/inventory/register', arch: 'RH', phase: 'M4',
     description: 'Printable stock registers: general, style-wise, pcs.',
     legacyForms: ['FrmStockRegister', 'FrmStockRegister_Style', 'FrmStockRegister_StylePcs', 'FrmStockRegister_SplRpt'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me the stock register',
   },
   {
     id: 'opening-stock', label: 'Opening Stock', groupId: 'inventory', route: '/inventory/opening-stock', arch: 'DS', phase: 'M2',
@@ -383,7 +398,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'io-history', label: 'IO History', groupId: 'inventory', route: '/inventory/io-history', arch: 'RG', phase: 'M4',
     description: 'In/out history per item or party.',
     legacyForms: ['FrmIoHistoryReg', 'FrmIoHistoryReg_New'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['list_io_history'], pendingTools: [],
+    agentPrompt: 'Show me the in/out history for an item or party',
   },
 
   // ---- cutting (10) ----
@@ -571,7 +587,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'production-status-register', label: 'Production Status Register', groupId: 'production', route: '/production/register', arch: 'RG', phase: 'M4',
     description: 'Production status day-book (in-house + jobwork).',
     legacyForms: ['FrmProductionStatusReg', 'FrmInhouseProductionStatusReg'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_production_status'], pendingTools: [],
+    agentPrompt: 'Show me production status per order and department',
   },
 
   // ---- jobwork (5) ----
@@ -699,14 +716,16 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'bills-register', label: 'Bills Register', groupId: 'accounts', route: '/accounts/bills-register', arch: 'RG', phase: 'M4',
     description: 'Bills day-book with additions/deductions.',
     legacyForms: ['FrmBillsReg', 'FrmBillsAddDedReport'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_bills_register'], pendingTools: [],
+    agentPrompt: 'Show me the bills register with outstanding',
     notes: 'Also 10 dept variants',
   },
   {
     id: 'supplier-bill-register', label: 'Supplier Bill Register', groupId: 'accounts', route: '/accounts/supplier-bills', arch: 'RG', phase: 'M4',
     description: 'Supplier-wise bill register.',
     legacyForms: ['FrmSupplierBillReg'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['list_supplier_bills'], pendingTools: [],
+    agentPrompt: 'Show me the supplier bill register',
   },
   {
     id: 'payments-receipts', label: 'Payments & Receipts', groupId: 'accounts', route: '/accounts/payments', arch: 'DS', phase: 'M3',
@@ -859,7 +878,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'approval-audit-trail', label: 'Approval Audit Trail', groupId: 'approvals', route: '/approvals/audit', arch: 'RG', phase: 'M4',
     description: 'Who approved what, when — every decision logged.',
     legacyForms: [],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_approval_audit'], pendingTools: [],
+    agentPrompt: 'Show me the approval audit trail',
     notes: 'Modern source: AgentTurn log; no legacy form',
   },
 

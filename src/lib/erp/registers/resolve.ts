@@ -90,7 +90,10 @@ export const TXN_DOC_FAMILY: Record<string, DocFamily> = {
 export type DocFamily = 'grn' | 'po' | 'jobwork' | 'despatch' | 'invoice' | 'order' | 'cut'
 
 const FAMILY_SPEC: Record<DocFamily, { model: string; numberField: string; view: (id: string) => string }> = {
-  grn: { model: 'grn', numberField: 'grnNo', view: (id) => `/procurement/grn/${id}` },
+  // NOTE: Prisma's client accessor for model GRN is `gRN` (not `grn`) — a
+  // `grn` key here silently broke GRN drill-downs until the Wave B math suite
+  // caught it (resolveDocRef returned null for every purchase_grn row).
+  grn: { model: 'gRN', numberField: 'grnNo', view: (id) => `/procurement/grn/${id}` },
   po: { model: 'purchaseOrder', numberField: 'poNo', view: (id) => `/procurement/po/${id}` },
   jobwork: { model: 'jobworkOrder', numberField: 'dcNo', view: (id) => `/jobwork/order/${id}` },
   despatch: { model: 'pcsDespatch', numberField: 'dcNo', view: (id) => `/pieces/despatch/${id}` },
@@ -113,4 +116,27 @@ export async function resolveDocRef(family: DocFamily, ref: string | null | unde
     .findFirst({ where: { OR: [{ id: ref }, { [spec.numberField]: ref }] }, select: { id: true } })
     .catch(() => null)
   return row?.id ? spec.view(row.id) : null
+}
+
+/**
+ * Item-code id-maps per itemType (PITFALLS #21 — itemId is a plain column).
+ * pcs items live in the STYLE master and their "code" is styleNo.
+ */
+export async function buildItemCodeMaps(
+  byType: Record<string, Set<string>>,
+): Promise<Record<string, Map<string, string>>> {
+  const codeMaps: Record<string, Map<string, string>> = {}
+  for (const [t, ids] of Object.entries(byType)) {
+    if (!ids.size) continue
+    if (t === 'pcs') {
+      const items = await db.style.findMany({ where: { id: { in: [...ids] } }, select: { id: true, styleNo: true } })
+      codeMaps[t] = new Map(items.map((i) => [i.id, i.styleNo]))
+    } else {
+      const model = (db as any)[t]
+      if (!model) continue
+      const items = await model.findMany({ where: { id: { in: [...ids] } }, select: { id: true, code: true } })
+      codeMaps[t] = new Map(items.map((i: { id: string; code: string }) => [i.id, i.code]))
+    }
+  }
+  return codeMaps
 }

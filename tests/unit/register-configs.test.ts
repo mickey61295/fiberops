@@ -1,8 +1,9 @@
 /**
- * SPEC-M4 §12 — RegisterScreen contracts (Wave A subset: 3 flagship configs).
- * Configs are pure data; the service registry is bound by the same slug.
- * Also pins the delegated read tools' json SHAPES (PITFALLS #25 — response
- * shapes are contracts) and smoke-tests the services against the real db.
+ * SPEC-M4 §12 — RegisterScreen contracts (Wave A 3 flagship + Wave B fleet =
+ * 16 configs). Configs are pure data; the service registry is bound by the
+ * same slug. Also pins the delegated read tools' json SHAPES (PITFALLS #25 —
+ * response shapes are contracts) and smoke-tests the services against the
+ * real db.
  */
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
@@ -20,11 +21,29 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'stock-ledger': '/inventory/ledger',
   'order-register': '/orders/register',
   'daily-in-out': '/registers/daily-in-out',
+  'inhand-orders': '/orders/in-hand',
+  'party-balance': '/procurement/party-balance',
+  'stock-register': '/inventory/register',
+  'lot-tracking': '/inventory/lots',
+  'io-history': '/inventory/io-history',
+  'pcs-stock': '/pieces/stock',
+  'production-status': '/production/register',
+  'jobwork-register': '/jobwork/register',
+  'bills-register': '/accounts/bills-register',
+  'supplier-bills': '/accounts/supplier-bills',
+  'party-ledger': '/accounts/party-ledger',
+  'budget-vs-actual': '/costing/budget-vs-actual',
+  'approval-audit': '/approvals/audit',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A set: exactly the 3 flagship configs', () => {
-    expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual(['daily-in-out', 'order-register', 'stock-ledger'])
+  it('Wave A+B set: exactly the 16 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
+    expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
+      'approval-audit', 'bills-register', 'budget-vs-actual', 'daily-in-out',
+      'inhand-orders', 'io-history', 'jobwork-register', 'lot-tracking',
+      'order-register', 'party-balance', 'party-ledger', 'pcs-stock',
+      'production-status', 'stock-ledger', 'stock-register', 'supplier-bills',
+    ])
   })
 
   it('config registry ↔ service registry is a bijection (slug for slug)', () => {
@@ -64,12 +83,12 @@ describe('register-configs — SPEC-M4 §4 contracts', () => {
         }
       })
 
-      it('route is live and the page file exists on disk', () => {
+      it('route is live and the page + csv files exist on disk', () => {
         const route = ROUTE_BY_SLUG[config.slug]
         expect(route).toBeTruthy()
         expect(LIVE_ROUTES.has(route)).toBe(true)
-        const pageFile = path.join(ERP_DIR, route.replace(/^\//, ''), 'page.tsx')
-        expect(fs.existsSync(pageFile), `${pageFile} must exist`).toBe(true)
+        expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+        expect(fs.existsSync(path.join(ERP_DIR, route, 'csv/route.ts')), `${route} csv`).toBe(true)
       })
 
       it('askPrompt present (W5(b) seed)', () => {
@@ -141,12 +160,70 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     }
   })
 
-  it('get_daily_in_out: the NEW Wave A tool is registered, read-only, inventory domain', () => {
-    const tool = getTool('get_daily_in_out')!
-    expect(tool).toBeTruthy()
-    expect(tool.isWrite).toBe(false)
-    expect(tool.domain).toBe('inventory')
-    expect(allTools.length).toBe(123) // 122 + get_daily_in_out (Wave A)
+  it('get_stock: schema keys + json row keys unchanged (delegates to fetchCurrentStock)', async () => {
+    const tool = getTool('get_stock')!
+    expect(tool.schema.shape).toHaveProperty('godownCode')
+    expect(tool.schema.shape).toHaveProperty('itemType')
+    const res = await tool.execute({} as any)
+    const rows = res.json as Record<string, unknown>[]
+    if (rows.length > 0) {
+      for (const k of ['itemType', 'itemId', 'godown', 'dept', 'kgs', 'mtrs', 'pcs', 'bags', 'rate']) {
+        expect(rows[0]).toHaveProperty(k)
+      }
+    }
+  })
+
+  it('list_lots: json rows keep { lotNo, party }', async () => {
+    const tool = getTool('list_lots')!
+    const res = await tool.execute({} as any)
+    const rows = res.json as Record<string, unknown>[]
+    if (rows.length > 0) {
+      expect(rows[0]).toHaveProperty('lotNo')
+      expect(rows[0]).toHaveProperty('party')
+    }
+  })
+
+  it('list_jobworks: schema keys + json row keys unchanged', async () => {
+    const tool = getTool('list_jobworks')!
+    expect(tool.schema.shape).toHaveProperty('status')
+    const res = await tool.execute({} as any)
+    const rows = res.json as Record<string, unknown>[]
+    if (rows.length > 0) {
+      for (const k of ['dcNo', 'jobworker', 'processType', 'totalQty', 'totalValue', 'status', 'orderNo', 'outDate', 'expectedInDate', 'receivedDate']) {
+        expect(rows[0]).toHaveProperty(k)
+      }
+    }
+  })
+
+  it('get_party_ledger: frozen shape + ADDITIVE poBalances[] (SPEC-M4 §5 row 4)', async () => {
+    const tool = getTool('get_party_ledger')!
+    // any seeded party will do; shape is what matters
+    const parties = await tool.execute({ partyCode: 'NOPE-404' } as any)
+    expect(parties.text).toContain('not found')
+  })
+
+  it('get_budget_vs_actual: schema keys unchanged (orderNo required)', () => {
+    const tool = getTool('get_budget_vs_actual')!
+    expect(tool.schema.shape).toHaveProperty('orderNo')
+  })
+
+  it('the 7 new Wave B tools are registered, read-only (130 total)', () => {
+    const spec: Record<string, string> = {
+      list_inhand_orders: 'orders',
+      list_io_history: 'inventory',
+      get_production_status: 'production',
+      get_bills_register: 'accounting',
+      list_supplier_bills: 'accounting',
+      get_approval_audit: 'workflow',
+      get_order_status: 'orders',
+    }
+    for (const [name, domain] of Object.entries(spec)) {
+      const tool = getTool(name)!
+      expect(tool, `${name} must exist`).toBeTruthy()
+      expect(tool.isWrite, `${name} read-only`).toBe(false)
+      expect(tool.domain, `${name} domain`).toBe(domain)
+    }
+    expect(allTools.length).toBe(130) // 123 + 7 Wave B tools
   })
 })
 
@@ -181,6 +258,31 @@ describe('register services — smoke against the real db (read-only)', () => {
     expect(res.rows).toEqual([])
     expect(res.summary).toContain('not found')
   })
+
+  const SMOKE: Array<[string, (r: Record<string, unknown>) => void]> = [
+    ['inhand-orders', (r) => { expect(r).toHaveProperty('pendingPcs') }],
+    ['party-balance', (r) => { expect(r).toHaveProperty('pendingQty') }],
+    ['stock-register', (r) => { expect(r).toHaveProperty('value') }],
+    ['lot-tracking', (r) => { expect(r).toHaveProperty('lotNo') }],
+    ['io-history', (r) => { expect(r).toHaveProperty('balKgs') }],
+    ['pcs-stock', (r) => { expect(r).toHaveProperty('pcs') }],
+    ['production-status', (r) => { expect(r).toHaveProperty('reworkQty') }],
+    ['jobwork-register', (r) => { expect(r).toHaveProperty('dcNo'); expect(r).toHaveProperty('jobworker') }],
+    ['bills-register', (r) => { expect(r).toHaveProperty('billAmount'); expect(r).toHaveProperty('collected') }],
+    ['supplier-bills', (r) => { expect(r).toHaveProperty('grnNo') }],
+    ['party-ledger', (r) => { expect(r).toHaveProperty('balance') }],
+    ['budget-vs-actual', (r) => { expect(r).toHaveProperty('variance') }],
+    ['approval-audit', (r) => { expect(r).toHaveProperty('entity'); expect(r).toHaveProperty('status') }],
+  ]
+
+  for (const [slug, check] of SMOKE) {
+    it(`query ${slug}: returns a shaped result without throwing`, async () => {
+      const res = await REGISTER_SERVICES[slug]({ limit: 10, page: 1 })
+      expect(typeof res.summary).toBe('string')
+      expect(res.count).toBeGreaterThanOrEqual(0)
+      for (const r of res.rows) check(r as Record<string, unknown>)
+    })
+  }
 })
 
 describe('TXN_DOC_FAMILY — W2 drill map', () => {

@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m4-wave-a — SPEC-M4 frozen + Wave A engine/flagships DONE; commits b344ae8, 0dd0335, wave-a)
+Last verified: 2026-08-27 (session: m4-wave-b — Wave B fleet DONE: 16 register configs + 17 services + 13 screens + 7 new tools (130) + 5 delegations + math suite; commits: wave-b)
 
 ## Milestone status
 
@@ -13,7 +13,7 @@ Last verified: 2026-08-27 (session: m4-wave-a — SPEC-M4 frozen + Wave A engine
 | M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
-| M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **SPEC FROZEN** (`specs/SPEC-M4.md`, tag `spec-m4-frozen`) — implementation waves A→C not started |
+| M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **WAVE B DONE** (Wave A engine + 3 flagships; Wave B fleet: 16 RegisterScreen configs/services/pages live, 7 new tools →130, 5 delegations; Wave C = recon cards + KPI deep-links + Order Status Board `/orders/status` + breadcrumbs + route smoke → tag `m4-done`) |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
 
@@ -21,8 +21,8 @@ Last verified: 2026-08-27 (session: m4-wave-a — SPEC-M4 frozen + Wave A engine
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M4 Wave A commit (register engine + 3 flagship registers + get_daily_in_out + tool delegations) — tag `m4-wave-a`; prior: spec-m4-frozen 0dd0335, fix b344ae8, m3-done 44a6520 | `git rev-parse --short HEAD` |
-| Agent tools | **123** (52 inline + 24 factory create + 24 factory update + 23 docTool delegates — M4 Wave A +get_daily_in_out; list_orders/get_stock_ledger now delegate to the shared register services, schemas+json VERBATIM) | `scripts/context_check.sh` |
+| Git HEAD | M4 Wave B commit (16-register fleet + 7 new tools + 5 delegations + math suite) — tag `m4-wave-b`; prior: m4-wave-a, spec-m4-frozen 0dd0335, fix b344ae8 | `git rev-parse --short HEAD` |
+| Agent tools | **130** (59 inline + 24 factory create + 24 factory update + 23 docTool delegates — M4 Wave B +7: list_inhand_orders, list_io_history, get_production_status, get_bills_register, list_supplier_bills, get_approval_audit, get_order_status; get_stock/get_party_ledger/list_lots/list_jobworks/get_budget_vs_actual now delegate to the shared register services, schemas+json VERBATIM (get_party_ledger json gains ADDITIVE poBalances[])) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D) | **19 files** in `src/lib/erp/schemas/` (verbatim tool contracts + Wave D stock-adj/transfer) | context_check |
 | Posting services (M3-A/D) | **22 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts) | context_check |
@@ -35,16 +35,17 @@ Last verified: 2026-08-27 (session: m4-wave-a — SPEC-M4 frozen + Wave A engine
 | ERP view/shell components | **21** (20 + M4 Wave A register-filter-bar.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | **3** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M4-A) | **51**: M3-D 48 + /registers/daily-in-out + /orders/register + /inventory/ledger (each with a sibling csv/route.ts export) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Live routes (M4-B) | **64**: M4-A 51 + 13 Wave B registers (/orders/in-hand, /procurement/party-balance, /inventory/register, /inventory/lots, /inventory/io-history, /pieces/stock, /production/register, /jobwork/register, /accounts/bills-register, /accounts/supplier-bills, /accounts/party-ledger, /costing/budget-vs-actual, /approvals/audit — each with a sibling csv/route.ts) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
-| Register configs/services (M4-A) | **3 flagship configs** (stock-ledger, order-register, daily-in-out) in `src/lib/erp/register-configs/` + **3 services** in `src/lib/erp/registers/` (queryStockLedger/queryOrderRegister/queryDailyInOut; REGISTER_SERVICES slug bijection test-enforced) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY W2 drill map + resolveDocRef) + csv.ts (makeCsvRouteHandler — pages CANNOT return Responses) | context_check |
-| Parity (M4-A) | **27/113 items live** · 14/17 groups (Wave A: daily-in-out, order-register, stock-ledger) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Register configs/services (M4-B) | **16 configs** in `src/lib/erp/register-configs/` (3 flagships + 13 Wave B) + **17 service files** in `src/lib/erp/registers/` (16 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts, the Wave C board's service, deliberately NOT in the registry) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
+| Parity (M4-B) | **40/113 items live** · 14/17 groups (Wave B: +13 registers) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
-| Registry unit tests | 16 (M4 Wave A: +1 Wave A register-route/tool-door block) | `npx vitest run` |
-| Register-config contract tests (M4-A) | **30 at runtime** (20 source its; per-config loop ×3: columns/filters/agentTools/route+page-file/askPrompt + bijection + parse + tool-shape pins + service smoke) | `npx vitest run` |
-| **Total vitest** | **205 passing** (174 + 30 register-configs + 1 menu-registry Wave A block) | `npx vitest run` |
+| Registry unit tests | 17 (M4 Wave B: +1 Wave B register-route/tool-door block) | `npx vitest run` |
+| Register-config contract tests (M4-B) | **113 at runtime** (26 source its; per-config loop ×16: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. 7 new tools + 13 service smokes) | `npx vitest run` |
+| Register services math suite (M4-B) | **22 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
+| **Total vitest** | **311 passing** (205 + 106 Wave B: 83 register-configs runtime + 1 menu-registry block + 22 math suite) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -189,20 +190,50 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. **M4 Wave A DONE** (this session): SPEC-M4 frozen (tag `spec-m4-frozen`) +
-   /approvals crash fix (PITFALLS #25, b344ae8) + RegisterScreen engine + 3
-   flagship registers + tool delegations + get_daily_in_out. 205 vitest green,
-   route smoke 3/3 + filters + CSV, context_check 129/129.
-2. **M4 Wave B** (SPEC-M4 §13): the fleet — 13 remaining configs + services +
-   pages + 7 new tools (list_inhand_orders, list_io_history,
-   get_production_status, get_bills_register, list_supplier_bills,
-   get_approval_audit, get_order_status) + delegations (get_party_ledger,
-   list_lots, list_jobworks, get_budget_vs_actual, get_stock) + cut family in
-   TXN_DOC_FAMILY + register-services math suite. Exit: acceptance #3/#4/#5/#10.
-3. **M4 Wave C** (SPEC-M4 §13): recon.ts + recon-card.tsx on 4 doc views +
-   KPI deep-links + Order Status Board + breadcrumbs + route_smoke_waveE.sh →
-   tag `m4-done`.
-4. Update this file every wave (same commit).
+1. **M4 Wave B DONE** (this session): the fleet — 13 configs + services +
+   pages + 7 new tools (130 total) + 5 delegations + buildItemCodeMaps +
+   register-services math suite (22 tests; caught the Wave A `db.grn` latent
+   bug — PITFALLS #26 — and fixed the party-ledger balance sign). 311 vitest
+   green, context_check 129/129, parity 40/113.
+2. **M4 Wave C** (SPEC-M4 §13): recon.ts + recon-card.tsx on 4 doc views
+   (PO↔GRNs, Invoice↔Payments, Jobwork out↔in, Despatch↔Invoice — §9 math)
+   + KPI deep-links on the dashboard (§8.3) + Order Status Board
+   `/orders/status` (queryOrderStatus is already shipped — registers/
+   order-status.ts + get_order_status tool) + breadcrumbs audit +
+   route_smoke_waveE.sh → tag `m4-done`.
+3. Update this file every wave (same commit).
+
+## M4 Wave B notes for future sessions
+
+- **The fleet recipe held**: 13 registers shipped exactly as the Wave A notes
+  described (config + service + registry entry + page + csv/route.ts +
+  LIVE_ROUTES + menu agentTools + test loop). No engine changes were needed —
+  configs stayed pure data.
+- **`db.gRN`, not `db.grn`** (PITFALLS #26): resolve.ts's FAMILY_SPEC carried
+  `grn` from Wave A — every GRN-family drill-down silently rendered unlinked.
+  The math suite's href assertion caught it; every family now has a pinned
+  href in tests.
+- **pcs items live in the STYLE master** (PITFALLS #27): itemId for
+  itemType='pcs' points at Style, whose code column is `styleNo`. Use the
+  shared `buildItemCodeMaps()` (registers/resolve.ts) for any new register —
+  never inline per-type code lookups.
+- **party-ledger balance sign**: bills-register convention (§5 row 12) —
+  `opening + billed − debit − journals − received + paid`. A receipt REDUCES
+  what the party owes. Keep both services' math aligned (test-enforced).
+- **`grnType` is NOT in the frozen filter-key set** (§4): the supplier-bills
+  GRN-type select rides the `status` searchParam key; the service maps
+  q.status → grnType. Extend REGISTER_FILTER_KEYS only via a plan edit.
+- **order-status is NOT in REGISTER_SERVICES** (§10): the board is a DB
+  archetype — queryOrderStatus lives in registers/order-status.ts and is
+  imported directly by the get_order_status tool (and the Wave C board page);
+  the config↔service bijection test stays 16.
+- **get_stock delegates to fetchCurrentStock** (stock-register.ts) — the
+  VERBATIM old query; the register variants group on top. Grouping changes row
+  counts, not json shape (contract-safe).
+- **groupBy pagination**: Prisma groupBy REQUIRES orderBy when take/skip are
+  set; group-count comes from a second groupBy over keys (take 10000 guard).
+- **tsc noise**: unchanged (~30 known orphans, PITFALLS #10/#16); all new
+  Wave B files typecheck clean.
 
 ## M4 Wave A notes for future sessions
 
