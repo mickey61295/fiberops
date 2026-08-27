@@ -8,7 +8,6 @@
 import type { RegisterQuery, RegisterResult } from '../registers/types'
 import { REGISTER_SERVICES } from '../registers'
 import {
-  queryCurrentStockReport,
   queryLineWip,
   queryRejectionSummary,
   queryOperationSummary,
@@ -51,8 +50,8 @@ export const REPORT_SERVICES: Record<string, ReportService> = {
   'budget-vs-actual': bind('budget-vs-actual'),
   'production-wages': bind('production-wages'),
   'approval-audit': bind('approval-audit'),
-  // ---- new aggregates (13) ----
-  'current-stock': queryCurrentStockReport,
+  'current-stock': bind('current-stock'), // M6-C: the /inventory/stock register landed — bind, don't fork
+  // ---- new aggregates (12) ----
   'line-wip': queryLineWip,
   'rejection-summary': queryRejectionSummary,
   'operation-summary': queryOperationSummary,

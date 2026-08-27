@@ -22,6 +22,7 @@ import { approvalAuditConfig } from './approval-audit'
 import { rateConfirmationConfig } from './rate-confirmation'
 import { pieceRateConfirmationConfig } from './piece-rate-confirmation'
 import { productionWagesConfig } from './wages'
+import { programStatusConfig, currentStockConfig } from './m6-wave-c'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -43,6 +44,8 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   rateConfirmationConfig,
   pieceRateConfirmationConfig,
   productionWagesConfig,
+  programStatusConfig, // SPEC-M6 §7-C-2
+  currentStockConfig, // SPEC-M6 §7-C-3
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

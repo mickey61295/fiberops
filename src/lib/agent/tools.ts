@@ -53,6 +53,8 @@ import { JOBWORK_PCS_RETURN_SCHEMA } from '@/lib/erp/schemas/grn-variants'
 import { WAGE_PAYMENT_SCHEMA } from '@/lib/erp/schemas/payment-variants'
 import { REJECTION_SCHEMA } from '@/lib/erp/schemas/rejection'
 import { DESPATCH_SCHEMA } from '@/lib/erp/schemas/despatch'
+import { CLOSE_ORDER_SCHEMA, CANCEL_PROGRAM_SCHEMA, COMPLETE_PROGRAM_SCHEMA, PO_LIFECYCLE_SCHEMA } from '@/lib/erp/schemas/lifecycle'
+import { planCloseOrder, planCancelProgram, planCompleteProgram, planPoLifecycle } from '@/lib/erp/posting/lifecycle'
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
 import { COMMERCIAL_INVOICE_SCHEMA } from '@/lib/erp/schemas/commercial-invoice'
 import { SUPPLIER_ORDER_SCHEMA } from '@/lib/erp/schemas/supplier-order'
@@ -1206,53 +1208,17 @@ const readTools: AgentTool[] = [
       orderNo: z.string().describe('Sales order number like SO-1001'),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({
-        where: { orderNo: args.orderNo },
-        include: {
-          programs: { include: { yarn: true, fabric: true, department: true } },
-        },
-      })
-      if (!order) return { text: `Order ${args.orderNo} not found.` }
-
-      // Aggregate the ledger for this order per (itemType, itemId).
-      const ledger = await db.stockLedger.findMany({ where: { orderId: order.id } })
-      const agg = new Map<string, { inKgs: number; outKgs: number; inMtrs: number; outMtrs: number; inPcs: number; outPcs: number }>()
-      for (const r of ledger) {
-        const key = `${r.itemType}:${r.itemId}`
-        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
-        a.inKgs += r.inKgs; a.outKgs += r.outKgs
-        a.inMtrs += r.inMtrs; a.outMtrs += r.outMtrs
-        a.inPcs += r.inPcs; a.outPcs += r.outPcs
-        agg.set(key, a)
-      }
-
-      const produced = order.programs.map((p: any) => {
-        const isYarn = !!p.yarnId
-        const key = isYarn ? `yarn:${p.yarnId}` : `fabric:${p.fabricId}`
-        const a = agg.get(key) || { inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0 }
-        // Knitting program (yarn): actual = yarn consumed (out). Dyeing program (fabric): actual = fabric received in (in).
-        const required = p.requiredKgs
-        const actual = isYarn ? a.outKgs : a.inKgs
-        return {
-          programNo: p.programNo,
-          stage: p.stage,
-          dept: p.department?.code,
-          item: isYarn ? p.yarn?.code : p.fabric?.code,
-          requiredKgs: required,
-          actualKgs: Math.round(actual * 100) / 100,
-          balanceKgs: Math.round((required - actual) * 100) / 100,
-          status: p.status,
-          targetDate: p.targetDate,
-        }
-      })
-
-      const lines = produced.length
-        ? produced.map((p) => `${p.programNo} [${p.stage}${p.dept ? ' @' + p.dept : ''}] ${p.item || '-'}: required ${p.requiredKgs} kg, actual ${p.actualKgs} kg, balance ${p.balanceKgs} kg (${p.status})`)
+      // SPEC-M6 §7-C-2 — the body moved VERBATIM into registers/program-status.ts
+      // (the /programs/status register shares it; json shape frozen).
+      const { programStatusForOrder } = await import('@/lib/erp/registers/program-status')
+      const res = await programStatusForOrder(args.orderNo)
+      if (!res) return { text: `Order ${args.orderNo} not found.` }
+      const lines = res.programs.length
+        ? res.programs.map((p) => `${p.programNo} [${p.stage}${p.dept ? ' @' + p.dept : ''}] ${p.item || '-'}: required ${p.requiredKgs} kg, actual ${p.actualKgs} kg, balance ${p.balanceKgs} kg (${p.status})`)
         : ['No programs yet — call create_program to plan production for this order.']
-
       return {
-        text: `Program status for ${order.orderNo}:\n` + lines.join('\n'),
-        json: { orderNo: order.orderNo, programs: produced },
+        text: `Program status for ${res.orderNo}:\n` + lines.join('\n'),
+        json: res,
       }
     },
   },
@@ -2284,6 +2250,38 @@ const writeTools: AgentTool[] = [
     (input: any) => planPcsDespatch({ ...input, mode: 'loading' }),
   ),
   docTool(
+    // SPEC-M6 §7-C-6 — lifecycle: close an order (guards: 95% despatched + invoiced)
+    'close_order',
+    'Close an order once shipped & billed (blocks further entries). Required: orderNo. Guards: despatched >= 95% of totalPcs AND at least one invoice; pass force to override. Optional: notes.',
+    'orders',
+    CLOSE_ORDER_SCHEMA,
+    planCloseOrder,
+  ),
+  docTool(
+    // SPEC-M6 §7-C-6 — lifecycle: cancel a program (ledger net-zero guard)
+    'cancel_program',
+    'Cancel a production program (accounting-aware). Required: programNo. Guard: the program item ledger nets to zero for the order; pass force to override. Optional: notes.',
+    'production',
+    CANCEL_PROGRAM_SCHEMA,
+    planCancelProgram,
+  ),
+  docTool(
+    // SPEC-M6 §7-C-6 — lifecycle: complete a program (balance guard)
+    'complete_program',
+    'Mark a production program complete (settles balances). Required: programNo. Guard: achieved >= required (ledger-derived); pass force to settle with a balance. Optional: notes.',
+    'production',
+    COMPLETE_PROGRAM_SCHEMA,
+    planCompleteProgram,
+  ),
+  docTool(
+    // SPEC-M6 §7-C-6 — lifecycle: cancel or complete a PO (receipt-aware guards)
+    'complete_purchase_order',
+    'Complete a purchase order (received qty > 0 required). Required: poNo, action=complete. The cancel action (no receipts allowed) rides cancel_purchase_order.',
+    'procurement',
+    PO_LIFECYCLE_SCHEMA,
+    planPoLifecycle,
+  ),
+  docTool(
     'create_debit_note',
     'Raise a debit note against a party. noteNo is optional — auto-assigned DN-#### if omitted or taken. Required: noteType (acc|fabric|yarn|pcs|comm), partyCode, amount. Optional: reason.',
     'accounting',
@@ -2333,23 +2331,19 @@ const writeTools: AgentTool[] = [
       notes: z.string().optional(),
     }),
     async execute(args) {
-      const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
-      if (!order) return { text: `Order ${args.orderNo} not found` }
-      const patch: any = {}
-      if (args.deliveryDate) patch.deliveryDate = new Date(args.deliveryDate)
-      if (args.status) patch.status = args.status
-      if (args.notes !== undefined) patch.notes = args.notes
+      // SPEC-M6 §7-C-5 — logic extracted to posting/lifecycle.ts planOrderAmend
+      // (the /orders/amendments screen shares it); json contract frozen.
+      const { planOrderAmend } = await import('@/lib/erp/posting/lifecycle')
+      const plan = await planOrderAmend(args)
+      if (!plan.ok) return { text: plan.error! }
       return {
-        text: `Proposed update to order ${args.orderNo}.`,
+        text: plan.text!,
         plan: {
-          summary: `Update order ${args.orderNo} | fields: ${Object.keys(patch).join(', ') || 'none'}`,
-          updates: [{ table: 'order', id: order.id, data: patch }],
-          sideEffects: ['Order master updated'],
+          summary: plan.summary!,
+          updates: plan.updates,
+          sideEffects: plan.sideEffects,
         },
-        async commit() {
-          await db.order.update({ where: { id: order.id }, data: patch })
-          return { id: order.id, orderNo: order.orderNo }
-        },
+        commit: plan.commit,
       }
     },
   },

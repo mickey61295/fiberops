@@ -37,15 +37,17 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'rate-confirmation': '/procurement/rate-confirmation',
   'piece-rate-confirmation': '/costing/piece-rate',
   'production-wages': '/hr/wages',
+  'program-status': '/programs/status',
+  'current-stock': '/inventory/stock',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B: exactly the 19 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C: exactly the 21 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
-      'approval-audit', 'bills-register', 'budget-vs-actual', 'daily-in-out',
+      'approval-audit', 'bills-register', 'budget-vs-actual', 'current-stock', 'daily-in-out',
       'inhand-orders', 'io-history', 'jobwork-register', 'lot-tracking',
       'order-register', 'party-balance', 'party-ledger', 'pcs-stock',
-      'piece-rate-confirmation', 'production-status', 'production-wages',
+      'piece-rate-confirmation', 'production-status', 'production-wages', 'program-status',
       'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills',
     ])
   })
@@ -236,7 +238,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(177) // 160 M6-A + ADR-016 factory ×10 + list ×5 + courier/loading docTools ×2 (M6 Wave B)
+    expect(allTools.length).toBe(181) // 177 M6-B + lifecycle ×4 (close/cancel/complete program + complete PO) (M6 Wave C)
   })
 })
 

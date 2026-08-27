@@ -165,6 +165,15 @@ export const LIVE_ROUTES = new Set<string>([
   '/admin/users', // Users & Groups (M6 Wave B) — users-groups (two MasterTables ?tab=)
   '/admin/menu-rights', // Menu Rights (M6 Wave B) — menu-rights (rights matrix)
   '/admin/options', // Options & Settings (M6 Wave B) — options-settings (AppOption master)
+  '/orders/enquiry', // Order Enquiry (M6 Wave C) — order-enquiry (ALIAS of order-register)
+  '/programs/status', // Program Status (M6 Wave C) — program-status (RG)
+  '/inventory/stock', // Current Stock (M6 Wave C) — stock-view (RG)
+  '/production/line-status', // Line Status (M6 Wave C) — line-status (WIP board)
+  '/orders/amendments', // Order Amendments (M6 Wave C) — order-amendments (planOrderAmend)
+  '/orders/close', // Order Close (M6 Wave C) — order-close (planCloseOrder)
+  '/programs/cancel', // Program Cancel (M6 Wave C) — program-cancel (planCancelProgram)
+  '/programs/complete', // Program Complete (M6 Wave C) — program-complete (planCompleteProgram)
+  '/procurement/po/close', // PO Cancel/Complete (M6 Wave C) — po-cancel-complete (planPoLifecycle)
 ])
 
 // ---------------------------------------------------------------------------
@@ -280,12 +289,14 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmOrderSheetAmendment'],
     agentTools: ['update_order'], pendingTools: [],
     agentPrompt: 'I want to amend an existing order',
+    notes: 'M6-C: planOrderAmend (the update_order body extracted — one service, two doors)',
   },
   {
     id: 'order-close', label: 'Order Close', groupId: 'orders', route: '/orders/close', arch: 'DS', phase: 'M3',
     description: 'Close an order once shipped & billed; blocks further entries.',
     legacyForms: ['FrmOrderClose'],
-    agentTools: [], pendingTools: ['close_order'],
+    agentTools: ['close_order'], pendingTools: [],
+    notes: 'M6-C: planCloseOrder guards (95% despatched + invoiced; force)',
   },
   {
     id: 'inhand-orders', label: 'In-Hand Orders', groupId: 'orders', route: '/orders/in-hand', arch: 'RG', phase: 'M4',
@@ -321,19 +332,21 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['ST_ProgBalance_Yarn', 'ST_ProgBalance_Fabric'],
     agentTools: ['get_program_status'], pendingTools: [],
     agentPrompt: 'Show me program balances and pending requirements',
-    notes: 'Legacy family ST_ProgBalance_*',
+    notes: 'M6-C: queryProgramStatus (the get_program_status body extracted — one service, two doors)',
   },
   {
     id: 'program-cancel', label: 'Program Cancel', groupId: 'programs', route: '/programs/cancel', arch: 'DS', phase: 'M3',
     description: 'Cancel a program (accounting-aware, with approval).',
     legacyForms: ['frmProgCancel', 'FrmAcc_ProgCancel', 'frmProgCancel_Compwise'],
-    agentTools: [], pendingTools: ['cancel_program'],
+    agentTools: ['cancel_program'], pendingTools: [],
+    notes: 'M6-C: planCancelProgram ledger net-zero guard',
   },
   {
     id: 'program-complete', label: 'Program Complete', groupId: 'programs', route: '/programs/complete', arch: 'DS', phase: 'M3',
     description: 'Mark a program complete; settles balances.',
     legacyForms: ['FrmProgramComplete'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['complete_program'], pendingTools: [],
+    notes: 'M6-C: planCompleteProgram balance guard',
   },
   {
     id: 'fabric-acc-allotment', label: 'Fabric / Acc Allotment', groupId: 'programs', route: '/programs/allotment', arch: 'DS', phase: 'M5',
@@ -354,8 +367,9 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'po-cancel-complete', label: 'PO Cancel / Complete', groupId: 'procurement', route: '/procurement/po/close', arch: 'DS', phase: 'M3',
     description: 'Cancel or complete a purchase order.',
     legacyForms: ['FrmPOCancel', 'frmPoCompl'],
-    agentTools: ['cancel_purchase_order'], pendingTools: [],
+    agentTools: ['cancel_purchase_order', 'complete_purchase_order'], pendingTools: [],
     agentPrompt: 'I want to cancel a purchase order',
+    notes: 'M6-C: planPoLifecycle — cancel delegates to planCancelPo (no fork)',
   },
   {
     id: 'grn-entry', label: 'GRN Entry', groupId: 'procurement', route: '/procurement/grn', arch: 'DS', phase: 'M3',
@@ -404,6 +418,7 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['frmStockView', 'frmfabstockshow', 'frmYarnStockShow', 'frmAccStockShow', 'frmAccShort'],
     agentTools: ['get_stock'], pendingTools: [],
     agentPrompt: 'Show me current stock',
+    notes: 'M6-C: queryCurrentStock over the shared fetchCurrentStock read path',
   },
   {
     id: 'stock-ledger', label: 'Stock Ledger', groupId: 'inventory', route: '/inventory/ledger', arch: 'RG', phase: 'M4',
@@ -616,7 +631,7 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: [],
     agentTools: ['get_line_status'], pendingTools: [],
     agentPrompt: 'Show me line status and WIP',
-    notes: 'Legacy used EmpID-as-LineID trick',
+    notes: 'M6-C: WIP board over queryLineWip (the line-wip report service — one query layer); legacy used EmpID-as-LineID trick',
   },
   {
     id: 'rework', label: 'Rework', groupId: 'production', route: '/production/rework', arch: 'DS', phase: 'M3',

@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 86 live items of 113 after M6 Wave B (admin + dispatch tail — 76%)', () => {
+  it('parityStats: 95 live items of 113 after M6 Wave C (registers & lifecycle — 84%)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(86)
-    expect(s.comingItems).toBe(27)
+    expect(s.liveItems).toBe(95)
+    expect(s.comingItems).toBe(18)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -128,6 +128,30 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     // the rights matrix action rides the update_user_group master-service door
     expect(fs.existsSync(path.join(ERP_DIR, 'admin/menu-rights/actions.ts'))).toBe(true)
     expect(fs.existsSync(path.join(ERP_DIR, 'admin/menu-rights/rights-matrix.tsx'))).toBe(true)
+  })
+
+  it('Wave C (M6): the 9 registers & lifecycle items are live (SPEC-M6 §2 rows 10-18)', () => {
+    const waveC = [
+      { route: '/orders/enquiry', id: 'order-enquiry', tool: 'list_orders' },
+      { route: '/programs/status', id: 'program-status', tool: 'get_program_status' },
+      { route: '/inventory/stock', id: 'stock-view', tool: 'get_stock' },
+      { route: '/production/line-status', id: 'line-status', tool: 'get_line_status' },
+      { route: '/orders/amendments', id: 'order-amendments', tool: 'update_order' },
+      { route: '/orders/close', id: 'order-close', tool: 'close_order' },
+      { route: '/programs/cancel', id: 'program-cancel', tool: 'cancel_program' },
+      { route: '/programs/complete', id: 'program-complete', tool: 'complete_program' },
+      { route: '/procurement/po/close', id: 'po-cancel-complete', tool: 'complete_purchase_order' },
+    ]
+    for (const { route, id, tool } of waveC) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // the two new registers carry CSV routes
+    expect(fs.existsSync(path.join(ERP_DIR, 'programs/status/csv/route.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'inventory/stock/csv/route.ts'))).toBe(true)
   })
 
   it('Wave C (M5): the 4 approval-gate IN screens are live with kind-filtered inbox views (SPEC-M5 §6)', () => {

@@ -25,11 +25,12 @@ const BOUND_SLUGS = [
   'stock-register', 'stock-ledger', 'lot-tracking', 'io-history',
   'bills-register', 'supplier-bills', 'party-ledger', 'party-balance',
   'budget-vs-actual', 'production-wages', 'approval-audit',
+  'current-stock', // M6-C: bound to the /inventory/stock register service
 ]
 
 /** The 13 new aggregates (§4 table). */
 const NEW_SLUGS = [
-  'current-stock', 'line-wip', 'rejection-summary', 'operation-summary',
+  'line-wip', 'rejection-summary', 'operation-summary',
   'expenses-summary', 'sample-status', 'lab-tests', 'cost-sheet-summary',
   'order-status-summary', 'despatch-packing-summary', 'outstanding-summary',
   'gst-summary', 'daily-unit-pnl',

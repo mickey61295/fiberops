@@ -73,29 +73,29 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M6-WaveA session (reports engine live)]"
-check "agent tools (inline+factory+docTool)" "177" "$TOOLS"
+check "agent tools (inline+factory+docTool)" "181" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B/D + M6-B courier/loading)" "44"    "$DOCTOOLS"
+check "docTool delegates (+ M6-C lifecycle ×4)" "48"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+recon-card +print-button)" "23"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form)" "24"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D + M6-A/B blocks)" "24"      "$REGTESTS"
+check "menu registry tests (M5-D + M6-A/B/C blocks)" "25"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M6 Wave B — admin + dispatch tail)" "118"    "$LIVEROUTES"
+check "live routes (M6 Wave C — registers & lifecycle)" "127"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
-check "report service files (13 new aggregates)" "2"       "$REPORTSVCFILES"
-check "register config files (M4 fleet + M5-A rates + M5-B wages)" "19"       "$REGCFGS"
-check "register service files (M4 fleet + order-status + recon + M5-A/B)" "21"       "$REGSVCFILES"
+check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
+check "register config files (M4 + M5 + M6-C)" "20"       "$REGCFGS"
+check "register service files (M4 + order-status + recon + M5 + M6-C ×2)" "23"       "$REGSVCFILES"
 check "master configs (24 M2 + shift + 5 ADR-016)" "30"      "$MASTERCFGS"
-check "shared zod schema files"    "36"      "$SCHEMAFILES"
-check "posting service files"      "34"      "$POSTINGSVCS"
+check "shared zod schema files"    "37"      "$SCHEMAFILES"
+check "posting service files"      "35"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
 check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1)" "38"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
@@ -255,6 +255,17 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/admin/menu-rights/actions.ts' 'src/app/(erp)/admin/menu-rights/rights-matrix.tsx' \
          'src/app/(erp)/admin/options/page.tsx' \
          tests/pipeline/doc-parity-m6b.test.ts scripts/route_smoke_m6b.sh \
+         src/lib/erp/posting/lifecycle.ts src/lib/erp/schemas/lifecycle.ts \
+         src/lib/erp/registers/program-status.ts src/lib/erp/registers/current-stock.ts \
+         src/lib/erp/register-configs/m6-wave-c.ts \
+         src/components/erp/lifecycle-form.tsx \
+         'src/app/(erp)/orders/enquiry/page.tsx' 'src/app/(erp)/programs/status/page.tsx' \
+         'src/app/(erp)/programs/status/csv/route.ts' 'src/app/(erp)/inventory/stock/page.tsx' \
+         'src/app/(erp)/inventory/stock/csv/route.ts' 'src/app/(erp)/production/line-status/page.tsx' \
+         'src/app/(erp)/orders/amendments/page.tsx' 'src/app/(erp)/orders/close/page.tsx' \
+         'src/app/(erp)/programs/cancel/page.tsx' 'src/app/(erp)/programs/complete/page.tsx' \
+         'src/app/(erp)/procurement/po/close/page.tsx' \
+         tests/pipeline/doc-parity-m6c.test.ts scripts/route_smoke_m6c.sh \
          prisma/schema.prisma; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done

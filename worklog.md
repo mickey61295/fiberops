@@ -590,3 +590,24 @@ Stage Summary:
 - Pattern wins: rights as a list field keeps the matrix and the agent on ONE master-service door; the ADR-016-missing catch in getPrintHeader meant Wave A never needed a schema touch and Wave B needed zero report-layer changes.
 - Tags: schema-61-baseline + m6-wave-b pushed.
 - Next: M6 Wave C — registers & lifecycle (9 items: order-enquiry alias, program-status RG, stock-view RG, line-status board, order-amendments DocScreen, order-close/program-cancel/program-complete/po-close + 4 lifecycle tools) → 181 tools, parity 86→95.
+
+---
+Task ID: m6-wave-c
+Agent: main
+Task: M6 Wave C — registers & lifecycle (9 items, SPEC-M6 §7-C), continuation of the m6-wave-a/b session.
+
+Work Log:
+- order-enquiry: 3-line ALIAS re-export of the order-register page.
+- Registers ×2: queryProgramStatus (the get_program_status tool body extracted VERBATIM; tool now delegates, json frozen) + queryCurrentStock (over shared fetchCurrentStock); configs in register-configs/m6-wave-c.ts; pages + CSV routes at /programs/status + /inventory/stock. The reports layer's current-stock aggregate was DELETED and rebound via bind() (the register landed — never fork).
+- line-status: WIP board page over queryLineWip (the Wave A line-wip report service — one query layer; KPI band + per-line progress bars).
+- Lifecycle: posting/lifecycle.ts (planCloseOrder 95%+invoice guards, planCancelProgram ledger net-zero, planCompleteProgram balance, planPoLifecycle receipt-aware — cancel DELEGATES to planCancelPo so cancel_purchase_order stays one service) + schemas/lifecycle.ts + 4 docTools + LifecycleForm shared client component + 5 thin screens (/orders/close, /orders/amendments, /orders/amendments actions call planOrderAmend — the update_order inline logic extracted, tool delegates) + 5 server actions.
+- Registry flips: 9 items + LIVE_ROUTES 118→127 (csv routes are NOT in LIVE_ROUTES — page-file test rule).
+- Tests: register-configs 19→21 pin (+ ROUTE_BY_SLUG), menu-registry Wave C block (95/113), tool pins 177→181, doc-parity-m6c NEW (4), report-configs current-stock moved to BOUND_SLUGS (16 bound + 12 new = 28). Fixture lessons: Program has NO finYear column; SalesInvoice.partyId needs a PARTY id (buyer is not a party); program complete status is 'completed' (model comment).
+- route_smoke_m6c.sh 31/31 (dev server died again mid-session — restart ritual); context_check 284/284 (tools 181, docTools 48, routes 127, register configs 20 files/21 configs, services 23, posting 35, schemas 37, views 24).
+- Docs: STATE (M6-C rows), this worklog.
+
+Stage Summary:
+- M6 Wave C COMPLETE: 9/9 items live; 181 tools; 95/113 (84.1%); 127 routes; 584 vitest green; route_smoke_m6c 31/31; context_check 284/284.
+- Pattern wins: lifecycle guards live in the SERVICE (both doors enforce identically); the alias pattern proved the register filter set already covers the legacy enquiry form.
+- Tags: m6-wave-c to follow; push-after-commit honored.
+- Next: M6 Wave D — the LAST 18 items (multi-process-grn, grn-acceptance, opening-stock, cutting-issue, ready-to-cut, cutting-production, cutting-ack, pcs-receipt alias, pcs-gan, pcs-transfer, line-output, dc-entry, process-dc, dc-return, lot-approval, hsn-gst page, employees alias, test-parameters page) → 113/113 M6 COMPLETE. Hsn + test-parameter masters + factory tools ALREADY landed in Wave B.
