@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { burnDummyPassword, verifyPassword } from '@/lib/auth/password'
-import { createSessionToken, SESSION_COOKIE, SESSION_TTL_SECONDS } from '@/lib/auth/session'
+import { setLoginCookies } from '@/lib/auth/login-cookies'
 
 export const runtime = 'nodejs'
 
@@ -34,17 +34,10 @@ export async function POST(req: NextRequest) {
   }
 
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
-  const token = await createSessionToken(user.id)
   const res = NextResponse.json({
     ok: true,
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
   })
-  res.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_TTL_SECONDS,
-    secure: process.env.NODE_ENV === 'production',
-  })
+  await setLoginCookies(res, user) // fo_session + fo_rights (SPEC-M7 Wave C)
   return res
 }

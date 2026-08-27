@@ -84,7 +84,7 @@ check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue)" "25"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D + M6-A/B/C/D blocks)" "26"      "$REGTESTS"
+check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath blocks)" "27"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
@@ -101,10 +101,14 @@ check "posting service files"      "35"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
 check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D 2)" "40"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
-check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" "$(ls src/lib/auth/*.ts 2>/dev/null | wc -l)"
-check "m7-waveA auth api routes (login/logout/session/bootstrap)" "4" "$(ls -d src/app/api/auth/*/ 2>/dev/null | wc -l)"
+check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" "$(ls src/lib/auth/*.ts 2>/dev/null | grep -v rights.ts | grep -v login-cookies.ts | wc -l)"
+check "m7-waveC auth lib files (rights + login-cookies)" "2" "$(ls src/lib/auth/rights.ts src/lib/auth/login-cookies.ts 2>/dev/null | wc -l)"
+check "m7-waveA auth api routes (login/logout/session/bootstrap)" "4" "$(ls -d src/app/api/auth/*/ 2>/dev/null | grep -v admin | wc -l)"
+check "m7-waveC admin api route (set-password)" "1" "$(ls src/app/api/auth/admin/set-password/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed)" "5" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
+check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
+check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"
@@ -296,7 +300,12 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/auth.test.ts prisma/schema.prisma \
          src/lib/auth/api-guard.ts scripts/lib/api-auth.mjs \
          scripts/route_smoke_m7b.sh scripts/m7b_smoke_fixture.ts \
-         tests/unit/api-guard.test.ts tests/unit/agent-actor.test.ts; do
+         tests/unit/api-guard.test.ts tests/unit/agent-actor.test.ts \
+         src/lib/auth/rights.ts src/lib/auth/login-cookies.ts \
+         src/app/api/auth/admin/set-password/route.ts \
+         'src/app/(erp)/admin/users/password-admin.tsx' \
+         scripts/route_smoke_m7c.sh scripts/m7c_smoke_fixture.ts \
+         tests/unit/rights.test.ts tests/unit/set-password-route.test.ts; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

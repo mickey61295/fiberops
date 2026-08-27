@@ -18,6 +18,7 @@ import {
   findItemByRoute,
   findGroupByLanding,
   findGroupByRoutePrefix,
+  findGroupForPath,
   parityStats,
   type MenuItem,
 } from '../../src/lib/erp/menu-registry'
@@ -367,6 +368,32 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(groupLandingHref(findGroupById('programs')!)).toBe('/programs/new')
     expect(groupLandingHref(findGroupById('jobwork')!)).toBe('/jobwork/order')
     expect(findItemById('order-hub')?.groupId).toBe('orders')
+  })
+
+  it('findGroupForPath — the SPEC-M7 Wave C rights resolver (edge middleware + layout share it)', () => {
+    const f = (p: string) => findGroupForPath(p)?.id
+    // exact group landings
+    expect(f('/')).toBe('home')
+    expect(f('/orders')).toBe('orders')
+    expect(f('/accounts')).toBe('accounts')
+    expect(f('/cutting')).toBe('cutting')
+    // item routes under a group landing
+    expect(f('/orders/new')).toBe('orders')
+    expect(f('/orders/ORD-0001')).toBe('orders') // dynamic [id]
+    expect(f('/accounts/invoice')).toBe('accounts')
+    expect(f('/procurement/grn/GRN-0001')).toBe('procurement')
+    expect(f('/masters/employee')).toBe('masters-admin')
+    // item routes OUTSIDE their group landing (registers under /registers)
+    expect(f('/registers/daily-in-out')).toBe('home')
+    // admin screens resolve through their items → masters-admin
+    expect(f('/admin/users')).toBe('masters-admin')
+    expect(f('/admin/menu-rights')).toBe('masters-admin')
+    // coming pages resolve through the registry id (group or item)
+    expect(f('/coming/accounts')).toBe('accounts')
+    expect(f('/coming/grn-entry')).toBe('procurement')
+    // meta/utility pages belong to NO group → open to any authed user
+    expect(f('/parity')).toBeUndefined()
+    expect(f('/nope')).toBeUndefined()
   })
 
   it('Wave A (M5): the 7 money/rates items are live with pages + tool doors (SPEC-M5 §7-A)', () => {

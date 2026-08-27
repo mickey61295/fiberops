@@ -156,3 +156,49 @@ Consequence: APIs (/api/erp, /api/agent, /api/upload) remain open until Wave B
 (sidebar filtering, per-route checks, admin password reset UI) is Wave C;
 rotating AUTH_SECRET invalidates all sessions (users just re-login). Dev
 credentials: admin@fiberpro.local / admin123 via scripts/seed_admin.ts.
+
+### ADR-018 — Rights enforcement semantics (M7 Wave C, 2026-08-28)
+
+Context: ADR-016 landed `UserGroup.rights` (Json array of menu group ids, []
+= all) but enforcement was deferred; SPEC-M7 §4 Wave C required NavSidebar
+filtering + per-route checks + /admin/users password set/reset. Constraint:
+SQLite + Prisma cannot run inside edge middleware, so the middleware cannot
+read fresh rights from the db.
+
+Decision: a two-layer design that mirrors the Wave A auth pattern (crypto at
+the edge, db row in the layout):
+1. **Edge pre-filter** — login/bootstrap stamp a second signed cookie
+   `fo_rights` (HMAC AUTH_SECRET over a {role, rights, exp} snapshot; same
+   7-day TTL as fo_session; `src/lib/auth/rights.ts`, edge-pure by test).
+   The middleware maps pathname → menu group via menu-registry
+   `findGroupForPath` and 307-redirects denied routes to the first allowed
+   group landing. A missing/tampered/expired cookie SKIPS the pre-check
+   (fail-open at the edge only — the cookie can never grant).
+2. **Fresh layer 2** — the (erp)/layout re-derives allowed groups from the
+   DB on every full load, filters the NavSidebar, and re-checks the route via
+   the `x-pathname` request header the middleware stamps (layouts receive no
+   pathname). Revocations apply on the next page load; NEW grants take effect
+   at the next login (stale edge cookie denies until then) — documented,
+   smoke-asserted staleness contract.
+
+The ONE rule (`computeAllowedGroupIds`): role 'admin' → all groups (recovery
+hatch — an admin can always reach /admin/users to fix a broken matrix);
+rights null (no group assigned) → all (back-compat: group assignment is
+optional and pre-Wave-C users must keep full access); rights [] → all (the
+RightsMatrix convention); otherwise listed ∩ valid ids ∪ {'home'}. Home is
+ALWAYS allowed — the dashboard is universal and it makes the deny-redirect
+target '/' loop-free by construction.
+
+Password administration is a ROLE door, not a rights door:
+`POST /api/auth/admin/set-password` (session + role admin) sets/replaces or
+clears any passwordHash from the /admin/users PasswordAdmin card; clearing
+your own password is rejected (400 self-lockout guard). /api/seed became
+admin-only (403) in the same wave — a destructive reseed must not be one
+click away for a restricted merchandiser.
+
+Consequence: no schema changes (65 models hold); the two auth layers can
+never disagree because they share computeAllowedGroupIds + findGroupForPath;
+admin-override semantics are explicit (role beats group rights); the grant
+lag is the accepted cost of zero-dependency edge verification (single-tenant
+dev app, per SPEC-M7 §2 non-goals). Test surface: 653 vitest (rights 20 +
+set-password 11 + 2 amended), route_smoke_m7c.sh 36/36.

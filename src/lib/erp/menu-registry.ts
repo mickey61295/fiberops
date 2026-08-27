@@ -1115,6 +1115,17 @@ export function findGroupByRoutePrefix(pathname: string): MenuGroup | undefined 
   return undefined
 }
 
+/**
+ * The rights-enforcement route→group resolver (SPEC-M7 §4 Wave C): deepest
+ * item-route match first, then the exact group landing. Returns undefined for
+ * meta/utility pages that belong to NO group (/parity, unknown paths) — those
+ * stay open to any authenticated user. Used by BOTH the edge middleware and
+ * the (erp) layout so the two layers can never disagree.
+ */
+export function findGroupForPath(pathname: string): MenuGroup | undefined {
+  return findGroupByRoutePrefix(pathname) ?? findGroupByLanding(pathname)
+}
+
 export function parityStats(): {
   totalItems: number
   liveItems: number

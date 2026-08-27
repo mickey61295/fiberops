@@ -80,6 +80,32 @@ describe('requireApiSession (SPEC-M7 Wave B)', () => {
     cookieStore[SESSION_COOKIE] = await createSessionToken(created.id)
     const guard = await requireApiSession()
     expect(guard.error).toBeUndefined()
-    expect(guard.user).toEqual({ id: created.id, name: 'Guard Test', email: EMAIL, role: 'admin' })
+    // rights: null — no group assigned → full access (ADR-018 back-compat rule;
+    // Wave C added the group-rights snapshot to SessionUser)
+    expect(guard.user).toEqual({ id: created.id, name: 'Guard Test', email: EMAIL, role: 'admin', rights: null })
+  })
+
+  it('valid token for a user WITH a group → carries the group rights snapshot (Wave C)', async () => {
+    const group = await db.userGroup.create({
+      data: { name: `Guard Group ${TS}`, rights: ['orders', 'production'] },
+    })
+    const created = await db.user.create({
+      data: { email: `grouped-${TS}@fiberpro.local`, name: 'Grouped Guard', role: 'merchandiser', userGroupId: group.id },
+    })
+    try {
+      cookieStore[SESSION_COOKIE] = await createSessionToken(created.id)
+      const guard = await requireApiSession()
+      expect(guard.error).toBeUndefined()
+      expect(guard.user).toEqual({
+        id: created.id,
+        name: 'Grouped Guard',
+        email: `grouped-${TS}@fiberpro.local`,
+        role: 'merchandiser',
+        rights: ['orders', 'production'],
+      })
+    } finally {
+      await db.user.deleteMany({ where: { email: `grouped-${TS}@fiberpro.local` } }).catch(() => {})
+      await db.userGroup.deleteMany({ where: { name: `Guard Group ${TS}` } }).catch(() => {})
+    }
   })
 })

@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button'
 import { LogOut, Menu, RefreshCw, Sparkles, ChevronRight } from 'lucide-react'
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import {
-  findItemByRoute, findGroupByLanding, findGroupByRoutePrefix,
-  findItemById, groupLandingHref, isLive,
+  findItemByRoute, findGroupForPath, findItemById, groupLandingHref, isLive,
 } from '@/lib/erp/menu-registry'
 
 export type TopbarUser = { name: string; email: string; role: string }
@@ -29,7 +28,7 @@ export function Topbar({
   const router = useRouter()
   const { openAgent } = useAgent()
 
-  const group = findGroupByLanding(pathname) ?? findGroupByRoutePrefix(pathname)
+  const group = findGroupForPath(pathname)
   let item = findItemByRoute(pathname)
   // coming pages: /coming/<id> → the registry item
   if (!item && pathname.startsWith('/coming/')) item = findItemById(pathname.slice('/coming/'.length))

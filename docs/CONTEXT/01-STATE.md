@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m7-wave-b — API guarding + agent user context: `requireApiSession()` 401-JSON guard on /api/erp + /api/agent + /api/agent/approve + /api/upload (GET+POST) + /api/seed (defense-in-depth addition) · AgentTurn.userId = session user id (was 'admin') · approval actor on commits: /api/agent/approve passes the session user into execute() → approve_pending + 8 proposeApprovalGate wrappers stamp Approval.approvedBy = human email (requestedBy stays 'agent'); AgentTurn updateMany scoped to the actor + approvedBy = email · agent-panel 401 → /login redirect (+ fixed the latent data.success vs ok upload-toast contract bug) · cookie fixture scripts/lib/api-auth.mjs wired into test_ingest/eval_ingest/test_money_loop · tests: api-guard 6 + agent-actor 4 + upload-route 401 block (619→620 vitest) · route_smoke_m7b 25/25 (401 matrix + authed 200s + multipart round-trip + accept_grn actor e2e approvedBy=admin@fiberpro.local + page-guard regression) · context_check 335/335; tools stay 188, models stay 65; tag `m7-wave-b`) — (prior: m7-wave-a — login core, 609 vitest)
+Last verified: 2026-08-28 (session: m7-wave-c — rights enforcement: edge-safe `src/lib/auth/rights.ts` (signed `fo_rights` cookie = login-time {role,rights} snapshot + `computeAllowedGroupIds` — the ONE rule: admin/no-group/[] = all, else listed ∩ valid ∪ home) · login+bootstrap set BOTH cookies via `src/lib/auth/login-cookies.ts` (one door) · middleware per-route rights pre-check (findGroupForPath over menu-registry; denied → 307 first-allowed landing '/'; missing/tampered/stale cookie merely skips the pre-check) + stamps `x-pathname` for the layout · `(erp)/layout.tsx` FRESH layer-2: rights re-derived from DB per full load → NavSidebar filtered + route re-checked (mid-session revocation works; stale grants need re-login — ADR-018) · `/admin/users` PasswordAdmin card (admins) + `POST /api/auth/admin/set-password` (401/403/zod/404/clear-self-400 guards; set/clear) · `/api/seed` admin-only + Seed button hidden for non-admins · deactivated mid-session → 307 /login (verified live) · tests: rights 20 + set-password 11 + api-guard +1 (group snapshot) + menu-registry findGroupForPath 1 → 653 vitest · route_smoke_m7c 36/36 (allowed/denied matrix + SSR sidebar filter + strip/tamper/stale fo_rights + admin bypass + set-password door + deactivate + seed 403) · context_check 347/347; tools stay 188, models stay 65; M7 COMPLETE) — (prior: m7-wave-b — API guarding, 620 vitest)
 
 ## Milestone status
 
@@ -16,13 +16,13 @@ Last verified: 2026-08-27 (session: m7-wave-b — API guarding + agent user cont
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
 | M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **188 tools**, 113/113 | **COMPLETE** (`m6-wave-d`): Wave D — 10 DS variants (MP/MDC/PDC/RTN/OPN/PT/RTC/cutting-issue/cutting-production/line-output) + 4 manual-queue approval kinds + 2 MasterTables + 2 aliases; 113/113 live (100%), 598 vitest, route_smoke_m6d 60/60, context_check 310/310 |
-| M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context (done) → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks) | **IN PROGRESS** (`m7-wave-b`): Wave A — ADR-017 + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin; Wave B — 401-JSON guard on all 5 ERP API route files + AgentTurn.userId session stamping + approval actor (approvedBy = human email through the approve door) + cookie fixtures for HTTP scripts → 620 vitest; remaining: Wave C rights enforcement; spec `spec-m7-frozen` |
+| M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context (done) → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks + admin password door) | **COMPLETE** (`m7-wave-c`): Wave A — ADR-017 + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin; Wave B — 401-JSON guard on all 5 ERP API route files + AgentTurn.userId session stamping + approval actor (approvedBy = human email through the approve door) + cookie fixtures for HTTP scripts; Wave C — fo_rights signed cookie + middleware per-route pre-check + layout fresh layer-2 (sidebar filter + route re-check) + /admin/users PasswordAdmin + /api/auth/admin/set-password + /api/seed admin-only → 653 vitest, route_smoke_m7c 36/36; spec `spec-m7-frozen` |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M7 Wave B commit (API guarding + agent user context) — tags `m7-wave-b`, `m7-wave-a`, `spec-m7-frozen`, `schema-65-baseline`, prior `m6-wave-d`, `m6-complete`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
+| Git HEAD | M7 Wave C commit (rights enforcement — M7 COMPLETE) — tags `m7-wave-c`, `m7-wave-b`, `m7-wave-a`, `spec-m7-frozen`, `schema-65-baseline`, prior `m6-wave-d`, `m6-complete`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
 | Agent tools | **188** (72 inline + 30 factory create + 30 factory update + 51 docTool delegates — M6-D +7: post_opening, ready_to_cut, create_dc docTools + accept_grn, acknowledge_cutting_issue, accept_jobwork_pcs, approve_lot gates) | `scripts/context_check.sh` |
 | Prisma models | **65** (61 + ADR-016 ×4: UserGroup, AppOption, Hsn, TestParameter; User AMENDED with userGroupId + active — ERRATUM #1; **M7-A ADR-017: User +passwordHash String? +lastLoginAt DateTime? — FIELD-additive, still 65 models**) | `grep -c "^model " prisma/schema.prisma` |
 | Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
@@ -49,13 +49,14 @@ Last verified: 2026-08-27 (session: m7-wave-b — API guarding + agent user cont
 | Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **620 passing** (609 M6/M7-A + 11 M7-B: api-guard 6 — 401 no-cookie/garbage/tampered/deleted-user/deactivated-user + valid-token passthrough; agent-actor 4 — approve_pending±actor back-compat + accept_grn find-or-create actor stamp + 188 registry pin; upload-route +1 — 401 guard block) | `npx vitest run` |
+| **Total vitest** | **653 passing** (620 M6/M7-A/B + 33 M7-C: rights 20 — token round-trip/tamper/garbage/expired/malformed + computeAllowedGroupIds matrix (admin bypass, null/[] = all, subset ∪ home, unknown dropped) + firstAllowedLandingRoute + edge purity; set-password-route 11 — 401/403/400-zod ×4/404/set-verifies/clear-null/set-own-ok/clear-self-400; api-guard +1 — group-rights snapshot; menu-registry +1 — findGroupForPath resolver) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
-| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` + `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`, `/api/auth/bootstrap` — **M7-B: the 5 ERP route files are SESSION-GUARDED (requireApiSession → 401 JSON; /api/auth/* deliberately open; /api/config left open — server-side FlagsProvider, no client fetchers)** | ls `src/app/api/` |
+| API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` + `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`, `/api/auth/bootstrap`, `/api/auth/admin/set-password` — **M7-B: the 5 ERP route files are SESSION-GUARDED (requireApiSession → 401 JSON; /api/auth/* deliberately open; /api/config left open — server-side FlagsProvider, no client fetchers); M7-C: /api/seed additionally ADMIN-ONLY (403) + /api/auth/admin/set-password admin-role door (403 non-admin)** | ls `src/app/api/` |
 | Auth (M7-A) | Login core live: session cookie `fo_session` (HMAC-SHA256, Web Crypto, edge-safe `src/lib/auth/session.ts`; secret = `AUTH_SECRET` env w/ dev fallback — ADR-017) · scrypt passwords `src/lib/auth/password.ts` · edge page guard `src/middleware.ts` (307 → /login?next=; matcher excludes /api, /login, _next, dotted) · second guard in `(erp)/layout.tsx` (deleted/deactivated mid-session → /login) · topbar user chip + logout · first-admin bootstrap locks 403 forever once any password exists · dev credentials `admin@fiberpro.local` / `admin123` (scripts/seed_admin.ts) | route_smoke_m7a.sh |
 | Auth (M7-B) | API guard `src/lib/auth/api-guard.ts` (requireApiSession → 401 `{"error":"Authentication required"}`; Node-only reuses getSessionUser) applied to erp/agent/agent-approve/upload/seed · AgentTurn.userId = session user id · approval actor: `AgentTool.execute(args, actor?)` optional 2nd param — approve_pending + 8 gate wrappers stamp `approvedBy = actor.email ?? 'agent'`; approve route scopes its updateMany to the actor · cookie fixture `scripts/lib/api-auth.mjs` (login → Cookie header) for test_ingest/eval_ingest/test_money_loop · agent-panel redirects to /login on 401 | route_smoke_m7b.sh |
+| Auth (M7-C) | **Rights enforcement live (ADR-018)**: edge-safe `src/lib/auth/rights.ts` — signed `fo_rights` cookie ({role,rights} snapshot, HMAC AUTH_SECRET, 7d) + `computeAllowedGroupIds` (admin OR no-group OR [] → all; else listed ∩ valid ∪ {'home'}) + `firstAllowedLandingRoute` (deny target '/'; home always allowed → no redirect loops) · login/bootstrap set both cookies (`login-cookies.ts`) · middleware per-route pre-check via `findGroupForPath` (307 first-allowed when denied; missing/stale cookie → skip pre-check) + stamps `x-pathname` · layout FRESH layer-2: DB rights per full load → NavSidebar filtered + route re-checked (mid-session revocation works; newly granted menus need re-login) · `/admin/users` PasswordAdmin card + `POST /api/auth/admin/set-password` (set/clear; clear-self 400) · meta pages (/parity, /coming) open to any authed user | route_smoke_m7c.sh |
 
 ## Known drift / gaps
 
@@ -234,10 +235,20 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    stamped through the human approve door (approve_pending + 8 gate wrappers);
    cookie fixture scripts/lib/api-auth.mjs for the 3 HTTP .mjs scripts;
    agent-panel 401 → /login. 620 vitest, route_smoke_m7b 25/25, context_check
-   335/335. **Next: M7 Wave C** — rights enforcement: NavSidebar filtered by
-   UserGroup.rights ([] = all), middleware per-route rights check vs
-   MENU_GROUPS, /admin/users password set/reset field, deactivated-user
-   redirect (SPEC-M7 §4).
+   335/335.
+7. **M7 Wave C DONE — M7 COMPLETE** (tag `m7-wave-c`): rights enforcement
+   (ADR-018). Edge-safe rights.ts (signed fo_rights cookie + the ONE
+   computeAllowedGroupIds rule: admin/no-group/[] = all, else listed ∩ valid
+   ∪ home); login+bootstrap set both cookies (login-cookies.ts); middleware
+   per-route pre-check (findGroupForPath) + x-pathname stamp; layout FRESH
+   layer-2 (sidebar filter + route re-check — mid-session revocation works);
+   /admin/users PasswordAdmin + /api/auth/admin/set-password;
+   /api/seed admin-only; deactivated → 307 /login verified. 653 vitest,
+   route_smoke_m7c 36/36, context_check 347/347. **Next: M8 candidates** —
+   hardening (E2E over the 145-route surface, print templates per doc family,
+   agent prompt polish over the 188-tool registry), multi-company/finyear
+   auth chain (deferred SPEC-M7 §2), or Tally export (resolved SKIP at M6
+   freeze — revisit only on demand).
 
 ## M5 Wave D notes for future sessions
 
@@ -788,3 +799,47 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   (GRN-001 grn_acceptance cleanup + actor assertion) — setup deletes stale
   rows so re-runs hit the find-or-create path; verify asserts
   approvedBy=admin@fiberpro.local AND requestedBy=agent.
+
+## M7 Wave C notes for future sessions
+
+- **The two-layer rights pattern mirrors the two-layer auth pattern**: the
+  EDGE middleware pre-filters routes using the signed `fo_rights` cookie
+  (cheap, no db, covers soft navigations because middleware runs on every
+  RSC fetch); the `(erp)/layout.tsx` re-derives allowed groups FRESH from the
+  DB on every full load and BOTH filters the NavSidebar and re-checks the
+  route (via the `x-pathname` request header the middleware stamps — layouts
+  do not receive the pathname any other way). The cookie can never GRANT
+  anything: missing/tampered/expired → the edge pre-check is simply skipped
+  and the layout still denies.
+- **The staleness contract (ADR-018)**: an admin REVOKING a group's menu takes
+  effect on the user's next page load (layout fresh layer); GRANTING a new
+  menu takes effect on the user's next LOGIN (the stale fo_rights cookie
+  denies at the edge until then). Both directions are asserted in
+  route_smoke_m7c.sh. Do not "fix" the grant lag by reading the db in
+  middleware — SQLite + Prisma cannot run on the edge runtime.
+- **computeAllowedGroupIds is the ONE rule** (src/lib/auth/rights.ts): role
+  admin → all; rights null (no group) → all (back-compat: group assignment is
+  optional, pre-Wave-C users keep full access); rights [] → all (the matrix
+  convention); else listed ∩ valid group ids ∪ {'home'}. 'home' is ALWAYS
+  allowed — the dashboard is universal AND it makes the deny-redirect target
+  ('/' — firstAllowedLandingRoute) loop-free by construction.
+- **Password administration is a ROLE door, not a rights door**:
+  /api/auth/admin/set-password requires role==='admin' (403 otherwise) so an
+  admin can always reach it to fix a broken rights setup. Clearing your own
+  password is rejected (400) — instant self-lockout; setting your own is the
+  intended "change my password" path. /api/seed is admin-only for the same
+  reason (destructive reseed) and the NavSidebar Seed button is hidden for
+  non-admins.
+- **route→group resolution** lives in menu-registry `findGroupForPath`
+  (prefix-first, then exact landing; /coming/<id> resolves through the
+  registry). Meta pages that belong to NO group (/parity, unknown paths) stay
+  open to any authenticated user. Topbar breadcrumbs now use the same helper.
+- **The Next 16 "middleware file convention is deprecated, use proxy"
+  warning** appeared at dev startup. middleware.ts still works in 16.1.3;
+  renaming to proxy.ts is a mechanical future migration — do it in its own
+  commit with the full smoke trio re-run.
+- **route_smoke_m7c.sh fixture** (`scripts/m7c_smoke_fixture.ts
+  setup|tighten|reactivate|deactivate|cleanup`): creates the 'Smoke
+  Restricted' group (rights orders+production) + user, tightens to
+  ['accounts'] for the stale-cookie window, deactivates for the mid-session
+  lockout, and cleans up. 36 checks total.

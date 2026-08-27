@@ -2,7 +2,7 @@
  * /admin/menu-rights — Menu Rights matrix (SPEC-M6 §2 row 6, legacy
  * FrmMenuRights / FrmMenuAccRights). Rows = the 17 menu groups, cols = user
  * groups; writes UserGroup.rights via the update_user_group door.
- * Enforcement (route guarding) is a documented non-goal (§3-2).
+ * Enforcement is LIVE since SPEC-M7 Wave C (sidebar filter + route checks).
  */
 import Link from 'next/link'
 import { db } from '@/lib/db'

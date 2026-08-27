@@ -4,6 +4,11 @@
  * Registry-driven navigation sidebar (SPEC-M1 §7).
  * 17 groups; active group expands to show its items with live/coming dots.
  * Derives 100% from src/lib/erp/menu-registry.ts — no hardcoded nav.
+ *
+ * SPEC-M7 §4 (Wave C): `allowedGroupIds` (derived fresh from UserGroup.rights
+ * by the layout — [] = all, admin/no-group = all) filters the group list.
+ * 'home' is always allowed (the dashboard is universal). The Seed demo data
+ * button is admin-only (the /api/seed route enforces the same role).
  */
 import { useState } from 'react'
 import Link from 'next/link'
@@ -27,10 +32,21 @@ const ICONS: Record<string, LucideIcon> = {
   CheckCircle2, BarChart3, Database,
 }
 
-export function NavSidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function NavSidebar({
+  onNavigate,
+  allowedGroupIds,
+  isAdmin,
+}: {
+  onNavigate?: () => void
+  allowedGroupIds?: string[]
+  isAdmin?: boolean
+}) {
   const pathname = usePathname()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [seeding, setSeeding] = useState(false)
+
+  const allowed = allowedGroupIds ? new Set(allowedGroupIds) : null
+  const groups = allowed ? MENU_GROUPS.filter((g) => allowed.has(g.id)) : MENU_GROUPS
 
   const activeGroup =
     findGroupByLanding(pathname) ?? findGroupByRoutePrefix(pathname)
@@ -67,7 +83,7 @@ export function NavSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-2 px-2" aria-label="Main navigation">
-        {MENU_GROUPS.map((group) => {
+        {groups.map((group) => {
           const Icon = ICONS[group.icon] ?? Boxes
           const items = itemsByGroup(group.id)
           const liveCount = items.filter(isLive).length
@@ -156,16 +172,18 @@ export function NavSidebar({ onNavigate }: { onNavigate?: () => void }) {
           <span className="text-emerald-400 font-semibold">{stats.coveragePct}%</span>
           <span className="block text-[10px] text-slate-500">parity tracker →</span>
         </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={seedDatabase}
-          disabled={seeding}
-          className="w-full justify-start text-slate-400 hover:text-white"
-        >
-          <RefreshCw className={cn('h-3.5 w-3.5 mr-2', seeding && 'animate-spin')} />
-          {seeding ? 'Seeding…' : 'Seed demo data'}
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={seedDatabase}
+            disabled={seeding}
+            className="w-full justify-start text-slate-400 hover:text-white"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5 mr-2', seeding && 'animate-spin')} />
+            {seeding ? 'Seeding…' : 'Seed demo data'}
+          </Button>
+        )}
       </div>
     </div>
   )

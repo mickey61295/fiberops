@@ -4,6 +4,10 @@
  * App shell (SPEC-M1 §7): sidebar (desktop + mobile Sheet), topbar,
  * keyed content area (remount on agent commit / manual refresh), parity footer,
  * and the global AgentPanelProvider. Mounted once by src/app/(erp)/layout.tsx.
+ *
+ * SPEC-M7 §4 (Wave C): allowedGroupIds (menu group ids from the fresh
+ * UserGroup.rights derivation in the layout) filters the NavSidebar; the
+ * admin role flag gates the destructive Seed button.
  */
 import { useCallback, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,7 +17,15 @@ import { Topbar, type TopbarUser } from '@/components/erp/topbar'
 import { ParityFooter } from '@/components/erp/parity-footer'
 import { AgentPanelProvider } from '@/components/agent/agent-panel-provider'
 
-export function AppShell({ children, user }: { children: ReactNode; user?: TopbarUser }) {
+export function AppShell({
+  children,
+  user,
+  allowedGroupIds,
+}: {
+  children: ReactNode
+  user?: TopbarUser
+  allowedGroupIds?: string[]
+}) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -29,13 +41,13 @@ export function AppShell({ children, user }: { children: ReactNode; user?: Topba
         {/* Mobile sidebar */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-64 p-0 bg-slate-900">
-            <NavSidebar onNavigate={() => setSidebarOpen(false)} />
+            <NavSidebar onNavigate={() => setSidebarOpen(false)} allowedGroupIds={allowedGroupIds} isAdmin={user?.role === 'admin'} />
           </SheetContent>
         </Sheet>
 
         {/* Desktop sidebar */}
         <aside className="hidden md:block w-64 bg-slate-900 text-slate-100 flex-shrink-0">
-          <NavSidebar />
+          <NavSidebar allowedGroupIds={allowedGroupIds} isAdmin={user?.role === 'admin'} />
         </aside>
 
         {/* Main */}

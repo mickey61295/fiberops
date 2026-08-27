@@ -103,7 +103,8 @@ export function RightsMatrix({ menuGroups, userGroups }: Props) {
         A checked box means the group may see that menu group. <strong>All boxes checked = all menus</strong>{' '}
         (stored as the empty list). Saving writes through the same master-service the{' '}
         <code className="rounded bg-slate-100 px-1 font-mono text-[11px]">update_user_group</code> agent tool uses —
-        form and agent cannot drift. Route guarding (enforcement) is M7+.
+        form and agent cannot drift. Enforcement is live (SPEC-M7 Wave C): the sidebar filters + routes
+        re-check rights fresh from the DB; the edge pre-filter cookie applies on the user&apos;s next login.
       </div>
       {pending && <div className="text-xs text-slate-400">refreshing…</div>}
     </div>

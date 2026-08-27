@@ -8,9 +8,14 @@ const execAsync = promisify(exec)
 // UNAUTHENTICATED route that shells out to child_process is unacceptable
 // (defense-in-depth; zero in-app callers — the dev workflow runs seed.ts
 // directly, and no test/smoke script POSTs here).
+// SPEC-M7 Wave C — also ADMIN-ONLY: seeding destructively rewrites demo data;
+// the NavSidebar hides the button for non-admins and this guard enforces it.
 export async function POST() {
   const guard = await requireApiSession()
   if (guard.error) return guard.error
+  if (guard.user.role !== 'admin') {
+    return Response.json({ error: 'Admin role required' }, { status: 403 })
+  }
   try {
     const { stdout, stderr } = await execAsync('cd /home/z/my-project && bunx tsx scripts/seed.ts 2>&1')
     return Response.json({ success: true, output: stdout, error: stderr })
