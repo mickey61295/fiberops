@@ -36,16 +36,17 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'approval-audit': '/approvals/audit',
   'rate-confirmation': '/procurement/rate-confirmation',
   'piece-rate-confirmation': '/costing/piece-rate',
+  'production-wages': '/hr/wages',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Wave A: exactly the 18 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B: exactly the 19 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'approval-audit', 'bills-register', 'budget-vs-actual', 'daily-in-out',
       'inhand-orders', 'io-history', 'jobwork-register', 'lot-tracking',
       'order-register', 'party-balance', 'party-ledger', 'pcs-stock',
-      'piece-rate-confirmation', 'production-status', 'rate-confirmation',
-      'stock-ledger', 'stock-register', 'supplier-bills',
+      'piece-rate-confirmation', 'production-status', 'production-wages',
+      'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills',
     ])
   })
 
@@ -210,7 +211,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.schema.shape).toHaveProperty('orderNo')
   })
 
-  it('the 7 new Wave B tools are registered, read-only (130 total)', () => {
+  it('the 7 new Wave B tools are registered, read-only (M4)', () => {
     const spec: Record<string, string> = {
       list_inhand_orders: 'orders',
       list_io_history: 'inventory',
@@ -226,7 +227,16 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
       expect(tool.isWrite, `${name} read-only`).toBe(false)
       expect(tool.domain, `${name} domain`).toBe(domain)
     }
-    expect(allTools.length).toBe(135) // 130 + 5 M5 Wave A tools
+  })
+
+  it('M5 Wave B tool doors: get_production_wages delegates to the wages register (142 total)', () => {
+    const tool = getTool('get_production_wages')!
+    expect(tool).toBeTruthy()
+    expect(tool.isWrite).toBe(false)
+    expect(tool.domain).toBe('hr')
+    expect(tool.schema.shape).toHaveProperty('order')
+    expect(tool.schema.shape).toHaveProperty('q')
+    expect(allTools.length).toBe(142) // 135 + 7 M5 Wave B tools
   })
 })
 
@@ -276,6 +286,7 @@ describe('register services — smoke against the real db (read-only)', () => {
     ['party-ledger', (r) => { expect(r).toHaveProperty('balance') }],
     ['budget-vs-actual', (r) => { expect(r).toHaveProperty('variance') }],
     ['approval-audit', (r) => { expect(r).toHaveProperty('entity'); expect(r).toHaveProperty('status') }],
+    ['production-wages', (r) => { expect(r).toHaveProperty('operator'); expect(r).toHaveProperty('amount') }],
   ]
 
   for (const [slug, check] of SMOKE) {

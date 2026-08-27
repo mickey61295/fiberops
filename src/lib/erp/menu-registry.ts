@@ -109,6 +109,21 @@ export const LIVE_ROUTES = new Set<string>([
   '/procurement/supplier-orders', // Supplier Orders (M5 Wave A) — supplier-orders
   '/procurement/rate-confirmation', // Rate Confirmation (M5 Wave A) — rate-confirmation
   '/costing/piece-rate', // Piece-Rate Confirmation (M5 Wave A) — piece-rate-confirmation
+  // M5 Wave B (SPEC-M5 §7-B)
+  '/pieces/finished-goods', // Finished Goods Entry (M5 Wave B) — finished-goods-entry (variant of /production/entry)
+  '/production/operations', // Operation Entry (M5 Wave B) — operation-entry (variant of /production/entry)
+  '/production/bundles', // Bundle / Barcode Entry (M5 Wave B) — bundle-barcode (variant of /production/entry)
+  '/production/line-transfer', // Line Transfer (M5 Wave B) — line-transfer (pair of LineIssue rows)
+  '/cutting/panel', // Panel Cutting / Add (M5 Wave B) — panel-cutting (variant of /cutting/job-order)
+  '/cutting/panel-production', // Panel Production (M5 Wave B) — panel-production (variant of /production/entry)
+  '/cutting/panel-excess', // Panel Excess (M5 Wave B) — panel-excess (variant of /production/entry)
+  '/cutting/panel-rework', // Panel Rej / Rework (M5 Wave B) — panel-rej-rework (variant of /pieces/rejection)
+  '/cutting/fab-rejection', // Fabric Rejection Return (M5 Wave B) — fabric-rejection-return (variant of /pieces/rejection)
+  '/pieces/shortage', // Pcs Shortage (M5 Wave B) — pcs-shortage (variant of /pieces/rejection)
+  '/jobwork/pcs-return', // Jobwork Pcs Return (M5 Wave B) — jobwork-pcs-return (process_return GRN)
+  '/costing/input', // Costing Input (M5 Wave B) — costing-input (variant of /costing/cost-sheet)
+  '/hr/wages', // Production Wages (M5 Wave B) — production-wages (RG + wage-bill journal)
+  '/hr/wage-payments', // Wage Payments (M5 Wave B) — wage-payments (variant of /accounts/payments)
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -450,13 +465,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'panel-cutting', label: 'Panel Cutting / Add', groupId: 'cutting', route: '/cutting/panel', arch: 'DS', phase: 'M5',
     description: 'Add/adjust panel cutting entries.',
     legacyForms: ['frmAddPanelCutting'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_cut_order'], pendingTools: [],
   },
   {
     id: 'panel-production', label: 'Panel Production', groupId: 'cutting', route: '/cutting/panel-production', arch: 'DS', phase: 'M5',
     description: 'Panel-wise production entries.',
     legacyForms: ['frmProduction_CutPanel'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_production_entry'], pendingTools: [],
   },
   {
     id: 'panel-rej-rework', label: 'Panel Rej / Rework', groupId: 'cutting', route: '/cutting/panel-rework', arch: 'DS', phase: 'M5',
@@ -469,13 +484,14 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'panel-excess', label: 'Panel Excess', groupId: 'cutting', route: '/cutting/panel-excess', arch: 'DS', phase: 'M5',
     description: 'Excess panels produced vs plan.',
     legacyForms: ['FrmPanelExcessEntry', 'FrmPanelExcessEntry_Stage'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_production_entry'], pendingTools: [],
   },
   {
     id: 'fabric-rejection-return', label: 'Fabric Rejection Return', groupId: 'cutting', route: '/cutting/fab-rejection', arch: 'DS', phase: 'M5',
     description: 'Return rejected fabric from cutting to store.',
     legacyForms: ['FrmCutting_FabRej', 'FrmCuttingfabretreg'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_rejection'], pendingTools: [],
+    agentPrompt: 'I want to return rejected fabric to the party',
   },
   // ---- pieces (9) ----
   {
@@ -516,7 +532,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'pcs-shortage', label: 'Pcs Shortage', groupId: 'pieces', route: '/pieces/shortage', arch: 'DS', phase: 'M5',
     description: 'Record shortages found at despatch/packing.',
     legacyForms: ['frmPcsShort', 'frmShortage', 'frmShortage_Compwise', 'FrmShortageBitEntry'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_rejection'], pendingTools: [],
+    agentPrompt: 'I want to record a pcs shortage',
   },
   {
     id: 'pcs-stock', label: 'Pcs Stock', groupId: 'pieces', route: '/pieces/stock', arch: 'RG', phase: 'M4',
@@ -529,7 +546,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'finished-goods-entry', label: 'Finished Goods Entry', groupId: 'pieces', route: '/pieces/finished-goods', arch: 'DS', phase: 'M5',
     description: 'Enter finished goods into FG store.',
     legacyForms: ['FrmFinishGoodsEntry'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_finished_goods'], pendingTools: [],
+    agentPrompt: 'I want to post a finished-goods entry',
   },
   {
     id: 'packing-list', label: 'Packing List', groupId: 'pieces', route: '/pieces/packing-list', arch: 'DS', phase: 'M5',
@@ -579,19 +597,22 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'bundle-barcode', label: 'Bundle / Barcode Entry', groupId: 'production', route: '/production/bundles', arch: 'DS', phase: 'M5',
     description: 'Bundle tickets + barcode scanning on the floor.',
     legacyForms: ['FrmBundle_ProductionEntry', 'frmBarcodeReadingNew'],
-    agentTools: [], pendingTools: ['scan_bundle'],
+    agentTools: ['scan_bundle'], pendingTools: [],
+    agentPrompt: 'Scan bundle CUT-0001/B1 for operator E001',
   },
   {
     id: 'line-transfer', label: 'Line Transfer', groupId: 'production', route: '/production/line-transfer', arch: 'DS', phase: 'M5',
     description: 'Move WIP between sewing lines.',
     legacyForms: ['Trs_LineTfr'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['transfer_line_stock'], pendingTools: [],
+    agentPrompt: 'I want to transfer WIP between lines',
   },
   {
     id: 'operation-entry', label: 'Operation Entry', groupId: 'production', route: '/production/operations', arch: 'DS', phase: 'M5',
     description: 'Sub-process/operation-wise entries.',
     legacyForms: ['FrmOperationEntry', 'Frm_SubProcess'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['post_operation_entry'], pendingTools: [],
+    agentPrompt: 'I want to post an operation entry',
   },
   {
     id: 'production-status-register', label: 'Production Status Register', groupId: 'production', route: '/production/register', arch: 'RG', phase: 'M4',
@@ -635,7 +656,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'jobwork-pcs-return', label: 'Jobwork Pcs Return', groupId: 'jobwork', route: '/jobwork/pcs-return', arch: 'DS', phase: 'M5',
     description: 'Return pieces to jobwork units for rework.',
     legacyForms: ['frmJobWorkPcsReturn'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['return_jobwork_pcs'], pendingTools: [],
+    agentPrompt: 'I want to return pieces to a jobwork unit',
   },
 
   // ---- dispatch (8) ----
@@ -783,7 +805,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'costing-input', label: 'Costing Input', groupId: 'costing', route: '/costing/input', arch: 'DS', phase: 'M5',
     description: 'Multi-level daily costing inputs.',
     legacyForms: ['Frm_CostingInput'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_cost_sheet'], pendingTools: [],
+    agentPrompt: 'I want to record a daily costing input',
     notes: 'Also multi-level daily variants',
   },
   {
@@ -832,16 +855,19 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: [], pendingTools: [],
   },
   {
-    id: 'production-wages', label: 'Production Wages', groupId: 'hr', route: '/hr/wages', arch: 'DS', phase: 'M5',
+    id: 'production-wages', label: 'Production Wages', groupId: 'hr', route: '/hr/wages', arch: 'RG', phase: 'M5',
     description: 'Wage computation from production (dept/stage-wise).',
     legacyForms: ['Frm_ProductionWages', 'Frm_ProductionWages_Dept', 'Frm_ProductionWages_Stage'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_production_wages', 'create_journal'], pendingTools: [],
+    agentPrompt: 'Show me production wages per operator',
+    notes: 'RG family screen per SPEC-M5 §2 (arch upgraded DS→RG); wage bill posts a journal',
   },
   {
     id: 'wage-payments', label: 'Wage Payments', groupId: 'hr', route: '/hr/wage-payments', arch: 'DS', phase: 'M5',
     description: 'Pay wages; settlements per employee/unit.',
     legacyForms: ['FrmPaymentReg_Wages'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['pay_wages'], pendingTools: [],
+    agentPrompt: 'Pay wages to operator party EMP-0001',
   },
 
   // ---- quality (5) ----

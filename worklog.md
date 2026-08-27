@@ -465,3 +465,28 @@ Stage Summary:
 - Variant-doc pattern proven: config wraps base service, variant schema relaxes only injected keys, zero engine changes.
 - PUSH STILL BLOCKED: needs PAT from user (git remote set-url origin https://<TOKEN>@github.com/mickey61295/fiberops.git).
 - Next: M5 Wave B (14 production/pcs variant items per SPEC-M5 §7-B).
+
+---
+Task ID: m5-wave-b
+Agent: main
+Task: Push the 31-commit backlog to GitHub with the user-provided PAT, then implement SPEC-M5 Wave B — 14 production/pcs variant items (§7-B), per the standing rule "push after every commit".
+
+Work Log:
+- PUSH UNBLOCKED: configured the user's PAT into the local git remote; pushed 7dae87d..20b5177 (31 commits, M1→m5-wave-a) + all 12 tags; verified origin/main..HEAD = 0. Remote now tracks local; push-after-commit is the standing rule.
+- Studied Wave A variant patterns (invoice-variants/supplier-order configs, sibling posting wrappers, register service/config/registry loop, doc-parity test shape) before writing code.
+- Schemas (4 new files, 23→27): production-variants.ts (FINISHED_GOODS/OPERATION_ENTRY relax ONLY deptCode + SCAN_BUNDLE bundle-keyed shape), line-transfer.ts, grn-variants.ts (JOBWORK_PCS_RETURN), payment-variants.ts (WAGE_PAYMENT relaxes direction).
+- Posting (24→25 files): production.ts +planFinishedGoods (D5 default) /planOperationEntry (D4) /planScanBundle (CutBundle lookup by no OR barcode; qty defaults bundle.qty; rate defaults operator.pieceRate; relation-less FKs resolved via lookups — PITFALLS #21); grn.ts +planJobworkPcsReturn (process_return GRN + postLedger process_delivery OUT of G2, shared GRN-#### space); payment.ts +planWagePayment (direction='out' + narration default); NEW line-transfer.ts (LT-#### pair: -O negative qty out / -I positive in, one transaction, no godown moves; suffix-stripping number scan — PITFALLS #28).
+- Doc-configs (24→37 configs, 21→28 files): production-variants.ts ×5 (finished-goods chainStage 12 per §10 W1, operation-entry, bundle-barcode, panel-production, panel-excess), rejection-variants.ts ×3 (panel-rej-rework action=rework; fabric-rejection-return rejType=fabric+return_to_party; pcs-shortage rejType=shortage), cut-variants (panel-cutting), line-transfer, grn-variants (jobwork-pcs-return), costing-input (pure variant over planCostSheet — version-bump semantics), wage-payments (variant over planWagePayment + ERRATUM 7 pickerFilter partyType=employee).
+- ERRATUM 7 (additive): DocField.pickerFilter + DocPicker.filter prop + master_search filterField/filterValue params — server-side equality filter on the W4 picker feed. Verified live: employee→[], supplier→suppliers only.
+- Register: registers/wages.ts queryWages (group by OPERATOR across orders: Σqty, Σamount, avg rate, orders/entries counts; W2 href → /masters/employee) + register-configs/wages.ts + registries (18→19 both) + /hr/wages page (CSV route) with the "Generate wage bill" server action (re-runs the same service; posts planJournal Dr Production Wages / Cr Wage Payable) + W6 budget-vs-actual link when ?order=.
+- Tools 135→142: docTools +6 (post_finished_goods, post_operation_entry, scan_bundle, transfer_line_stock, return_jobwork_pcs, pay_wages) + inline read get_production_wages (delegates to queryWages).
+- Wiring: LIVE_ROUTES 73→87 (+14); menu agentTools flipped on all 14 items (scan_bundle graduated from pendingTools; production-wages arch DS→RG per §2); SLUG_REVALIDATE +13 entries.
+- Tests 339→363 GREEN (×2 runs): NEW doc-parity-m5b (11: all 6 write tools × both doors — incl. scan-by-barcode, LT pair ±qty, process_return ledger OUT, pay_wages party-ledger pickup 2000 — + 3 rejection variant form-door injections + source pins + wage-bill journal) + NEW register-services-m5b (4: operator grouping across orders with unique-day fixture isolation, order/date filters, tool delegation); extended pins: doc-configs slug list 37 + Wave B block (mirror-rule fields incl. readonly injected keys), register-configs 19-loop + 142-tool pin + wages smoke, menu-registry 62/113 + Wave B live block.
+- Bugs caught by the tests: (1) LT- suffix crash — PITFALLS #28; (2) direct-service Date contract — PITFALLS #29; (3) CutBundle relation-less include (tsc); (4) missing mirror fields on variant configs.
+- Verification: tsc zero new src errors (cumrate/exposure/flags legacy noise unchanged); route_smoke_m5b 68/68 (14 new routes + prefills + filters + wages CSV + 32-route regression spot set); context_check 189/189 NO DRIFT; STATE.md (M5-B rows, next actions, Wave B notes) + PITFALLS #28/#29 + worklog updated.
+
+Stage Summary:
+- M5 Wave B COMPLETE per SPEC-M5 §7-B: all 14 items live; 62/113 menu items (54.9%); 142 tools; 37 doc configs; 19 registers; 87 live routes; 363 vitest green.
+- Pattern wins: posting-file wrappers (§4 rule 1) kept every base service byte-identical; ERRATUM 7 gives any picker a server-side filter; the wage bill rides the SAME journal door the agent uses.
+- Remote: backlog pushed; m5-wave-b commit + tag to follow immediately (push-after-commit).
+- Next: M5 Wave C — approval kinds (§6/§7-C, 4 IN items + 4 approve wrappers → 146 tools).

@@ -31,6 +31,12 @@
 //    master slug for this picker (stock-adjustment/godown-transfer itemCode ←
 //    the itemType cell: yarn|fabric|accessory). Falls back to a plain text
 //    input until the sibling cell is set.
+// SPEC-M5 ERRATUM (Wave B):
+// 7. DocField gains optional `pickerFilter` — an equality filter the W4 picker
+//    feed applies server-side (/api/erp master_search gains filterField /
+//    filterValue params). Wage-payments pins the party picker to employee
+//    parties: pickerFilter { field: 'partyType', value: 'employee' }.
+//    Additive + optional — every existing picker is unaffected.
 import type { z } from 'zod'
 import type { DocPlanResult } from '../posting/types'
 
@@ -48,6 +54,8 @@ export interface DocField {
   pickerValueField?: string
   /** ERRATUM 6 (Wave D) — sibling header-cell name whose value IS the master slug */
   pickerFrom?: string
+  /** ERRATUM 7 (M5 Wave B) — server-side equality filter for the picker feed */
+  pickerFilter?: { field: string; value: string }
   options?: { value: string; label: string }[]
   readOnlyIn?: ('view')[]
   /** header grid width */

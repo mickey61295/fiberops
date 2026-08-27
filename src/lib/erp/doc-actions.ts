@@ -67,6 +67,20 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   'local-invoice': ['/accounts/invoice/local', '/accounts/invoice', '/accounts'],
   'piece-jobwork-invoice': ['/accounts/invoice/piece', '/accounts/invoice', '/accounts'],
   'supplier-order': ['/procurement/supplier-orders', '/procurement/po', '/procurement'],
+  // M5 Wave B (SPEC-M5 §7-B)
+  'finished-goods': ['/pieces/finished-goods', '/production/entry', '/production'],
+  'operation-entry': ['/production/operations', '/production/entry', '/production'],
+  'bundle-barcode': ['/production/bundles', '/production/entry', '/production'],
+  'panel-production': ['/cutting/panel-production', '/production/entry', '/cutting'],
+  'panel-excess': ['/cutting/panel-excess', '/production/entry', '/cutting'],
+  'panel-rej-rework': ['/cutting/panel-rework', '/pieces/rejection', '/cutting'],
+  'fabric-rejection-return': ['/cutting/fab-rejection', '/pieces/rejection', '/cutting'],
+  'pcs-shortage': ['/pieces/shortage', '/pieces/rejection', '/pieces/despatch'],
+  'panel-cutting': ['/cutting/panel', '/cutting/job-order', '/cutting'],
+  'line-transfer': ['/production/line-transfer', '/production/issue', '/production'],
+  'jobwork-pcs-return': ['/jobwork/pcs-return', '/procurement/grn', '/jobwork'],
+  'costing-input': ['/costing/input', '/costing/cost-sheet', '/costing'],
+  'wage-payments': ['/hr/wage-payments', '/accounts/payments', '/hr'],
 }
 
 async function runPlan(slug: string, payload: DocFormPayload): Promise<

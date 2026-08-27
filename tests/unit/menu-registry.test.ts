@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 48 live items of 113 after M5 Wave A; 14/17 groups', () => {
+  it('parityStats: 62 live items of 113 after M5 Wave B; 14/17 groups (no new group opened)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(48)
-    expect(s.comingItems).toBe(65)
+    expect(s.liveItems).toBe(62)
+    expect(s.comingItems).toBe(51)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -238,5 +238,38 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     for (const { id } of waveA) {
       expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
     }
+  })
+
+  it('Wave B (M5): the 14 production/pcs items are live with pages + tool doors (SPEC-M5 §7-B)', () => {
+    const waveB = [
+      { route: '/pieces/finished-goods', id: 'finished-goods-entry', tool: 'post_finished_goods' },
+      { route: '/production/operations', id: 'operation-entry', tool: 'post_operation_entry' },
+      { route: '/production/bundles', id: 'bundle-barcode', tool: 'scan_bundle' },
+      { route: '/production/line-transfer', id: 'line-transfer', tool: 'transfer_line_stock' },
+      { route: '/cutting/panel', id: 'panel-cutting', tool: 'create_cut_order' },
+      { route: '/cutting/panel-production', id: 'panel-production', tool: 'post_production_entry' },
+      { route: '/cutting/panel-excess', id: 'panel-excess', tool: 'post_production_entry' },
+      { route: '/cutting/panel-rework', id: 'panel-rej-rework', tool: 'post_rejection' },
+      { route: '/cutting/fab-rejection', id: 'fabric-rejection-return', tool: 'post_rejection' },
+      { route: '/pieces/shortage', id: 'pcs-shortage', tool: 'post_rejection' },
+      { route: '/jobwork/pcs-return', id: 'jobwork-pcs-return', tool: 'return_jobwork_pcs' },
+      { route: '/costing/input', id: 'costing-input', tool: 'create_cost_sheet' },
+      { route: '/hr/wages', id: 'production-wages', tool: 'get_production_wages' },
+      { route: '/hr/wage-payments', id: 'wage-payments', tool: 'pay_wages' },
+    ]
+    for (const { route, id, tool } of waveB) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // the wages register carries a CSV route; the DS variants do not
+    expect(fs.existsSync(path.join(ERP_DIR, 'hr/wages/csv/route.ts'))).toBe(true)
+    // no pendingTools left on the Wave B fleet (scan_bundle graduated)
+    for (const { id } of waveB) {
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+    }
+    // the wage-bill journal door is named on the wages menu item
+    expect((findItemById('production-wages') as MenuItem).agentTools).toContain('create_journal')
   })
 })

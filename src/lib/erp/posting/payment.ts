@@ -2,11 +2,16 @@
 // SPEC-M3 §5 row 18 — record_payment service. Logic extracted VERBATIM from
 // tools.ts. Writes Payment + companion receipt/payment Journal voucher; marks
 // the invoice paid when fully collected. Voucher numbering RCP-/PMT-.
+// SPEC-M5 §7-B-21 (Wave B) — sibling fn planWagePayment: pins direction='out'
+// (wages are always paid out) + a wage narration default. planPayment and its
+// record_payment tool stay byte-identical (§4 rule 1). Party/PartyLedger math
+// picks wage payments up automatically (party-ledger read path unchanged).
 
 import { db } from '@/lib/db'
 import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PaymentInput } from '../schemas/payment'
+import type { WagePaymentInput } from '../schemas/payment-variants'
 
 export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
@@ -57,4 +62,17 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
       })
     },
   }
+}
+
+// ───────────── SPEC-M5 §7-B-21 — wage payment (sibling wrapper, §4 rule 1) ─────────────
+
+/** FrmPaymentReg_Wages — pay wages to an employee party. Pins direction='out'
+ *  and defaults the narration; everything else delegates to planPayment
+ *  (PMT- voucher + companion payment Journal + party-ledger effects). */
+export async function planWagePayment(args: WagePaymentInput): Promise<DocPlanResult> {
+  return planPayment({
+    ...args,
+    direction: 'out',
+    notes: args.notes?.trim() || 'Wage payment',
+  } as Parameters<typeof planPayment>[0])
 }

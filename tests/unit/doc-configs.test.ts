@@ -20,7 +20,7 @@ import { db } from '../../src/lib/db'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('doc-configs — SPEC-M3 §7 contracts', () => {
-  it('registry has the Wave D set + M5 Wave A (order + 11 chain + 7 accounts/inventory + 5 M5-A configs)', () => {
+  it('registry has the Wave D set + M5 Wave A + M5 Wave B (order + 11 chain + 7 accounts/inventory + 5 M5-A + 13 M5-B configs)', () => {
     expect(DOC_CONFIGS.map((c) => c.slug)).toEqual([
       'order',
       'program',
@@ -46,6 +46,20 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'local-invoice',
       'piece-jobwork-invoice',
       'supplier-order',
+      // M5 Wave B (SPEC-M5 §7-B)
+      'finished-goods',
+      'operation-entry',
+      'bundle-barcode',
+      'panel-production',
+      'panel-excess',
+      'panel-rej-rework',
+      'fabric-rejection-return',
+      'pcs-shortage',
+      'panel-cutting',
+      'line-transfer',
+      'jobwork-pcs-return',
+      'costing-input',
+      'wage-payments',
     ])
   })
 
@@ -836,5 +850,47 @@ describe('form-door integration — Wave D accounts + inventory ops (ADR-001 thr
       where: { itemType: 'yarn', itemId: yarnId, godownId: g2!.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null },
     })
     expect(bucket2?.kgs).toBeCloseTo((g2BucketBefore?.kgs ?? 0) + 3, 5)
+  })
+
+  it('M5 Wave B: 13 variant configs → page files; family views reused; wage picker pinned to employee parties', () => {
+    const waveB: Array<{ slug: string; route: string }> = [
+      { slug: 'finished-goods', route: '/pieces/finished-goods' },
+      { slug: 'operation-entry', route: '/production/operations' },
+      { slug: 'bundle-barcode', route: '/production/bundles' },
+      { slug: 'panel-production', route: '/cutting/panel-production' },
+      { slug: 'panel-excess', route: '/cutting/panel-excess' },
+      { slug: 'panel-rej-rework', route: '/cutting/panel-rework' },
+      { slug: 'fabric-rejection-return', route: '/cutting/fab-rejection' },
+      { slug: 'pcs-shortage', route: '/pieces/shortage' },
+      { slug: 'panel-cutting', route: '/cutting/panel' },
+      { slug: 'line-transfer', route: '/production/line-transfer' },
+      { slug: 'jobwork-pcs-return', route: '/jobwork/pcs-return' },
+      { slug: 'costing-input', route: '/costing/input' },
+      { slug: 'wage-payments', route: '/hr/wage-payments' },
+    ]
+    for (const { slug, route } of waveB) {
+      const cfg = getDocConfig(slug)!
+      expect(cfg, slug).toBeTruthy()
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // the ProductionEntry-family variants carry NO own doc number (ERRATUM 4
+    // precedent — bundleNo is the reference); the numbered families share space
+    for (const slug of ['finished-goods', 'operation-entry', 'bundle-barcode', 'panel-production', 'panel-excess']) {
+      const cfg = getDocConfig(slug)!
+      expect(cfg.numberPrefix, `${slug} numberPrefix`).toBeUndefined()
+    }
+    expect(getDocConfig('panel-rej-rework')!.numberPrefix).toBe('REJ-')
+    expect(getDocConfig('jobwork-pcs-return')!.numberPrefix).toBe('GRN-')
+    expect(getDocConfig('line-transfer')!.numberPrefix).toBe('LT-')
+    expect(getDocConfig('panel-cutting')!.numberPrefix).toBe('CUT-')
+    // §10 W1: finished-goods is the stage-12 variant target
+    expect(getDocConfig('finished-goods')!.chainStage).toBe(12)
+    // ERRATUM 7: wage-payments party picker filtered to employee parties
+    const partyField = getDocConfig('wage-payments')!.headerFields.find((f) => f.name === 'partyCode')!
+    expect(partyField.pickerFilter).toEqual({ field: 'partyType', value: 'employee' })
+    // every Wave B config names at least one agent tool door
+    for (const { slug } of waveB) {
+      expect(getDocConfig(slug)!.agentTools.length, `${slug} agentTools`).toBeGreaterThan(0)
+    }
   })
 })

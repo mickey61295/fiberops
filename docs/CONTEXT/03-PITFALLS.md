@@ -292,3 +292,24 @@ pcs → db.style.styleNo (everything else → db[type].code); io-history's
 q-search queries style on styleNo.
 LESSON: itemType is a polymorphic FK — resolve codes through ONE helper that
 knows the pcs→style exception, never inline per service.
+
+28. Suffix-carrying doc numbers break naive next-free scans · 2026-08-27 (M5 Wave B)
+line-transfer stores TWO rows per ref (`LT-0001-O` / `LT-0001-I`); the shared
+`resolveDocNo` scan checks `used.has('LT-0001')`, which NEVER matches the
+suffixed values → the second transfer re-assigned LT-0001 and crashed on the
+issueNo unique constraint (caught by doc-parity test 4, not by tsc).
+FIX pattern: when a family stores derived numbers (suffix/prefix variants),
+scan the RAW values and normalise before the used-set check
+(`issueNo.replace(/-(O|I)$/, '')`).
+LESSON: every "next free number" helper silently assumes value === template
+rendering; suffixed/derived numbers need family-specific resolution.
+
+29. Register tests calling services directly must pass Date objects · 2026-08-27 (M5 Wave B)
+`parseRegisterQuery` converts searchParam STRINGS to `new Date(...)` before
+they reach a service; tests that call REGISTER_SERVICES directly with
+`from: '2027-06-15'` bypass that and hit Prisma's "premature end of input"
+SQLite error (PITFALLS #13's pipeline twin).
+FIX pattern: direct service calls in tests pass `new Date('...T00:00:00')` /
+end-of-day Dates, exactly what parseRegisterQuery would produce.
+LESSON: the register service contract is Date-typed (RegisterQuery.from is
+Date); strings only enter at the searchParams boundary.

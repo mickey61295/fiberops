@@ -23,6 +23,24 @@ import { budgetConfig } from './budget'
 import { commercialInvoiceConfig } from './commercial-invoice'
 import { localInvoiceConfig, pieceJobworkInvoiceConfig } from './invoice-variants'
 import { supplierOrderConfig } from './supplier-order'
+// M5 Wave B (SPEC-M5 §7-B)
+import {
+  finishedGoodsConfig,
+  operationEntryConfig,
+  bundleBarcodeConfig,
+  panelProductionConfig,
+  panelExcessConfig,
+} from './production-variants'
+import {
+  panelRejReworkConfig,
+  fabricRejectionReturnConfig,
+  pcsShortageConfig,
+} from './rejection-variants'
+import { panelCuttingConfig } from './cut-variants'
+import { lineTransferConfig } from './line-transfer'
+import { jobworkPcsReturnConfig } from './grn-variants'
+import { costingInputConfig } from './costing-input'
+import { wagePaymentsConfig } from './wage-payments'
 
 export {
   orderConfig,
@@ -49,6 +67,20 @@ export {
   localInvoiceConfig,
   pieceJobworkInvoiceConfig,
   supplierOrderConfig,
+  // M5 Wave B
+  finishedGoodsConfig,
+  operationEntryConfig,
+  bundleBarcodeConfig,
+  panelProductionConfig,
+  panelExcessConfig,
+  panelRejReworkConfig,
+  fabricRejectionReturnConfig,
+  pcsShortageConfig,
+  panelCuttingConfig,
+  lineTransferConfig,
+  jobworkPcsReturnConfig,
+  costingInputConfig,
+  wagePaymentsConfig,
 }
 
 export const DOC_CONFIGS: DocConfig[] = [
@@ -76,6 +108,20 @@ export const DOC_CONFIGS: DocConfig[] = [
   localInvoiceConfig,
   pieceJobworkInvoiceConfig,
   supplierOrderConfig,
+  // M5 Wave B (SPEC-M5 §7-B)
+  finishedGoodsConfig,
+  operationEntryConfig,
+  bundleBarcodeConfig,
+  panelProductionConfig,
+  panelExcessConfig,
+  panelRejReworkConfig,
+  fabricRejectionReturnConfig,
+  pcsShortageConfig,
+  panelCuttingConfig,
+  lineTransferConfig,
+  jobworkPcsReturnConfig,
+  costingInputConfig,
+  wagePaymentsConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {

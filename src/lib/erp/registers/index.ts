@@ -23,6 +23,7 @@ import { queryBudgetVsActual } from './budget'
 import { queryApprovalAudit } from './approval-audit'
 import { queryRateConfirmation } from './rate-confirmation'
 import { queryPieceRates } from './piece-rates'
+import { queryWages } from './wages'
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -43,6 +44,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'approval-audit': queryApprovalAudit,
   'rate-confirmation': queryRateConfirmation,
   'piece-rate-confirmation': queryPieceRates,
+  'production-wages': queryWages,
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

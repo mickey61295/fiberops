@@ -21,6 +21,7 @@ import { fetchCurrentStock } from '@/lib/erp/registers/stock-register'
 import { queryLots } from '@/lib/erp/registers/lots'
 import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
+import { queryWages } from '@/lib/erp/registers/wages'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
 import { queryJobwork } from '@/lib/erp/registers/jobwork'
@@ -45,6 +46,10 @@ import { JOBWORK_OUT_SCHEMA, JOBWORK_IN_SCHEMA } from '@/lib/erp/schemas/jobwork
 import { CUT_ORDER_SCHEMA } from '@/lib/erp/schemas/cut'
 import { LINE_ISSUE_SCHEMA } from '@/lib/erp/schemas/line-issue'
 import { PRODUCTION_ENTRY_SCHEMA, REWORK_SCHEMA } from '@/lib/erp/schemas/production'
+import { FINISHED_GOODS_SCHEMA, OPERATION_ENTRY_SCHEMA, SCAN_BUNDLE_SCHEMA } from '@/lib/erp/schemas/production-variants'
+import { LINE_TRANSFER_SCHEMA } from '@/lib/erp/schemas/line-transfer'
+import { JOBWORK_PCS_RETURN_SCHEMA } from '@/lib/erp/schemas/grn-variants'
+import { WAGE_PAYMENT_SCHEMA } from '@/lib/erp/schemas/payment-variants'
 import { REJECTION_SCHEMA } from '@/lib/erp/schemas/rejection'
 import { DESPATCH_SCHEMA } from '@/lib/erp/schemas/despatch'
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
@@ -62,11 +67,13 @@ import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
 import { planProgram } from '@/lib/erp/posting/program'
 import { planPurchaseOrder } from '@/lib/erp/posting/purchase-order'
-import { planGrn } from '@/lib/erp/posting/grn'
+import { planGrn, planJobworkPcsReturn } from '@/lib/erp/posting/grn'
 import { planJobworkOut, planJobworkIn } from '@/lib/erp/posting/jobwork'
 import { planCutOrder } from '@/lib/erp/posting/cut'
 import { planLineIssue } from '@/lib/erp/posting/line-issue'
-import { planProductionEntry, planReworkEntry } from '@/lib/erp/posting/production'
+import { planProductionEntry, planReworkEntry, planFinishedGoods, planOperationEntry, planScanBundle } from '@/lib/erp/posting/production'
+import { planLineTransfer } from '@/lib/erp/posting/line-transfer'
+import { planWagePayment } from '@/lib/erp/posting/payment'
 import { planRejection } from '@/lib/erp/posting/rejection'
 import { planPcsDespatch } from '@/lib/erp/posting/despatch'
 import { planInvoice } from '@/lib/erp/posting/invoice'
@@ -801,6 +808,30 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    name: 'get_production_wages',
+    description: 'Production wages per operator (payroll view): operator, code, dept, order/entry counts, Σ qty, avg rate, Σ earned amount. Optional filters: order (orderNo), q (dept code/name). Generate the wage bill with create_journal (Dr Production Wages / Cr Wage Payable).',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      order: z.string().optional(),
+      q: z.string().optional(),
+    }),
+    async execute(args) {
+      // Delegates to the shared register service (SPEC-M5 §7-B-20) — the same
+      // read path the /hr/wages screen uses.
+      const res = await queryWages({ limit: 100, page: 1, order: args.order, q: args.q })
+      const wagesTotal = (res.totals ?? []).find((t) => t.label.startsWith('Wages'))?.value ?? 0
+      return {
+        text: `${res.count} operators · ₹${Math.round(Number(wagesTotal)).toLocaleString('en-IN')} earned`,
+        json: res.rows.map((r) => ({
+          operator: r.operator, code: r.code, dept: r.dept,
+          orders: r.orders, entries: r.entries, qty: r.qty,
+          rate: r.rate, amount: r.amount,
+        })),
+      }
+    },
+  },
+  {
     name: 'list_seasons',
     description: 'List all seasons.',
     domain: 'masters',
@@ -1481,6 +1512,49 @@ const docTools: AgentTool[] = [
     'procurement',
     SUPPLIER_ORDER_SCHEMA,
     planSupplierOrder,
+  ),
+  // ── M5 Wave B (SPEC-M5 §8) ──
+  docTool(
+    'post_finished_goods',
+    'Post a finished-goods entry (production output into the FG store). Same as a production entry but deptCode defaults to D5 (Finishing). Required: orderNo, prodDate, bundleNo, operatorCode, qty, rate. Optional: deptCode, styleNo, colourName, sizeName.',
+    'production',
+    FINISHED_GOODS_SCHEMA,
+    planFinishedGoods,
+  ),
+  docTool(
+    'post_operation_entry',
+    'Post an operation (sub-process) entry for a bundle — the sewing-floor operation log. deptCode defaults to D4 (Sewing). Required: orderNo, bundleNo (the sub-process key), operatorCode, prodDate, qty, rate. Optional: deptCode, styleNo.',
+    'production',
+    OPERATION_ENTRY_SCHEMA,
+    planOperationEntry,
+  ),
+  docTool(
+    'scan_bundle',
+    'Scan a cut bundle (by bundle no OR barcode, e.g. CUT-0001/B1 or *CUT0001B001*) and post its production entry. The bundle carries order/style/colour/size; qty defaults to the bundle qty and rate defaults to the operator piece-rate master. Required: bundleNo, operatorCode. Optional: qty, rate, deptCode (default D4), prodDate.',
+    'production',
+    SCAN_BUNDLE_SCHEMA,
+    planScanBundle,
+  ),
+  docTool(
+    'transfer_line_stock',
+    'Move WIP pcs of an order from one sewing line to another (line transfer). refNo is optional — auto-assigned LT-#### (shared by both rows). Creates TWO line-issue rows (out + in) in one transaction; no godown stock moves. Required: orderNo, fromLineCode, toLineCode, qty. Optional: transferDate, notes.',
+    'production',
+    LINE_TRANSFER_SCHEMA,
+    planLineTransfer,
+  ),
+  docTool(
+    'return_jobwork_pcs',
+    'Return pieces to a jobwork unit for rework (jobwork pcs return). retNo is optional — auto-assigned GRN-#### (shared GRN space). Creates a process_return GRN and moves qty pcs OUT of the pcs godown (default G2). Required: partyCode (jobworker), orderNo, qty. Optional: godownCode, reason, retDate.',
+    'jobwork',
+    JOBWORK_PCS_RETURN_SCHEMA,
+    planJobworkPcsReturn,
+  ),
+  docTool(
+    'pay_wages',
+    'Pay wages to an employee party (creates a PMT-#### payment voucher + companion payment journal; the party ledger picks it up). Required: partyCode (an employee-type party), amount. Optional: mode (default bank), reference, payDate, notes (defaults "Wage payment").',
+    'hr',
+    WAGE_PAYMENT_SCHEMA,
+    planWagePayment,
   ),
 ]
 

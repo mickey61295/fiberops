@@ -5,10 +5,16 @@
 // schema (see FIX comments below). NOTE: this op does NOT use postLedger; it
 // writes the StockLedger row + CurrentStock bucket inline (dept-keyed buckets
 // when a deptCode is given — legacy behaviour preserved). Ledger: purchase_grn IN.
+// SPEC-M5 §7-B-18 (Wave B) — sibling fn planJobworkPcsReturn: a process-return
+// GRN (grnType='process_return', pcs lines) with StockLedger OUT of the pcs
+// godown. planGrn and its receive_grn tool stay byte-identical (§4 rule 1).
 
 import { db } from '@/lib/db'
+import { postLedger } from './ledger'
+import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { GrnInput } from '../schemas/grn'
+import type { JobworkPcsReturnInput } from '../schemas/grn-variants'
 
 export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
   const po = await db.purchaseOrder.findUnique({
@@ -122,6 +128,59 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
         await tx.pOLine.update({
           where: { id: line.id },
           data: { receivedQty: { increment: actualQty } },
+        })
+        return { id: grn.id, grnNo: grn.grnNo }
+      })
+    },
+  }
+}
+
+// ───────────── SPEC-M5 §7-B-18 — jobwork pcs return (sibling, §4 rule 1) ─────────────
+
+/** frmJobWorkPcsReturn — return pieces to a jobwork unit for rework. Creates
+ *  a GRN row with grnType='process_return' + a pcs GRNLine, and posts the
+ *  StockLedger OUT of the pcs godown (default G2 Finished Goods). Shares the
+ *  GRN-#### number space (§4 rule 2: prefixes stay per-family). */
+export async function planJobworkPcsReturn(args: JobworkPcsReturnInput): Promise<DocPlanResult> {
+  const party = await db.party.findUnique({ where: { code: args.partyCode } })
+  if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
+  const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+  if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
+  const godownCode = args.godownCode?.trim() || 'G2'
+  const godown = await db.godown.findUnique({ where: { code: godownCode } })
+  if (!godown) return { ok: false, error: `Godown ${godownCode} not found` }
+  const retNo = await resolveDocNo('gRN', 'grnNo', 'GRN-', args.retNo)
+  const retDate = args.retDate ? new Date(args.retDate) : new Date()
+  const notes = args.reason?.trim() || 'Return to jobwork for rework'
+
+  return {
+    ok: true,
+    text: `Proposed jobwork pcs return ${retNo}: ${args.qty} pcs of ${order.orderNo} back to ${party.name}.`,
+    summary: `Jobwork pcs return ${retNo} | order ${order.orderNo} | ${args.qty} pcs | to ${party.name} | out of ${godown.code} | ${notes}`,
+    creates: [
+      { table: 'grn', data: { grnNo: retNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate: retDate, finYear: '26-27', totalQty: args.qty, totalValue: 0 } },
+      { table: 'grnLine', data: { itemType: 'pcs', itemId: order.id, qty: args.qty, rate: 0, amount: 0 } },
+      { table: 'stockLedger', data: { txnType: 'process_delivery', itemType: 'pcs', itemId: order.id, godownId: godown.id, docNo: retNo, docDate: retDate, outPcs: args.qty, partyId: party.id, notes } },
+    ],
+    sideEffects: [
+      `StockLedger: ${args.qty} pcs OUT of ${godown.code} (process_delivery — back to jobworker)`,
+      'Jobworker balance will reflect the return',
+    ],
+    async commit() {
+      return await db.$transaction(async (tx) => {
+        const grn = await tx.gRN.create({
+          data: {
+            grnNo: retNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
+            grnDate: retDate, finYear: '26-27', totalQty: args.qty, totalValue: 0,
+            lines: { create: { itemType: 'pcs', itemId: order.id, qty: args.qty, rate: 0, amount: 0 } },
+          },
+        })
+        await postLedger(tx, {
+          txnType: 'process_delivery', itemType: 'pcs', itemId: order.id,
+          godownId: godown.id, orderId: order.id,
+          docNo: retNo, docDate: retDate, partyId: party.id,
+          out: { pcs: args.qty },
+          notes: `Jobwork pcs return ${retNo} — ${notes}`,
         })
         return { id: grn.id, grnNo: grn.grnNo }
       })

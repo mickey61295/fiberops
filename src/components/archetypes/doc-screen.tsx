@@ -292,6 +292,7 @@ export function DocScreen({
                       onChange={(v) => setHeader((h) => ({ ...h, [f.name]: v }))}
                       label={f.label}
                       required={f.required}
+                      filter={f.pickerFilter}
                     />
                   ) : (
                     <>

@@ -17,10 +17,17 @@ export async function GET(req: Request) {
         const slug = url.searchParams.get('slug') || ''
         const q = (url.searchParams.get('q') || '').trim().toLowerCase()
         const valueField = url.searchParams.get('valueField') || ''
+        // ERRATUM 7 (M5 Wave B) — optional server-side equality filter on the
+        // picker feed (wage payments: party picker pinned to partyType=employee)
+        const filterField = url.searchParams.get('filterField') || ''
+        const filterValue = url.searchParams.get('filterValue') || ''
         const config = getMasterConfig(slug)
         if (!config) return Response.json({ error: 'Unknown master slug' }, { status: 400 })
         const vField = valueField || config.codeField || config.titleField
-        const rows = await listMasters(config)
+        let rows = await listMasters(config)
+        if (filterField && filterValue) {
+          rows = rows.filter((r) => String(r[filterField] ?? '') === filterValue)
+        }
         const filtered = q
           ? rows.filter((r) => config.searchFields.some((f) => String(r[f] ?? '').toLowerCase().includes(q)))
           : rows

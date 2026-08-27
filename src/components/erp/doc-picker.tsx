@@ -35,9 +35,12 @@ export interface DocPickerProps {
   placeholder?: string
   /** compact line-grid variant (no label row) */
   inline?: boolean
+  /** ERRATUM 7 (M5 Wave B) — server-side equality filter on the picker feed
+   *  (e.g. wage payments pin the party picker to partyType=employee) */
+  filter?: { field: string; value: string }
 }
 
-export function DocPicker({ slug, valueField, value, onChange, label, required, placeholder, inline }: DocPickerProps) {
+export function DocPicker({ slug, valueField, value, onChange, label, required, placeholder, inline, filter }: DocPickerProps) {
   const config = getMasterConfig(slug)
   const vField = valueField || config?.codeField || config?.titleField || 'code'
   const [open, setOpen] = useState(false)
@@ -57,7 +60,10 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const url = `/api/erp?resource=master_search&slug=${encodeURIComponent(slug)}&valueField=${encodeURIComponent(vField)}&q=${encodeURIComponent(q)}`
+        let url = `/api/erp?resource=master_search&slug=${encodeURIComponent(slug)}&valueField=${encodeURIComponent(vField)}&q=${encodeURIComponent(q)}`
+        // ERRATUM 7 (M5 Wave B) — server-side equality filter (wage payments:
+        // party picker pinned to employee parties)
+        if (filter) url += `&filterField=${encodeURIComponent(filter.field)}&filterValue=${encodeURIComponent(filter.value)}`
         const res = await fetch(url)
         const data = await res.json()
         setOptions(Array.isArray(data.options) ? data.options : [])
@@ -70,7 +76,7 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [open, q, slug, vField])
+  }, [open, q, slug, vField, filter?.field, filter?.value])
 
   // close dropdown on outside click
   useEffect(() => {

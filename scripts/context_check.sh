@@ -69,30 +69,30 @@ echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  reg
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveA session]"
-check "agent tools (inline+factory+docTool)" "135" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveB session]"
+check "agent tools (inline+factory+docTool)" "142" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5 + §11 + M5-A)" "26"    "$DOCTOOLS"
+check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B)" "32"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
 check "erp view/shell components (+recon-card)" "22"      "$VIEWS"
 check "archetype engines (+register-screen)" "3"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests"        "19"      "$REGTESTS"
+check "menu registry tests (M5-B block)" "20"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
-check "register config tests (M4 Wave B; source its — runtime 113 via 16× per-config loop)" "26"      "$REGCFGTESTS"
+check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M5 Wave A)"    "73"      "$LIVEROUTES"
-check "register config files (M4 fleet + M5-A rates)" "18"       "$REGCFGS"
-check "register service files (M4 fleet + order-status + recon + M5-A)" "20"       "$REGSVCFILES"
+check "live routes (M5 Wave B)"    "87"      "$LIVEROUTES"
+check "register config files (M4 fleet + M5-A rates + M5-B wages)" "19"       "$REGCFGS"
+check "register service files (M4 fleet + order-status + recon + M5-A/B)" "21"       "$REGSVCFILES"
 check "master configs"             "24"      "$MASTERCFGS"
-check "shared zod schema files"    "23"      "$SCHEMAFILES"
-check "posting service files"      "24"      "$POSTINGSVCS"
+check "shared zod schema files"    "27"      "$SCHEMAFILES"
+check "posting service files"      "25"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 19 + M5-A 5 configs in 21 files; jobwork/production/invoice-variants hold 2)" "21"       "$DOCCFGS"
+check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 configs; variants share files)" "28"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -176,6 +176,30 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M5.md scripts/route_smoke_m5.sh \
          'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
          'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \
+         src/lib/erp/schemas/production-variants.ts src/lib/erp/schemas/line-transfer.ts \
+         src/lib/erp/schemas/grn-variants.ts src/lib/erp/schemas/payment-variants.ts \
+         src/lib/erp/posting/line-transfer.ts \
+         src/lib/erp/doc-configs/production-variants.ts src/lib/erp/doc-configs/rejection-variants.ts \
+         src/lib/erp/doc-configs/cut-variants.ts src/lib/erp/doc-configs/line-transfer.ts \
+         src/lib/erp/doc-configs/grn-variants.ts src/lib/erp/doc-configs/costing-input.ts \
+         src/lib/erp/doc-configs/wage-payments.ts \
+         src/lib/erp/registers/wages.ts src/lib/erp/register-configs/wages.ts \
+         tests/pipeline/doc-parity-m5b.test.ts tests/pipeline/register-services-m5b.test.ts \
+         scripts/route_smoke_m5b.sh \
+         'src/app/(erp)/pieces/finished-goods/page.tsx' \
+         'src/app/(erp)/production/operations/page.tsx' \
+         'src/app/(erp)/production/bundles/page.tsx' \
+         'src/app/(erp)/production/line-transfer/page.tsx' \
+         'src/app/(erp)/cutting/panel/page.tsx' \
+         'src/app/(erp)/cutting/panel-production/page.tsx' \
+         'src/app/(erp)/cutting/panel-excess/page.tsx' \
+         'src/app/(erp)/cutting/panel-rework/page.tsx' \
+         'src/app/(erp)/cutting/fab-rejection/page.tsx' \
+         'src/app/(erp)/pieces/shortage/page.tsx' \
+         'src/app/(erp)/jobwork/pcs-return/page.tsx' \
+         'src/app/(erp)/costing/input/page.tsx' \
+         'src/app/(erp)/hr/wages/page.tsx' 'src/app/(erp)/hr/wages/csv/route.ts' \
+         'src/app/(erp)/hr/wage-payments/page.tsx' \
          prisma/schema.prisma; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
