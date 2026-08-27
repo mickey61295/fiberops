@@ -15,6 +15,7 @@ const EXPECTED_DELEGATES = [
   'yarn', 'fabric', 'accessory', 'part', 'component', 'design',
   'godown', 'department', 'employee', 'line', 'govtHoliday', 'finYear',
   'shift', // SPEC-M5 §7-D-32 (ADR-015)
+  'user', 'userGroup', 'appOption', 'hsn', 'testParameter', // SPEC-M6 §7-B (ADR-016 + ERRATUM #1)
 ]
 
 /** flattened display keys derivable from ref fields (mirror of service logic) */
@@ -24,14 +25,15 @@ const DISPLAY_KEYS: Record<string, string> = {
   party: 'partyName',
   dia: 'diaValue',
   department: 'deptName',
+  'user-group': 'userGroupName', // ADR-016 (M6-B)
 }
 
 describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
-  it('has exactly 25 configs covering every schema master model (24 M2 + shift M5-D)', () => {
-    expect(MASTER_CONFIGS.length).toBe(25)
+  it('has exactly 30 configs covering every schema master model (24 M2 + shift M5-D + 5 ADR-016 M6-B)', () => {
+    expect(MASTER_CONFIGS.length).toBe(30)
     const delegates = MASTER_CONFIGS.map((c) => c.delegate)
     for (const d of EXPECTED_DELEGATES) expect(delegates).toContain(d)
-    expect(new Set(delegates).size).toBe(25)
+    expect(new Set(delegates).size).toBe(30)
   })
 
   it('has unique slugs, entities, and tool names', () => {
@@ -100,7 +102,7 @@ describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
     const catKeys = new Set(MASTER_CATEGORIES.map((c) => c.key))
     for (const c of MASTER_CONFIGS) expect(catKeys.has(c.category), `${c.slug} bad category`).toBe(true)
     const summed = MASTER_CATEGORIES.reduce((n, cat) => n + configsByCategory(cat.key).length, 0)
-    expect(summed).toBe(25)
+    expect(summed).toBe(30)
     expect(getMasterConfig('party')?.entity).toBe('party')
     expect(getMasterConfig('nope')).toBeUndefined()
   })

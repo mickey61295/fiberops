@@ -16,6 +16,7 @@ export const despatchConfig: DocConfig = {
   service: { plan: (input: unknown) => planPcsDespatch(input as Parameters<typeof planPcsDespatch>[0]) },
   headerFields: [
     { name: 'dcNo', label: 'DC No', type: 'text', colSpan: 1 },
+    { name: 'mode', label: 'Mode', type: 'readonly', colSpan: 1 },
     { name: 'orderNo', label: 'Order No', type: 'text', required: true, colSpan: 1 },
     { name: 'totalPcs', label: 'Total Pcs', type: 'number', required: true, colSpan: 1 },
     { name: 'despatchDate', label: 'Despatch Date', type: 'date', colSpan: 1 },

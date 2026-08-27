@@ -54,6 +54,8 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   rework: ['/production/rework', '/production/entry', '/production'],
   rejection: ['/pieces/rejection'],
   despatch: ['/pieces/despatch'],
+  'courier-dc': ['/dispatch/courier', '/dispatch'],
+  loading: ['/dispatch/loading', '/dispatch'],
   invoice: ['/accounts/invoice', '/accounts'],
   'debit-note': ['/accounts/debit-note', '/accounts'],
   payment: ['/accounts/payments', '/accounts'],

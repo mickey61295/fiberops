@@ -18,6 +18,7 @@ import type { MasterConfig, MasterField, MasterRow } from '../master-configs/typ
 /** FK input field → Prisma FK column. Default: `${refEntity}Id`. */
 const FK_COLUMN_OVERRIDES: Record<string, string> = {
   department: 'deptId',
+  'user-group': 'userGroupId', // ADR-016 (M6-B): slug has a hyphen, column is camelCase
 }
 
 /** flattened display key per refEntity (listColumns / searchFields use these) */
@@ -27,11 +28,13 @@ const DISPLAY_KEYS: Record<string, string> = {
   party: 'partyName',
   dia: 'diaValue',
   department: 'deptName',
+  'user-group': 'userGroupName', // ADR-016 (M6-B)
 }
 
 /** Prisma relation field name per refEntity (for include) — default refEntity */
 const RELATION_OVERRIDES: Record<string, string> = {
   department: 'department',
+  'user-group': 'userGroup', // ADR-016 (M6-B)
 }
 
 /** entities whose titleField is ALSO unique (SPEC-M2 ERRATUM 3) */

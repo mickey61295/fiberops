@@ -12,11 +12,14 @@ datasource db {
 
 // ============== ORG / SECURITY ==============
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      String   @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
-  createdAt DateTime @default(now())
+  id          String     @id @default(cuid())
+  email       String     @unique
+  name        String
+  role        String     @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
+  userGroupId String? // ADR-016 (M6-B): the group whose rights matrix applies
+  userGroup   UserGroup? @relation(fields: [userGroupId], references: [id])
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
 }
 
 model AgentTurn {
@@ -921,4 +924,52 @@ model Shift {
   toTime    String // "14:00"
   hours     Float    @default(8)
   createdAt DateTime @default(now())
+}
+
+// ============== M6 WAVE B — ADR-016 NEW MODELS (SPEC-M6 §5 + ERRATUM #1) ==============
+// 61 → 65 models, additive only. The spec §5 block said "5 new models 61→66
+// incl. User" — ERRATUM #1: User ALREADY existed (Phase-1 org model, email
+// unique); ADR-016 AMENDS it (userGroupId + active columns added additively)
+// and adds FOUR new models. Login/auth itself is a non-goal (SPEC-M6 §3-1):
+// these manage the DATA the future auth layer will read. Hsn + TestParameter
+// also serve Wave D items (/accounts/hsn-gst, /quality/parameters).
+
+// User group with menu rights (legacy FrmUserGroupMas + FrmMenuRights).
+// rights = array of MENU group ids (or item ids) the group may see; [] = all.
+model UserGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  rights    Json     @default("[]")
+  createdAt DateTime @default(now())
+  users     User[]
+}
+
+// App options (legacy frmOptions/FrmOptionsPrint). key unique; the app READS
+// print.companyName/address/gstin (report + doc print headers) and
+// default.godownCode (picker seed) — SPEC-M6 §5.
+model AppOption {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  group String @default("general") // print | defaults | general
+  label String
+}
+
+// HSN codes + GST rates (legacy HSN master; /accounts/hsn-gst Wave D).
+model Hsn {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  description String
+  gstRate     Float   @default(0)
+  hsnType     String  @default("goods") // goods | service
+}
+
+// Lab test parameters (legacy test-parameter master; /quality/parameters Wave D).
+model TestParameter {
+  id     String  @id @default(cuid())
+  code   String  @unique
+  name   String
+  stage  String? // knit | dye | print | sew | final
+  method String?
+  unit   String? // gsm | % | mm
 }

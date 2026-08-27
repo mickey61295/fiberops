@@ -44,6 +44,7 @@ import { wagePaymentsConfig } from './wage-payments'
 // M5 Wave D (SPEC-M5 §7-D — ADR-015 new models + write doors)
 import { sampleConfig } from './sample'
 import { gateEntryConfig, gatePassConfig } from './gate'
+import { courierDcConfig, loadingConfig } from './dispatch-variants'
 import { packingListConfig } from './packing-list'
 import { labTestConfig } from './lab-test'
 import { expenseConfig } from './expense'
@@ -95,6 +96,8 @@ export {
   sampleConfig,
   gateEntryConfig,
   gatePassConfig,
+  courierDcConfig,
+  loadingConfig,
   packingListConfig,
   labTestConfig,
   expenseConfig,
@@ -147,6 +150,8 @@ export const DOC_CONFIGS: DocConfig[] = [
   sampleConfig,
   gateEntryConfig,
   gatePassConfig,
+  courierDcConfig,
+  loadingConfig,
   packingListConfig,
   labTestConfig,
   expenseConfig,

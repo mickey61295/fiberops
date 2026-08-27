@@ -1780,6 +1780,12 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('design', 'Create a design master. Required: code, name.'),
   masterCreateTool('govt-holiday', 'Create a government holiday. Required: date (ISO), name.'),
   masterCreateTool('shift', 'Create a shift master (SPEC-M5 §7-D-32). code is optional — auto-assigned SH-## if omitted or taken. Required: name, fromTime (HH:MM), toTime (HH:MM). Optional: hours (default 8).'),
+  // SPEC-M6 Wave B (ADR-016 + ERRATUM #1)
+  masterCreateTool('user', 'Create a user (SPEC-M6 §7-B). Required: email (login), name. Optional: role (admin|merchandiser|storekeeper|accountant|production_mgr|hr|cutting_mgr), userGroup (group name), active.'),
+  masterCreateTool('user-group', 'Create a user group (SPEC-M6 §7-B). Required: name. Menu rights are set via /admin/menu-rights ([] = all menus).'),
+  masterCreateTool('app-option', 'Create an app option (SPEC-M6 §7-B). Required: key (e.g. print.companyName), label, value. Optional: group (print|defaults|general).'),
+  masterCreateTool('hsn', 'Create an HSN code with its GST rate (SPEC-M6 §7-D). Required: code (e.g. 61091000), description. Optional: gstRate (default 5), hsnType (goods|service).'),
+  masterCreateTool('test-parameter', 'Create a lab test parameter (SPEC-M6 §7-D). Required: code (e.g. GSM), name. Optional: stage (knit|dye|print|sew|final), method, unit (gsm|%|mm).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -1808,6 +1814,11 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('design', 'Update an existing design by code. All fields optional; only provided fields are updated.'),
   masterUpdateTool('govt-holiday', 'Update an existing govt holiday by date (ISO). Provide name to rename it.'),
   masterUpdateTool('shift', 'Update an existing shift by code. All fields optional; only provided fields are updated (name, fromTime, toTime, hours).'),
+  masterUpdateTool('user', 'Update a user by email. Updatable: name, role, userGroup, active.'),
+  masterUpdateTool('user-group', 'Rename a user group by name.'),
+  masterUpdateTool('app-option', 'Update an app option by key. Updatable: label, value, group.'),
+  masterUpdateTool('hsn', 'Update an HSN code by code. Updatable: description, gstRate, hsnType.'),
+  masterUpdateTool('test-parameter', 'Update a test parameter by code. Updatable: name, stage, method, unit.'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
@@ -1892,6 +1903,72 @@ const masterNewListTools: AgentTool[] = [
         text: `${rows.length} shifts`,
         json: rows.map((s: any) => ({ code: s.code, name: s.name, fromTime: s.fromTime, toTime: s.toTime, hours: s.hours })),
       }
+    },
+  },
+  // SPEC-M6 Wave B (ADR-016 + ERRATUM #1) — the master-configs contract test
+  // requires a list door per config (§12-4).
+  {
+    name: 'list_users',
+    description: 'List users (login, name, role, group, active).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.user.findMany({ include: { userGroup: true }, orderBy: { email: 'asc' } })
+      return {
+        text: `${rows.length} users`,
+        json: rows.map((u: any) => ({ email: u.email, name: u.name, role: u.role, group: u.userGroup?.name ?? null, active: u.active })),
+      }
+    },
+  },
+  {
+    name: 'list_user_groups',
+    description: 'List user groups (name + menu rights summary).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.userGroup.findMany({ orderBy: { name: 'asc' } })
+      return {
+        text: `${rows.length} user groups`,
+        json: rows.map((g: any) => {
+          const rights: string[] = Array.isArray(g.rights) ? g.rights : []
+          return { name: g.name, rights: rights.length ? rights.join(', ') : 'all menus' }
+        }),
+      }
+    },
+  },
+  {
+    name: 'list_app_options',
+    description: 'List app options (key, label, value, group).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.appOption.findMany({ orderBy: { key: 'asc' } })
+      return { text: `${rows.length} options`, json: rows }
+    },
+  },
+  {
+    name: 'list_hsns',
+    description: 'List HSN codes with GST rates.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.hsn.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} HSN codes`, json: rows }
+    },
+  },
+  {
+    name: 'list_test_parameters',
+    description: 'List lab test parameters (code, name, stage, method, unit).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.testParameter.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} test parameters`, json: rows }
     },
   },
 ]
@@ -2189,6 +2266,22 @@ const writeTools: AgentTool[] = [
     'orders',
     DESPATCH_SCHEMA,
     planPcsDespatch,
+  ),
+  docTool(
+    // SPEC-M6 §7-B-3 — courier despatch variant (mode injection)
+    'create_courier_dc',
+    'Despatch pieces BY COURIER (DC-#### space shared with vehicle despatches). Required: orderNo, totalPcs, courierName (the courier company). Optional: dcNo, despatchDate, vehicleNo, lines.',
+    'orders',
+    DESPATCH_SCHEMA,
+    (input: any) => planPcsDespatch({ ...input, mode: 'courier' }),
+  ),
+  docTool(
+    // SPEC-M6 §7-B-4 — loading challan variant (LAD-####, status starts loading)
+    'create_loading_challan',
+    'Raise a LOADING CHALLAN (LAD-#### auto) — pieces loaded for despatch; status starts loading, ledger posts pcs OUT of G2 identically to a despatch. Required: orderNo, totalPcs, vehicleNo. Optional: courierName, despatchDate, lines.',
+    'orders',
+    DESPATCH_SCHEMA,
+    (input: any) => planPcsDespatch({ ...input, mode: 'loading' }),
   ),
   docTool(
     'create_debit_note',

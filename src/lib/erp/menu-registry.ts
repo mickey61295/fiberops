@@ -160,6 +160,11 @@ export const LIVE_ROUTES = new Set<string>([
   '/reports/mis', // MIS Dashboard (M6 Wave A) — mis-dashboard (DB over report services)
   '/reports/[slug]', // Report runner (M6 Wave A) — dynamic slug over REPORT_SERVICES
   '/costing/daily-pnl', // Daily Unit P&L (M6 Wave A) — daily-unit-pnl (ReportScreen)
+  '/dispatch/courier', // Courier DC (M6 Wave B) — courier-dc (despatch variant mode=courier)
+  '/dispatch/loading', // Loading (M6 Wave B) — loading (despatch variant mode=loading, LAD-####)
+  '/admin/users', // Users & Groups (M6 Wave B) — users-groups (two MasterTables ?tab=)
+  '/admin/menu-rights', // Menu Rights (M6 Wave B) — menu-rights (rights matrix)
+  '/admin/options', // Options & Settings (M6 Wave B) — options-settings (AppOption master)
 ])
 
 // ---------------------------------------------------------------------------
@@ -730,13 +735,15 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'courier-dc', label: 'Courier DC', groupId: 'dispatch', route: '/dispatch/courier', arch: 'DS', phase: 'M6',
     description: 'Courier despatch challans (samples/documents).',
     legacyForms: ['CourierDC'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_courier_dc'], pendingTools: [],
+    notes: 'Variant of despatch mode=courier (SPEC-M6 §7-B-3) — courierName required, DC-#### space',
   },
   {
     id: 'loading', label: 'Loading', groupId: 'dispatch', route: '/dispatch/loading', arch: 'DS', phase: 'M6',
     description: 'Loading/challan consolidation for shipment.',
     legacyForms: ['FrmLoading'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_loading_challan'], pendingTools: [],
+    notes: 'Variant of despatch mode=loading (SPEC-M6 §7-B-4) — LAD-#### space, status starts loading',
   },
 
   // ---- accounts (12) ----
@@ -982,13 +989,15 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'users-groups', label: 'Users & Groups', groupId: 'masters-admin', route: '/admin/users', arch: 'ST', phase: 'M6',
     description: 'User accounts and groups.',
     legacyForms: ['FrmMasuser', 'FrmUserGroupMas'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_user', 'update_user', 'create_user_group', 'update_user_group', 'list_users'], pendingTools: [],
+    notes: 'Two MasterTables ?tab=users|groups (SPEC-M6 §7-B-2); auth itself is a non-goal (§3-1)',
   },
   {
     id: 'menu-rights', label: 'Menu Rights', groupId: 'masters-admin', route: '/admin/menu-rights', arch: 'ST', phase: 'M6',
     description: 'Which group sees which menu items.',
     legacyForms: ['FrmMenuRights', 'FrmMenuAccRights'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['update_user_group'], pendingTools: [],
+    notes: 'Rights matrix over UserGroup.rights × MENU_GROUPS — saves via the update_user_group door (SPEC-M6 §7-B-2)',
   },
   {
     id: 'company-finyear', label: 'Company / FinYear', groupId: 'masters-admin', route: '/admin/company', arch: 'ST', phase: 'M2',
@@ -1002,7 +1011,8 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'options-settings', label: 'Options & Settings', groupId: 'masters-admin', route: '/admin/options', arch: 'ST', phase: 'M6',
     description: 'Global options, print options, dept settings.',
     legacyForms: ['frmOptions', 'FrmOptionsPrint', 'frmDeptSettings'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_app_option', 'update_app_option', 'list_app_options'], pendingTools: [],
+    notes: 'AppOption master grouped print|defaults|general (SPEC-M6 §7-B-2); print.* keys feed getPrintHeader',
   },
 ]
 

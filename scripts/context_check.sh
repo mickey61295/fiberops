@@ -73,31 +73,31 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M6-WaveA session (reports engine live)]"
-check "agent tools (inline+factory+docTool)" "160" "$TOOLS"
+check "agent tools (inline+factory+docTool)" "177" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
-check "factory create tools"       "25"      "$FACTORY_CREATE"
-check "factory update tools"       "25"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B/D)" "42"    "$DOCTOOLS"
-check "prisma models (54 + ADR-015 ×7)" "61"      "$MODELS"
+check "factory create tools"       "30"      "$FACTORY_CREATE"
+check "factory update tools"       "30"      "$FACTORY_UPDATE"
+check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B/D + M6-B courier/loading)" "44"    "$DOCTOOLS"
+check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
 check "erp view/shell components (+recon-card +print-button)" "23"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D block + M6-A block)" "23"      "$REGTESTS"
+check "menu registry tests (M5-D + M6-A/B blocks)" "24"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M6 Wave A — reports group open)" "113"    "$LIVEROUTES"
+check "live routes (M6 Wave B — admin + dispatch tail)" "118"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (13 new aggregates)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 fleet + M5-A rates + M5-B wages)" "19"       "$REGCFGS"
 check "register service files (M4 fleet + order-status + recon + M5-A/B)" "21"       "$REGSVCFILES"
-check "master configs (24 M2 + shift)" "25"      "$MASTERCFGS"
+check "master configs (24 M2 + shift + 5 ADR-016)" "30"      "$MASTERCFGS"
 check "shared zod schema files"    "36"      "$SCHEMAFILES"
 check "posting service files"      "34"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 configs; variants share files)" "37"       "$DOCCFGS"
+check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1)" "38"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -246,6 +246,15 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M6.md \
          tests/unit/report-configs.test.ts tests/pipeline/report-services.test.ts \
          scripts/route_smoke_m6a.sh \
+         src/lib/erp/master-configs/user.ts src/lib/erp/master-configs/user-group.ts \
+         src/lib/erp/master-configs/app-option.ts src/lib/erp/master-configs/hsn.ts \
+         src/lib/erp/master-configs/test-parameter.ts \
+         src/lib/erp/doc-configs/dispatch-variants.ts \
+         'src/app/(erp)/dispatch/courier/page.tsx' 'src/app/(erp)/dispatch/loading/page.tsx' \
+         'src/app/(erp)/admin/users/page.tsx' 'src/app/(erp)/admin/menu-rights/page.tsx' \
+         'src/app/(erp)/admin/menu-rights/actions.ts' 'src/app/(erp)/admin/menu-rights/rights-matrix.tsx' \
+         'src/app/(erp)/admin/options/page.tsx' \
+         tests/pipeline/doc-parity-m6b.test.ts scripts/route_smoke_m6b.sh \
          prisma/schema.prisma; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done

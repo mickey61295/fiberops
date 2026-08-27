@@ -13,6 +13,14 @@ import type { DespatchInput } from '../schemas/despatch'
 export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { buyer: true } })
   if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
+  // SPEC-M6 §7-B — variant rules: courier REQUIRES courierName; loading uses
+  // the LAD-#### number space and status 'loading' (DC- space untouched).
+  const mode = args.mode ?? 'despatch'
+  if (mode === 'courier' && !args.courierName?.trim()) {
+    return { ok: false, error: 'Courier DC requires courierName (the courier company)' }
+  }
+  const numberPrefix = mode === 'loading' ? 'LAD-' : 'DC-'
+  const initialStatus = mode === 'loading' ? 'loading' : 'despatched'
   const finYear = '26-27'
   const resolvedDcNo = await (async () => {
     const desired = args.dcNo?.trim()
@@ -20,11 +28,11 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
       const exists = await db.pcsDespatch.findUnique({ where: { dcNo: desired } }).catch(() => null)
       if (!exists) return desired
     }
-    const all = await db.pcsDespatch.findMany({ where: { dcNo: { startsWith: 'DC-' } } })
+    const all = await db.pcsDespatch.findMany({ where: { dcNo: { startsWith: numberPrefix } } })
     const used = new Set(all.map((d) => d.dcNo))
     let n = 1
-    while (used.has(`DC-${String(n).padStart(4, '0')}`)) n++
-    return `DC-${String(n).padStart(4, '0')}`
+    while (used.has(`${numberPrefix}${String(n).padStart(4, '0')}`)) n++
+    return `${numberPrefix}${String(n).padStart(4, '0')}`
   })()
   const lines = args.lines || []
   return {
@@ -32,7 +40,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
     text: `Proposed despatch DC ${resolvedDcNo} for ${order.orderNo} — ${args.totalPcs} pcs.`,
     summary: `Create despatch DC ${resolvedDcNo} | order ${order.orderNo} | buyer ${order.buyer?.name || '-'} | ${args.totalPcs} pcs | vehicle ${args.vehicleNo || '-'} | courier ${args.courierName || '-'}`,
     creates: [
-      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched' } },
+      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus } },
       ...lines.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 } })),
       ...(args.returnable === false ? [{ table: 'approval', data: { entity: 'non_return_dc', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
@@ -47,7 +55,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
           data: {
             dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
             despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
-            finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched',
+            finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus,
             lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
           },
         })

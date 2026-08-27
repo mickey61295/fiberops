@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 81 live items of 113 after M6 Wave A (reports group opens — 17/17 groups; 72%)', () => {
+  it('parityStats: 86 live items of 113 after M6 Wave B (admin + dispatch tail — 76%)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(81)
-    expect(s.comingItems).toBe(32)
+    expect(s.liveItems).toBe(86)
+    expect(s.comingItems).toBe(27)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -108,6 +108,26 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupById('reports')!.landingRoute).toBe('/reports')
     // the runner + csv live under the dynamic [slug] segment — covered by the
     // report-configs contract test (28-slug bijection)
+  })
+
+  it('Wave B (M6): the 5 admin/dispatch items are live — users, menu-rights, options, courier-dc, loading (SPEC-M6 §2 rows 5-9)', () => {
+    const waveB = [
+      { route: '/admin/users', id: 'users-groups', tool: 'create_user' },
+      { route: '/admin/menu-rights', id: 'menu-rights', tool: 'update_user_group' },
+      { route: '/admin/options', id: 'options-settings', tool: 'create_app_option' },
+      { route: '/dispatch/courier', id: 'courier-dc', tool: 'create_courier_dc' },
+      { route: '/dispatch/loading', id: 'loading', tool: 'create_loading_challan' },
+    ]
+    for (const { route, id, tool } of waveB) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // the rights matrix action rides the update_user_group master-service door
+    expect(fs.existsSync(path.join(ERP_DIR, 'admin/menu-rights/actions.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'admin/menu-rights/rights-matrix.tsx'))).toBe(true)
   })
 
   it('Wave C (M5): the 4 approval-gate IN screens are live with kind-filtered inbox views (SPEC-M5 §6)', () => {

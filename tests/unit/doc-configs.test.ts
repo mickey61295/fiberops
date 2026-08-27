@@ -64,6 +64,8 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'sample',
       'gate-entry',
       'gate-pass',
+      'courier-dc',
+      'loading',
       'packing-list',
       'lab-test',
       'expense',

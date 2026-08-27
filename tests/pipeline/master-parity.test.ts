@@ -45,6 +45,12 @@ function inputFor(slug: string, v: string): Record<string, unknown> {
     case 'govt-holiday': return { date: `2027-01-${String(10 + (n % 18)).padStart(2, '0')}`, name: `M2E Holiday ${t}` }
     case 'fin-year': return { code: `M2F${t}`, name: `M2E FY ${t}`, start: '2027-04-01', end: '2028-03-31' }
     case 'shift': return { name: `M2E Shift ${t}`, fromTime: '06:00', toTime: '14:00', hours: 8 } // SPEC-M5 §7-D-32
+    // SPEC-M6 §7-B (ADR-016 + ERRATUM #1)
+    case 'user': return { email: `m2e-${t.toLowerCase()}@fiberops.test`, name: `M2E User ${t}`, role: 'merchandiser', active: true }
+    case 'user-group': return { name: `M2E Group ${t}`, rights: ['orders', 'production'] }
+    case 'app-option': return { key: `print.test${t}`, label: `M2E Option ${t}`, value: `val-${t}`, group: 'general' }
+    case 'hsn': return { code: `61${String(9000000 + (n % 999999))}`, description: `M2E HSN ${t}`, gstRate: 5, hsnType: 'goods' }
+    case 'test-parameter': return { code: `M2TP${t}`, name: `M2E Param ${t}`, stage: 'final', unit: 'gsm' }
     default: throw new Error(`no test input for ${slug}`)
   }
 }

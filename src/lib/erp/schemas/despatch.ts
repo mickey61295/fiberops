@@ -20,6 +20,10 @@ export const DESPATCH_SCHEMA = z.object({
   // (entityId = the DC id) — approved at /quality/non-return-dc
   // (approve_non_return_dc tool).
   returnable: z.boolean().optional().describe('Material will return (default true). Set false to raise a non-return DC approval'),
+  // SPEC-M6 §7-B (Wave B): despatch VARIANTS — mode 'courier' (courierName
+  // required, vehicle optional) and 'loading' (LAD-#### docNo space, status
+  // starts 'loading' instead of 'despatched'; ledger identical).
+  mode: z.enum(['despatch', 'courier', 'loading']).optional().describe('despatch (default) | courier | loading challan'),
 })
 
 export type DespatchInput = z.infer<typeof DESPATCH_SCHEMA>

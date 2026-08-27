@@ -27,6 +27,11 @@ import { lineConfig } from './line'
 import { govtHolidayConfig } from './govt-holiday'
 import { finYearConfig } from './fin-year'
 import { shiftConfig } from './shift'
+import { userConfig } from './user'
+import { userGroupConfig } from './user-group'
+import { appOptionConfig } from './app-option'
+import { hsnConfig } from './hsn'
+import { testParameterConfig } from './test-parameter'
 
 export const MASTER_CONFIGS: MasterConfig[] = [
   partyConfig,
@@ -55,13 +60,19 @@ export const MASTER_CONFIGS: MasterConfig[] = [
   finYearConfig,
   // SPEC-M5 Wave D (§7-D-32)
   shiftConfig,
+  // SPEC-M6 Wave B (ADR-016 + ERRATUM #1)
+  userConfig,
+  userGroupConfig,
+  appOptionConfig,
+  hsnConfig,
+  testParameterConfig,
 ]
 
 export const MASTER_CATEGORIES: Array<{ key: MasterCategory; label: string; blurb: string }> = [
   { key: 'commercial', label: 'Commercial', blurb: 'Who you buy from and sell to' },
   { key: 'product', label: 'Product', blurb: 'Styles, colours, sizes, materials' },
   { key: 'org', label: 'Organisation', blurb: 'Godowns, departments, people, lines' },
-  { key: 'admin', label: 'Admin', blurb: 'Financial years and company setup' },
+  { key: 'admin', label: 'Admin & Compliance', blurb: 'Fin years, users, rights, options, HSN/GST' },
 ]
 
 export function getMasterConfig(slug: string): MasterConfig | undefined {

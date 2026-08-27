@@ -408,3 +408,11 @@ deep-link reports (§4). Menu search already covers reports group.
 ## 13. ERRATA (living — append as discovered, never rewrite history)
 
 (none yet)
+
+**ERRATUM #1 (Wave B, schema)** — §5 said "5 new models 61→66 incl. User".
+The schema ALREADY had a `User` model (Phase-1 org model: email/name/role —
+AgentTurn.userId is a plain string, not even an FK). ADR-016 therefore
+AMENDS the existing User (adds `userGroupId` + `active` columns additively —
+login ≡ email, the unique field) and adds FOUR new models: UserGroup,
+AppOption, Hsn, TestParameter → **61 → 65 models**. Masters #26-30 unchanged
+(user, user-group, app-option, hsn, test-parameter). Tool count unchanged.
