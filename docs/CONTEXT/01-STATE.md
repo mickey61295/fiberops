@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-28 (session: post-m7 health pass — restored `/api/upload/route.ts` (working-tree deletion caught by context_check's EXISTS probe; 7 upload tests depend on it) · FIXED the latent `/api/config` 500: `flags.ts` was a Phase-3 port that read the removed `Flag` model (rollback #4, PITFALLS #16) — REWIRED to AppOption storage (key `flag:<name>`, group 'flags', valueType/category stay in the registry code; getFlags/getFlag/setFlag/flagRegistry signatures unchanged, coercion verbatim) → route 200 with typed values, tolerance.ts import healthy, zero schema change (65-model pin intact) · DELETED dead orphans `src/lib/erp/{exposure,cumrate}.ts` (zero importers, referenced removed Bill/BillPass/prs) → `src/` tsc 100% clean (was 8 errors) · verified: 653 vitest green, context_check 347/347 NO DRIFT, `next build` EXIT 0, `/api/config` 200 live; tools stay 188, models stay 65, routes stay 145) — (prior: m7-wave-c — rights enforcement, M7 COMPLETE, 653 vitest)
+Last verified: 2026-08-28 (session: m8-wave-a — doc-family print templates (SPEC-M8 frozen): ONE PrintSheet engine (`print-sheet.tsx` — masthead via getPrintHeader/AppOption print.*, copy banner, party+meta grid, line table, totals, amount-in-words, signatures, terms) + ONE registry route `/print/[docType]/[id]` (inline `@page` portrait beats the globals.css landscape — reports stay landscape) + `src/lib/erp/print/` (types + amount-words (Indian numbering: Lakh/Crore singular-plural, 'and' before final group, paise, 999-crore cap→digits) + fetchers ×5 (invoice TAX INVOICE GST-split, po PURCHASE ORDER resolved item codes, grn GOODS RECEIPT NOTE, payment PAYMENT/RECEIPT VOUCHER by direction, dc DELIVERY CHALLAN) + PRINT_DOCS registry) + print doors (DocPrintLink) on the 5 doc view pages + PrintAuto shim (?autoprint=0 preview) → 673 vitest (653+20: amount-words 10 + print-docs 10), route_smoke_m8a 16/16 (unauth 307 + 5×200 title-grep by doc-no + copy banner + 404s + 5 doors), context_check 363/363 (+16 checks: print lib 4/components 3/families 5/doors 5 pins + 13 file-existence); tools stay 188, models stay 65, LIVEROUTES stay 145 (/print not a menu item — actual page routes 146); erp components 25→28) — (prior: post-m7 health pass — /api/config 500 repaired, src/ tsc 100% clean, PITFALLS #33)
 
 ## Milestone status
 
@@ -17,6 +17,7 @@ Last verified: 2026-08-28 (session: post-m7 health pass — restored `/api/uploa
 | M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
 | M6 — Reports, MIS, admin, print | 36 items: Wave A report engine (4) → Wave B admin & dispatch tail + ADR-016 (5) → Wave C registers & lifecycle (9) → Wave D process tail & info panels (18) → **188 tools**, 113/113 | **COMPLETE** (`m6-wave-d`): Wave D — 10 DS variants (MP/MDC/PDC/RTN/OPN/PT/RTC/cutting-issue/cutting-production/line-output) + 4 manual-queue approval kinds + 2 MasterTables + 2 aliases; 113/113 live (100%), 598 vitest, route_smoke_m6d 60/60, context_check 310/310 |
 | M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context (done) → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks + admin password door) | **COMPLETE** (`m7-wave-c`): Wave A — ADR-017 + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin; Wave B — 401-JSON guard on all 5 ERP API route files + AgentTurn.userId session stamping + approval actor (approvedBy = human email through the approve door) + cookie fixtures for HTTP scripts; Wave C — fo_rights signed cookie + middleware per-route pre-check + layout fresh layer-2 (sidebar filter + route re-check) + /admin/users PasswordAdmin + /api/auth/admin/set-password + /api/seed admin-only → 653 vitest, route_smoke_m7c 36/36; spec `spec-m7-frozen` |
+| M8 — Hardening: doc-family print templates | Wave A: ONE PrintSheet engine + ONE `/print/[docType]/[id]` registry route + 5 fetchers (invoice/po/grn/payment/dc) + amount-in-words + print doors on the 5 view pages | **Wave A DONE** (`m8-wave-a`): A4 portrait doc sheets (inline @page beats the reports landscape), masthead via AppOption print.*, Original/Duplicate/Triplicate convention, Indian-numbering words (lakh/crore singular-plural, 'and' before final group, paise), fetchers resolve id OR doc-no, auto-print shim + ?autoprint=0 preview; 673 vitest (653+20), route_smoke_m8a 16/16, context_check 363/363; tools stay 188, models stay 65, LIVEROUTES stay 145 (print route is not a menu item — actual page routes 146) |
 
 ## Ground truth (verified by context_check.sh)
 
@@ -248,11 +249,18 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    layer-2 (sidebar filter + route re-check — mid-session revocation works);
    /admin/users PasswordAdmin + /api/auth/admin/set-password;
    /api/seed admin-only; deactivated → 307 /login verified. 653 vitest,
-   route_smoke_m7c 36/36, context_check 347/347. **Next: M8 candidates** —
-   hardening (E2E over the 145-route surface, print templates per doc family,
-   agent prompt polish over the 188-tool registry), multi-company/finyear
-   auth chain (deferred SPEC-M7 §2), or Tally export (resolved SKIP at M6
-   freeze — revisit only on demand).
+   route_smoke_m7c 36/36, context_check 347/347.
+8. **M8 Wave A DONE** (tag `m8-wave-a`, spec `SPEC-M8`): doc-family print
+   templates — PrintSheet engine + `/print/[docType]/[id]` registry route +
+   5 fetchers (invoice/po/grn/payment/dc) + Indian amount-in-words + print
+   doors on the 5 view pages. 673 vitest, route_smoke_m8a 16/16,
+   context_check 363/363. **Next: M8 Wave B candidates** — print fetchers
+   for the remaining 15 doc detail families (each ~40 lines: debit-note,
+   journal, budget, cost-sheet, expenses, cutting job-order, gate-entry/pass,
+   samples, despatch, packing-list, rejection, production entry/issue,
+   lab-tests), E2E hardening over the route surface, agent prompt polish
+   over the 188-tool registry; multi-company/finyear chain stays deferred
+   (SPEC-M7 §2); Tally export stays SKIP unless demanded.
 
 ## M5 Wave D notes for future sessions
 

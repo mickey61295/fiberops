@@ -13,6 +13,7 @@ import { jobworkOutConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
 import { ReconCard } from '@/components/erp/recon-card'
 import { jobworkRecon } from '@/lib/erp/registers/recon'
 
@@ -46,7 +47,10 @@ export default async function JobworkOrderViewPage({ params }: { params: Promise
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/jobwork/order" label="Jobwork" title={jw.dcNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/jobwork/order" label="Jobwork" title={jw.dcNo} />
+        <DocPrintLink docType="dc" id={jw.dcNo} />
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium capitalize text-slate-600">
           {jw.status}

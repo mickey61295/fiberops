@@ -1,0 +1,54 @@
+/**
+ * PrintDoc — SPEC-M8 §3: the normalized shape every doc-family fetcher
+ * builds and the PrintSheet renders. One shape → one engine (the
+ * DocScreen/doc-config pattern, print edition). All display strings are
+ * pre-formatted by the fetcher (dates ISO, money en-IN, ₹ prefix) so the
+ * sheet stays a dumb renderer.
+ */
+
+export interface PrintParty {
+  /** Block heading, e.g. 'Bill To' | 'Supplier' | 'Jobworker' | 'Party' */
+  label: string
+  name: string
+  code?: string
+  address?: string
+  city?: string
+  state?: string
+  gstin?: string
+  phone?: string
+}
+
+export interface PrintLines {
+  columns: { label: string; align?: 'left' | 'right' | 'center' }[]
+  rows: (string | number)[][]
+  /** Right-aligned summary rows under the table (e.g. 'Total Qty: 900') */
+  footer?: string[]
+}
+
+/** A single key-value meta row (rendered as a two-column grid under the party block). */
+export type PrintMetaRow = [label: string, value: string]
+
+export interface PrintDoc {
+  docType: string
+  /** Sheet heading, e.g. 'TAX INVOICE' | 'PURCHASE ORDER' */
+  title: string
+  /** Original | Duplicate | Triplicate (from ?copy=; default Original) */
+  copy?: string
+  docNo: string
+  docDate: string
+  party?: PrintParty
+  /** Right-side meta rows (type, delivery date, vehicle, mode…) */
+  meta?: PrintMetaRow[]
+  lines?: PrintLines
+  /** Totals block rows (label → right-aligned value); last row is the grand total */
+  totals?: PrintMetaRow[]
+  /** Pre-computed 'Rupees … Only' line (amount-words.ts) */
+  amountWords?: string
+  /** Two signature captions; rendered bottom-left and bottom-right */
+  signatures?: [string, string]
+  /** Terms / footnotes under the sheet */
+  notes?: string[]
+}
+
+/** Registry entry: a docType's fetcher (resolves by db id OR doc no). */
+export type PrintFetcher = (idOrNo: string) => Promise<PrintDoc | null>

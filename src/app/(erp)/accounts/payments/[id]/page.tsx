@@ -11,6 +11,7 @@ import { paymentConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
 import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +42,10 @@ export default async function PaymentViewPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/accounts/payments" label="Payments" title={pay.voucherNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/accounts/payments" label="Payments" title={pay.voucherNo} />
+        <DocPrintLink docType="payment" id={pay.voucherNo} />
+      </div>
       <DocScreen
         config={toScreenConfig(paymentConfig)}
         mode="view"

@@ -71,6 +71,7 @@ echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  reg
 echo "  m6-waveA: report-configs=$REPORTCFGS  report-service-files=$REPORTSVCFILES"
 echo "  m7-waveA: auth-lib=$(ls src/lib/auth/*.ts 2>/dev/null | wc -l) auth-api-routes=$(ls -d src/app/api/auth/*/ 2>/dev/null | wc -l)"
 echo "  m7-waveB: guarded-api-routes=$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts 2>/dev/null | wc -l)/5 agent-actor=AgentTurn.userId+approvedBy"
+echo "  m8-waveA: print-lib=$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l) print-families=$(grep -cE '^  [a-z]+: fetch' src/lib/erp/print/index.ts)"
 echo "  api-routes: $APIS"
 
 echo
@@ -81,7 +82,7 @@ check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue)" "25"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio)" "28"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath blocks)" "27"      "$REGTESTS"
@@ -109,6 +110,10 @@ check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed)" "
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
+check "m8-waveA print lib files (types/amount-words/fetchers/index)" "4" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
+check "m8-waveA print components (print-sheet/print-auto/doc-print-button)" "3" "$(ls src/components/erp/print-sheet.tsx src/components/erp/print-auto.tsx src/components/erp/doc-print-button.tsx 2>/dev/null | wc -l)"
+check "m8-waveA print doc families in registry (invoice/po/grn/payment/dc)" "5" "$(grep -cE '^  (invoice|po|grn|payment|dc): ' src/lib/erp/print/index.ts)"
+check "m8-waveA print door on doc view pages" "5" "$(grep -l 'DocPrintLink' 'src/app/(erp)/accounts/invoice/[id]/page.tsx' 'src/app/(erp)/procurement/po/[id]/page.tsx' 'src/app/(erp)/procurement/grn/[id]/page.tsx' 'src/app/(erp)/accounts/payments/[id]/page.tsx' 'src/app/(erp)/jobwork/order/[id]/page.tsx' 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"
@@ -305,7 +310,14 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/app/api/auth/admin/set-password/route.ts \
          'src/app/(erp)/admin/users/password-admin.tsx' \
          scripts/route_smoke_m7c.sh scripts/m7c_smoke_fixture.ts \
-         tests/unit/rights.test.ts tests/unit/set-password-route.test.ts; do
+         tests/unit/rights.test.ts tests/unit/set-password-route.test.ts \
+         'src/app/(erp)/print/[docType]/[id]/page.tsx' \
+         src/components/erp/print-sheet.tsx src/components/erp/print-auto.tsx \
+         src/components/erp/doc-print-button.tsx src/lib/erp/print/index.ts \
+         src/lib/erp/print/types.ts src/lib/erp/print/amount-words.ts \
+         src/lib/erp/print/fetchers.ts tests/unit/amount-words.test.ts \
+         tests/unit/print-docs.test.ts scripts/route_smoke_m8a.sh \
+         docs/CONTEXT/specs/SPEC-M8.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

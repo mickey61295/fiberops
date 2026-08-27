@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
 import { grnConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,10 @@ export default async function GrnViewPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/procurement/grn" label="GRNs" title={grn.grnNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/procurement/grn" label="GRNs" title={grn.grnNo} />
+        <DocPrintLink docType="grn" id={grn.grnNo} />
+      </div>
       <DocScreen config={toScreenConfig(grnConfig)} mode="view" docNo={grn.grnNo} initial={initial} />
       {grn.po && (
         <div className="text-xs text-slate-500">

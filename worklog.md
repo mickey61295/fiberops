@@ -744,3 +744,26 @@ Stage Summary:
 - Post-M7 health pass COMPLETE: working tree clean (only intended changes), src/ typechecks 100% clean for the first time since rollback #4, live /api/config route repaired (500→200), upload route restored.
 - All gates green: 653 vitest · 347/347 context_check · build EXIT 0 · tools 188 / models 65 / routes 145 (pins unchanged).
 - Key decision: orphan triage by importer count — LIVE orphans get fixed (flags.ts→AppOption), DEAD orphans get deleted (exposure/cumrate), historical scripts stay as documented lineage.
+
+---
+Task ID: 9
+Agent: main (Super Z)
+Task: M8 Wave A — doc-family print templates (STATE next-actions #7 → SPEC-M8 frozen, Wave A implemented end-to-end).
+
+Work Log:
+- Froze SPEC-M8 (docs/CONTEXT/specs/SPEC-M8.md): ONE PrintSheet engine + ONE /print/[docType]/[id] registry route + per-family fetchers; browser print only (SPEC-M6 §3-3 decision carried forward); non-goals pinned (no PDF engine, no tools change, no schema change, no /print rights entry — session-gated, doc VIEW pages stay rights-gated by their groups).
+- Built src/lib/erp/print/: types.ts (normalized PrintDoc), amount-words.ts (Indian numbering: Lakh/Crore singular-plural, 'and' before final group, paise, 999-crore cap→digit fallback), fetchers.ts (invoice TAX INVOICE GST-split + export note, po PURCHASE ORDER with resolved item codes, grn GOODS RECEIPT NOTE, payment PAYMENT/RECEIPT VOUCHER by direction, dc DELIVERY CHALLAN — all resolve by db id OR doc no), index.ts (PRINT_DOCS registry).
+- Built the UI: print-sheet.tsx (server: masthead via getPrintHeader, copy banner, party+meta grid, line table, totals, words, signatures, terms; 210mm on-screen preview), print-auto.tsx (client auto-print shim, ?autoprint=0 preview), doc-print-button.tsx (DocPrintButton in-place copy selector + DocPrintLink view-page door), and the route (erp)/print/[docType]/[id]/page.tsx with inline @page A4 PORTRAIT (later cascade beats globals.css landscape — reports stay landscape).
+- Wired print doors (DocPrintLink) on the 5 doc view pages: invoice, po, grn, payments, jobwork order.
+- Tests: tests/unit/amount-words.test.ts (10: zero/teens/tens/lakh-singular/205065-fixture/crore/paise/negative/cap-fallback/non-finite) + tests/unit/print-docs.test.ts (10: registry completeness, 5 fetcher shape assertions incl. IGST flip + receipt direction flip + id resolution + unknown→null). FIXED mid-run: my Indian-grouping math slip in the 205065 expectation (2,05,065 = Two Lakhs Five Thousand Sixty Five — the code was right), Lakh/Crore singular-plural grammar, PO-line required amount + no-finYear-on-JobworkOrder fixture shapes, child-first cleanup (no onDelete cascade in the reconstructed schema — PITFALLS-repeated lesson: POLine/GRNLine must go before parents or party delete leaks).
+- scripts/route_smoke_m8a.sh 16/16 GREEN (dev server + smoke in ONE bash invocation per protocol): unauth 307 /login, 5 families 200 + title grep by DOC NO, ?copy=duplicate banner, both 404s, 5 view-page doors present.
+- context_check.sh: +4 counters (print lib 4 / components 3 / families 5 / doors 5) + 13 file-existence entries + m8-waveA metrics line; erp components pin 25→28 → 363/363 NO DRIFT.
+- Docs: 01-STATE.md (Last-verified m8-wave-a line, M8 milestone row, next-actions #8 with Wave B candidates), SPEC-M8.
+- Verified: tsc src/ 0 errors · vitest 673/673 · context_check 363/363 · next build EXIT 0 (26.9s).
+- Committed + tag m8-wave-a + pushed.
+
+Stage Summary:
+- M8 Wave A COMPLETE: every print-critical doc family (invoice/PO/GRN/payment/DC) prints a proper A4 portrait sheet — masthead, party block, lines, GST/totals, Indian amount-in-words, signatures, terms, Original/Duplicate/Triplicate copies.
+- Pattern wins: one engine + registry route means each remaining family (15 more doc detail pages) is a ~40-line fetcher (Wave B); inline @page beats the global landscape without touching reports; fetchers re-use the view-page id-OR-docNo resolution.
+- 673 vitest (653+20) · route_smoke_m8a 16/16 · context_check 363/363 · build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145 (page routes 146).
+- Next: M8 Wave B (remaining print fetchers), E2E hardening, or agent prompt polish per STATE next-actions #8.

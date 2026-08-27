@@ -12,6 +12,7 @@ import { DocBreadcrumb } from '@/components/erp/recent-docs'
 import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
 import { ReconCard } from '@/components/erp/recon-card'
 import { invoiceRecon } from '@/lib/erp/registers/recon'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,10 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/accounts/invoice" label="Invoices" title={inv.invoiceNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/accounts/invoice" label="Invoices" title={inv.invoiceNo} />
+        <DocPrintLink docType="invoice" id={inv.invoiceNo} />
+      </div>
       <DocScreen
         config={toScreenConfig(invoiceConfig)}
         mode="view"

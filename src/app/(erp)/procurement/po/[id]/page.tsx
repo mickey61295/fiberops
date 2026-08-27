@@ -10,6 +10,7 @@ import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
 import { ReconCard } from '@/components/erp/recon-card'
 import { poRecon } from '@/lib/erp/registers/recon'
+import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +53,10 @@ export default async function PurchaseOrderViewPage({ params }: { params: Promis
 
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/procurement/po" label="Purchase Orders" title={po.poNo} />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <DocBreadcrumb href="/procurement/po" label="Purchase Orders" title={po.poNo} />
+        <DocPrintLink docType="po" id={po.poNo} />
+      </div>
       <DocScreen config={toScreenConfig(purchaseOrderConfig)} mode="view" docNo={po.poNo} initial={initial} />
       {recon && <ReconCard recon={recon} />}
     </div>
