@@ -19,6 +19,8 @@ import { supplierBillsConfig } from './supplier-bills'
 import { partyLedgerConfig } from './party-ledger'
 import { budgetVsActualConfig } from './budget-vs-actual'
 import { approvalAuditConfig } from './approval-audit'
+import { rateConfirmationConfig } from './rate-confirmation'
+import { pieceRateConfirmationConfig } from './piece-rate-confirmation'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -37,6 +39,8 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   partyLedgerConfig,
   budgetVsActualConfig,
   approvalAuditConfig,
+  rateConfirmationConfig,
+  pieceRateConfirmationConfig,
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

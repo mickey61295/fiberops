@@ -19,6 +19,10 @@ import { journalConfig } from './journal'
 import { costSheetConfig } from './cost-sheet'
 import { stockAdjustmentConfig } from './stock-adjustment'
 import { godownTransferConfig } from './godown-transfer'
+import { budgetConfig } from './budget'
+import { commercialInvoiceConfig } from './commercial-invoice'
+import { localInvoiceConfig, pieceJobworkInvoiceConfig } from './invoice-variants'
+import { supplierOrderConfig } from './supplier-order'
 
 export {
   orderConfig,
@@ -40,6 +44,11 @@ export {
   costSheetConfig,
   stockAdjustmentConfig,
   godownTransferConfig,
+  budgetConfig,
+  commercialInvoiceConfig,
+  localInvoiceConfig,
+  pieceJobworkInvoiceConfig,
+  supplierOrderConfig,
 }
 
 export const DOC_CONFIGS: DocConfig[] = [
@@ -62,6 +71,11 @@ export const DOC_CONFIGS: DocConfig[] = [
   costSheetConfig,
   stockAdjustmentConfig,
   godownTransferConfig,
+  budgetConfig,
+  commercialInvoiceConfig,
+  localInvoiceConfig,
+  pieceJobworkInvoiceConfig,
+  supplierOrderConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {

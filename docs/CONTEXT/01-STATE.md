@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m4-wave-c — M4 COMPLETE: recon cards + Order Status Board + KPI deep-links + route smoke; 316 vitest green; tag `m4-done`)
+Last verified: 2026-08-27 (session: m5-wave-a — SPEC-M5 frozen + Wave A money/rates (budget, commercial/local/piece invoices, supplier orders, rate-confirmation, piece-rate) ; 339 vitest green; tags `spec-m5-frozen`, `m5-wave-a`)
 
 ## Milestone status
 
@@ -14,40 +14,40 @@ Last verified: 2026-08-27 (session: m4-wave-c — M4 COMPLETE: recon cards + Ord
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
-| M5 — Extended doc families | | NOT STARTED |
+| M5 — Extended doc families | 36 items: Wave A money/rates (7: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 six new models (10) →144 tools, 77/113 | **IN PROGRESS** (SPEC frozen `spec-m5-frozen`; **Wave A DONE** `m5-wave-a`: budget DS + create_budget, commercial/local/piece-jobwork invoice variant configs, supplier-orders + create_supplier_order, rate-confirmation + piece-rate-confirmation registers + list_po_rates/list_piece_rates; 135 tools, 48/113 live, 339 vitest green, route_smoke_m5 35/35; variant-doc pattern §4: config wraps base service, variant schemas relax ONLY injected keys) |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M4 Wave C commit (recon cards + Order Status Board + KPI deep-links) — tag `m4-done`; prior: m4-wave-b, m4-wave-a, spec-m4-frozen 0dd0335, fix b344ae8 | `git rev-parse --short HEAD` |
-| Agent tools | **130** (59 inline + 24 factory create + 24 factory update + 23 docTool delegates — M4 Wave B +7: list_inhand_orders, list_io_history, get_production_status, get_bills_register, list_supplier_bills, get_approval_audit, get_order_status; get_stock/get_party_ledger/list_lots/list_jobworks/get_budget_vs_actual now delegate to the shared register services, schemas+json VERBATIM (get_party_ledger json gains ADDITIVE poBalances[])) | `scripts/context_check.sh` |
+| Git HEAD | M5 Wave A commit (SPEC-M5 frozen + money/rates wave) — tags `spec-m5-frozen`, `m5-wave-a`; prior: m4-done, m4-wave-b, m4-wave-a | `git rev-parse --short HEAD` |
+| Agent tools | **135** (61 inline + 24 factory create + 24 factory update + 26 docTool delegates — M5 Wave A +5: create_budget, create_commercial_invoice, create_supplier_order, list_po_rates, list_piece_rates) | `scripts/context_check.sh` |
 | Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
-| Shared zod schemas (M3-A/D) | **19 files** in `src/lib/erp/schemas/` (verbatim tool contracts + Wave D stock-adj/transfer) | context_check |
-| Posting services (M3-A/D) | **22 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts) | context_check |
+| Shared zod schemas (M3-A/D + M5-A) | **23 files** in `src/lib/erp/schemas/` (verbatim tool contracts + Wave D stock-adj/transfer + M5-A budget/commercial-invoice/invoice-variants/supplier-order) | context_check |
+| Posting services (M3-A/D + M5-A) | **24 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts) | context_check |
 | Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
 | tools.ts size | 2805 → 1693 lines (all 21 SPEC-M3 §5 write ops thin delegates; suggest_next_step gained nextFormUrl) | `wc -l` |
-| Doc configs (M3-D) | **19 configs in 17 files** (order + 11 chain + Wave D invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer) in `src/lib/erp/doc-configs/` | context_check |
+| Doc configs (M5-A) | **24 configs in 21 files** (M3 19 + M5-A: budget, commercial-invoice, local-invoice + piece-jobwork-invoice (invoice-variants.ts), supplier-order) in `src/lib/erp/doc-configs/` | context_check |
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
 | Wiring (M3-B/C/D) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo/?invoice prefill on all 19 New screens · **Wave D: accounts/inventory rows link their views in the Hub + Fill-with-AI button on every DocScreen** | context_check + route smoke |
 | Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
 | ERP view/shell components | **22** (21 + M4 Wave C recon-card.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | **3** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M4-C) | **65**: M4-B 64 + /orders/status (Order Status Board) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Live routes (M5-A) | **73**: M4-C 65 + /costing/budget(+[id]) + /orders/commercial-invoice + /accounts/invoice/local + /accounts/invoice/piece + /procurement/supplier-orders + /procurement/rate-confirmation + /costing/piece-rate | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
 | Order Status Board (M4-C) | `/orders/status` — server component over queryOrderStatus (registers/order-status.ts): header KPIs (open orders/pcs/avg stages), per-row 15-dot ChainBar (flags shipped on the row), n/15 chip + next-stage chip, row → Order Hub; NOT a RegisterScreen (§10) | route_smoke_waveE.sh |
 | Wiring (M4-C) | W2: register rows drill into doc views (TXN_DOC_FAMILY + resolveDocRef; every family href test-pinned) · W6: ReconCard on PO view (PO↔GRNs), invoice view (Invoice↔Payments), jobwork view (out↔in), Order Hub despatch section (Despatch↔Invoice) — math in registers/recon.ts, test-asserted · §8.3 KPI deep-links on the dashboard tiles (Open Orders→/orders/register?status=open, Pending POs→/procurement/party-balance, Stock Value→/inventory (ERRATUM: /inventory/stock was never a route), Today Pcs→/production/register?from&to, Pending Approvals→/approvals, Open Invoices→/accounts/bills-register?status=issued) | route_smoke_waveE.sh 19/19 |
-| Register configs/services (M4-C) | **16 configs** in `src/lib/erp/register-configs/` + **18 service files** in `src/lib/erp/registers/` (16 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts (board service, Wave C) + recon.ts (W6: poRecon/invoiceRecon/jobworkRecon/despatchRecon)) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
-| Parity (M4-C) | **41/113 items live** · 14/17 groups (Wave C: +order-status-board) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Register configs/services (M5-A) | **18 configs** in `src/lib/erp/register-configs/` + **20 service files** in `src/lib/erp/registers/` (18 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts + recon.ts; M5-A adds rate-confirmation + piece-rate-confirmation) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
+| Parity (M5-A) | **48/113 items live** · 14/17 groups (Wave A: +budget, commercial-invoice, local-invoice, piece-jobwork-invoice, supplier-orders, rate-confirmation, piece-rate-confirmation) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
-| Registry unit tests | 18 (M4 Wave C: +1 board-live block) | `npx vitest run` |
+| Registry unit tests | 19 (M5 Wave A: +1 money/rates live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **113 at runtime** (26 source its; per-config loop ×16: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. 7 new tools + 13 service smokes) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **316 passing** (311 Wave B + 4 recon tests + 1 menu board block) | `npx vitest run` |
+| **Total vitest** | **339 passing** (316 M4 + doc-parity-m5 7 + register-services-m5 5 + extended pins in the 3 registry/config suites) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
 | Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
@@ -192,21 +192,66 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. **M4 COMPLETE** (this session): Wave B fleet (16 registers, 130 tools,
-   40/113) + Wave C wiring (W6 recon cards ×4 on PO/invoice/jobwork views +
-   the Order Hub despatch section, Order Status Board /orders/status, §8.3
-   KPI deep-links — Stock Value tile → /inventory per ERRATUM, route_smoke_waveE
-   19/19, 316 vitest green, tag `m4-done`).
-2. **M5 — Extended doc families** (PLAN-2.0): freeze SPEC-M5 first (scope:
-   samples & enquiry, rate confirmation, roll tracking, contract allotment,
-   jobwork pcs return, pcs shortage, expenses, budget doc, packing, DC
-   logistics…). Follow the M3/M4 wave discipline (spec freeze → tag → waves
-   ending green+committed+tagged).
-3. **git push STILL BLOCKED** (no GitHub credentials in this sandbox): 28+
+1. **SPEC-M5 frozen + Wave A DONE** (this session): 7 money/rates items
+   (budget, commercial-invoice, local-invoice, piece-jobwork-invoice,
+   supplier-orders, rate-confirmation, piece-rate-confirmation), 5 new tools
+   (135), 48/113 live, 339 vitest green, route_smoke_m5 35/35, tags
+   `spec-m5-frozen` + `m5-wave-a`.
+2. **M5 Wave B — production/pcs variants** (SPEC-M5 §7-B, 14 items):
+   ProductionEntry family (finished-goods, operation-entry, panel-production,
+   panel-excess), bundle-barcode, line-transfer (LineIssue pair), panel-cutting,
+   RejectionEntry family (panel-rej-rework, fabric-rejection-return,
+   pcs-shortage), jobwork-pcs-return (GRN process_return), costing-input,
+   production-wages (RG + wage bill journal), wage-payments (Payment variant).
+3. **M5 Wave C — approval kinds** (§6/§7-C, 4 IN items): kinds registry +
+   inbox `?kind=` tabs + posting hooks (godown-transfer requiresAck,
+   supplier-bill, reprocess, non-return DC) + 4 approve wrappers.
+4. **M5 Wave D — ADR-015 schema growth** (§5/§7-D, 10 items): six new models
+   (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift; 54→60),
+   samples-enquiry, gate-entry/pass, packing-list, lab-test-entry, expenses,
+   shifts-hours (MT), roll-tracking (lot-split), contract-allotment,
+   fabric-acc-allotment, production-bills.
+5. **git push STILL BLOCKED** (no GitHub credentials in this sandbox): 30+
    commits local-only. USER ACTION: provide a PAT
    (`git remote set-url origin https://<TOKEN>@github.com/mickey61295/fiberops.git`)
    or push from a credentialed machine, then `git push origin main --tags`.
-4. Update this file every wave (same commit).
+6. Update this file every wave (same commit).
+
+## M5 Wave A notes for future sessions
+
+- **The variant-doc pattern held** (SPEC-M5 §4): variant configs WRAP the base
+  service (`service.plan: (input) => planInvoice({...input, billType:'sales'})`)
+  and their schemas relax ONLY the injected key (INVOICE_SCHEMA.extend({billType:
+  optional}) — LOCAL also relaxes gstType for the cgst_sgst default). Zero
+  DocScreen engine changes. The wrapper lives in a sibling posting fn
+  (planSupplierOrder) or inline in the config's service.plan (invoice variants).
+- **coerceDocInput SKIPS readonly fields**: a variant's fixed type field must
+  be `type: 'readonly'` in the config AND optional in the variant schema —
+  otherwise safeParse fails on the missing required key. The local + piece +
+  supplier variants all follow this.
+- **planExportInvoice is a SIBLING of planInvoice** (not a modification):
+  planInvoice and create_sales_invoice stay byte-identical (VERBATIM); the
+  sibling shares the INV-#### number space via the extracted `nextInvoiceNo`
+  helper. Commercial invoices write invoiceType='export' + ern.
+- **Budget has NO doc number** (ERRATUM 4 pattern): planBudget identifies by
+  orderNo/deptCode; the view page (/costing/budget/[id]) resolves orderId +
+  deptId via separate lookups — Budget.orderId/deptId are PLAIN FK columns
+  (PITFALLS #21; no `include: { order: true }` — tsc catches it).
+- **budget-vs-actual now prefers explicit Budget rows** (both the single-order
+  getOrderBudgetActual path AND the all-orders path): explicit > 0 wins,
+  else Σ CostSheet.totalCost (the M4 convention). M4 fixtures carry no Budget
+  rows → their assertions stay green.
+- **rate-confirmation filters ride the PO relation**: POLine has no partyId —
+  party + date filters merge into one `where.po = {...}` object (two separate
+  assignments to where.po silently overwrite each other — caught by the math
+  suite's party-filter test).
+- **register `itemType` filters need `options`** (frozen-filter contract): the
+  rate-confirmation itemType select carries yarn|fabric|accessory options
+  (pcs is not a PO line type).
+- **piece-rate rows have no drill href** (operator × order aggregate — an
+  operator master link would be an M6 polish; href stays null, never dead).
+- **tsc noise**: unchanged (~30-32 known orphans incl. verify_approvals_fix.ts
+  from the b344ae8 session); all Wave A files typecheck clean.
 
 ## M4 Wave C notes for future sessions
 

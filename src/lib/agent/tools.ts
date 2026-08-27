@@ -19,6 +19,8 @@ import { queryInhandOrders } from '@/lib/erp/registers/inhand'
 import { queryPartyBalance, getPartyPoBalances } from '@/lib/erp/registers/party-balance'
 import { fetchCurrentStock } from '@/lib/erp/registers/stock-register'
 import { queryLots } from '@/lib/erp/registers/lots'
+import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
+import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
 import { queryJobwork } from '@/lib/erp/registers/jobwork'
@@ -46,6 +48,9 @@ import { PRODUCTION_ENTRY_SCHEMA, REWORK_SCHEMA } from '@/lib/erp/schemas/produc
 import { REJECTION_SCHEMA } from '@/lib/erp/schemas/rejection'
 import { DESPATCH_SCHEMA } from '@/lib/erp/schemas/despatch'
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
+import { COMMERCIAL_INVOICE_SCHEMA } from '@/lib/erp/schemas/commercial-invoice'
+import { SUPPLIER_ORDER_SCHEMA } from '@/lib/erp/schemas/supplier-order'
+import { BUDGET_SCHEMA } from '@/lib/erp/schemas/budget'
 import { DEBIT_NOTE_SCHEMA } from '@/lib/erp/schemas/debit-note'
 import { JOURNAL_SCHEMA } from '@/lib/erp/schemas/journal'
 import { COST_SHEET_SCHEMA } from '@/lib/erp/schemas/cost-sheet'
@@ -65,6 +70,9 @@ import { planProductionEntry, planReworkEntry } from '@/lib/erp/posting/producti
 import { planRejection } from '@/lib/erp/posting/rejection'
 import { planPcsDespatch } from '@/lib/erp/posting/despatch'
 import { planInvoice } from '@/lib/erp/posting/invoice'
+import { planExportInvoice } from '@/lib/erp/posting/invoice'
+import { planBudget } from '@/lib/erp/posting/budget'
+import { planSupplierOrder } from '@/lib/erp/posting/supplier-order'
 import { planDebitNote } from '@/lib/erp/posting/debit-note'
 import { planJournal } from '@/lib/erp/posting/journal'
 import { planCostSheet } from '@/lib/erp/posting/cost-sheet'
@@ -747,6 +755,52 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    name: 'list_po_rates',
+    description: 'List PO rate lines (rate confirmation sheet): poNo, party, item type/code, qty, rate, amount, PO date/status. Optional filters: party (code), itemType (yarn|fabric|accessory).',
+    domain: 'procurement',
+    isWrite: false,
+    schema: z.object({
+      party: z.string().optional(),
+      itemType: z.string().optional(),
+    }),
+    async execute(args) {
+      // Delegates to the shared register service (SPEC-M5 §7-A-6) — the same
+      // read path the /procurement/rate-confirmation screen uses.
+      const res = await queryRateConfirmation({
+        limit: 100, page: 1, party: args.party, itemType: args.itemType,
+      })
+      return {
+        text: `${res.count} PO rate lines`,
+        json: res.rows.map((r) => ({
+          poNo: r.poNo, party: r.party, itemType: r.itemType, itemCode: r.itemCode,
+          qty: r.qty, rate: r.rate, amount: r.amount, status: r.status,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_piece_rates',
+    description: 'List piece rates earned per operator × order (piece-rate confirmation sheet): operator, orderNo, dept, qty, avg rate, earned amount. Optional filters: order (orderNo), q (dept code/name).',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({
+      order: z.string().optional(),
+      q: z.string().optional(),
+    }),
+    async execute(args) {
+      // Delegates to the shared register service (SPEC-M5 §7-A-7) — the same
+      // read path the /costing/piece-rate screen uses.
+      const res = await queryPieceRates({ limit: 100, page: 1, order: args.order, q: args.q })
+      return {
+        text: `${res.count} operator×order groups`,
+        json: res.rows.map((r) => ({
+          operator: r.operator, orderNo: r.orderNo, dept: r.dept,
+          qty: r.qty, rate: r.rate, amount: r.amount,
+        })),
+      }
+    },
+  },
+  {
     name: 'list_seasons',
     description: 'List all seasons.',
     domain: 'masters',
@@ -1405,6 +1459,28 @@ const docTools: AgentTool[] = [
     'production',
     PRODUCTION_ENTRY_SCHEMA,
     planProductionEntry,
+  ),
+  // ── M5 Wave A (SPEC-M5 §8) ──
+  docTool(
+    'create_budget',
+    'Create a budget (order-level or department-level) with per-work lines. Required: amount (total; 0 lets the service use the line sum) + lines (array of {amount, workId?, actualAmount?}). Provide orderNo OR deptCode (at least one). Optional: finYear (defaults 26-27), notes.',
+    'costing',
+    BUDGET_SCHEMA,
+    planBudget,
+  ),
+  docTool(
+    'create_commercial_invoice',
+    'Create a commercial (export) invoice against an order. invoiceNo is optional — auto-assigned INV-#### (shared space with sales invoices). Required: orderNo, partyCode, totalQty, taxableValue, gstRate (usually 0 on exports). Optional: gstType (defaults igst), billType (defaults sales), ern (Export Report Number), invoiceDate, notes.',
+    'accounting',
+    COMMERCIAL_INVOICE_SCHEMA,
+    planExportInvoice,
+  ),
+  docTool(
+    'create_supplier_order',
+    'Create a supplier order (general/semi-finished goods PO variant). poNo is optional — auto-assigned PO-G-#### like a purchase order. Required: partyCode, deliveryDate, lines (array of {itemType, itemCode, qty, rate}). poType defaults to general.',
+    'procurement',
+    SUPPLIER_ORDER_SCHEMA,
+    planSupplierOrder,
   ),
 ]
 

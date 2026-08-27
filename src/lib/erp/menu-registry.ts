@@ -100,6 +100,15 @@ export const LIVE_ROUTES = new Set<string>([
   '/costing/budget-vs-actual', // Budget vs Actual (M4 Wave B) — budget-vs-actual
   '/approvals/audit', // Approval Audit Trail (M4 Wave B) — approval-audit-trail
   '/orders/status', // Order Status Board (M4 Wave C) — order-status-board
+  // M5 Wave A (SPEC-M5 §7-A)
+  '/costing/budget', // Budget (M5 Wave A) — budget
+  '/costing/budget/[id]', // Budget view (M5 Wave A) — budget
+  '/orders/commercial-invoice', // Commercial Invoice (M5 Wave A) — commercial-invoice
+  '/accounts/invoice/local', // Local Invoice (M5 Wave A) — local-invoice
+  '/accounts/invoice/piece', // Piece / Jobwork Invoice (M5 Wave A) — piece-jobwork-invoice
+  '/procurement/supplier-orders', // Supplier Orders (M5 Wave A) — supplier-orders
+  '/procurement/rate-confirmation', // Rate Confirmation (M5 Wave A) — rate-confirmation
+  '/costing/piece-rate', // Piece-Rate Confirmation (M5 Wave A) — piece-rate-confirmation
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -247,7 +256,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'commercial-invoice', label: 'Commercial Invoice', groupId: 'orders', route: '/orders/commercial-invoice', arch: 'DS', phase: 'M5',
     description: 'Export commercial invoice for an order shipment.',
     legacyForms: ['FrmCommericalInv_New', 'FrmInvComm'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_commercial_invoice'], pendingTools: [],
   },
 
   // ---- programs (5) ----
@@ -324,13 +333,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'supplier-orders', label: 'Supplier Orders', groupId: 'procurement', route: '/procurement/supplier-orders', arch: 'DS', phase: 'M5',
     description: 'Semi-finished supplier order sheets & tech packs.',
     legacyForms: ['FrmSuppOrdSheet_Semi', 'FrmSuppProdSequence', 'FrmSuppTechDataSheet'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_supplier_order', 'list_purchase_orders'], pendingTools: [],
   },
   {
     id: 'rate-confirmation', label: 'Rate Confirmation', groupId: 'procurement', route: '/procurement/rate-confirmation', arch: 'RG', phase: 'M5',
     description: 'Confirm yarn/fabric/accessory rates before billing.',
     legacyForms: ['RptYarnRateConfirm', 'RptFabRateConfirm', 'RptAccRateConfirm'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['list_po_rates'], pendingTools: [],
   },
   {
     id: 'party-balance', label: 'Party Balance', groupId: 'procurement', route: '/procurement/party-balance', arch: 'RG', phase: 'M4',
@@ -692,13 +701,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'local-invoice', label: 'Local Invoice', groupId: 'accounts', route: '/accounts/invoice/local', arch: 'DS', phase: 'M5',
     description: 'Local (domestic) invoices with confirmation flow.',
     legacyForms: ['FrmLocalInvoice', 'FrmLocalInvConfirm'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_sales_invoice'], pendingTools: [],
   },
   {
     id: 'piece-jobwork-invoice', label: 'Piece / Jobwork Invoice', groupId: 'accounts', route: '/accounts/invoice/piece', arch: 'DS', phase: 'M5',
     description: 'Piece-rate and jobwork invoicing.',
     legacyForms: ['frmPieceInv', 'frmPieceInv_1', 'Rpt_JobwrkInvoice'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_sales_invoice'], pendingTools: [],
   },
   {
     id: 'debit-note', label: 'Debit Note', groupId: 'accounts', route: '/accounts/debit-note', arch: 'DS', phase: 'M3',
@@ -781,7 +790,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'budget', label: 'Budget', groupId: 'costing', route: '/costing/budget', arch: 'DS', phase: 'M5',
     description: 'Jobwork/production budgets and pre-budget plans.',
     legacyForms: ['frmBudget', 'frmBudgetNew_JobWork', 'frmPreBudgetProdPlan'],
-    agentTools: [], pendingTools: ['create_budget'],
+    agentTools: ['create_budget', 'get_budget_vs_actual'], pendingTools: [],
   },
   {
     id: 'budget-vs-actual', label: 'Budget vs Actual', groupId: 'costing', route: '/costing/budget-vs-actual', arch: 'RG', phase: 'M4',
@@ -806,7 +815,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'piece-rate-confirmation', label: 'Piece-Rate Confirmation', groupId: 'costing', route: '/costing/piece-rate', arch: 'RH', phase: 'M5',
     description: 'Confirm piece rates before wage billing.',
     legacyForms: ['RptPieceRateConfirm', 'RptPieceRateConfirm_InHouse'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['list_piece_rates'], pendingTools: [],
   },
   // ---- hr (4) ----
   {

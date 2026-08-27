@@ -20,19 +20,26 @@ export interface OrderBudgetActual {
   variance: number
 }
 
-/** Per-order budget/actual for one order (shared by register + agent tool). */
+/** Per-order budget/actual for one order (shared by register + agent tool).
+ *  M5 Wave A: `budgeted` prefers EXPLICIT Budget rows (the /costing/budget
+ *  write door — Σ Budget.amount for the order); falls back to the M4
+ *  convention (Σ CostSheet.totalCost) when no budget exists. Additive: the M4
+ *  fixtures carry no Budget rows, so their assertions stay green. */
 export async function getOrderBudgetActual(orderId: string): Promise<OrderBudgetActual | null> {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { buyer: true } })
   if (!order) return null
-  const [poLines, prodEntries, costs] = await Promise.all([
+  const [poLines, prodEntries, costs, budgets] = await Promise.all([
     db.pOLine.findMany({ where: { orderId } }),
     db.productionEntry.findMany({ where: { orderId } }),
     db.costSheet.findMany({ where: { orderId } }),
+    db.budget.findMany({ where: { orderId } }),
   ])
   const poValue = poLines.reduce((s, p) => s + p.qty * p.rate, 0)
   const prodCost = prodEntries.reduce((s, e) => s + e.amount, 0)
   const shiftWages = prodEntries.reduce((s, e) => s + e.shiftWages, 0)
-  const budgeted = costs.reduce((s, c) => s + c.totalCost, 0)
+  const explicitBudget = budgets.reduce((s, b) => s + b.amount, 0)
+  const costBudget = costs.reduce((s, c) => s + c.totalCost, 0)
+  const budgeted = explicitBudget > 0 ? explicitBudget : costBudget
   const actual = poValue + prodCost + shiftWages
   return {
     orderId: order.id,
@@ -78,6 +85,14 @@ export async function queryBudgetVsActual(q: RegisterQuery): Promise<RegisterRes
   ])
   if (ids.size === 0) return { rows: [], summary: 'No budget/actual data yet.', count: 0 }
 
+  // M5 Wave A: explicit Budget rows (the /costing/budget write door) — Σ per
+  // order; WIN over the CostSheet fallback in the row math below.
+  const budgetRows = await db.budget.findMany({ where: { orderId: { not: null } } })
+  const explicitBudgetByOrder = new Map<string, number>()
+  for (const b of budgetRows) {
+    explicitBudgetByOrder.set(b.orderId!, (explicitBudgetByOrder.get(b.orderId!) ?? 0) + b.amount)
+  }
+
   const orders = await db.order.findMany({
     where: { id: { in: [...ids] } },
     include: { buyer: true, costSheet: true, poLines: true, productionEntries: true },
@@ -85,7 +100,9 @@ export async function queryBudgetVsActual(q: RegisterQuery): Promise<RegisterRes
   })
 
   const all: RegisterRow[] = orders.map((o) => {
-    const budgeted = o.costSheet.reduce((s, c) => s + c.totalCost, 0)
+    const explicit = explicitBudgetByOrder.get(o.id) ?? 0
+    const costBudget = o.costSheet.reduce((s, c) => s + c.totalCost, 0)
+    const budgeted = explicit > 0 ? explicit : costBudget
     const poValue = o.poLines.reduce((s, p) => s + p.qty * p.rate, 0)
     const prodCost = o.productionEntries.reduce((s, e) => s + e.amount, 0)
     const shiftWages = o.productionEntries.reduce((s, e) => s + e.shiftWages, 0)

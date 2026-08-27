@@ -61,6 +61,12 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   'cost-sheet': ['/costing/cost-sheet', '/costing'],
   'stock-adjustment': ['/inventory/adjustment', '/inventory'],
   'godown-transfer': ['/inventory/transfer', '/inventory'],
+  // M5 Wave A (SPEC-M5 §7-A)
+  budget: ['/costing/budget', '/costing/budget-vs-actual', '/costing'],
+  'commercial-invoice': ['/orders/commercial-invoice', '/orders', '/accounts/bills-register'],
+  'local-invoice': ['/accounts/invoice/local', '/accounts/invoice', '/accounts'],
+  'piece-jobwork-invoice': ['/accounts/invoice/piece', '/accounts/invoice', '/accounts'],
+  'supplier-order': ['/procurement/supplier-orders', '/procurement/po', '/procurement'],
 }
 
 async function runPlan(slug: string, payload: DocFormPayload): Promise<

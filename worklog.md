@@ -435,3 +435,33 @@ Work Log:
 Stage Summary:
 - M4 COMPLETE: 17/17 register/board screens live, 130 tools, 65 live routes, 41/113 menu items, 316 tests, all route smokes green.
 - Next: M5 (extended doc families) — freeze SPEC-M5 first per wave discipline.
+
+---
+Task ID: m5-spec-freeze + m5-wave-a
+Agent: main
+Task: Continue from M4-complete baseline per user instruction "Push the changes to remote always after commit. Continue" — freeze SPEC-M5, then implement M5 Wave A (money/rates items).
+
+Work Log:
+- Push attempt: 29 unpushed commits (m1→m4-done), `git push origin main --tags` FAILED — no GitHub credentials in sandbox (no gh CLI, no SSH, no stored PAT). Documented as STATE next-action #5 (USER ACTION needed).
+- Read STATE/PLAN-2.0/menu-registry — 36 M5-phase items identified; verified model backing against prisma/schema.prisma (SalesInvoice invoiceType/billType variants, Budget/BudgetLine exist, Approval free-string entity, POLine has NO partyId, Budget.orderId/deptId are plain FK columns).
+- Wrote + froze docs/CONTEXT/specs/SPEC-M5.md (36 items, 4 waves A→D, variant-doc pattern §4, ADR-015 six new models 54→60 for Wave D, 14 new tools →144, test plan §12). Commit 301c20a, tag spec-m5-frozen. Push attempt (blocked).
+- Wave A (7 items, zero schema churn):
+  * budget: schemas/budget.ts + posting/budget.ts (planBudget, no doc number) + doc-configs/budget.ts (line editor) + /costing/budget (+[id] view) + create_budget tool (the registry's only named pending tool).
+  * commercial-invoice: planExportInvoice SIBLING in posting/invoice.ts (invoiceType='export' + ern, shared INV-#### space via extracted nextInvoiceNo helper; planInvoice byte-identical) + COMMERCIAL_INVOICE_SCHEMA + config + /orders/commercial-invoice + create_commercial_invoice tool.
+  * local-invoice + piece-jobwork-invoice: VARIANT configs (invoice-variants.ts) wrapping planInvoice with injected billType (sales/jobwork); variant schemas relax ONLY billType (local also gstType); /accounts/invoice/local + /piece pages; agent door = existing create_sales_invoice.
+  * supplier-orders: SUPPLIER_ORDER_SCHEMA (poType optional) + planSupplierOrder wrapper over planPurchaseOrder (poType default general) + config + /procurement/supplier-orders + create_supplier_order tool.
+  * rate-confirmation register: registers/rate-confirmation.ts (POLine day-book, party+date filters MERGED into one where.po object — POLine has no partyId) + config + /procurement/rate-confirmation + csv + list_po_rates tool.
+  * piece-rate-confirmation register: registers/piece-rates.ts (operator×order×dept group: qty/avg-rate/earned) + config + /costing/piece-rate + csv + list_piece_rates tool.
+- Registries wired: DOC_CONFIGS +5 (24 configs/21 files), REGISTER_SERVICES +2 (18), SLUG_REVALIDATE +5, LIVE_ROUTES +8 (73), menu agentTools flipped on all 7 items.
+- budget-vs-actual register (registers/budget.ts): BOTH paths now prefer explicit Budget rows (explicit > 0 wins, else Σ CostSheet.totalCost) — makes the budget write door meaningful; M4 fixtures (no budgets) stay green.
+- Tests: doc-parity-m5 (7: budget×2 doors, export invoice×2, supplier order×2 + approvals, local/piece variant defaults injection via commitDocAction, source-pin no-fork) + register-services-m5 (5: rate math+party filter+drill href, piece-rate group math, budgeted fallback vs explicit). Extended pins: doc-configs slug list 19→24, register-configs 16→18 + tools 130→135 + ROUTE_BY_SLUG, menu-registry 41→48 + Wave A live block.
+- Fixes during tests: rate-confirmation where.po merge bug (Prisma rejected unknown partyId on POLine), local variant gstType required→optional+default, itemType filter options (frozen contract), PO commit return shape ({id,poNo} not lines), approval cleanup for supplier orders.
+- scripts/route_smoke_m5.sh — 35/35 (7 items + filters + CSV + 13 previous routes spot set).
+- context_check.sh updated (135 tools, 73 routes, 23 schemas, 24 posting, 21 doc-config files, 18 reg configs, 20 reg services, 19 menu tests, +M5 files in existence list) — NO DRIFT (157 checks).
+- STATE.md updated (M5 IN PROGRESS row, ground truth, next actions, Wave A notes).
+
+Stage Summary:
+- Tags: spec-m5-frozen (301c20a) + m5-wave-a (this commit). Parity 41→48/113. Tools 130→135. Vitest 316→339 green. Route smoke 35/35. tsc: no new errors (32 known vs ~30 baseline).
+- Variant-doc pattern proven: config wraps base service, variant schema relaxes only injected keys, zero engine changes.
+- PUSH STILL BLOCKED: needs PAT from user (git remote set-url origin https://<TOKEN>@github.com/mickey61295/fiberops.git).
+- Next: M5 Wave B (14 production/pcs variant items per SPEC-M5 §7-B).

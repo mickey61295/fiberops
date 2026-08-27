@@ -69,30 +69,30 @@ echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  reg
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M4-WaveB session]"
-check "agent tools (inline+factory+docTool)" "130" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveA session]"
+check "agent tools (inline+factory+docTool)" "135" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "24"      "$FACTORY_CREATE"
 check "factory update tools"       "24"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5 + §11)" "23"    "$DOCTOOLS"
+check "docTool delegates (SPEC-M3 §5 + §11 + M5-A)" "26"    "$DOCTOOLS"
 check "prisma models"              "54"      "$MODELS"
 check "erp view/shell components (+recon-card)" "22"      "$VIEWS"
 check "archetype engines (+register-screen)" "3"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests"        "18"      "$REGTESTS"
+check "menu registry tests"        "19"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 Wave B; source its — runtime 113 via 16× per-config loop)" "26"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M4 Wave C)"    "65"      "$LIVEROUTES"
-check "register config files (M4 Wave B fleet)" "16"       "$REGCFGS"
-check "register service files (M4 fleet + order-status + recon)" "18"       "$REGSVCFILES"
+check "live routes (M5 Wave A)"    "73"      "$LIVEROUTES"
+check "register config files (M4 fleet + M5-A rates)" "18"       "$REGCFGS"
+check "register service files (M4 fleet + order-status + recon + M5-A)" "20"       "$REGSVCFILES"
 check "master configs"             "24"      "$MASTERCFGS"
-check "shared zod schema files"    "19"      "$SCHEMAFILES"
-check "posting service files"      "22"      "$POSTINGSVCS"
+check "shared zod schema files"    "23"      "$SCHEMAFILES"
+check "posting service files"      "24"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 §7/§8 — 19 configs; jobwork+production files hold 2)" "17"       "$DOCCFGS"
+check "doc config files (SPEC-M3 19 + M5-A 5 configs in 21 files; jobwork/production/invoice-variants hold 2)" "21"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -155,6 +155,25 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/costing/cost-sheet/page.tsx' 'src/app/(erp)/costing/cost-sheet/[id]/page.tsx' \
          'src/app/(erp)/inventory/adjustment/page.tsx' \
          'src/app/(erp)/inventory/transfer/page.tsx' \
+         'src/app/(erp)/costing/budget/page.tsx' 'src/app/(erp)/costing/budget/[id]/page.tsx' \
+         'src/app/(erp)/orders/commercial-invoice/page.tsx' \
+         'src/app/(erp)/accounts/invoice/local/page.tsx' \
+         'src/app/(erp)/accounts/invoice/piece/page.tsx' \
+         'src/app/(erp)/procurement/supplier-orders/page.tsx' \
+         'src/app/(erp)/procurement/rate-confirmation/page.tsx' \
+         'src/app/(erp)/procurement/rate-confirmation/csv/route.ts' \
+         'src/app/(erp)/costing/piece-rate/page.tsx' \
+         'src/app/(erp)/costing/piece-rate/csv/route.ts' \
+         src/lib/erp/schemas/budget.ts src/lib/erp/schemas/commercial-invoice.ts \
+         src/lib/erp/schemas/invoice-variants.ts src/lib/erp/schemas/supplier-order.ts \
+         src/lib/erp/posting/budget.ts src/lib/erp/posting/supplier-order.ts \
+         src/lib/erp/doc-configs/budget.ts src/lib/erp/doc-configs/commercial-invoice.ts \
+         src/lib/erp/doc-configs/invoice-variants.ts src/lib/erp/doc-configs/supplier-order.ts \
+         src/lib/erp/registers/rate-confirmation.ts src/lib/erp/registers/piece-rates.ts \
+         src/lib/erp/register-configs/rate-confirmation.ts \
+         src/lib/erp/register-configs/piece-rate-confirmation.ts \
+         tests/pipeline/doc-parity-m5.test.ts tests/pipeline/register-services-m5.test.ts \
+         docs/CONTEXT/specs/SPEC-M5.md scripts/route_smoke_m5.sh \
          'src/app/(erp)/masters/page.tsx' 'src/app/(erp)/masters/[entity]/page.tsx' \
          'src/app/(erp)/masters/actions.ts' 'src/app/(erp)/admin/company/page.tsx' \
          prisma/schema.prisma; do

@@ -34,15 +34,18 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'party-ledger': '/accounts/party-ledger',
   'budget-vs-actual': '/costing/budget-vs-actual',
   'approval-audit': '/approvals/audit',
+  'rate-confirmation': '/procurement/rate-confirmation',
+  'piece-rate-confirmation': '/costing/piece-rate',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set: exactly the 16 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Wave A: exactly the 18 register configs (order-status board is Wave C, not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'approval-audit', 'bills-register', 'budget-vs-actual', 'daily-in-out',
       'inhand-orders', 'io-history', 'jobwork-register', 'lot-tracking',
       'order-register', 'party-balance', 'party-ledger', 'pcs-stock',
-      'production-status', 'stock-ledger', 'stock-register', 'supplier-bills',
+      'piece-rate-confirmation', 'production-status', 'rate-confirmation',
+      'stock-ledger', 'stock-register', 'supplier-bills',
     ])
   })
 
@@ -223,7 +226,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
       expect(tool.isWrite, `${name} read-only`).toBe(false)
       expect(tool.domain, `${name} domain`).toBe(domain)
     }
-    expect(allTools.length).toBe(130) // 123 + 7 Wave B tools
+    expect(allTools.length).toBe(135) // 130 + 5 M5 Wave A tools
   })
 })
 

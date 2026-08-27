@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 41 live items of 113 after M4 Wave C (+board); 14/17 groups', () => {
+  it('parityStats: 48 live items of 113 after M5 Wave A; 14/17 groups', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(41)
-    expect(s.comingItems).toBe(72)
+    expect(s.liveItems).toBe(48)
+    expect(s.comingItems).toBe(65)
     expect(s.liveGroups).toBe(14)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -211,5 +211,32 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(groupLandingHref(findGroupById('programs')!)).toBe('/programs/new')
     expect(groupLandingHref(findGroupById('jobwork')!)).toBe('/jobwork/order')
     expect(findItemById('order-hub')?.groupId).toBe('orders')
+  })
+
+  it('Wave A (M5): the 7 money/rates items are live with pages + tool doors (SPEC-M5 §7-A)', () => {
+    const waveA = [
+      { route: '/costing/budget', id: 'budget', tool: 'create_budget' },
+      { route: '/orders/commercial-invoice', id: 'commercial-invoice', tool: 'create_commercial_invoice' },
+      { route: '/accounts/invoice/local', id: 'local-invoice', tool: 'create_sales_invoice' },
+      { route: '/accounts/invoice/piece', id: 'piece-jobwork-invoice', tool: 'create_sales_invoice' },
+      { route: '/procurement/supplier-orders', id: 'supplier-orders', tool: 'create_supplier_order' },
+      { route: '/procurement/rate-confirmation', id: 'rate-confirmation', tool: 'list_po_rates' },
+      { route: '/costing/piece-rate', id: 'piece-rate-confirmation', tool: 'list_piece_rates' },
+    ]
+    for (const { route, id, tool } of waveA) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      expect(isLive(findItemById(id) as MenuItem), id).toBe(true)
+      expect((findItemById(id) as MenuItem).agentTools, `${id} tool door`).toContain(tool)
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+    }
+    // registers carry CSV routes; doc variants do not (they are not registers)
+    expect(fs.existsSync(path.join(ERP_DIR, 'procurement/rate-confirmation/csv/route.ts'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'costing/piece-rate/csv/route.ts'))).toBe(true)
+    // budget view page exists; the invoice variants reuse /accounts/invoice/[id]
+    expect(fs.existsSync(path.join(ERP_DIR, 'costing/budget/[id]/page.tsx'))).toBe(true)
+    // no pendingTools left on the Wave A fleet
+    for (const { id } of waveA) {
+      expect((findItemById(id) as MenuItem).pendingTools, `${id} pendingTools`).toEqual([])
+    }
   })
 })

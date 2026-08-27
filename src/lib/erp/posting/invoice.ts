@@ -1,10 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // SPEC-M3 §5 row 14 — create_sales_invoice service. Logic extracted VERBATIM
 // from tools.ts. No ledger effect (status flip on despatch happens downstream).
+// SPEC-M5 §7-A-2 adds the SIBLING planExportInvoice (commercial invoice,
+// invoiceType='export' + ern) — planInvoice and its tool stay byte-identical
+// (VERBATIM rule); the sibling shares the number space INV-####.
 
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { InvoiceInput } from '../schemas/invoice'
+import type { CommercialInvoiceInput } from '../schemas/commercial-invoice'
+
+/** Shared INV-#### allocator (M5 §4 rule 2: one number space per family). */
+async function nextInvoiceNo(desired?: string): Promise<string> {
+  if (desired?.trim()) {
+    const exists = await db.salesInvoice.findUnique({ where: { invoiceNo: desired } }).catch(() => null)
+    if (!exists) return desired
+  }
+  const all = await db.salesInvoice.findMany({ where: { invoiceNo: { startsWith: 'INV-' } } })
+  const used = new Set(all.map((i) => i.invoiceNo))
+  let n = 1
+  while (used.has(`INV-${String(n).padStart(4, '0')}`)) n++
+  return `INV-${String(n).padStart(4, '0')}`
+}
 
 export async function planInvoice(args: InvoiceInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
@@ -53,6 +70,55 @@ export async function planInvoice(args: InvoiceInput): Promise<DocPlanResult> {
         },
       })
       return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount }
+    },
+  }
+}
+
+// SPEC-M5 §7-A-2 — create_commercial_invoice service (export variant).
+// Same tables/number space as planInvoice; differences: invoiceType='export',
+// ern (Export Report Number), gstType defaults to igst. planInvoice above is
+// untouched (VERBATIM); this sibling reuses its helpers.
+export async function planExportInvoice(args: CommercialInvoiceInput): Promise<DocPlanResult> {
+  const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+  if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
+  const party = await db.party.findUnique({ where: { code: args.partyCode } })
+  if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
+  const finYear = '26-27'
+
+  const gstType = args.gstType?.trim() || 'igst'
+  const gstRate = args.gstRate ?? 0
+  const gstAmt = (args.taxableValue * gstRate) / 100
+  const billAmount = args.taxableValue + gstAmt
+  const cgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
+  const sgstRate = gstType === 'cgst_sgst' ? gstRate / 2 : 0
+  const igstRate = gstType === 'igst' ? gstRate : 0
+  const cgstAmt = (args.taxableValue * cgstRate) / 100
+  const sgstAmt = (args.taxableValue * sgstRate) / 100
+  const igstAmt = (args.taxableValue * igstRate) / 100
+  const billType = args.billType?.trim() || 'sales'
+  const ern = args.ern?.trim() || null
+
+  const resolvedInvoiceNo = await nextInvoiceNo(args.invoiceNo)
+
+  const data = {
+    invoiceNo: resolvedInvoiceNo, invoiceType: 'export', orderId: order.id, partyId: party.id,
+    invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
+    finYear, billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
+    cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount,
+    ern, status: 'issued',
+  }
+
+  return {
+    ok: true,
+    text: `Proposed commercial (export) invoice ${resolvedInvoiceNo} for ₹${billAmount}${ern ? ` · ERN ${ern}` : ''}.`,
+    summary: `Create commercial invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${gstRate}% ${gstType} | total ₹${billAmount}${ern ? ` | ERN ${ern}` : ''}`,
+    creates: [
+      { table: 'salesInvoice', data: { ...data } },
+    ],
+    sideEffects: ['Party AR increases', 'Export invoices are zero-rated unless GST keyed — verify shipping bill', 'Stock will be reduced when despatch is created'],
+    async commit() {
+      const inv = await db.salesInvoice.create({ data })
+      return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount, ern: inv.ern }
     },
   }
 }

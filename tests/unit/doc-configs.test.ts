@@ -20,7 +20,7 @@ import { db } from '../../src/lib/db'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('doc-configs — SPEC-M3 §7 contracts', () => {
-  it('registry has exactly the Wave D set (order + 11 chain + 7 accounts/inventory configs)', () => {
+  it('registry has the Wave D set + M5 Wave A (order + 11 chain + 7 accounts/inventory + 5 M5-A configs)', () => {
     expect(DOC_CONFIGS.map((c) => c.slug)).toEqual([
       'order',
       'program',
@@ -41,6 +41,11 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'cost-sheet',
       'stock-adjustment',
       'godown-transfer',
+      'budget',
+      'commercial-invoice',
+      'local-invoice',
+      'piece-jobwork-invoice',
+      'supplier-order',
     ])
   })
 
