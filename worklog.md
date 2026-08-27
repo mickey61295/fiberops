@@ -569,3 +569,24 @@ Stage Summary:
 - Pattern wins: bind() makes "ONE service, two screens" mechanically enforced (import-time throw + identity assertion in tests); the dynamic [slug] runner replaced 28 route copies; MIS dashboard computes every tile from REPORT_SERVICES (no dashboard-specific queries to drift).
 - Tags: spec-m6-frozen + m6-wave-a to follow; push-after-commit honored.
 - Next: M6 Wave B — ADR-016 schema (tag schema-61-baseline first; db push + generate + RESTART SERVER per PITFALLS #31), masters #26-30, /admin/users + /admin/menu-rights + /admin/options, courier-dc + loading despatch variants, +8 tools → 168, parity 81→86.
+
+---
+Task ID: m6-wave-b
+Agent: main
+Task: M6 Wave B (continuation of the m6-wave-a session) — ADR-016 schema + admin screens + courier-dc/loading despatch variants per SPEC-M6 §7-B, push-after-commit rule honored.
+
+Work Log:
+- Tagged schema-61-baseline; ADR-016: the schema ALREADY had a Phase-1 User model (AgentTurn.userId is a plain string) → ERRATUM #1: User AMENDED (userGroupId + active additively, login ≡ email) + FOUR new models (UserGroup.rights Json, AppOption key-unique, Hsn, TestParameter) → 61→65. db push + generate + dev server RESTARTED (PITFALLS #31).
+- Masters 25→30: user (email code field, role select, userGroup refEntity field, active checkbox), user-group (rights as a LIST field — CSV in form, array in tool; []=all), app-option (key/label/value/group), hsn, test-parameter. Masters hub category 'Admin & Compliance'. master-service overrides for the hyphenated user-group slug (FK_COLUMN/DISPLAY/RELATION).
+- Admin screens: /admin/users (two MasterTables via ?tab=users|groups), /admin/menu-rights (RightsMatrix client grid: rows MENU_GROUPS × cols user groups; toggle → saveMenuRightsAction → planMasterUpdate — the SAME door as update_user_group; every-checked collapses to []), /admin/options (AppOption MasterTable grouped print|defaults|general — print.* keys feed getPrintHeader so report print headers now render company data).
+- Despatch variants: DESPATCH_SCHEMA + mode (despatch|courier|loading); planPcsDespatch validates courierName for courier, LAD-#### number space + initial status 'loading' for loading (ledger identical). dispatch-variants.ts configs (readonly mode field — the schema-mirror contract rule), courier/loading pages (recent lists narrowed by courierName-not-null / LAD- prefix), create_courier_dc + create_loading_challan docTools, SLUG_REVALIDATE entries.
+- Registry: LIVE_ROUTES +5 (118), agentTools flips on the 5 items.
+- Tests: master-parity +15 (5 masters × 3 — inputs added; 93 total), master-configs 25→30 pin + user-group display-key mirror, menu-registry Wave B block (86/113), doc-configs registry pin + mode readonly fields (tsc caught the schema-mirror violation), doc-parity-m6b NEW (4: courier × both doors with identical PcsDespatch+StockLedger rows, courierName guard, LAD space/status/ledger, rights round trip incl. []=all collapse — DocFormPayload shape lesson), tool pins 160→177.
+- route_smoke_m6b.sh 28/28 (5 screens + 5 master routes + masters hub tabs + parity=86); context_check 265/265 (tools 177, factories 30/30, docTools 44, models 65, masters 30, routes 118, doc-configs 38).
+- Docs: STATE (M6-B rows, Wave B notes), SPEC-M6 ERRATUM #1, this worklog.
+
+Stage Summary:
+- M6 Wave B COMPLETE: 5/5 items live; 177 tools; 86/113 (76.1%); 118 routes; 65 models; 30 masters; 565 vitest green; route_smoke_m6b 28/28; context_check 265/265.
+- Pattern wins: rights as a list field keeps the matrix and the agent on ONE master-service door; the ADR-016-missing catch in getPrintHeader meant Wave A never needed a schema touch and Wave B needed zero report-layer changes.
+- Tags: schema-61-baseline + m6-wave-b pushed.
+- Next: M6 Wave C — registers & lifecycle (9 items: order-enquiry alias, program-status RG, stock-view RG, line-status board, order-amendments DocScreen, order-close/program-cancel/program-complete/po-close + 4 lifecycle tools) → 181 tools, parity 86→95.
