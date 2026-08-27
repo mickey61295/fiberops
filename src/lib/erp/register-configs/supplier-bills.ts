@@ -32,6 +32,10 @@ export const supplierBillsConfig: RegisterConfig = {
     { name: 'grnDate', label: 'Date', format: 'date' },
     { name: 'totalQty', label: 'Qty', align: 'right', format: 'qty' },
     { name: 'totalValue', label: 'Value', align: 'right', format: 'inr' },
+    // SPEC-M5 §6 Wave C — bill-pass state: 'Passed' when an approved
+    // supplier_bill Approval exists for the GRN (create_bill_pass), 'Pending'
+    // when one is pending, '—' when none has been raised.
+    { name: 'billPass', label: 'Bill pass', format: 'badge' },
   ],
   agentTools: ['list_supplier_bills'],
   askPrompt: 'Show me the supplier bill register',

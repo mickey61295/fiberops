@@ -415,4 +415,17 @@ the master hub card links it).
 
 ## 13. ERRATA (living — append as discovered, never rewrite history)
 
-(None at freeze. Append-only after wave completions, like SPEC-M3/M4.)
+1. **§8 tool-count arithmetic was off by 2** (found at Wave C completion):
+   the freeze said "130 + 5 + 7 + 4 + 8 = 144" but Wave A shipped 5 tools on a
+   130 baseline AND Wave B shipped 7 on 135 → 142; Wave C's +4 lands at
+   **146** (not 144). Wave D's +8 will land at **154**. The per-wave tool
+   lists (the binding part) were correct; only the total was mis-added.
+2. **§6 Wave C — posting-hook flags are agent-door-only** (implementation
+   decision, zero engine churn): `requiresAck` (transfer) / `reprocess` (grn)
+   / `returnable` (despatch) are optional booleans on the BASE schemas,
+   default = pre-Wave-C behaviour. They are deliberately NOT DocScreen form
+   fields — the doc-configs mirror-rule test skips them
+   (AGENT_ONLY_HOOK_KEYS). The bill-pass "hook" is the create_bill_pass tool
+   itself (the supplier-bills register surfaces the state as a Bill-pass
+   column — GRN has no status column, so that column IS the "GRN billed
+   status" of §6 rule 2).

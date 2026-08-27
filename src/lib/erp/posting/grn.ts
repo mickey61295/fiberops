@@ -8,6 +8,11 @@
 // SPEC-M5 §7-B-18 (Wave B) — sibling fn planJobworkPcsReturn: a process-return
 // GRN (grnType='process_return', pcs lines) with StockLedger OUT of the pcs
 // godown. planGrn and its receive_grn tool stay byte-identical (§4 rule 1).
+// SPEC-M5 §6 (Wave C) — sanctioned amendment: GrnInput gains an OPTIONAL
+// `reprocess` flag (default false). When true the commit ALSO leaves a pending
+// reprocess Approval (entityId = the GRN id) inside the same transaction —
+// approved at /quality/reprocess-approval (approve_reprocess tool). Default
+// behaviour is byte-identical to pre-Wave-C (flag absent ⇒ no row).
 
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
@@ -54,12 +59,18 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
       { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
       { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
       { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
+      ...(args.reprocess ? [{ table: 'approval', data: { entity: 'reprocess', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
     updates: [
       { table: 'purchaseOrder', id: po.id, data: { status: actualQty >= po.totalQty ? 'received' : 'partial' } },
       { table: 'poLine', id: line.id, data: { receivedQty: { increment: actualQty } } },
     ],
-    sideEffects: ['Stock increases', 'PO status becomes received/partial', 'Party ledger will reflect this GRN'],
+    sideEffects: [
+      'Stock increases',
+      'PO status becomes received/partial',
+      'Party ledger will reflect this GRN',
+      ...(args.reprocess ? [`Pending reprocess approval for ${resolvedGrnNo} appears in /quality/reprocess-approval`] : []),
+    ],
     async commit() {
       return await db.$transaction(async (tx) => {
         const grn = await tx.gRN.create({
@@ -129,7 +140,13 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
           where: { id: line.id },
           data: { receivedQty: { increment: actualQty } },
         })
-        return { id: grn.id, grnNo: grn.grnNo }
+        // SPEC-M5 §6 Wave C — leave the pending reprocess row in the SAME transaction.
+        if (args.reprocess) {
+          await tx.approval.create({
+            data: { entity: 'reprocess', entityId: grn.id, step: 1, requestedBy: 'agent', status: 'pending' },
+          })
+        }
+        return { id: grn.id, grnNo: grn.grnNo, ...(args.reprocess ? { reprocessApproval: true } : {}) }
       })
     },
   }

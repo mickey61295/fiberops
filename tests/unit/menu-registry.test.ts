@@ -75,14 +75,35 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 62 live items of 113 after M5 Wave B; 14/17 groups (no new group opened)', () => {
+  it('parityStats: 66 live items of 113 after M5 Wave C; 16/17 groups (dispatch + quality opened)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(62)
-    expect(s.comingItems).toBe(51)
-    expect(s.liveGroups).toBe(14)
+    expect(s.liveItems).toBe(66)
+    expect(s.comingItems).toBe(47)
+    expect(s.liveGroups).toBe(16)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
+  })
+
+  it('Wave C (M5): the 4 approval-gate IN screens are live with kind-filtered inbox views (SPEC-M5 §6)', () => {
+    const waveC = [
+      { route: '/accounts/bill-pass', id: 'bill-pass', tool: 'create_bill_pass' },
+      { route: '/dispatch/unit-transfer-ack', id: 'unit-transfer-ack', tool: 'acknowledge_unit_transfer' },
+      { route: '/quality/reprocess-approval', id: 'reprocess-approval', tool: 'approve_reprocess' },
+      { route: '/quality/non-return-dc', id: 'non-return-dc-approval', tool: 'approve_non_return_dc' },
+    ]
+    for (const { route, id, tool } of waveC) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      const item = findItemById(id) as MenuItem
+      expect(item, id).toBeTruthy()
+      expect(isLive(item)).toBe(true)
+      expect(item.agentTools).toContain(tool)
+      expect(item.agentTools).toContain('get_pending_approvals')
+      expect(item.pendingTools).toEqual([])
+    }
+    // the two groups Wave C opened
+    expect(findGroupById('dispatch')!.landingRoute).toBe('/dispatch/unit-transfer-ack')
+    expect(findGroupById('quality')!.landingRoute).toBe('/quality/reprocess-approval')
   })
 
   it('Wave A (M4): the 3 flagship register routes are live with page files + tool doors', () => {

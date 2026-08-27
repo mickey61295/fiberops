@@ -12,6 +12,10 @@ export const TRANSFER_SCHEMA = z.object({
   qty: z.number().describe('Quantity to transfer (positive number; kgs for yarn/fabric, pcs for accessory)'),
   notes: z.string().optional(),
   transferDate: z.string().optional(),
+  // SPEC-M5 §6 (Wave C): when true the commit ALSO leaves a pending
+  // godown_transfer Approval row (entityId = the GT-#### docNo) for the
+  // receiving unit to acknowledge via /dispatch/unit-transfer-ack.
+  requiresAck: z.boolean().optional().describe('Leave a pending unit-transfer approval to acknowledge (default false)'),
 })
 
 export type TransferInput = z.infer<typeof TRANSFER_SCHEMA>

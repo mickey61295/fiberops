@@ -36,6 +36,19 @@ export async function querySupplierBills(q: RegisterQuery): Promise<RegisterResu
   const pos = poIds.length ? await db.purchaseOrder.findMany({ where: { id: { in: poIds } }, select: { id: true, poNo: true } }) : []
   const poMap = new Map(pos.map((p) => [p.id, p.poNo]))
 
+  // SPEC-M5 §6 Wave C — bill-pass state per GRN: the supplier_bill Approval
+  // (create_bill_pass / pending hook) IS the bill-pass document. 'Passed' when
+  // approved, 'Pending' when awaiting, '—' when none raised.
+  const aps = grns.length
+    ? await db.approval.findMany({ where: { entity: 'supplier_bill', entityId: { in: grns.map((g) => g.id) } }, orderBy: { createdAt: 'desc' } })
+    : []
+  const apMap = new Map<string, string>()
+  for (const ap of aps) if (!apMap.has(ap.entityId)) apMap.set(ap.entityId, ap.status)
+  const billPass = (id: string) => {
+    const st = apMap.get(id)
+    return st === 'approved' ? 'Passed' : st === 'pending' ? 'Pending' : '—'
+  }
+
   const rows: RegisterRow[] = grns.map((g) => ({
     id: g.id,
     href: `/procurement/grn/${g.id}`,
@@ -46,6 +59,7 @@ export async function querySupplierBills(q: RegisterQuery): Promise<RegisterResu
     grnDate: g.grnDate,
     totalQty: g.totalQty,
     totalValue: g.totalValue,
+    billPass: billPass(g.id),
   }))
 
   const sum = (k: 'totalQty' | 'totalValue') => rows.reduce((s, r) => s + (r[k] as number), 0)

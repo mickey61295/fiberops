@@ -124,6 +124,11 @@ export const LIVE_ROUTES = new Set<string>([
   '/costing/input', // Costing Input (M5 Wave B) — costing-input (variant of /costing/cost-sheet)
   '/hr/wages', // Production Wages (M5 Wave B) — production-wages (RG + wage-bill journal)
   '/hr/wage-payments', // Wage Payments (M5 Wave B) — wage-payments (variant of /accounts/payments)
+  // M5 Wave C (SPEC-M5 §6 — approval gates; kind-filtered inbox views)
+  '/accounts/bill-pass', // Bill Pass (M5 Wave C) — bill-pass (IN, kind=supplier_bill)
+  '/dispatch/unit-transfer-ack', // Unit Transfer Ack (M5 Wave C) — unit-transfer-ack (IN, kind=godown_transfer)
+  '/quality/reprocess-approval', // Reprocess Approval (M5 Wave C) — reprocess-approval (IN, kind=reprocess)
+  '/quality/non-return-dc', // Non-Return DC Approval (M5 Wave C) — non-return-dc-approval (IN, kind=non_return_dc)
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -147,11 +152,11 @@ export const MENU_GROUPS: MenuGroup[] = [
   { id: 'pieces', label: 'Pieces (Finished Goods)', icon: 'Shirt', landingRoute: '/pieces/despatch', order: 7, description: 'Pcs despatch/receipt/transfer/stock/packing' },
   { id: 'production', label: 'Production & Shopfloor', icon: 'Factory', landingRoute: '/production', order: 8, description: 'Entries, line issue/output, WIP, bundles' },
   { id: 'jobwork', label: 'Job Work', icon: 'Handshake', landingRoute: '/jobwork/order', order: 9, description: 'Outsourced jobwork out/in & balances' },
-  { id: 'dispatch', label: 'Dispatch & Logistics', icon: 'Truck', landingRoute: '/coming/dispatch', order: 10, description: 'DCs (all materials), gate, courier, loading' },
+  { id: 'dispatch', label: 'Dispatch & Logistics', icon: 'Truck', landingRoute: '/dispatch/unit-transfer-ack', order: 10, description: 'DCs (all materials), gate, courier, loading' },
   { id: 'accounts', label: 'Accounts & GST', icon: 'Receipt', landingRoute: '/accounts', order: 11, description: 'Invoices, bills, payments, journals, HSN' },
   { id: 'costing', label: 'Costing & Budgets', icon: 'Calculator', landingRoute: '/costing', order: 12, description: 'Cost sheets, budgets, expenses, P&L' },
   { id: 'hr', label: 'HR & Payroll', icon: 'Users', landingRoute: '/hr', order: 13, description: 'Employees, shifts, wages' },
-  { id: 'quality', label: 'Quality & Lab', icon: 'FlaskConical', landingRoute: '/coming/quality', order: 14, description: 'Lab tests, parameters, approvals' },
+  { id: 'quality', label: 'Quality & Lab', icon: 'FlaskConical', landingRoute: '/quality/reprocess-approval', order: 14, description: 'Lab tests, parameters, approvals' },
   { id: 'approvals', label: 'Approvals & Workflow', icon: 'CheckCircle2', landingRoute: '/approvals', order: 15, description: 'Cross-module approval inbox + audit' },
   { id: 'reports', label: 'Reports & Analytics', icon: 'BarChart3', landingRoute: '/coming/reports', order: 16, description: 'Report hub, packs, MIS' },
   { id: 'masters-admin', label: 'Masters & Admin', icon: 'Database', landingRoute: '/masters', order: 17, description: '~40 masters, users, rights, options' },
@@ -696,7 +701,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'unit-transfer-ack', label: 'Unit Transfer Ack', groupId: 'dispatch', route: '/dispatch/unit-transfer-ack', arch: 'IN', phase: 'M5',
     description: 'Acknowledge inter-unit transfers.',
     legacyForms: ['FrmUnitTransferAck'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_pending_approvals', 'acknowledge_unit_transfer'], pendingTools: [],
   },
   {
     id: 'courier-dc', label: 'Courier DC', groupId: 'dispatch', route: '/dispatch/courier', arch: 'DS', phase: 'M6',
@@ -742,7 +747,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'bill-pass', label: 'Bill Pass', groupId: 'accounts', route: '/accounts/bill-pass', arch: 'IN', phase: 'M5',
     description: 'Approve supplier bills for payment.',
     legacyForms: ['frmBillPass'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_pending_approvals', 'create_bill_pass'], pendingTools: [],
   },
   {
     id: 'bills-register', label: 'Bills Register', groupId: 'accounts', route: '/accounts/bills-register', arch: 'RG', phase: 'M4',
@@ -893,13 +898,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'reprocess-approval', label: 'Reprocess Approval', groupId: 'quality', route: '/quality/reprocess-approval', arch: 'IN', phase: 'M5',
     description: 'Approve reprocessing of defective material.',
     legacyForms: ['FrmReprocess_Approval'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_pending_approvals', 'approve_reprocess'], pendingTools: [],
   },
   {
     id: 'non-return-dc-approval', label: 'Non-Return DC Approval', groupId: 'quality', route: '/quality/non-return-dc', arch: 'IN', phase: 'M5',
     description: 'Approve DCs whose material will not return.',
     legacyForms: ['FrmNonReturnDCApproval'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['get_pending_approvals', 'approve_non_return_dc'], pendingTools: [],
   },
 
   // ---- approvals (2) ----

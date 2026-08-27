@@ -2,6 +2,7 @@
 import { db } from '@/lib/db'
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { listMasters } from '@/lib/erp/posting/master-service'
+import { approvalRefHref } from '@/lib/erp/approval-kinds'
 
 // GET /api/erp?resource=orders|purchase_orders|inventory|cutting|production|invoices|costing|hr|approvals|masters|master_search&...
 export async function GET(req: Request) {
@@ -158,8 +159,11 @@ export async function GET(req: Request) {
         return Response.json({ emps, depts })
       }
       case 'approvals': {
+        // SPEC-M5 §6 Wave C — optional kind filter (the kind === Approval.entity;
+        // the registry lives in src/lib/erp/approval-kinds.ts). Default: all kinds.
+        const kind = url.searchParams.get('kind')
         const approvals = await db.approval.findMany({
-          where: { status: 'pending' },
+          where: { status: 'pending', ...(kind ? { entity: kind } : {}) },
           orderBy: { createdAt: 'desc' },
         })
         const enriched = await Promise.all(approvals.map(async (a) => {
@@ -171,8 +175,20 @@ export async function GET(req: Request) {
             entityData = await db.purchaseOrder.findUnique({
               where: { id: a.entityId }, include: { party: true, lines: true },
             })
+          } else if (a.entity === 'supplier_bill' || a.entity === 'reprocess') {
+            entityData = await db.gRN.findUnique({
+              where: { id: a.entityId }, include: { party: true },
+            })
+          } else if (a.entity === 'godown_transfer') {
+            // entityId is the GT-#### docNo — surface the ledger pair.
+            entityData = await db.stockLedger.findMany({
+              where: { docNo: a.entityId, txnType: { in: ['godown_transfer_out', 'godown_transfer_in'] } },
+              orderBy: { createdAt: 'asc' },
+            })
+          } else if (a.entity === 'non_return_dc') {
+            entityData = await db.pcsDespatch.findUnique({ where: { id: a.entityId } })
           }
-          return { ...a, entityData }
+          return { ...a, entityData, refHref: approvalRefHref(a.entity, a.entityId) }
         }))
         return Response.json(enriched)
       }

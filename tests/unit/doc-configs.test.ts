@@ -181,6 +181,12 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
   })
 
   it('EVERY config mirrors its shared schema keys exactly (Wave C — the rule generalised)', () => {
+    // SPEC-M5 §6 (Wave C): agent-door-only HOOK FLAGS — optional booleans on the
+    // base schemas (transfer requiresAck / grn reprocess / despatch returnable)
+    // that make the posting services leave a pending Approval row. They are
+    // deliberately NOT form fields (default false = pre-Wave-C behaviour; the
+    // form door never sets them), so the mirror rule skips them.
+    const AGENT_ONLY_HOOK_KEYS = new Set(['requiresAck', 'reprocess', 'returnable'])
     for (const c of DOC_CONFIGS) {
       const shape = (c.schema as unknown as { shape?: Record<string, unknown> }).shape
       if (!shape) throw new Error(`${c.slug} schema must be a zod object`)
@@ -188,6 +194,7 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       const lineNames = (c.lineFields ?? []).map((f) => f.name)
       const linesKey = c.linesKey ?? 'lines'
       for (const key of Object.keys(shape)) {
+        if (AGENT_ONLY_HOOK_KEYS.has(key)) continue
         const isLines = key === linesKey && c.lineFields
         if (isLines) {
           // zod v4: unwrap ZodOptional chains (note — z.array() itself ALSO has

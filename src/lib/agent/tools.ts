@@ -31,6 +31,7 @@ import { getPartyLedgerSummary } from '@/lib/erp/registers/party-ledger'
 import { getOrderBudgetActual } from '@/lib/erp/registers/budget'
 import { queryApprovalAudit } from '@/lib/erp/registers/approval-audit'
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
+import { findApprovalKind, approvalRefHref } from '@/lib/erp/approval-kinds'
 // SPEC-M3 Wave A — the transaction write tools are now THIN delegates over the
 // posting services (ADR-001 at transaction scale). Schemas move VERBATIM into
 // src/lib/erp/schemas/ (the agent prompt contract must not drift); the chain
@@ -1361,6 +1362,7 @@ const readTools: AgentTool[] = [
         json: res.rows.map((g) => ({
           grnNo: g.grnNo, grnType: g.grnType, party: g.party, poNo: g.poNo,
           grnDate: g.grnDate, totalQty: g.totalQty, totalValue: g.totalValue,
+          billPass: g.billPass, // M5 Wave C additive: Passed | Pending | —
         })),
       }
     },
@@ -1735,6 +1737,59 @@ const masterNewListTools: AgentTool[] = [
   },
 ]
 
+/** SPEC-M5 §6 Wave C — shared plan/commit machinery for the approval-gate
+ * wrapper tools. Finds the latest Approval row for (entity, entityId):
+ * already-approved → informational text; pending → propose the approve update;
+ * missing → propose create-then-approve (§8: "ALSO create the pending row when
+ * an entity lacks one"). Commit mirrors approve_pending's contract. */
+async function proposeApprovalGate(
+  entity: string,
+  r: { entityId: string; title: string; detail: string; href: string | null },
+  comments?: string,
+) {
+  const kind = findApprovalKind(entity)!
+  const existing = await db.approval.findFirst({
+    where: { entity, entityId: r.entityId },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (existing?.status === 'approved') {
+    return { text: `${kind.label} for ${r.title} is already approved.` }
+  }
+  if (existing?.status === 'rejected') {
+    return { text: `${kind.label} for ${r.title} was rejected — raise a new document to re-open it.` }
+  }
+  const willCreate = !existing
+  return {
+    text: `Proposed ${willCreate ? 'creation + approval' : 'approval'} of ${kind.label} for ${r.title}.`,
+    plan: {
+      summary: `${kind.label} — ${r.title} | ${r.detail}`,
+      creates: willCreate
+        ? [{ table: 'approval', data: { entity, entityId: r.entityId, step: 1, requestedBy: 'agent', status: 'pending' } }]
+        : [],
+      updates: [{ table: 'approval', id: existing?.id ?? '<new>', data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments } }],
+      sideEffects: [
+        `${r.title} is marked ${kind.label.toLowerCase()}-approved`,
+        r.href ? `Document view: ${r.href}` : 'Decision recorded in the approval audit trail',
+      ],
+    },
+    async commit() {
+      return await db.$transaction(async (tx) => {
+        let row = existing
+        if (!row) {
+          row = await tx.approval.create({
+            data: { entity, entityId: r.entityId, step: 1, requestedBy: 'agent', status: 'pending' },
+          })
+        }
+        const updated = await tx.approval.update({
+          where: { id: row.id },
+          data: { status: 'approved', approvedBy: 'agent', approvedAt: new Date(), comments },
+        })
+        return { id: updated.id, entity, entityId: r.entityId, ref: r.title, status: updated.status }
+      })
+    },
+  }
+}
+
 const writeTools: AgentTool[] = [
   ...docTools,
   {
@@ -1765,6 +1820,75 @@ const writeTools: AgentTool[] = [
           return { id: ap.id, status: 'approved' }
         },
       }
+    },
+  },
+  // ───────── SPEC-M5 §6 Wave C — approval-gate wrapper tools (+4 → 146) ─────────
+  // Thin wrappers over the approve door (§8): each resolves its underlying
+  // document, finds the pending Approval row for its kind — creating it when
+  // the entity lacks one — and proposes approving it via the SAME plan/commit
+  // contract as approve_pending. Kinds registry: src/lib/erp/approval-kinds.ts.
+  {
+    name: 'create_bill_pass',
+    description: 'Pass (approve for payment) a supplier bill — the GRN rows in the supplier-bill register. Required: grnNo. Optional: comments. Marks the GRN bill-passed (the supplier-bill register shows Passed); creates the pending supplier_bill approval first when the GRN lacks one.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      grnNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
+      if (!grn) return { text: `GRN ${args.grnNo} not found` }
+      const r = { entityId: grn.id, title: grn.grnNo, detail: `${grn.party?.name ?? 'party'} · ₹${Math.round(grn.totalValue).toLocaleString('en-IN')} · ${grn.grnType}`, href: approvalRefHref('supplier_bill', grn.id) }
+      return proposeApprovalGate('supplier_bill', r, args.comments)
+    },
+  },
+  {
+    name: 'acknowledge_unit_transfer',
+    description: 'Acknowledge an inter-unit godown transfer. Required: docNo (the GT-#### transfer number). Optional: comments. Approves the pending godown_transfer approval left by transfer_stock with requiresAck — creates the row first when the transfer lacks one.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      docNo: z.string().describe('The GT-#### godown-transfer doc number'),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const pair = await db.stockLedger.findFirst({ where: { docNo: args.docNo, txnType: { in: ['godown_transfer_out', 'godown_transfer_in'] } } })
+      if (!pair) return { text: `No godown transfer ${args.docNo} found (expected a GT-#### doc number)` }
+      const r = { entityId: args.docNo, title: args.docNo, detail: `godown transfer ${args.docNo} · acknowledged by receiving unit`, href: approvalRefHref('godown_transfer', args.docNo) }
+      return proposeApprovalGate('godown_transfer', r, args.comments)
+    },
+  },
+  {
+    name: 'approve_reprocess',
+    description: 'Approve reprocessing of defective material received on a GRN. Required: grnNo. Optional: comments. Approves the pending reprocess approval left by receive_grn with reprocess:true — creates the row first when the GRN lacks one.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      grnNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
+      if (!grn) return { text: `GRN ${args.grnNo} not found` }
+      const r = { entityId: grn.id, title: grn.grnNo, detail: `reprocess ${grn.grnNo} · ${grn.party?.name ?? 'party'} · ${grn.totalQty} units`, href: approvalRefHref('reprocess', grn.id) }
+      return proposeApprovalGate('reprocess', r, args.comments)
+    },
+  },
+  {
+    name: 'approve_non_return_dc',
+    description: 'Approve a despatch DC whose material will not return. Required: dcNo (the DC-#### number). Optional: comments. Approves the pending non_return_dc approval left by create_pcs_despatch with returnable:false — creates the row first when the DC lacks one.',
+    domain: 'workflow',
+    isWrite: true,
+    schema: z.object({
+      dcNo: z.string(),
+      comments: z.string().optional(),
+    }),
+    async execute(args) {
+      const dc = await db.pcsDespatch.findUnique({ where: { dcNo: args.dcNo } })
+      if (!dc) return { text: `Despatch DC ${args.dcNo} not found` }
+      const r = { entityId: dc.id, title: dc.dcNo, detail: `non-return DC ${dc.dcNo} · ${dc.totalPcs} pcs · vehicle ${dc.vehicleNo || '-'}`, href: approvalRefHref('non_return_dc', dc.id) }
+      return proposeApprovalGate('non_return_dc', r, args.comments)
     },
   },
   {

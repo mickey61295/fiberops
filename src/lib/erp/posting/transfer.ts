@@ -4,6 +4,9 @@
 // godown_transfer_out (from-godown) + godown_transfer_in (to-godown), both
 // sharing one GT-#### doc number, each bumping its own CurrentStock bucket via
 // postLedger (ADR-004 bucket rule). Net effect on total stock: zero.
+// SPEC-M5 §6 (Wave C): requiresAck=true ALSO leaves a pending godown_transfer
+// Approval (entityId = GT-####) inside the same transaction — the receiving
+// unit acknowledges it at /dispatch/unit-transfer-ack (acknowledge_unit_transfer).
 
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
@@ -45,11 +48,13 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
     creates: [
       { table: 'stockLedger', data: { txnType: 'godown_transfer_out', itemType: args.itemType, itemId: item.id, godownId: fromGodown.id, docNo, docDate, outKgs: uom === 'kgs' ? args.qty : 0, outPcs: uom === 'pcs' ? args.qty : 0, rate: item.rate, notes } },
       { table: 'stockLedger', data: { txnType: 'godown_transfer_in', itemType: args.itemType, itemId: item.id, godownId: toGodown.id, docNo, docDate, inKgs: uom === 'kgs' ? args.qty : 0, inPcs: uom === 'pcs' ? args.qty : 0, rate: item.rate, notes } },
+      ...(args.requiresAck ? [{ table: 'approval', data: { entity: 'godown_transfer', entityId: docNo, step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
     sideEffects: [
       `${fromGodown.code} current stock decreases by ${args.qty} ${uom}`,
       `${toGodown.code} current stock increases by ${args.qty} ${uom}`,
       'Total stock across godowns is unchanged (net zero)',
+      ...(args.requiresAck ? [`Pending unit-transfer approval ${docNo} appears in /dispatch/unit-transfer-ack`] : []),
     ],
     async commit() {
       return await db.$transaction(async (tx) => {
@@ -63,7 +68,13 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
           godownId: toGodown.id, docNo, docDate, rate: item.rate, notes,
           in: uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty },
         })
-        return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code }
+        // SPEC-M5 §6 Wave C — leave the pending ack row in the SAME transaction.
+        if (args.requiresAck) {
+          await tx.approval.create({
+            data: { entity: 'godown_transfer', entityId: docNo, step: 1, requestedBy: 'agent', status: 'pending' },
+          })
+        }
+        return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code, ...(args.requiresAck ? { requiresAck: true } : {}) }
       })
     },
   }

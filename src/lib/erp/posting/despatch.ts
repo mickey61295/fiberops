@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // SPEC-M3 §5 row 13 — create_pcs_despatch service. Logic extracted VERBATIM
 // from tools.ts. Ledger effect: sales_delivery pcs OUT of G2 (postLedger).
+// SPEC-M5 §6 (Wave C): returnable=false ALSO leaves a pending non_return_dc
+// Approval (entityId = the DC id) inside the same transaction — approved at
+// /quality/non-return-dc (approve_non_return_dc tool).
 
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
@@ -31,8 +34,13 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
     creates: [
       { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: 'despatched' } },
       ...lines.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 } })),
+      ...(args.returnable === false ? [{ table: 'approval', data: { entity: 'non_return_dc', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
-    sideEffects: ['Finished goods stock reduces', 'Order completion % increases'],
+    sideEffects: [
+      'Finished goods stock reduces',
+      'Order completion % increases',
+      ...(args.returnable === false ? [`Pending non-return DC approval for ${resolvedDcNo} appears in /quality/non-return-dc`] : []),
+    ],
     async commit() {
       return await db.$transaction(async (tx) => {
         const d = await tx.pcsDespatch.create({
@@ -54,7 +62,13 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
             notes: `Despatch DC ${resolvedDcNo} → ${order.buyer?.name || 'buyer'}`,
           })
         }
-        return { id: d.id, dcNo: d.dcNo }
+        // SPEC-M5 §6 Wave C — leave the pending non-return row in the SAME transaction.
+        if (args.returnable === false) {
+          await tx.approval.create({
+            data: { entity: 'non_return_dc', entityId: d.id, step: 1, requestedBy: 'agent', status: 'pending' },
+          })
+        }
+        return { id: d.id, dcNo: d.dcNo, ...(args.returnable === false ? { nonReturnApproval: true } : {}) }
       })
     },
   }

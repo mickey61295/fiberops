@@ -15,6 +15,11 @@ export const DESPATCH_SCHEMA = z.object({
     qty: z.number(),
     rate: z.number().optional(),
   })).optional(),
+  // SPEC-M5 §6 (Wave C): returnable defaults to TRUE (legacy behaviour). When
+  // explicitly false the commit ALSO leaves a pending non_return_dc Approval
+  // (entityId = the DC id) — approved at /quality/non-return-dc
+  // (approve_non_return_dc tool).
+  returnable: z.boolean().optional().describe('Material will return (default true). Set false to raise a non-return DC approval'),
 })
 
 export type DespatchInput = z.infer<typeof DESPATCH_SCHEMA>
