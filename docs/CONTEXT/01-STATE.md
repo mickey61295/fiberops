@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m3-wave-d — **M3 DONE**)
+Last verified: 2026-08-27 (session: m4-spec — **SPEC-M4 FROZEN**, commits b344ae8 + spec)
 
 ## Milestone status
 
@@ -13,7 +13,7 @@ Last verified: 2026-08-27 (session: m3-wave-d — **M3 DONE**)
 | M1 — App shell & menu registry | real routes, sidebar from registry, parity tracker, coming-soo pages, approval inbox shell | **DONE** (original tag lost in rollback #4; milestone recorded in worklog + patch 0003) |
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
-| M4 — RegisterScreen engine + registers + wiring W2/W6 | | NOT STARTED |
+| M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **SPEC FROZEN** (`specs/SPEC-M4.md`, tag `spec-m4-frozen`) — implementation waves A→C not started |
 | M5 — Extended doc families | | NOT STARTED |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
 
@@ -192,6 +192,12 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    174 vitest green, route smoke 49/49, 24/113 items live (21.2%), 14/17 groups.
 2. Write + freeze **SPEC-M4** per PLAN-2.0 (RegisterScreen engine + registers +
    wiring W2/W6) BEFORE any M4 code (protocol rule #3). Commit the spec.
+   **DONE 2026-08-27** — `specs/SPEC-M4.md` frozen + tagged `spec-m4-frozen`:
+   17 items (15 RG + order-status-board DB + stock-register RH-lite),
+   read-side ADR-001 twin (services own queries; tools delegate, zod verbatim),
+   8 new tools (→130), W2 drill-down + KPI deep-links + W6 recon cards ×4,
+   waves A (engine+3 flagships) / B (fleet) / C (wiring+board → m4-done).
+   Also this session: /approvals crash fixed (PITFALLS #25, commit b344ae8).
 3. Update this file every wave (same commit).
 
 ## M3 Wave D notes for future sessions
