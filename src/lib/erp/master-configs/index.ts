@@ -1,4 +1,5 @@
-// SPEC-M2 §4 — the master config registry: 24 entities, one engine.
+// SPEC-M2 §4 — the master config registry: 25 entities, one engine
+// (24 M2 masters + SPEC-M5 §7-D-32 shift).
 import type { MasterConfig, MasterCategory } from './types'
 
 import { partyConfig } from './party'
@@ -25,6 +26,7 @@ import { employeeConfig } from './employee'
 import { lineConfig } from './line'
 import { govtHolidayConfig } from './govt-holiday'
 import { finYearConfig } from './fin-year'
+import { shiftConfig } from './shift'
 
 export const MASTER_CONFIGS: MasterConfig[] = [
   partyConfig,
@@ -51,6 +53,8 @@ export const MASTER_CONFIGS: MasterConfig[] = [
   lineConfig,
   govtHolidayConfig,
   finYearConfig,
+  // SPEC-M5 Wave D (§7-D-32)
+  shiftConfig,
 ]
 
 export const MASTER_CATEGORIES: Array<{ key: MasterCategory; label: string; blurb: string }> = [

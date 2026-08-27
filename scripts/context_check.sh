@@ -69,30 +69,30 @@ echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  reg
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveC session]"
-check "agent tools (inline+factory+docTool)" "146" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M5-WaveD session (M5 COMPLETE)]"
+check "agent tools (inline+factory+docTool)" "159" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
-check "factory create tools"       "24"      "$FACTORY_CREATE"
-check "factory update tools"       "24"      "$FACTORY_UPDATE"
-check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B)" "32"    "$DOCTOOLS"
-check "prisma models"              "54"      "$MODELS"
+check "factory create tools"       "25"      "$FACTORY_CREATE"
+check "factory update tools"       "25"      "$FACTORY_UPDATE"
+check "docTool delegates (SPEC-M3 §5 + §11 + M5-A/B/D)" "42"    "$DOCTOOLS"
+check "prisma models (54 + ADR-015 ×7)" "61"      "$MODELS"
 check "erp view/shell components (+recon-card)" "22"      "$VIEWS"
 check "archetype engines (+register-screen)" "3"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-C block)" "21"      "$REGTESTS"
+check "menu registry tests (M5-D block)" "22"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests"           "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M5 Wave C)"    "91"      "$LIVEROUTES"
+check "live routes (M5 Wave D — M5 COMPLETE)" "108"    "$LIVEROUTES"
 check "register config files (M4 fleet + M5-A rates + M5-B wages)" "19"       "$REGCFGS"
 check "register service files (M4 fleet + order-status + recon + M5-A/B)" "21"       "$REGSVCFILES"
-check "master configs"             "24"      "$MASTERCFGS"
-check "shared zod schema files"    "27"      "$SCHEMAFILES"
-check "posting service files"      "25"      "$POSTINGSVCS"
+check "master configs (24 M2 + shift)" "25"      "$MASTERCFGS"
+check "shared zod schema files"    "36"      "$SCHEMAFILES"
+check "posting service files"      "34"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 configs; variants share files)" "28"       "$DOCCFGS"
+check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 configs; variants share files)" "37"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 
 echo
@@ -186,6 +186,36 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/registers/wages.ts src/lib/erp/register-configs/wages.ts \
          tests/pipeline/doc-parity-m5b.test.ts tests/pipeline/register-services-m5b.test.ts \
          scripts/route_smoke_m5b.sh \
+         src/lib/erp/approval-kinds.ts tests/unit/approval-kinds.test.ts \
+         scripts/route_smoke_m5c.sh scripts/seed_m5c_smoke.ts \
+         'src/app/(erp)/accounts/bill-pass/page.tsx' \
+         'src/app/(erp)/dispatch/unit-transfer-ack/page.tsx' \
+         'src/app/(erp)/quality/reprocess-approval/page.tsx' \
+         'src/app/(erp)/quality/non-return-dc/page.tsx' \
+         src/lib/erp/master-configs/shift.ts \
+         src/lib/erp/doc-configs/sample.ts src/lib/erp/doc-configs/gate.ts \
+         src/lib/erp/doc-configs/packing-list.ts src/lib/erp/doc-configs/lab-test.ts \
+         src/lib/erp/doc-configs/expense.ts src/lib/erp/doc-configs/roll-split.ts \
+         src/lib/erp/doc-configs/contract-allotment.ts src/lib/erp/doc-configs/program-allotment.ts \
+         src/lib/erp/doc-configs/production-bill.ts \
+         src/lib/erp/posting/sample.ts src/lib/erp/posting/gate.ts \
+         src/lib/erp/posting/packing-list.ts src/lib/erp/posting/lab-test.ts \
+         src/lib/erp/posting/expense.ts src/lib/erp/posting/roll-split.ts \
+         src/lib/erp/posting/contract-allotment.ts src/lib/erp/posting/program-allotment.ts \
+         src/lib/erp/posting/production-bill.ts \
+         tests/pipeline/doc-parity-m5d.test.ts \
+         scripts/route_smoke_m5d.sh scripts/seed_m5d_smoke.ts \
+         'src/app/(erp)/orders/samples/page.tsx' \
+         'src/app/(erp)/dispatch/gate-entry/page.tsx' \
+         'src/app/(erp)/dispatch/gate-pass/page.tsx' \
+         'src/app/(erp)/pieces/packing-list/page.tsx' \
+         'src/app/(erp)/quality/lab-tests/page.tsx' \
+         'src/app/(erp)/costing/expenses/page.tsx' \
+         'src/app/(erp)/inventory/rolls/page.tsx' \
+         'src/app/(erp)/jobwork/contract/page.tsx' \
+         'src/app/(erp)/programs/allotment/page.tsx' \
+         'src/app/(erp)/accounts/production-bills/page.tsx' \
+         'src/app/(erp)/hr/shifts/page.tsx' \
          'src/app/(erp)/pieces/finished-goods/page.tsx' \
          'src/app/(erp)/production/operations/page.tsx' \
          'src/app/(erp)/production/bundles/page.tsx' \

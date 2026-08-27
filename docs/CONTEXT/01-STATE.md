@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-27 (session: m5-wave-c — Wave C approval gates (4 IN items: bill-pass, unit-transfer-ack, reprocess-approval, non-return-dc-approval; kinds registry + inbox ?kind= tabs + posting hooks requiresAck/reprocess/returnable + 4 approve wrappers → 146 tools; 66/113 live, 16/17 groups; 378 vitest green; tags `spec-m5-frozen`, `m5-wave-a`, `m5-wave-b`, `m5-wave-c`; remote PUSHED)
+Last verified: 2026-08-27 (session: m5-wave-d — M5 COMPLETE: ADR-015 seven new models 54→61 (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift) + 11 items live (samples-enquiry, gate-entry/pass, packing-list, lab-test-entry, expenses, shifts-hours MT, roll-tracking lot-split, contract-allotment, fabric-acc-allotment, production-bills) + 13 tools → 159; 77/113 live, 16/17 groups; 393 vitest green; tags `spec-m5-frozen`, `m5-wave-a`…`m5-wave-d`; remote PUSHED)
 
 ## Milestone status
 
@@ -14,42 +14,42 @@ Last verified: 2026-08-27 (session: m5-wave-c — Wave C approval gates (4 IN it
 | M2 — MasterTable engine + masters | 24 master configs, shared master-service, form×agent parity, /admin/company | **DONE** (tag `m2-done`) |
 | M3 — DocScreen engine + 15-stage chain forms + wiring W1/W3/W4 + PostingEngine extraction | 23 posting services + shared zod + DocScreen engine + 27 doc screens + Order Hub + pickers + /api/upload + 122 tools | **DONE** (tag `m3-done`; waves A→D in `specs/SPEC-M3.md` §14 — Wave D added invoice, debit-note, payment, journal, cost-sheet, stock-adjustment, godown-transfer + 2 new tools + /api/upload + AI-prefill button + ERRATUM 6 header typed picker) |
 | M4 — RegisterScreen engine + registers + wiring W2/W6 | 17 register/board screens + shared read services + W2 drill-down/KPI links + W6 recon cards + Order Status Board | **DONE** (tag `m4-done`; Wave A engine+3 flagships → Wave B fleet 16 registers + 7 tools →130 → Wave C recon cards ×4 + Order Status Board `/orders/status` + KPI deep-links + route_smoke_waveE 19/19; 41/113 items live) |
-| M5 — Extended doc families | 36 items: Wave A money/rates (7: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 six new models (10) →146 tools (ERRATA #1: spec said 144 — its §8 arithmetic missed 2), 77/113 | **IN PROGRESS** (SPEC frozen `spec-m5-frozen`; Wave A DONE `m5-wave-a`; Wave B DONE `m5-wave-b`; **Wave C DONE** `m5-wave-c`: approval-kinds.ts registry (kind === Approval.entity) + inbox ?kind= tabs + WorkflowView per-kind cards + 3 posting hooks (transfer requiresAck / grn reprocess / despatch returnable — same-transaction rows) + 4 wrapper tools (create_bill_pass, acknowledge_unit_transfer, approve_reprocess, approve_non_return_dc → 146) + supplier-bills register Bill-pass column; 66/113 live, 16/17 groups (dispatch+quality opened), 378 vitest green, route_smoke_m5c 62/62) |
+| M5 — Extended doc families | 36 items: Wave A money/rates (7) → Wave B production/pcs variants (14) → Wave C approval kinds (4) → Wave D ADR-015 new models (11 items, 7 models 54→61 — ERRATA #3) → **159 tools**, 77/113 | **DONE** (tag `m5-done`; Wave A `m5-wave-a`: budget + invoice variants ×3 + supplier orders + rate/piece-rate registers → Wave B `m5-wave-b`: ProductionEntry family ×7 + panel variants + line-transfer + jobwork-pcs-return + costing-input + wages + wage-payments → Wave C `m5-wave-c`: approval-kinds registry + inbox ?kind= tabs + 3 posting hooks + 4 wrapper tools (146) + supplier-bills Bill-pass column → **Wave D `m5-wave-d`**: 7 ADR-015 models + sample/gate×2/packing/lab/expense DS + shift MT + roll-split (RSP pair) + contract-allotment (AL-) + program-allotment (ProgBalance write door) + production-bills (Journal wage bill) +13 tools → 159; 77/113 live, 16/17 groups, 393 vitest green, route_smoke_m5d 70/70) |
 | M6 — Reports, MIS, admin, print | | NOT STARTED |
 
 ## Ground truth (verified by context_check.sh)
 
 | Metric | Value | How to verify |
 |---|---|---|
-| Git HEAD | M5 Wave C commit (approval gates) — tags `m5-wave-c`, prior `m5-wave-b`, `m5-wave-a`, `spec-m5-frozen`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
-| Agent tools | **146** (66 inline + 24 factory create + 24 factory update + 32 docTool delegates — M5 Wave C +4 inline write: create_bill_pass, acknowledge_unit_transfer, approve_reprocess, approve_non_return_dc) | `scripts/context_check.sh` |
-| Prisma models | 54 | `grep -c "^model " prisma/schema.prisma` |
-| Shared zod schemas (M3-A/D + M5-A/B) | **27 files** in `src/lib/erp/schemas/` (verbatim tool contracts + Wave D stock-adj/transfer + M5-A budget/commercial-invoice/invoice-variants/supplier-order + M5-B production-variants/line-transfer/grn-variants/payment-variants) | context_check |
-| Posting services (M3-A/D + M5-A/B) | **25 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts + M5-B line-transfer.ts; variant wrappers live IN the family files: production.ts +3, grn.ts +1, payment.ts +1) | context_check |
+| Git HEAD | M5 Wave D commit (M5 COMPLETE) — tags `m5-wave-d`, `m5-done`, prior `m5-wave-c/b/a`, `spec-m5-frozen`, `schema-54-baseline`; **remote = local (PAT configured; push after EVERY commit)** | `git rev-parse --short HEAD` |
+| Agent tools | **159** (67 inline + 25 factory create + 25 factory update + 42 docTool delegates — M5 Wave D +13: create_sample, create_gate_entry, create_gate_pass, create_packing_list, create_lab_test, create_expense, split_roll, allot_contract, create_allotment, create_production_bill + shift factory ×2 + list_shifts) | `scripts/context_check.sh` |
+| Prisma models | **61** (54 + ADR-015 ×7: Sample, GateEntry, PackingList, PackingListLine, LabTest, Expense, Shift — SPEC said "six…54→60", ERRATUM #3) | `grep -c "^model " prisma/schema.prisma` |
+| Shared zod schemas (M3-A/D + M5-A/B/D) | **36 files** in `src/lib/erp/schemas/` (verbatim tool contracts + M5-D sample/gate/packing-list/lab-test/expense/roll-split/contract-allotment/program-allotment/production-bill) | context_check |
+| Posting services (M3-A/D + M5-A/B/D) | **34 files** in `src/lib/erp/posting/` (19 op services + ledger.ts + types.ts + master-service.ts + M5-A budget.ts + supplier-order.ts + M5-B line-transfer.ts + M5-D sample.ts, gate.ts, packing-list.ts, lab-test.ts, expense.ts, roll-split.ts, contract-allotment.ts, program-allotment.ts, production-bill.ts) | context_check |
 | Chain definition (M3-A) | `src/lib/erp/chain.ts` — 15 stages, nextStage/computeChainState/stageFormUrl + resolveStageUrl (Wave B, id-aware) (ADR-007 single source; PIPELINE deleted from tools.ts) | context_check |
 | tools.ts size | 2805 → 1693 lines (all 21 SPEC-M3 §5 write ops thin delegates; suggest_next_step gained nextFormUrl) | `wc -l` |
-| Doc configs (M5-B) | **37 configs in 28 files** (M3 19 + M5-A 5 + M5-B 13: production-variants.ts ×5, rejection-variants.ts ×3, cut-variants, line-transfer, grn-variants, costing-input, wage-payments) in `src/lib/erp/doc-configs/` | context_check |
+| Doc configs (M5-D) | **47 configs in 37 files** (M3 19 + M5-A 5 + M5-B 13 + M5-D 10: sample, gate ×2, packing-list, lab-test, expense, roll-split, contract-allotment, program-allotment, production-bill) in `src/lib/erp/doc-configs/` | context_check |
 | DocScreen engine (M3-B) | `src/components/archetypes/doc-screen.tsx` — New (header grid + line editor + totals + review + commit) / View modes, config-driven | context_check |
 | Wiring (M3-B/C/D) | W1 chain bar (`chain-bar.tsx`, every DocScreen + Hub) · W3 Order Hub (`/orders/[id]`, 12 family sections + rollups; **Wave C: every family row links its doc view + context-aware section CTAs + sent-DC "Receive" quick-link**) · W4 pickers (`doc-picker.tsx` incl. TYPED line picker `pickerFrom` — PO itemCode ← itemType cell) · nextFormUrl + agent "Open form" · ?order/?po/?dcNo/?invoice prefill on all 19 New screens · **Wave D: accounts/inventory rows link their views in the Hub + Fill-with-AI button on every DocScreen** | context_check + route smoke |
-| Master configs | **24** (pure-data files in `src/lib/erp/master-configs/`) | context_check + `tests/unit/master-configs.test.ts` |
+| Master configs | **25** (pure-data files in `src/lib/erp/master-configs/`; 24 M2 + shift M5-D) | context_check + `tests/unit/master-configs.test.ts` |
 | ERP view/shell components | **22** (21 + M4 Wave C recon-card.tsx) | `ls src/components/erp/*.tsx \| wc -l` |
 | Archetype engines | **3** (`master-table.tsx` + `doc-screen.tsx` + `register-screen.tsx`) | context_check |
 | Menu registry | 113 items · 17 groups | `tests/unit/menu-registry.test.ts` |
-| Live routes (M5-C) | **91**: M5-B 87 + /accounts/bill-pass + /dispatch/unit-transfer-ack + /quality/reprocess-approval + /quality/non-return-dc | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
+| Live routes (M5-D) | **108**: M5-C 91 + M5-D ×17 (11 screens + 6 view routes) | LIVE_ROUTES in `src/lib/erp/menu-registry.ts` |
 | RegisterScreen engine (M4-A) | `src/components/archetypes/register-screen.tsx` (server: breadcrumb, filter bar, summary, totals band, W2 hrefs, pagination, CSV link) + `register-filter-bar.tsx` (client: pushes shareable searchParams; party/godown datalist via master_search) | context_check |
 | Order Status Board (M4-C) | `/orders/status` — server component over queryOrderStatus (registers/order-status.ts): header KPIs (open orders/pcs/avg stages), per-row 15-dot ChainBar (flags shipped on the row), n/15 chip + next-stage chip, row → Order Hub; NOT a RegisterScreen (§10) | route_smoke_waveE.sh |
 | Wiring (M4-C) | W2: register rows drill into doc views (TXN_DOC_FAMILY + resolveDocRef; every family href test-pinned) · W6: ReconCard on PO view (PO↔GRNs), invoice view (Invoice↔Payments), jobwork view (out↔in), Order Hub despatch section (Despatch↔Invoice) — math in registers/recon.ts, test-asserted · §8.3 KPI deep-links on the dashboard tiles (Open Orders→/orders/register?status=open, Pending POs→/procurement/party-balance, Stock Value→/inventory (ERRATUM: /inventory/stock was never a route), Today Pcs→/production/register?from&to, Pending Approvals→/approvals, Open Invoices→/accounts/bills-register?status=issued) | route_smoke_waveE.sh 19/19 |
 | Register configs/services (M5-B) | **19 configs** in `src/lib/erp/register-configs/` + **21 service files** in `src/lib/erp/registers/` (19 REGISTER_SERVICES entries — slug bijection test-enforced — + order-status.ts + recon.ts; M5-B adds production-wages/wages.ts) + resolve.ts (parseRegisterQuery + TXN_DOC_FAMILY + resolveDocRef + buildItemCodeMaps (pcs→style.styleNo)) + csv.ts (makeCsvRouteHandler) | context_check |
-| Parity (M5-C) | **66/113 items live** · **16/17 groups** (Wave C: +bill-pass, unit-transfer-ack, reprocess-approval, non-return-dc-approval — dispatch + quality groups OPENED, landings flipped to live screens) · legacy coverage via /parity | `/parity` page or `parityStats()` |
+| Parity (M5-D — M5 COMPLETE) | **77/113 items live (68.1%)** · **16/17 groups** (Wave D: +samples-enquiry, gate-entry, gate-pass, packing-list, lab-test-entry, expenses, shifts-hours, production-bills, roll-tracking, contract-allotment, fabric-acc-allotment — reports group is M6) · legacy coverage via /parity | `/parity` page or `parityStats()` |
 | E2E pipeline tests | 15, all passing | `npx vitest run` |
 | Doc form↔agent parity tests (M3-A/D) | **21 tests** (20 ops × both doors + full-chain ledger signature equality + Wave D 2 new tools) | `npx vitest run` |
 | Doc-config contract + form-door tests (M3-B/C/D) | **40 tests** (§7 contracts incl. EVERY-config schema-mirror loop + coercion + Wave B/C action-composition integration) | `npx vitest run` |
-| Registry unit tests | 21 (M5 Wave C: +1 approval-gates live block) | `npx vitest run` |
+| Registry unit tests | 22 (M5 Wave D: +1 Wave-D live block) | `npx vitest run` |
 | Register-config contract tests (M4-B) | **runtime via 19-config loop** (27 source its; per-config loop: columns/filters/agentTools/route+page+csv/askPrompt + bijection + parse + tool-shape pins incl. M5-B tools + service smokes incl. wages) | `npx vitest run` |
 | Register services math suite (M4-B/C) | **26 tests** (`tests/pipeline/register-services.test.ts`): seeded fixture chain asserts §5 math (inhand pending, daily totals == ledger sums, party-balance, bills outstanding, party-ledger balance, io-history running balance, production-status, budget-vs-actual, approval-audit, order-status done-count, lots, pcs-stock) + W6 recon math (poRecon/invoiceRecon/jobworkRecon/despatchRecon) + delegated-tool regression pins; surgical TS-tagged cleanup (doc-parity pattern) | `npx vitest run` |
-| **Total vitest** | **378 passing** (363 M5-B + approval-kinds 14 (kinds registry ↔ menu ↔ LIVE_ROUTES + posting hooks requiresAck/reprocess/returnable + 4 wrapper tools incl. idempotence + register billPass) + menu-registry Wave C block; doc-configs mirror rule gained the AGENT_ONLY_HOOK_KEYS skip) | `npx vitest run` |
+| **Total vitest** | **393 passing** (378 M5-C + doc-parity-m5d 10 (all 10 new write ops × both doors + roll-split net-zero + packing Σpcs = despatch + bill = Σ period amounts + gate variant injection via commitDocAction) + doc-configs Wave D block + menu-registry Wave D block + master-parity shift ×3 (25-config loop)) | `npx vitest run` |
 | Master config contract tests | 8 | `npx vitest run` |
-| Master form×agent parity tests | 7 blocks → 75 tests at runtime (loop over all 24 configs) | `npx vitest run` |
+| Master form×agent parity tests | 7 blocks → 78 tests at runtime (loop over all 25 configs — shift joined in M5-D) | `npx vitest run` |
 | MAX_STEPS (agent loop) | 12 | grep in `src/app/api/agent/route.ts` |
 | API routes | `/api/agent`, `/api/agent/approve`, `/api/erp`, `/api/seed`, `/api/upload` (Wave D §12 rebuild), `/api/route.ts` | ls `src/app/api/` |
 
@@ -192,17 +192,56 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Next actions (in order)
 
-1. **M5 Wave C DONE** (this session): 4 approval-gate IN items — approval-kinds.ts
-   registry + /approvals?kind= tabs + 3 posting hooks + 4 wrapper tools (146),
-   66/113 live, 16/17 groups, 378 vitest green, route_smoke_m5c 62/62, tag
-   `m5-wave-c`. **Push after EVERY commit** (standing user instruction, PAT
+1. **M5 COMPLETE** (this session, tag `m5-done`): Wave D shipped all 11 §7-D
+   items — ADR-015 seven models 54→61, 13 tools → 159, 77/113 live (68.1%),
+   16/17 groups, 393 vitest green, route_smoke_m5d 70/70, context_check
+   230/230. **Push after EVERY commit** (standing user instruction, PAT
    configured in the remote).
-2. **M5 Wave D — ADR-015 schema growth** (§5/§7-D, 10 items): six new models
-   (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift; 54→60),
-   samples-enquiry, gate-entry/pass, packing-list, lab-test-entry, expenses,
-   shifts-hours (MT), roll-tracking (lot-split), contract-allotment,
-   fabric-acc-allotment, production-bills (+8 tools → 154).
+2. **M6 — Reports, MIS, admin, print** (last milestone): freeze SPEC-M6 first
+   per wave discipline (reports group is the last closed group — 16/17; the
+   remaining 36 coming-soon items are mostly M6 report/prints + admin).
 3. Update this file every wave (same commit); push after the commit.
+
+## M5 Wave D notes for future sessions
+
+- **ADR-015 landed SEVEN models, not six** (Sample, GateEntry, PackingList,
+  PackingListLine, LabTest, Expense, Shift → 54→61; SPEC §5 said "six…54→60"
+  — ERRATUM #3, the §5 block is binding). `schema-54-baseline` tag marks the
+  pre-migration schema; `prisma db push` + `generate` were run before any
+  Wave D code. **The dev server MUST be restarted after prisma generate**
+  (the stale in-memory client 500s every route — `db.sample` undefined).
+- **shiftConfig is NOT re-exported from master-configs/index.ts** (the M2
+  index only exports the array + helpers): import it directly from
+  `@/lib/erp/master-configs/shift`. The master-configs contract test REQUIRES
+  every config's listTool to exist as a read tool — that's why Wave D is +13
+  tools (12 named in §8 + list_shifts), not +8 as the spec's arithmetic said.
+- **Gate entry/pass are §4 rule-2 variants over ONE service**: planGateEntry
+  takes gateType; the two configs + the two docTools inject 'in'/'out'
+  (GE-#### / GP-#### prefixes derive from gateType). The [id] views share the
+  GateEntryView component (dispatch/gate-view.tsx).
+- **split_roll (rolls ≡ lots)**: RSP-#### transfer_out+transfer_in StockLedger
+  pair sharing one docNo in ONE transaction; buckets decrement lot-keyed
+  first, then the null-lot fallback (ADR-004); the IN leg creates the new
+  lot-keyed bucket. Prisma cannot sort nulls-last portably — sort in JS
+  (the orderBy-lotId-'sort' attempt threw at runtime; doc-parity caught it).
+- **create_production_bill needs an EXPLICIT period** in tests: ~100 seeded
+  ProductionEntry rows sit inside the default last-30-days window — the
+  parity test uses a 2027-06 window for determinism (STATE ground truth).
+- **program-allotment is the ProgBalance WRITE door** (the program status
+  register is the read side): find-first-or-create + increment, the same
+  pattern planProgram uses; accessory allotments are rejected (no table) with
+  the create_program-notes pointer.
+- **lab-test itemType accepts BOTH 'pcs' and 'style'**: the form's typed
+  picker (ERRATUM 6 pickerFrom) uses master SLUGS, and 'pcs' isn't one — the
+  select's pcs option carries value 'style'; the service maps both to the
+  Style model.
+- **contract-allotment dcNo is an AL-#### placeholder** on JobworkOrder
+  (status='allotted', no stock moves); the real JW-#### DC is issued later via
+  create_jobwork_order — the AL- prefix never collides with JW- (verified in
+  doc-parity test 7).
+- **promise.all + ternary + [] breaks tsc** (never[] unions poison the
+  derived Maps → `{}` cells): the id-map lookups in new pages use sequential
+  `cond ? await db.x.findMany() : []` instead.
 
 ## M5 Wave C notes for future sessions
 

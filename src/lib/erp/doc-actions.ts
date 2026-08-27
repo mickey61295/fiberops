@@ -81,6 +81,17 @@ const SLUG_REVALIDATE: Record<string, string[]> = {
   'jobwork-pcs-return': ['/jobwork/pcs-return', '/procurement/grn', '/jobwork'],
   'costing-input': ['/costing/input', '/costing/cost-sheet', '/costing'],
   'wage-payments': ['/hr/wage-payments', '/accounts/payments', '/hr'],
+  // M5 Wave D (SPEC-M5 §7-D)
+  sample: ['/orders/samples', '/orders'],
+  'gate-entry': ['/dispatch/gate-entry', '/dispatch'],
+  'gate-pass': ['/dispatch/gate-pass', '/dispatch'],
+  'packing-list': ['/pieces/packing-list', '/pieces', '/orders'],
+  'lab-test': ['/quality/lab-tests', '/quality'],
+  expense: ['/costing/expenses', '/costing'],
+  'roll-split': ['/inventory/rolls', '/inventory/lots', '/inventory'],
+  'contract-allotment': ['/jobwork/contract', '/jobwork/order', '/jobwork'],
+  'program-allotment': ['/programs/allotment', '/programs', '/production'],
+  'production-bill': ['/accounts/production-bills', '/hr/wages', '/accounts'],
 }
 
 async function runPlan(slug: string, payload: DocFormPayload): Promise<

@@ -38,6 +38,8 @@ export async function saveMasterAction(
     revalidatePath('/masters')
     revalidatePath(`/masters/${slug}`)
     if (slug === 'fin-year') revalidatePath('/admin/company')
+    // SPEC-M5 §9 — the shift master lives at /hr/shifts (not /masters/shift)
+    if (slug === 'shift') revalidatePath('/hr/shifts')
 
     return { ok: true, code: committed.code }
   } catch (err) {

@@ -60,6 +60,17 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'jobwork-pcs-return',
       'costing-input',
       'wage-payments',
+      // M5 Wave D (SPEC-M5 §7-D — ADR-015 new models + write doors)
+      'sample',
+      'gate-entry',
+      'gate-pass',
+      'packing-list',
+      'lab-test',
+      'expense',
+      'roll-split',
+      'contract-allotment',
+      'program-allotment',
+      'production-bill',
     ])
   })
 
@@ -899,5 +910,58 @@ describe('form-door integration — Wave D accounts + inventory ops (ADR-001 thr
     for (const { slug } of waveB) {
       expect(getDocConfig(slug)!.agentTools.length, `${slug} agentTools`).toBeGreaterThan(0)
     }
+  })
+
+  it('M5 Wave D: 10 new-model/write-door configs → page files; gate variants inject gateType; ERRATUM 4 numberless families', () => {
+    const waveD: Array<{ slug: string; route: string; view?: string }> = [
+      { slug: 'sample', route: '/orders/samples', view: '/orders/samples/[id]' },
+      { slug: 'gate-entry', route: '/dispatch/gate-entry', view: '/dispatch/gate-entry/[id]' },
+      { slug: 'gate-pass', route: '/dispatch/gate-pass', view: '/dispatch/gate-pass/[id]' },
+      { slug: 'packing-list', route: '/pieces/packing-list', view: '/pieces/packing-list/[id]' },
+      { slug: 'lab-test', route: '/quality/lab-tests', view: '/quality/lab-tests/[id]' },
+      { slug: 'expense', route: '/costing/expenses', view: '/costing/expenses/[id]' },
+      { slug: 'roll-split', route: '/inventory/rolls' },
+      { slug: 'contract-allotment', route: '/jobwork/contract' },
+      { slug: 'program-allotment', route: '/programs/allotment' },
+      { slug: 'production-bill', route: '/accounts/production-bills' },
+    ]
+    for (const { slug, route, view } of waveD) {
+      const cfg = getDocConfig(slug)!
+      expect(cfg, slug).toBeTruthy()
+      expect(fs.existsSync(path.join(ERP_DIR, route, 'page.tsx')), `${route} page`).toBe(true)
+      if (view) expect(fs.existsSync(path.join(ERP_DIR, view, 'page.tsx')), `${view} view page`).toBe(true)
+      expect(cfg.agentTools.length, `${slug} agentTools`).toBeGreaterThan(0)
+    }
+    // number prefixes on the numbered families (ADR-015 docNo conventions)
+    const prefixes: Record<string, string> = {
+      sample: 'SMP-', 'gate-entry': 'GE-', 'gate-pass': 'GP-', 'packing-list': 'PKL-',
+      'lab-test': 'LT-', expense: 'EXP-', 'roll-split': 'RSP-',
+    }
+    for (const [slug, prefix] of Object.entries(prefixes)) {
+      expect(getDocConfig(slug)!.numberPrefix, `${slug} numberPrefix`).toBe(prefix)
+    }
+    // ERRATUM 4 numberless families (system-assigned or none)
+    for (const slug of ['contract-allotment', 'program-allotment', 'production-bill']) {
+      expect(getDocConfig(slug)!.numberPrefix, `${slug} numberPrefix`).toBeUndefined()
+      expect(getDocConfig(slug)!.numberField, `${slug} numberField`).toBeUndefined()
+    }
+    // the gate pair shares ONE schema + service; the variants inject gateType
+    const ge = getDocConfig('gate-entry')!
+    const gp = getDocConfig('gate-pass')!
+    expect(ge.schema).toBe(gp.schema)
+    expect(gp.title).toBe('Gate Pass')
+    expect(ge.title).toBe('Gate Entry')
+    // lab-test: the typed item picker (ERRATUM 6 — itemType cell drives the slug)
+    const itemField = getDocConfig('lab-test')!.headerFields.find((f) => f.name === 'itemCode')!
+    expect(itemField.pickerFrom).toBe('itemType')
+    // packing-list: carton line editor + rides the despatch stage (12)
+    const pl = getDocConfig('packing-list')!
+    expect(pl.linesKey).toBe('lines')
+    expect(pl.lineFields!.map((f) => f.name)).toContain('cartonNo')
+    expect(pl.chainStage).toBe(12)
+    // W1 stage alignment: contract-allotment precedes the jobwork DC (stage 6);
+    // program-allotment rides the program stage (3)
+    expect(getDocConfig('contract-allotment')!.chainStage).toBe(6)
+    expect(getDocConfig('program-allotment')!.chainStage).toBe(3)
   })
 })

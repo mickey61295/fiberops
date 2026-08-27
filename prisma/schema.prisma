@@ -810,3 +810,115 @@ model RejectionEntry {
   notes      String?
   createdAt  DateTime    @default(now())
 }
+
+// ============== M5 WAVE D — ADR-015 NEW MODELS (SPEC-M5 §5) ==============
+// 54 → 61 models (spec header said "six new models 54→60" — the §5 block
+// actually defines SEVEN; ERRATUM #3, lists are binding).
+
+// Sample development tracker (legacy frmOrderSample / FrmSampleEntry_WithEnquiry).
+// Auto SMP-####. buyerId/styleId are free FK cols (PITFALLS #21 pattern).
+model Sample {
+  id          String   @id @default(cuid())
+  sampleNo    String   @unique
+  buyerId     String?
+  styleId     String?
+  sampleType  String // proto | photo | counter | salesman | production
+  qty         Int      @default(0)
+  sampledOn   DateTime @default(now())
+  status      String   @default("submitted") // submitted | approved | rejected | closed
+  enquiryRef  String? // linked enquiry/order no
+  remarks     String?
+  createdAt   DateTime @default(now())
+}
+
+// Gate log for vehicle in/out (legacy FrmGateEntry / FrmGatePass).
+// GE-#### (in) / GP-#### (out). partyId is a free FK col.
+model GateEntry {
+  id           String   @id @default(cuid())
+  entryNo      String   @unique
+  gateType     String // in | out
+  gateDateTime DateTime @default(now())
+  partyId      String?
+  vehicleNo    String?
+  refDocNo     String? // DC/GRN/PO no being gate-logged
+  purpose      String?
+  status       String   @default("logged") // logged | cleared
+  createdAt    DateTime @default(now())
+}
+
+// Export packing list (legacy FrmPackingList). Auto PKL-####.
+// despatchId/orderId/buyerId are free FK cols; lines carry carton detail.
+model PackingList {
+  id            String           @id @default(cuid())
+  packNo        String           @unique
+  despatchId    String?
+  orderId       String?
+  buyerId       String?
+  packDate      DateTime         @default(now())
+  finYear       String
+  totalCartons  Int              @default(0)
+  totalPcs      Int              @default(0)
+  netKgs        Float            @default(0)
+  grossKgs      Float            @default(0)
+  status        String           @default("draft") // draft | confirmed
+  notes         String?
+  createdAt     DateTime         @default(now())
+  lines         PackingListLine[]
+}
+
+model PackingListLine {
+  id            String      @id @default(cuid())
+  packingListId String
+  packingList   PackingList @relation(fields: [packingListId], references: [id])
+  cartonNo      String
+  styleNo       String
+  colourId      String?
+  sizeId        String?
+  qty           Int         @default(0)
+  netKgs        Float       @default(0)
+}
+
+// QCDATA lab test log (legacy FrmLabTest). Auto LT-####. itemId references
+// the item master by kind; orderId is a free FK col.
+model LabTest {
+  id        String   @id @default(cuid())
+  testNo    String   @unique
+  itemType  String // yarn | fabric | accessory | pcs
+  itemId    String // the item master id
+  lotId     String?
+  orderId   String?
+  testType  String // gsm | shrinkage | colour_fastness | composition | other
+  result    String   @default("pending") // pending | pass | fail | conditional
+  testedOn  DateTime @default(now())
+  testedBy  String?
+  values    String? // JSON string of parameter results
+  remarks   String?
+  createdAt DateTime @default(now())
+}
+
+// Expense book (legacy FrmExpenses). Auto EXP-####. orderId/partyId are
+// free FK cols; stylewise expenses carry the order.
+model Expense {
+  id        String   @id @default(cuid())
+  expNo     String   @unique
+  expDate   DateTime @default(now())
+  finYear   String
+  category  String // fixed | stylewise | general | transport | other
+  orderId   String?
+  partyId   String?
+  amount    Float    @default(0)
+  narration String?
+  status    String   @default("recorded") // recorded | settled
+  createdAt DateTime @default(now())
+}
+
+// Shift/hours master (legacy frmHours / FrmHourlySetting1 — MT archetype).
+model Shift {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  fromTime  String // "06:00"
+  toTime    String // "14:00"
+  hours     Float    @default(8)
+  createdAt DateTime @default(now())
+}

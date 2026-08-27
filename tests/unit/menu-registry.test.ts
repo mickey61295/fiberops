@@ -75,11 +75,11 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(false)
   })
 
-  it('parityStats: 66 live items of 113 after M5 Wave C; 16/17 groups (dispatch + quality opened)', () => {
+  it('parityStats: 77 live items of 113 after M5 Wave D (M5 COMPLETE — 68%); 16/17 groups (reports = M6)', () => {
     const s = parityStats()
     expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(66)
-    expect(s.comingItems).toBe(47)
+    expect(s.liveItems).toBe(77)
+    expect(s.comingItems).toBe(36)
     expect(s.liveGroups).toBe(16)
     expect(s.legacyLive).toBeGreaterThan(0)
     expect(s.coveragePct).toBeGreaterThan(0)
@@ -104,6 +104,33 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     // the two groups Wave C opened
     expect(findGroupById('dispatch')!.landingRoute).toBe('/dispatch/unit-transfer-ack')
     expect(findGroupById('quality')!.landingRoute).toBe('/quality/reprocess-approval')
+  })
+
+  it('Wave D (M5): the 11 ADR-015 items are live with pages + tool doors (SPEC-M5 §7-D — M5 COMPLETE)', () => {
+    const waveD = [
+      { route: '/orders/samples', id: 'samples-enquiry', tool: 'create_sample' },
+      { route: '/dispatch/gate-entry', id: 'gate-entry', tool: 'create_gate_entry' },
+      { route: '/dispatch/gate-pass', id: 'gate-pass', tool: 'create_gate_pass' },
+      { route: '/pieces/packing-list', id: 'packing-list', tool: 'create_packing_list' },
+      { route: '/quality/lab-tests', id: 'lab-test-entry', tool: 'create_lab_test' },
+      { route: '/costing/expenses', id: 'expenses', tool: 'create_expense' },
+      { route: '/hr/shifts', id: 'shifts-hours', tool: 'create_shift' },
+      { route: '/accounts/production-bills', id: 'production-bills', tool: 'create_production_bill' },
+      { route: '/inventory/rolls', id: 'roll-tracking', tool: 'split_roll' },
+      { route: '/jobwork/contract', id: 'contract-allotment', tool: 'allot_contract' },
+      { route: '/programs/allotment', id: 'fabric-acc-allotment', tool: 'create_allotment' },
+    ]
+    for (const { route, id, tool } of waveD) {
+      expect(LIVE_ROUTES.has(route), route).toBe(true)
+      const item = findItemById(id) as MenuItem
+      expect(item, id).toBeTruthy()
+      expect(isLive(item), id).toBe(true)
+      expect(item.agentTools, `${id} tool door`).toContain(tool)
+      expect(item.pendingTools, id).toEqual([])
+    }
+    // the shift master's full tool set (MT archetype — §9: routed at /hr/shifts)
+    expect((findItemById('shifts-hours') as MenuItem).agentTools).toContain('update_shift')
+    expect((findItemById('shifts-hours') as MenuItem).agentTools).toContain('list_shifts')
   })
 
   it('Wave A (M4): the 3 flagship register routes are live with page files + tool doors', () => {

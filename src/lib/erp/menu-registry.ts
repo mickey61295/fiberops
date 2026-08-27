@@ -129,6 +129,24 @@ export const LIVE_ROUTES = new Set<string>([
   '/dispatch/unit-transfer-ack', // Unit Transfer Ack (M5 Wave C) — unit-transfer-ack (IN, kind=godown_transfer)
   '/quality/reprocess-approval', // Reprocess Approval (M5 Wave C) — reprocess-approval (IN, kind=reprocess)
   '/quality/non-return-dc', // Non-Return DC Approval (M5 Wave C) — non-return-dc-approval (IN, kind=non_return_dc)
+  // M5 Wave D (SPEC-M5 §7-D — ADR-015 new models + write doors)
+  '/orders/samples', // Samples & Enquiry (M5 Wave D) — samples-enquiry (Sample model)
+  '/orders/samples/[id]', // Sample view (M5 Wave D)
+  '/dispatch/gate-entry', // Gate Entry (M5 Wave D) — gate-entry (GateEntry, gateType in)
+  '/dispatch/gate-entry/[id]', // Gate Entry view (M5 Wave D)
+  '/dispatch/gate-pass', // Gate Pass (M5 Wave D) — gate-pass (GateEntry, gateType out)
+  '/dispatch/gate-pass/[id]', // Gate Pass view (M5 Wave D)
+  '/pieces/packing-list', // Packing List (M5 Wave D) — packing-list (PackingList+Line)
+  '/pieces/packing-list/[id]', // Packing List view (M5 Wave D, W6 despatch recon)
+  '/quality/lab-tests', // Lab Test Entry (M5 Wave D) — lab-test-entry (LabTest)
+  '/quality/lab-tests/[id]', // Lab Test view (M5 Wave D)
+  '/costing/expenses', // Expenses (M5 Wave D) — expenses (Expense)
+  '/costing/expenses/[id]', // Expense view (M5 Wave D)
+  '/inventory/rolls', // Roll Tracking / Split (M5 Wave D) — roll-tracking (RSP ledger pair is the record)
+  '/jobwork/contract', // Contract Allotment (M5 Wave D) — contract-allotment (JobworkOrder status=allotted)
+  '/programs/allotment', // Fabric / Acc Allotment (M5 Wave D) — fabric-acc-allotment (ProgBalance write door)
+  '/accounts/production-bills', // Production Bills (M5 Wave D) — production-bills (Journal wage bill)
+  '/hr/shifts', // Shifts & Hours (M5 Wave D) — shifts-hours (Shift master, MT engine)
   '/accounts', // InvoicesView
   '/costing', // CostingView
   '/hr', // HrView
@@ -270,7 +288,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'samples-enquiry', label: 'Samples & Enquiry', groupId: 'orders', route: '/orders/samples', arch: 'DS', phase: 'M5',
     description: 'Sample development tracking against buyer enquiries.',
     legacyForms: ['frmOrderSample', 'FrmSampleEntry_WithEnquiry'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_sample'], pendingTools: [],
   },
   {
     id: 'commercial-invoice', label: 'Commercial Invoice', groupId: 'orders', route: '/orders/commercial-invoice', arch: 'DS', phase: 'M5',
@@ -311,7 +329,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'fabric-acc-allotment', label: 'Fabric / Acc Allotment', groupId: 'programs', route: '/programs/allotment', arch: 'DS', phase: 'M5',
     description: 'Allot fabric/accessories combo-wise against programs.',
     legacyForms: ['frmFabricAllotment', 'frmComboWiseReqRpt'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_allotment'], pendingTools: [],
   },
 
   // ---- procurement (8) ----
@@ -422,7 +440,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'roll-tracking', label: 'Roll Tracking / Split', groupId: 'inventory', route: '/inventory/rolls', arch: 'DS', phase: 'M5',
     description: 'Roll-level fabric tracking and splitting.',
     legacyForms: ['Frm_RollSplit', 'CurrentStock_RollDtl'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['split_roll'], pendingTools: [],
   },
   {
     id: 'io-history', label: 'IO History', groupId: 'inventory', route: '/inventory/io-history', arch: 'RG', phase: 'M4',
@@ -558,7 +576,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'packing-list', label: 'Packing List', groupId: 'pieces', route: '/pieces/packing-list', arch: 'DS', phase: 'M5',
     description: 'Carton-wise packing list per despatch (solid/assorted).',
     legacyForms: ['FrmPackingList', 'FrmPackingList_Domestic', 'FrmLocalInvPackingList', 'FrmPackingList_Solid'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_packing_list'], pendingTools: [],
   },
 
   // ---- production (9) ----
@@ -647,7 +665,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'contract-allotment', label: 'Contract Allotment', groupId: 'jobwork', route: '/jobwork/contract', arch: 'DS', phase: 'M5',
     description: 'Allot contracts to jobwork units.',
     legacyForms: ['frmContractAllotment', 'frmContractAllotment_New'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['allot_contract'], pendingTools: [],
   },
   {
     id: 'job-order-list', label: 'Job Order List / Balance', groupId: 'jobwork', route: '/jobwork/register', arch: 'RG', phase: 'M4',
@@ -689,13 +707,13 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'gate-entry', label: 'Gate Entry', groupId: 'dispatch', route: '/dispatch/gate-entry', arch: 'DS', phase: 'M5',
     description: 'Vehicle/visitor gate log for incoming material.',
     legacyForms: ['FrmGateEntry', 'FrmDirectBill_GateEntry'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_gate_entry'], pendingTools: [],
   },
   {
     id: 'gate-pass', label: 'Gate Pass', groupId: 'dispatch', route: '/dispatch/gate-pass', arch: 'DS', phase: 'M5',
     description: 'Gate pass for outgoing material/vehicles.',
     legacyForms: ['FrmGatePass'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_gate_pass'], pendingTools: [],
   },
   {
     id: 'unit-transfer-ack', label: 'Unit Transfer Ack', groupId: 'dispatch', route: '/dispatch/unit-transfer-ack', arch: 'IN', phase: 'M5',
@@ -789,7 +807,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'production-bills', label: 'Production Bills (piece-rate)', groupId: 'accounts', route: '/accounts/production-bills', arch: 'DS', phase: 'M5',
     description: 'Piece-rate production billing for lines/employees.',
     legacyForms: ['FrmProdBillNew'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_production_bill'], pendingTools: [],
   },
   {
     id: 'hsn-gst-setup', label: 'HSN / GST Setup', groupId: 'accounts', route: '/accounts/hsn-gst', arch: 'ST', phase: 'M2',
@@ -831,7 +849,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'expenses', label: 'Expenses', groupId: 'costing', route: '/costing/expenses', arch: 'DS', phase: 'M5',
     description: 'Fixed/style-wise expense entries.',
     legacyForms: ['FrmExpenses', 'FrmFixedExpensesEntry', 'FrmStylewiseExpensesEntry'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_expense'], pendingTools: [],
   },
   {
     id: 'daily-unit-pnl', label: 'Daily Unit P&L', groupId: 'costing', route: '/costing/daily-pnl', arch: 'RH', phase: 'M6',
@@ -857,7 +875,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'shifts-hours', label: 'Shifts & Hours', groupId: 'hr', route: '/hr/shifts', arch: 'MT', phase: 'M5',
     description: 'Shift definitions and hourly settings.',
     legacyForms: ['frmHours', 'FrmHourlySetting1'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_shift', 'update_shift', 'list_shifts'], pendingTools: [],
   },
   {
     id: 'production-wages', label: 'Production Wages', groupId: 'hr', route: '/hr/wages', arch: 'RG', phase: 'M5',
@@ -880,7 +898,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'lab-test-entry', label: 'Lab Test Entry', groupId: 'quality', route: '/quality/lab-tests', arch: 'DS', phase: 'M5',
     description: 'Record fabric/yarn lab test results.',
     legacyForms: ['FrmLabTest', 'FrmNewLabTest'],
-    agentTools: [], pendingTools: [],
+    agentTools: ['create_lab_test'], pendingTools: [],
   },
   {
     id: 'test-parameters', label: 'Test Parameters / Stages', groupId: 'quality', route: '/quality/parameters', arch: 'MT', phase: 'M2',

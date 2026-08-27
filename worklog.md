@@ -515,3 +515,30 @@ Stage Summary:
 - Pattern wins: kind === Approval.entity keeps the inbox a plain entity filter (no new code paths); posting hooks ride optional schema flags (default = legacy, zero engine churn); the supplier_bill Approval IS the bill-pass document (register column, no schema growth).
 - Remote synced: m5-wave-c pushed with tag. Push-after-commit honored.
 - Next: M5 Wave D — ADR-015 six new models 54→60 (Sample, GateEntry, PackingList+Line, LabTest, Expense, Shift) + 10 items + 8 tools → 154 → then tag m5-done.
+
+---
+Task ID: m5-wave-d
+Agent: main
+Task: Continue from m5-wave-c baseline (session continuation: "continue") — recover the working-tree residue, then implement SPEC-M5 Wave D (ADR-015 new models, §7-D, the FINAL M5 wave) per the standing push-after-commit rule. M5 COMPLETE at the end of this wave.
+
+Work Log:
+- Working-tree triage (the third recurrence): 260 mode-only files + ONE accidental deletion (src/app/api/upload/route.ts — the paperclip route). Restored via git checkout; tree clean; remote = local before work began.
+- ADR-015 schema: tagged `schema-54-baseline`, added SEVEN models (Sample, GateEntry, PackingList+PackingListLine, LabTest, Expense, Shift — spec said "six 54→60", ERRATUM #3) → 61 models; `prisma db push` + `generate`.
+- Schemas ×9 (27→36 files): sample, gate (ONE schema, gateType injected), packing-list (lines + total defaults), lab-test (pcs|style alias), expense, roll-split (rolls≡lots), contract-allotment, program-allotment (yarn|fabric only), production-bill (period + dept/operator granularity).
+- Posting ×9 (25→34 files): sample/gate/packing-list/lab-test/expense (document-only, docNo conventions SMP-/GE-/GP-/PKL-/LT-/EXP-), roll-split (RSP-#### transfer_out+in ledger pair + bucket moves in ONE transaction; lot-keyed-first decrement, JS nulls-last sort — PITFALLS #30), contract-allotment (AL-#### JobworkOrder status='allotted', no stock moves), program-allotment (ProgBalance find-first-or-create + increment, the planProgram pattern), production-bill (Σ ProductionEntry.amount → Journal Dr Production Wages / Cr Wage Payable, shared V-#### space).
+- Shift master: master-configs/shift.ts + index registration (24→25) + factory create/update + list_shifts read tool (the master-configs contract test REQUIRES the list door — Wave D is +13 tools, not +8; ERRATUM #3c).
+- Doc-configs ×10 (37→47 configs, 28→37 files): gate entry/pass are §4 rule-2 variants over ONE service; lab-test typed picker pickerFrom='itemType' (select value 'style' for pcs); contract-allotment/program-allotment/production-bill carry NO number pair (ERRATUM 4 pattern); packing-list stage 12 / contract-allotment 6 / program-allotment 3 (W1 alignment).
+- tools.ts +13 (146→159): 10 docTools + shift factory ×2 + list_shifts. Gate tools wrap planGateEntry injecting gateType in/out.
+- Pages ×17 (11 screens + 6 views): samples (+view), gate-entry (+view), gate-pass (+view — shared GateEntryView component), packing-list (+view with W6 Cartons↔Despatch recon via ReconCard), lab-tests (+view, values JSON pretty-print), expenses (+view), rolls (recent RSP pairs + lots-with-mtrs read side), contract (AL- list → jobwork view), program-allotment (ProgBalance balances table), production-bills (wage-bill journals → journal view), /hr/shifts (MasterTable, §9 route — NOT /masters/shift; masters actions revalidate it).
+- Registries: LIVE_ROUTES 91→108 (11 screens + 6 views); SLUG_REVALIDATE +10; menu agentTools flipped on all 11 items → 77/113 live (68.1%), 16/17 groups (reports = M6).
+- Tests 378→393 GREEN: NEW doc-parity-m5d (10: all 10 write ops × both doors + SMP/GE/GP/PKL/LT/EXP auto-numbers + RSP net-zero mtrs + packing Σpcs = despatch + bill = Σ period + gate variant injection via commitDocAction + ProgBalance create-vs-bump + AL-/JW- no-collision + structured errors); master-parity gained shift ×3 (25-config loop); doc-configs Wave D block (pages + prefixes + gate schema identity + chain stages); menu-registry Wave D block + parity 77/113; counter pins 146→159 / 24→25 / 37→47.
+- Bugs caught by the tests: (1) Prisma orderBy lotId:'sort' invalid (PITFALLS #30); (2) mid-session prisma generate killed the running dev server — every route 500 (PITFALLS #31 — restart required); (3) shiftConfig not re-exported from the master-configs index (import directly from ./shift); (4) Promise.all+ternary+[] tsc poisoning (PITFALLS #32); (5) contract-allotment numberPrefix-without-numberField contract violation → ERRATUM 4 pattern.
+- scripts/seed_m5d_smoke.ts (idempotent fixed-docNo fixtures + KEY=id output) + scripts/route_smoke_m5d.sh — 70/70 GREEN (11 screens + 6 views with real ids + picker feeds + 30-route regression set).
+- context_check.sh: counters updated (159 tools, 61 models, 36 schemas, 34 posting, 47/37 doc-configs, 25 masters, 108 routes, 22 menu tests) + Wave C/D files added to the existence list → 230/230 NO DRIFT.
+- Docs: STATE.md (M5 DONE milestone row, ground truth, next actions → M6, Wave D notes ×9), SPEC-M5 ERRATUM #3 (three mis-counts), PITFALLS #30/#31/#32, this worklog.
+
+Stage Summary:
+- M5 COMPLETE: all 4 waves shipped; 159 tools; 61 models; 77/113 menu items (68.1%); 16/17 groups; 108 live routes; 47 doc configs; 25 masters; 393 vitest green; route_smoke_m5d 70/70; context_check 230/230; tsc zero new src errors.
+- Pattern wins: one-service-two-variants held for the gate pair (config + docTool both inject gateType); ProgBalance got its write door without a new engine (find-first-or-create rides the register's read side); the production bill reuses the §7-B-20 wage-bill accounts so hr/wages and accounts/production-bills can never disagree.
+- Tags: schema-54-baseline + m5-wave-d + m5-done to follow; push-after-commit honored.
+- Next: M6 — Reports, MIS, admin, print (the last milestone; freeze SPEC-M6 first; reports group is the last closed group).

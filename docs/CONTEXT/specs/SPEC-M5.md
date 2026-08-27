@@ -429,3 +429,13 @@ the master hub card links it).
    itself (the supplier-bills register surfaces the state as a Bill-pass
    column — GRN has no status column, so that column IS the "GRN billed
    status" of §6 rule 2).
+3. **§5/§7-D/§8 Wave D arithmetic was off by three counts** (found at Wave D
+   completion; same lineage as ERRATUM #1 — the lists are binding, the totals
+   were mis-added): (a) §5 says "six new models 54→60" but its own code block
+   defines SEVEN (Sample, GateEntry, PackingList, PackingListLine, LabTest,
+   Expense, Shift) → **54→61**; (b) §7-D says "10 items" but §2 rows 26–36
+   are ELEVEN → **77/113** live (the milestone row's 77 was right);
+   (c) §8 says "+8 → 154" but the Wave D list names 12 tools and the
+   master-configs contract (every listTool must exist as a read tool) forces
+   a 13th (`list_shifts`) → **159**. All lists shipped as written; only the
+   arithmetic was corrected.

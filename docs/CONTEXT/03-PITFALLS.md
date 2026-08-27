@@ -313,3 +313,36 @@ FIX pattern: direct service calls in tests pass `new Date('...T00:00:00')` /
 end-of-day Dates, exactly what parseRegisterQuery would produce.
 LESSON: the register service contract is Date-typed (RegisterQuery.from is
 Date); strings only enter at the searchParams boundary.
+
+30. Prisma `orderBy` expects SortOrder ('asc'/'desc') — sorting nulls-last must happen in JS · 2026-08-27 (M5 Wave D)
+CONTEXT: roll-split's decrementBucket wanted lot-keyed buckets drained before the
+null-lot fallback. Attempt: `orderBy: [{ lotId: 'sort' }]` (wishful "nulls last"
+syntax). Runtime: `Invalid value for argument lotId. Expected SortOrder.` — the
+whole transaction rolled back (caught by doc-parity-m5d test 6).
+FIX pattern: fetch, then `arr.sort((a,b) => (a.lotId===null?1:0)-(b.lotId===null?1:0))`
+— plain JS sort; Prisma has no portable nulls-last ordering across connectors.
+LESSON: if a where-clause needs an ordering Prisma can't express, sort the
+result array — never invent enum values.
+
+31. `prisma generate` mid-session invalidates the RUNNING dev server's client · 2026-08-27 (M5 Wave D)
+CONTEXT: the dev server had been up since before ADR-015's `prisma db push` +
+`generate`. Every route 500'd with `Cannot read properties of undefined
+(reading 'findMany')` on `db.sample` — the in-memory PrismaClient still had 54
+models while the schema had 61. The process later died outright (port 3000
+refused).
+FIX pattern: after ANY prisma generate/db push, restart the dev server before
+smoke-testing (`bun run dev`); a 200 from `/` proves nothing about model access
+until restart.
+LESSON: Prisma client shape is process-lifetime state; the on-disk client and
+the running server can silently disagree after regeneration.
+
+32. Promise.all + ternary + `[]` poisons derived types (tsc) · 2026-08-27 (M5 Wave D)
+CONTEXT: id-map lookups in new pages used
+`Promise.all([ids.length ? db.x.findMany({...}) : [], ...])` — the `[]` branch
+infers `never[]`, the union breaks Promise.all's overload, and every Map built
+from it degrades to `{}` (React child type errors, cell type mismatches — 22
+tsc errors across six pages).
+FIX pattern: sequential `const rows = ids.length ? await db.x.findMany({...}) : []`
+per lookup (the budget-page precedent), or explicitly type the empty branch.
+LESSON: ternary-into-Promise.all is a tsc trap in RSC pages; await makes the
+union collapse correctly.

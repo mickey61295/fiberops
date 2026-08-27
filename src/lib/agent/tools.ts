@@ -63,6 +63,16 @@ import { COST_SHEET_SCHEMA } from '@/lib/erp/schemas/cost-sheet'
 import { PAYMENT_SCHEMA } from '@/lib/erp/schemas/payment'
 import { STOCK_ADJ_SCHEMA } from '@/lib/erp/schemas/stock-adj'
 import { TRANSFER_SCHEMA } from '@/lib/erp/schemas/transfer'
+// M5 Wave D (SPEC-M5 §8)
+import { SAMPLE_SCHEMA } from '@/lib/erp/schemas/sample'
+import { GATE_ENTRY_SCHEMA } from '@/lib/erp/schemas/gate'
+import { PACKING_LIST_SCHEMA } from '@/lib/erp/schemas/packing-list'
+import { LAB_TEST_SCHEMA } from '@/lib/erp/schemas/lab-test'
+import { EXPENSE_SCHEMA } from '@/lib/erp/schemas/expense'
+import { ROLL_SPLIT_SCHEMA } from '@/lib/erp/schemas/roll-split'
+import { CONTRACT_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/contract-allotment'
+import { PROGRAM_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/program-allotment'
+import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -87,6 +97,16 @@ import { planCostSheet } from '@/lib/erp/posting/cost-sheet'
 import { planPayment } from '@/lib/erp/posting/payment'
 import { planStockAdjustment } from '@/lib/erp/posting/stock-adj'
 import { planTransfer } from '@/lib/erp/posting/transfer'
+// M5 Wave D (SPEC-M5 §8)
+import { planSample } from '@/lib/erp/posting/sample'
+import { planGateEntry } from '@/lib/erp/posting/gate'
+import { planPackingList } from '@/lib/erp/posting/packing-list'
+import { planLabTest } from '@/lib/erp/posting/lab-test'
+import { planExpense } from '@/lib/erp/posting/expense'
+import { planRollSplit } from '@/lib/erp/posting/roll-split'
+import { planContractAllotment } from '@/lib/erp/posting/contract-allotment'
+import { planProgramAllotment } from '@/lib/erp/posting/program-allotment'
+import { planProductionBill } from '@/lib/erp/posting/production-bill'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -1558,6 +1578,77 @@ const docTools: AgentTool[] = [
     WAGE_PAYMENT_SCHEMA,
     planWagePayment,
   ),
+  // ── M5 Wave D (SPEC-M5 §8) — ADR-015 new models + write doors ──
+  docTool(
+    'create_sample',
+    'Log a development sample (SMP-#### auto). Required: sampleType (proto|photo|counter|salesman|production). Optional: buyerCode, styleCode, qty, sampledOn, status (default submitted), enquiryRef, remarks.',
+    'orders',
+    SAMPLE_SCHEMA,
+    planSample,
+  ),
+  docTool(
+    'create_gate_entry',
+    'Log a vehicle IN at the gate (GE-#### auto). Optional: entryNo, gateDateTime, partyCode, vehicleNo, refDocNo (the DC/GRN/PO being gate-logged), purpose, status (default logged).',
+    'inventory',
+    GATE_ENTRY_SCHEMA,
+    (input: any) => planGateEntry({ ...input, gateType: 'in' }),
+  ),
+  docTool(
+    'create_gate_pass',
+    'Log a vehicle OUT at the gate (GP-#### auto). Optional: entryNo, gateDateTime, partyCode, vehicleNo, refDocNo (the DC/GRN/PO the pass covers), purpose, status (default logged).',
+    'inventory',
+    GATE_ENTRY_SCHEMA,
+    (input: any) => planGateEntry({ ...input, gateType: 'out' }),
+  ),
+  docTool(
+    'create_packing_list',
+    'Create an export packing list (PKL-#### auto) with carton lines. Header totals default to the line sums when omitted. Required: lines (array of {cartonNo, styleNo, qty}). Optional: despatchDcNo, orderNo, buyerCode, packDate, finYear, totalCartons, totalPcs, netKgs, grossKgs, status (default draft), notes.',
+    'orders',
+    PACKING_LIST_SCHEMA,
+    planPackingList,
+  ),
+  docTool(
+    'create_lab_test',
+    'Log a lab test (LT-#### auto). Required: itemType (yarn|fabric|accessory|pcs), itemCode, testType (gsm|shrinkage|colour_fastness|composition|other). Optional: lotNo, orderNo, result (default pending), testedOn, testedBy, values (JSON), remarks.',
+    'production',
+    LAB_TEST_SCHEMA,
+    planLabTest,
+  ),
+  docTool(
+    'create_expense',
+    'Record an expense (EXP-#### auto). Required: category (fixed|stylewise|general|transport|other), amount. stylewise requires orderNo. Optional: expDate, finYear, partyCode (paid-to), narration, status (default recorded).',
+    'costing',
+    EXPENSE_SCHEMA,
+    planExpense,
+  ),
+  docTool(
+    'split_roll',
+    'Split N mtrs off a fabric lot/roll into a NEW lot (RSP-####; rolls ≡ lots). Moves stock out of the source lot and into the new one in one transaction — net zero. Required: sourceLotNo, itemCode (fabric), godownCode, mtrs. Optional: newLotNo (defaults <source>-R<n>), splitDate, notes.',
+    'inventory',
+    ROLL_SPLIT_SCHEMA,
+    planRollSplit,
+  ),
+  docTool(
+    'allot_contract',
+    'Allot a jobwork contract BEFORE material leaves (AL-#### placeholder, status allotted — no stock moves). Issue the real JW-#### DC later with create_jobwork_order. Required: jobworkerCode, processType (washing|dyeing|printing|embroidery), totalQty. Optional: totalValue, orderNo, expectedInDate, allotDate, notes.',
+    'jobwork',
+    CONTRACT_ALLOTMENT_SCHEMA,
+    planContractAllotment,
+  ),
+  docTool(
+    'create_allotment',
+    'Allot yarn/fabric to a production program (bumps reqKgs/reqMtrs on the ProgBalance row, creating it when absent — the consumption PLAN, no stock moves). Required: orderNo, deptCode, itemType (yarn|fabric), itemCode. Optional: colourName (fabric), kgs, mtrs (fabric only), notes. At least one of kgs/mtrs must be > 0.',
+    'production',
+    PROGRAM_ALLOTMENT_SCHEMA,
+    planProgramAllotment,
+  ),
+  docTool(
+    'create_production_bill',
+    'Bill the period piece-rate production: sums ProductionEntry amounts for the period (optionally one dept / one operator) and posts a Journal (Dr Production Wages / Cr Wage Payable, V-####). Optional: deptCode, operatorCode, from (default 30 days back), to (default today), narration.',
+    'accounting',
+    PRODUCTION_BILL_SCHEMA,
+    planProductionBill,
+  ),
 ]
 
 // ───────────── MASTER CRUD TOOLS (SPEC-M2 §7) — thin delegates ─────────────
@@ -1638,6 +1729,7 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('component', 'Create a component master. Required: name (e.g. Self Fabric, Contrast Panel).'),
   masterCreateTool('design', 'Create a design master. Required: code, name.'),
   masterCreateTool('govt-holiday', 'Create a government holiday. Required: date (ISO), name.'),
+  masterCreateTool('shift', 'Create a shift master (SPEC-M5 §7-D-32). code is optional — auto-assigned SH-## if omitted or taken. Required: name, fromTime (HH:MM), toTime (HH:MM). Optional: hours (default 8).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -1665,6 +1757,7 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('component', 'Update an existing component by name. (Component has a single field — to rename, create a new component.)'),
   masterUpdateTool('design', 'Update an existing design by code. All fields optional; only provided fields are updated.'),
   masterUpdateTool('govt-holiday', 'Update an existing govt holiday by date (ISO). Provide name to rename it.'),
+  masterUpdateTool('shift', 'Update an existing shift by code. All fields optional; only provided fields are updated (name, fromTime, toTime, hours).'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
@@ -1732,6 +1825,22 @@ const masterNewListTools: AgentTool[] = [
       return {
         text: `${rows.length} holidays`,
         json: rows.map((h: any) => ({ date: h.date instanceof Date ? h.date.toISOString().slice(0, 10) : h.date, name: h.name })),
+      }
+    },
+  },
+  {
+    // SPEC-M5 §7-D-32 — the shift master's list door (every master's listTool
+    // must exist as a read tool — master-configs contract test).
+    name: 'list_shifts',
+    description: 'List shift masters (code, name, from/to times, hours).',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.shift.findMany({ orderBy: { code: 'asc' } })
+      return {
+        text: `${rows.length} shifts`,
+        json: rows.map((s: any) => ({ code: s.code, name: s.name, fromTime: s.fromTime, toTime: s.toTime, hours: s.hours })),
       }
     },
   },

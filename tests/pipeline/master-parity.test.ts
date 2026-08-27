@@ -44,6 +44,7 @@ function inputFor(slug: string, v: string): Record<string, unknown> {
     case 'line': return { code: `M2L${t}`, name: `M2E Line ${t}`, capacityPcsPerHour: 150 }
     case 'govt-holiday': return { date: `2027-01-${String(10 + (n % 18)).padStart(2, '0')}`, name: `M2E Holiday ${t}` }
     case 'fin-year': return { code: `M2F${t}`, name: `M2E FY ${t}`, start: '2027-04-01', end: '2028-03-31' }
+    case 'shift': return { name: `M2E Shift ${t}`, fromTime: '06:00', toTime: '14:00', hours: 8 } // SPEC-M5 §7-D-32
     default: throw new Error(`no test input for ${slug}`)
   }
 }

@@ -41,6 +41,16 @@ import { lineTransferConfig } from './line-transfer'
 import { jobworkPcsReturnConfig } from './grn-variants'
 import { costingInputConfig } from './costing-input'
 import { wagePaymentsConfig } from './wage-payments'
+// M5 Wave D (SPEC-M5 §7-D — ADR-015 new models + write doors)
+import { sampleConfig } from './sample'
+import { gateEntryConfig, gatePassConfig } from './gate'
+import { packingListConfig } from './packing-list'
+import { labTestConfig } from './lab-test'
+import { expenseConfig } from './expense'
+import { rollSplitConfig } from './roll-split'
+import { contractAllotmentConfig } from './contract-allotment'
+import { programAllotmentConfig } from './program-allotment'
+import { productionBillConfig } from './production-bill'
 
 export {
   orderConfig,
@@ -81,6 +91,17 @@ export {
   jobworkPcsReturnConfig,
   costingInputConfig,
   wagePaymentsConfig,
+  // M5 Wave D (SPEC-M5 §7-D)
+  sampleConfig,
+  gateEntryConfig,
+  gatePassConfig,
+  packingListConfig,
+  labTestConfig,
+  expenseConfig,
+  rollSplitConfig,
+  contractAllotmentConfig,
+  programAllotmentConfig,
+  productionBillConfig,
 }
 
 export const DOC_CONFIGS: DocConfig[] = [
@@ -122,6 +143,17 @@ export const DOC_CONFIGS: DocConfig[] = [
   jobworkPcsReturnConfig,
   costingInputConfig,
   wagePaymentsConfig,
+  // M5 Wave D (SPEC-M5 §7-D)
+  sampleConfig,
+  gateEntryConfig,
+  gatePassConfig,
+  packingListConfig,
+  labTestConfig,
+  expenseConfig,
+  rollSplitConfig,
+  contractAllotmentConfig,
+  programAllotmentConfig,
+  productionBillConfig,
 ]
 
 export function getDocConfig(slug: string): DocConfig | undefined {
