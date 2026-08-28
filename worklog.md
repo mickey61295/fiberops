@@ -817,3 +817,28 @@ Stage Summary:
 - The redirection was nearly free because the prior session's work was uncommitted: the aggregation service kept its §4 feed/KPI/panels contracts verbatim and only GAINED modules; both doors (screen + get_live_activity) still run the ONE service (Contract #8).
 - 699 vitest · route_smoke_m9 38/38 · context_check 385/385 · build EXIT 0 · tools 189 / models 65 / menu 114 / LIVEROUTES 146.
 - Next: SPEC-M9 §9 roadmap top-down — M10 agent quality pass, M11 flags UI, M12 Playwright E2E; tracker SSE + createdAt indexes parked in M14.
+
+---
+Task ID: 12
+Agent: main (Super Z)
+Task: Deliver the user-requested forward-looking implementation & improvement plan beyond M7 (the other half of the two-part request from the pre-M9 sessions; the live-tracker half was completed as M9, Task 11). Produced as a formal Chinese PDF document, grounded in SPEC-M9 §9's frozen M10+ roadmap plus live code recon (agent route SYSTEM_PROMPT, flags.ts FLAG_DEFS count, eval_ingest.mjs harness).
+
+Work Log:
+- Re-established context: worklog tail (Task 11 = M9 complete, commit f3b0fe0, tree clean), STATE milestone table M0-M9 + pins (189 tools / 65 models / 114 menu / LIVEROUTES 146 / 699 vitest / context_check 385/385), SPEC-M9 §9 roadmap text.
+- Code recon for plan accuracy: SYSTEM_PROMPT is an unversioned const in src/app/api/agent/route.ts (M10's target); FLAG_DEFS in src/lib/erp/flags.ts = 28 flags across tolerance/commercial/company/module (M11's surface); scripts/eval_ingest.mjs = 3-doc ingestion golden set with 95% gate (M10's expansion base).
+- PDF skill chain read in full: SKILL.md + configs/fonts.md + briefs/report.md (complete) + typesetting/{cover,palette,typography,overflow,pagination,fill-engine,geometry,charts,cover-backgrounds}.md.
+- Palette: design_engine.py palette-cascade --intent cold --mode minimal --seed 7 (steel-blue family; ACCENT #3681a6, HEADER_FILL #334650) used for BOTH cover (CSS :root) and body (ReportLab constants) — one hue family per palette.md.
+- Cover: Template 01 HUD (light bg #eff0f1, 8px accent anchor line at x=95, content at x=175, grid Layer 1 at 4.5% opacity, kicker/hero(2-line 61px CJK)/summary/meta/footer at absolute anchors). poster_validate check-html PASS + cover_validate.js PASS (after removing the accent-dot span that tripped text-text overlap) → html2poster.js --width 794px → 221KB vector cover.
+- Body: scripts/pdf-plan/{plan_content.py (8 chapters of content blocks: exec summary + 4-stat row, M0-M9 recap table, quality gates, architecture contracts, P1/P2/P3 matrix, M10/M11/M12 and M13-M16 detailed plans with goals/work-breakdown/acceptance/risks, parked table, session protocol, recommendation), build_body.py (TocDocTemplate + multiBuild, NotoSerifSC/FreeSerif + install_font_fallback, TA_LEFT + wordWrap CJK, all table cells Paragraph() with ratio colWidths ≤ available, repeatRows=1, CondPageBreak orphan prevention only — no forced chapter breaks, roman-i TOC footer + arabic body reset, TOC entries notify page-1 so TOC numbers == footer numbers)}.
+- Font fix: chinese dir ships only NotoSansSC[wght].ttf variable font → registered inside try/except (NotoSerifSC is the real body font; sans is optional fallback).
+- Merge: merge_final.py pypdf insert cover as page 0 with strict A4 normalization (threshold 0.1pt after pdf_qa flagged the 595.9 vs 595.3pt mismatch at 2pt threshold).
+- Preflight chain: code.sanitize both scripts → build → merge → meta.brand → pages.clean (no blanks) → font.check (0 issues) → toc_validate (1 false positive: stat tiles "113/113 699 189 146" parsed as TOC entry; real TOC verified manually — all 21 entries match actual footer page numbers via pymupdf word-coordinate reconstruction) → pdf_qa: first run FAIL (page size) → fixed → final WARN-only (4 inherent ReportLab CJK line-start punctuation + cover left-anchor asymmetry by design + stat-tile centering false positive; L59/R59 mirror proves the tile group is centered).
+- Text polish: two flagged line-start em-dashes reworded (浏览器验证——→：, 路由可靠——→，, 还有一个原因——→：).
+- Visual verification: rendered pages 1/3/4 @100dpi → VLM review: clean layout, no overlaps, no tofu boxes, no defects.
+- Deliverables in download/: Fiberpro-ERP-超越M7的前瞻性实施与改进计划.pdf (10 pages, 538KB, cover+TOC+8 chapters), cover HTML source, cover preview PNG. Working scripts in scripts/pdf-plan/ (cover.html, plan_content.py, build_body.py, merge_final.py — editable for future revisions).
+
+Stage Summary:
+- The plan document (original request #1) is delivered; request #2 (live tracker) was already complete as M9/f3b0fe0.
+- Content: M0-M9 state recap, architecture contracts (C2/C8/65-model/agent-first/C5), P1 (M10 agent quality ≥90% routing, M11 28-flag admin UI, M12 8 Playwright golden paths), P2 (M13 digest notifications, M14 indexes/pagination/SSE/N+1 with <300ms@10k target, M15 engine-level audit trail, M16 role dashboards), P3 parked table with unpark conditions, five-gate session protocol, and the recommendation to start M10 next.
+- All skill quality gates satisfied: validators PASS, QA WARN-only with justified exceptions, VLM visual pass, metadata branded, fonts embedded, TOC clickable and page-accurate.
+- Next session: execute M10 per the plan (SPEC-M10 to be written first per the SPEC-first discipline).

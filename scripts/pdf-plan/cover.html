@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: 794px 1123px; margin: 0; }
+  :root {
+    --c-bg: #eff0f1;
+    --c-accent: #3681a6;
+    --c-text: #1a1b1c;
+    --c-muted: #6f7578;
+    --c-mid: #334650;
+    --c-surface: #e4e7e8;
+  }
+  html, body {
+    margin: 0; padding: 0;
+    width: 794px; height: 1123px;
+    background: var(--c-bg);
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    color: var(--c-text);
+  }
+  @media screen {
+    html { height: auto; display: flex; justify-content: center; min-height: 100vh; background: var(--c-bg); }
+    body { transform-origin: top center; scale: min(1, calc(100vw / 794), calc(100vh / 1123)); margin: 0 auto; box-shadow: 0 0 60px rgba(0,0,0,0.18); }
+  }
+  .cover { width: 794px; height: 1123px; position: relative; border: none; outline: none; box-shadow: none; }
+
+  /* Layer 1 — background grid (clipped) */
+  .layer1 {
+    position: absolute; inset: 0; overflow: hidden; z-index: 1;
+    background-image:
+      linear-gradient(to right, rgba(51,70,80,0.045) 0.5px, transparent 0.5px),
+      linear-gradient(to bottom, rgba(51,70,80,0.045) 0.5px, transparent 0.5px);
+    background-size: 50px 50px;
+  }
+
+  /* Layer 2 — structure: ultra-thick left anchor line */
+  .layer2 { position: absolute; inset: 0; z-index: 2; }
+  .anchor-line {
+    position: absolute;
+    left: 95px; top: 112px; bottom: 112px;
+    width: 8px;
+    background: var(--c-accent);
+  }
+
+  /* Layer 3 — content */
+  .layer3 { position: absolute; inset: 0; z-index: 3; }
+  .kicker {
+    position: absolute; left: 175px; top: 168px;
+    font-size: 15px; font-weight: 400;
+    letter-spacing: 4px; text-transform: uppercase;
+    color: var(--c-mid); opacity: 0.62;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  }
+  .hero {
+    position: absolute; left: 175px; top: 320px;
+    font-size: 61px; font-weight: 900;
+    line-height: 1.15;
+    color: var(--c-text);
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+    max-width: 560px;
+  }
+  .hero .accent-dot { color: var(--c-accent); }
+  .summary {
+    position: absolute; left: 175px; top: 562px;
+    font-size: 17px; font-weight: 400;
+    line-height: 1.7;
+    color: var(--c-text); opacity: 0.85;
+    max-width: 460px;
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+  }
+  .meta {
+    position: absolute; left: 175px; top: 842px;
+    font-size: 16px; font-weight: 400;
+    line-height: 1.75;
+    color: var(--c-mid);
+    font-family: 'Noto Sans SC', 'Inter', sans-serif;
+  }
+  .meta .k { color: var(--c-muted); margin-right: 14px; font-size: 13px; letter-spacing: 2px; }
+  .footer {
+    position: absolute; left: 175px; bottom: 82px;
+    font-size: 13px; font-weight: 400;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--c-muted); opacity: 0.75;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  }
+</style>
+</head>
+<body>
+  <div class="cover">
+    <div class="layer1"></div>
+    <div class="layer2">
+      <div class="anchor-line"></div>
+    </div>
+    <div class="layer3">
+      <div class="kicker">Fiberpro ERP · Roadmap M10&ndash;M16</div>
+      <div class="hero">超越 M7 的前瞻性<br>实施与改进计划</div>
+      <div class="summary">本计划在 M7 健康检查、M8 统一打印引擎与 M9 实时运营追踪器相继交付之后，对后续三个优先级层次、七个里程碑（M10&ndash;M16）给出完整的实施路径、工作分解、验收标准与风险预案，作为后续开发会话自上而下的正式选单。</div>
+      <div class="meta">
+        <div><span class="k">版本</span>V1.0 · 已定稿</div>
+        <div><span class="k">日期</span>2026 年 8 月 28 日</div>
+        <div><span class="k">依据</span>SPEC-M9 §9 冻结路线图</div>
+      </div>
+      <div class="footer">Fiberpro ERP Program Office</div>
+    </div>
+  </div>
+</body>
+</html>
