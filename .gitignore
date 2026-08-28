@@ -64,3 +64,9 @@ server.log
 /examples/
 /skills/
 dev.pid
+
+# SPEC-M12 E2E artifacts (disposable)
+db/e2e.db*
+tests/e2e/.e2e-state.json
+tests/e2e/.results/
+playwright-report/

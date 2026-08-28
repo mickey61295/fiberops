@@ -78,7 +78,7 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-28 m11 session (flags UI; 115 items)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-29 m12 session (Playwright E2E; 115 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
@@ -142,6 +142,14 @@ check "m11 setFlag drift-safe message (registry names only)" "1" "$(grep -c 'not
 check "m11 flags screen + client board (page + FlagsAdmin)" "2" "$(ls 'src/app/(erp)/admin/settings/page.tsx' 'src/app/(erp)/admin/settings/flags-admin.tsx' 2>/dev/null | wc -l)"
 check "m11 feature-flags menu item (masters-admin group)" "1" "$(grep -c "id: 'feature-flags'" src/lib/erp/menu-registry.ts)"
 check "m11 flags unit tests (registry shape + route contract)" "14" "$(grep -c '^  it(' tests/unit/flags-config.test.ts)"
+check "m12 playwright config (dedicated :3100 + isolated e2e.db)" "1" "$(ls playwright.config.ts 2>/dev/null | wc -l)"
+check "m12 golden-path spec files (8)" "8" "$(ls tests/e2e/*.spec.ts 2>/dev/null | wc -l)"
+check "m12 e2e test cases across the suite" "14" "$(grep -ch '^  test(' tests/e2e/*.spec.ts | awk '{s+=$1} END {print s}')"
+check "m12 global setup + teardown + one-command runner" "3" "$(ls scripts/e2e_global_setup.ts scripts/e2e_global_teardown.ts scripts/e2e.sh 2>/dev/null | wc -l)"
+check "m12 setup isolation guard (refuses non-e2e DATABASE_URL)" "1" "$(grep -c "does not point at db/e2e.db" scripts/e2e_global_setup.ts)"
+check "m12 package script test:e2e" "1" "$(grep -c '"test:e2e"' package.json)"
+check "m12 agent SSE disconnect guard (send/safeClose)" "2" "$(grep -cE 'const (send|safeClose) =' src/app/api/agent/route.ts)"
+check "m12 spec document" "1" "$(ls docs/CONTEXT/specs/SPEC-M12.md 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"

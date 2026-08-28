@@ -389,3 +389,48 @@ LESSON: (1) `next build` needs ~2.5GB free — stop the dev server first
 is not a persistent process: the platform reaps orphans between tool calls.
 (3) curl "000" in a smoke means "server gone", not "route broken" — check
 `ps aux | grep next` before debugging routes.
+
+35. webServer.env does NOT reach globalSetup — the E2E seed leaked into the DEV database · 2026-08-29 (M12 session)
+CONTEXT: playwright.config.ts set `webServer.env.DATABASE_URL=file:…/e2e.db`
+for the dedicated :3100 server, and the specs' own DB clients pinned
+`datasources.url` explicitly — but globalSetup runs in the PLAYWRIGHT process,
+whose env comes from the shell. Its `new PrismaClient()` (and every posting
+service it imports through `@/lib/db`) resolved DATABASE_URL from .env →
+**db/custom.db** — 9 bring-up runs silently seeded the DEV database (orders,
+invoices, POs, approvals, E2E masters, group+user) and force-set the admin
+password. The specs then failed confusingly ("Invoice INV-0128 not found" —
+the invoice existed, just in the wrong file).
+FIX pattern: the RUNNER exports the env for the whole tree (`export
+DATABASE_URL=…e2e.db` in scripts/e2e.sh BEFORE `npx playwright test` —
+globalSetup's transpiled imports inherit it), plus a refusal guard inside the
+setup itself (throw unless DATABASE_URL contains 'e2e.db'), plus an md5
+checksum of db/custom.db before/after the run that fails loudly on ANY change.
+The one-shot cleanup script (scripts/e2e_cleanup_devdb.ts) removed the leaked
+rows by 'E2E' markers and restored the admin password.
+LESSON: `webServer.env` is scoped to the web server child ONLY. Any other
+process in the test tree (globalSetup, globalTeardown, test fixtures) needs
+the env exported by whatever invokes playwright — and an isolation contract
+is only real if a checksum FAILS on violation, not if the docs promise it.
+
+36. Regex-rewriting code bit ME: the SSE send() helper became self-recursive · 2026-08-29 (M12 session)
+CONTEXT: converting the 14 `controller.enqueue(encoder.encode(encodeEvent(…)))`
+sites in /api/agent/route.ts to a safe `send()` helper, a Python regex pass
+rewrote the enqueue INSIDE the just-added helper into `send(event as never)`
+— infinite recursion, caught by the helper's own catch, flipping clientGone
+on the FIRST event. The stream then emitted nothing and closed instantly
+("2 msgs · idle", no start event, no version chip). tsc was GREEN the whole
+time (a self-recursive const arrow is perfectly typed) — only the E2E agent
+specs caught it (the UI-spec gate proving its worth in the same session it
+was built).
+FIX pattern: eyeball every site after a mechanical rewrite (grep for the old
+call pattern inside the new helper), and treat "stream dies instantly with a
+200" as recursion/early-return, not a network problem.
+ALSO fixed en route (the reason send() exists): when the browser navigates
+away mid-SSE, every enqueue/close on the closed controller THROWS
+("Invalid state: Controller is already closed") — previously logged as a fake
+route error after each agent spec. The guard swallows the disconnect, breaks
+the LLM loop (no tokens burned on a dead client), and safeClose() in the
+finally. E2E server log is now clean.
+LESSON: (1) mechanical rewrites need a same-shape review, not just a typecheck
+pass; (2) SSE routes must treat controller writes as fallible — a disconnect
+is a NORMAL lifecycle event, not an error.

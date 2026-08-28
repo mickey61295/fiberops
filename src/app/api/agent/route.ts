@@ -178,6 +178,30 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       let step = 0
+      // SSE disconnect guard: when the browser navigates away / aborts the
+      // fetch mid-stream, the controller is CLOSED and every enqueue/close
+      // throws ("Controller is already closed") — found by the M12 E2E suite
+      // (specs navigate after their assertions; the abort raced the stream).
+      // send() swallows that, flags the client gone, and the loop unwinds
+      // instead of logging a fake error and burning further LLM steps.
+      let clientGone = false
+      const send = (event: Record<string, unknown>): boolean => {
+        if (clientGone) return false
+        try {
+          controller.enqueue(encoder.encode(encodeEvent(event as never)))
+          return true
+        } catch {
+          clientGone = true
+          return false
+        }
+      }
+      const safeClose = () => {
+        try {
+          controller.close()
+        } catch {
+          /* already closed by the disconnect */
+        }
+      }
       try {
         const body = await req.json()
         const incoming: ChatMessage[] = body.messages || []
@@ -187,10 +211,8 @@ export async function POST(req: Request) {
 
         const cfg = await loadZaiConfig()
         if (!cfg) {
-          controller.enqueue(
-            encoder.encode(encodeEvent({ type: 'error', error: 'ZAI config not found' })),
-          )
-          controller.close()
+          send({ type: 'error', error: 'ZAI config not found' })
+          safeClose()
           return
         }
 
@@ -217,16 +239,12 @@ export async function POST(req: Request) {
         ]
 
         // SPEC-M10 C2: every stream opens with the active prompt version
-        controller.enqueue(
-          encoder.encode(encodeEvent({ type: 'start', promptVersion: PROMPT_VERSION })),
-        )
+        send({ type: 'start', promptVersion: PROMPT_VERSION })
 
         // Manual agent loop
         while (step < MAX_STEPS) {
           step++
-          controller.enqueue(
-            encoder.encode(encodeEvent({ type: 'step-start', step })),
-          )
+          if (!send({ type: 'step-start', step })) break // client gone — stop burning LLM steps
 
           const completion = await client.chat.completions.create({
             model: 'glm-4.6',
@@ -239,44 +257,28 @@ export async function POST(req: Request) {
 
           const choice = completion.choices?.[0]
           if (!choice) {
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({ type: 'error', error: 'No completion choice' }),
-              ),
-            )
+            send({ type: 'error', error: 'No completion choice' })
             break
           }
           const msg = choice.message as any
 
           // 1. Stream any text content
           if (msg.content) {
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({
-                  type: 'text-start',
-                  id: `text-${step}`,
-                  step,
-                }),
-              ),
-            )
+            send({
+              type: 'text-start',
+              id: `text-${step}`,
+              step,
+            })
             // Emit in chunks for nicer UX
             const chunks = msg.content.match(/.{1,4}/g) || [msg.content]
             for (const chunk of chunks) {
-              controller.enqueue(
-                encoder.encode(
-                  encodeEvent({
-                    type: 'text-delta',
-                    id: `text-${step}`,
-                    delta: chunk,
-                  }),
-                ),
-              )
+              send({
+                type: 'text-delta',
+                id: `text-${step}`,
+                delta: chunk,
+              })
             }
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({ type: 'text-end', id: `text-${step}` }),
-              ),
-            )
+            send({ type: 'text-end', id: `text-${step}` })
             messages.push({ role: 'assistant', content: msg.content })
           }
 
@@ -284,11 +286,7 @@ export async function POST(req: Request) {
           const toolCalls = msg.tool_calls || []
           if (toolCalls.length === 0) {
             // No more tool calls — we're done
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({ type: 'step-end', step, finishReason: 'stop' }),
-              ),
-            )
+            send({ type: 'step-end', step, finishReason: 'stop' })
             break
           }
 
@@ -306,17 +304,13 @@ export async function POST(req: Request) {
             const rawArgs = JSON.parse(tc.function.arguments || '{}')
             const args = normalizeArgs(rawArgs)
 
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({
-                  type: 'tool-call-start',
-                  toolCallId: tc.id,
-                  toolName,
-                  args,
-                  isWrite: t?.isWrite ?? false,
-                }),
-              ),
-            )
+            send({
+              type: 'tool-call-start',
+              toolCallId: tc.id,
+              toolName,
+              args,
+              isWrite: t?.isWrite ?? false,
+            })
 
             let result: any
             if (!t) {
@@ -372,17 +366,13 @@ export async function POST(req: Request) {
               error: result.error,
             }
 
-            controller.enqueue(
-              encoder.encode(
-                encodeEvent({
-                  type: 'tool-call-end',
-                  toolCallId: tc.id,
-                  toolName,
-                  args,
-                  output: toolOutput,
-                }),
-              ),
-            )
+            send({
+              type: 'tool-call-end',
+              toolCallId: tc.id,
+              toolName,
+              args,
+              output: toolOutput,
+            })
 
             // 4. Send tool result back to the model in OpenAI format.
             // extract_document results carry whole documents — allow much
@@ -395,30 +385,22 @@ export async function POST(req: Request) {
             })
           }
 
-          controller.enqueue(
-            encoder.encode(
-              encodeEvent({
-                type: 'step-end',
-                step,
-                finishReason: 'tool-calls',
-              }),
-            ),
-          )
+          send({
+            type: 'step-end',
+            step,
+            finishReason: 'tool-calls',
+          })
         }
 
-        controller.enqueue(encoder.encode(encodeEvent({ type: 'finish' })))
+        send({ type: 'finish' })
       } catch (err: any) {
         console.error('[/api/agent] error:', err)
-        controller.enqueue(
-          encoder.encode(
-            encodeEvent({
-              type: 'error',
-              error: err?.message || 'Internal error',
-            }),
-          ),
-        )
+        send({
+          type: 'error',
+          error: err?.message || 'Internal error',
+        })
       } finally {
-        controller.close()
+        safeClose()
       }
     },
   })
