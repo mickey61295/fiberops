@@ -890,3 +890,22 @@ Stage Summary:
 - The two-layer rule (layout GROUP rights → page/API ROLE door) proven end-to-end by a dedicated fixture: non-admin WITH masters-admin rights sees the notice + zero flag rows + 403 on POST.
 - 724 vitest · route_smoke_m11 32/32 · route_smoke_m9 38/38 · context_check 410/410 · build EXIT 0 · menu 115 / LIVEROUTES 147 / tools 189 / models 65.
 - Next: M12 Playwright E2E golden paths (8 specs; curl smokes stay as cheap gates), then P2 (M13 digest, M14 indexes/pagination/SSE, M15 audit trail, M16 role dashboards).
+
+---
+Task ID: m11-convergence
+Agent: main
+Task: Continue from a stale-context session ("implement the live tracker per the parity-tracker pattern + deliver the forward plan"). Two parallel sessions had raced: this sandbox (context reset) and the remote session (which had already delivered M9 tracker / M10 agent-quality / M11 flags-admin).
+
+Work Log:
+- Explored the codebase fresh, located the parity tracker pattern, and (unaware of the remote's newer work) implemented a complete parallel live tracker at /live: live-snapshot.ts collector + /api/live-tracker snapshot + SSE stream (3s tick, abort-clean) + SSR page + client hook with SSE→polling degradation; registered /live in LIVE_ROUTES, topbar breadcrumb, footer link; 9 new tests; caught & restored /api/upload (accidentally deleted by commit 19fdedc — the remote lineage's abc2cb0 never had that deletion); 700 vitest, context_check 375/375 locally, build EXIT 0, dev-server smoke 8/8 (committed as dde0797).
+- git push rejected → discovered origin/main had advanced: f3b0fe0 (M9 — /tracker, parity-style per THE SAME user clarification), 93a2a2a (M10 — prompt versioning + 50-prompt routing eval), cb32f82 (M11 — /admin/settings flags admin). Remote is newer, more complete (17 families, module board, get_live_activity agent tool, 724 vitest, 410 context checks).
+- DECISION: adopt remote as the single source of truth. Preserved the parallel implementation on branch `m9-wave-a-alt` (dde0797) — its SSE stream + health-probe layer maps directly onto the SPEC-M9 §9 P2 item "M14 tracker SSE upgrade + createdAt indexes", so the branch is an M14 accelerator, not dead code.
+- Reset to origin/main; prisma generate (M10 added AgentTurn.promptVersion); verified adopted state locally: 724/724 vitest, eval_routing --static PASS.
+- context_check initially 409/410: the m10 check pins download/eval-routing-report.json, which is gitignored and absent on a fresh clone; --static could not recreate it because static mode crashed on writeFileSync before mkdir (full mode mkdirs, static didn't) — fresh-clone bug FIXED: mkdirSync now runs in the static branch too. Re-ran --static → report written → context_check 410/410 NO DRIFT.
+- Confirmed upload route exists on the adopted lineage (no action needed); the alt-branch restore was a fix only for MY lineage's base.
+
+Stage Summary:
+- Local == remote at cb32f82 (M11): 724 vitest · context_check 410/410 · static eval gate PASS · tools 189 / models 65 / menu 115 / LIVEROUTES 147.
+- Parallel live-tracker implementation preserved on `m9-wave-a-alt` for the M14 SSE upgrade (SSE stream route + health probe + degradation hook are drop-in candidates).
+- Fresh-clone robustness fix in scripts/eval_routing.mjs (static-mode mkdir).
+- Roadmap confirmed (SPEC-M9 §9 frozen): M12 Playwright E2E (8 golden specs) → P2: M13 notifications digest, M14 perf (indexes + pagination + tracker SSE), M15 audit trail, M16 role dashboards.

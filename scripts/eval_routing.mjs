@@ -295,6 +295,7 @@ const main = async () => {
   if (STATIC) {
     const st = runStatic()
     // also (re)write the report's static section so the artifact stays fresh
+    mkdirSync('/home/z/my-project/download', { recursive: true }) // fresh-clone safe (full mode mkdirs; static didn't)
     try {
       const prev = JSON.parse(readFileSync(REPORT, 'utf8'))
       prev.static = { checkedAt: new Date().toISOString(), ok: st.ok, entries: GOLDEN.length, domains: st.domains, errors: st.errors }
