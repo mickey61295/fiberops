@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-08-28 (session: m9-wave-a — the Live Operations Tracker, REVISED mid-flight to the user-clarified parity-style format: "when I meant live tracker… I meant something like the legacy parity tracker" → SPEC-M9 gains §4-B + a REVISED §5 (spec amended PRE-commit, the honest point); `src/lib/erp/tracker.ts` ONE service behind two doors (screen + get_live_activity tool, Contract #8) extended with the module board: TrackerFamilyRow/TrackerModuleGroup + MODULE_GROUPS ×11 (orders/procurement/cutting/production/pieces/accounts/inventory/quality/costing/workflow/agent) over 17 families (16 feed kinds + board-only stock ledger) — per-family total/today/latestDocNo/latestAt/latestHref/latestMeta, latest = entries[0] of the existing take-5 fetch (stock = ONE extra findFirst + synthesized docNo docNo??txnType + `txnType · itemType · ±qty` meta); approvals board row today = CREATED-today (distinct from KPI approvalsToday = DECISIONS-today, both honest); `live-tracker.tsx` reworked PRIMARY = parity look: summary Card with 4 bordered Stat tiles (Screens active today X/17, Docs recorded today, Pcs produced today, Pending approvals — the /parity Stat component verbatim) + per-group cards `grid lg:grid-cols-2` with Screen/Records/Today/Latest/Updated/Status tables, status dot Active/Idle/No-data, family-row NEW flash (15s TTL, latestAt-advance detection), gradient KPI row REMOVED; Wave-A panels (activity feed/approvals/agent pulse/system) retained below as secondary; get_live_activity text gains screens-active + busiest-families lines, json gains modules; /parity ARCH_LABELS gains LT: 'Live'; → 699 vitest (691+1 menu-registry +1 agent-actor pins from the uncommitted M9 base… final arithmetic: 692 prior session tests incl. 6 tracker +1 modules board = 699 — tracker tests now 7), route_smoke_m9 38/38 ALL GREEN (unauth 307/401 + board greps Screens-active/Records/Latest + modules 11 groups + 17 families + feedLimit caps + live-marker round-trip + restricted-user home-group 200), context_check 385/385 (+3: module-groups 11 + summary-tile + tracker-tests 7), tsc src/ 0 errors, next build EXIT 0, browser-verified (11 group cards / 17 rows / 9-of-17 active; ZERO console errors; screenshot download/m9-tracker-board.png); tools 189, models 65, LIVEROUTES 146 (page routes 147)) — (prior: m8-wave-b — 15 remaining print families)
+Last verified: 2026-08-28 (session: m10 — the Agent quality pass, SPEC-M9 §9-P1 item 1: `src/lib/agent/prompt.ts` NEW — PROMPT_VERSION `m10-2026-08-28` (scheme m<milestone>.<rev>-YYYY-MM-DD; the phantom v5 claim of older sessions stays historical, drift note #1 RESOLVED) + SYSTEM_PROMPT restructured per SPEC-M10 §2-C1: 16-domain map (Orders/Procurement/Inventory/Cutting/Production/Jobwork/Despatch/Accounting/Costing/Quality/HR/Masters/Workflow/Documents/Reports/Meta — replaces the two raw READ/WRITE tool lists) + 7 tool-selection heuristics (read-before-write, direction rule, money=cash-vs-ledger, goods=own-godowns-vs-out-of-company, receive-vs-accept, update-over-recreate, next-step-after-commit) + 8 few-shot routing examples (hard cap) over the four known confusion pairs (buyer-PO vs supplier-PO · receive_grn vs accept_grn · record_payment vs create_journal · transfer_stock vs create_pcs_despatch) + EVERY normative rule preserved (ingestion two-phase/direction, 15-stage chain + next-step, auto-numbering, GST/₹/FY/godowns/departments, never-say-use-the-UI); route.ts imports the module and stamps promptVersion on the SSE start event + every AgentTurn row; schema ADDS AgentTurn.promptVersion String? (additive, db push + generate + dev restart); agent-panel shows a mono version chip; tools.ts description audit — the 37 weakest descriptions rewritten concrete (returns + filter args + routing cue; registry-wide floor ≥40 chars pinned by test; tools stay 189, tsc src/ 0); `scripts/eval_routing.mjs` NEW — the 50-prompt golden routing set across 16 domains with both sides of every confusion pair, --static structural gate (no LLM: 50 entries/unique ids/16 domains/every expectedTool resolves against tools.ts source via inline+docTool+factory-slug rules) + full LLM mode (fresh single-turn per prompt, asserts expectedTool ∈ called-tools across ALL steps, NEVER approves so zero commits, 429 retry + skip-marking, 3s pacing, report download/eval-routing-report.json, gate ≥90%); tests/unit/prompt.test.ts 10 pins (version scheme, 16 domains, few-shot cap 8, both-sides-of-each-pair, ingestion/chain/auto-number/never-UI preservation, description floor + spot cues); context_check 398/398 (+13: prompt module/stamps/schema/eval script/golden 50/prompt tests 10/report + file list; PROMPT_VERSION known-gap check FLIPPED to required); 00-START-HERE session-end protocol gains step 1b (static every session, full run on every PROMPT_VERSION change); tools 189, models 65, menu 114, LIVEROUTES 146) — (prior: m9-wave-a — the live operations tracker)
 
 ## Milestone status
 
@@ -19,6 +19,7 @@ Last verified: 2026-08-28 (session: m9-wave-a — the Live Operations Tracker, R
 | M7 — Auth & rights enforcement | Wave A login core (done) → Wave B API guarding + agent user context (done) → Wave C rights enforcement (UserGroup.rights menu filtering + per-route checks + admin password door) | **COMPLETE** (`m7-wave-c`): Wave A — ADR-017 + scrypt/HMAC zero-dep session + /login with first-admin bootstrap + edge middleware page guard + topbar user chip/logout + seed_admin; Wave B — 401-JSON guard on all 5 ERP API route files + AgentTurn.userId session stamping + approval actor (approvedBy = human email through the approve door) + cookie fixtures for HTTP scripts; Wave C — fo_rights signed cookie + middleware per-route pre-check + layout fresh layer-2 (sidebar filter + route re-check) + /admin/users PasswordAdmin + /api/auth/admin/set-password + /api/seed admin-only → 653 vitest, route_smoke_m7c 36/36; spec `spec-m7-frozen` |
 | M8 — Hardening: doc-family print templates | Wave A: ONE PrintSheet engine + ONE `/print/[docType]/[id]` registry route + 5 fetchers (invoice/po/grn/payment/dc) + amount-in-words + print doors on the 5 view pages · Wave B: the remaining 15 doc detail families (fetchers-b.ts) + doors on all 14 remaining view pages — **EVERY doc detail page prints** | **COMPLETE** (`m8-wave-b`): Wave B — 15 fetchers (debit-note/journal/budget/cost-sheet/expense/cut-order/gate-entry+gate-pass/sample/pcs-despatch/packing-list/rejection/production-entry/line-issue/lab-test) with id-OR-doc-no resolution (id-only for budget/cost-sheet/production-entry — no unique doc-no field), gate type filter (IN entry ≠ gate pass), lab-test values-JSON → parameter rows, journal voucherType-driven titles; registry 5→20, doors on 19 files (gate-view shared); 691 vitest (673+18), route_smoke_m8b 38/38, context_check 369/369; tools 188, models 65, LIVEROUTES 145 |
 | M9 — Live Operations Tracker (user-requested; REVISED parity-style) | ONE screen `/tracker` + ONE aggregation service (`tracker.ts`, two doors: screen + `get_live_activity` tool) + `/api/tracker` (requireApiSession, ?feedLimit 1..40) + menu item live-tracker (home group, always allowed) · **REVISED pre-commit per user clarification**: the parity scoreboard format as PRIMARY — summary stat tiles + 11 per-group cards × 17 family rows with total/today/latest/Active-Idle live status; activity feed + approvals/agent/system panels secondary | **COMPLETE** (`m9-wave-a`): board = TrackerFamilyRow/TrackerModuleGroup + MODULE_GROUPS ×11/17 families (stock board-only, docNo??txnType + ±qty meta; approvals today = created-today ≠ KPI decisions-today); UI = parity Stat tiles + Screen/Records/Today/Latest/Updated/Status tables + NEW row flash (15s, latestAt-advance) + ticking relative times; tool text + json carry modules; 699 vitest (tracker 7 incl. modules board), route_smoke_m9 38/38 (board greps + modules 11/17 + live-marker round-trip + restricted 200), context_check 385/385, build EXIT 0, browser-verified 0 console errors; tools 189, models 65, LIVEROUTES 146 |
+| M10 — Agent quality pass | `src/lib/agent/prompt.ts` (PROMPT_VERSION `m10-2026-08-28` + SYSTEM_PROMPT restructured: 16-domain map, 7 heuristics, 8 few-shots over the 4 confusion pairs; ALL normative rules preserved) + route.ts stamps promptVersion on SSE start event + every AgentTurn row (schema gains `promptVersion String?`, additive) + agent-panel version chip + 37 weakest tool descriptions rewritten (registry floor ≥40 chars, tools stay 189) + `scripts/eval_routing.mjs` 50-prompt golden routing set (16 domains, both sides of each confusion pair; --static structural gate + full LLM mode ≥90%, never commits) | **COMPLETE** (`m10`): prompt.test 10 pins (version scheme, 16 domains, few-shot cap 8, confusion pairs, ingestion/chain/auto-number preservation, description floor); eval_routing static 50/50 + full mode ≥90% (report download/eval-routing-report.json); vitest 699+10, context_check 394/394 (PROMPT_VERSION check flipped to required), route_smoke_m7b/m9 regression green, build EXIT 0 |
 
 ## Ground truth (verified by context_check.sh)
 
@@ -62,8 +63,13 @@ Last verified: 2026-08-28 (session: m9-wave-a — the Live Operations Tracker, R
 
 ## Known drift / gaps
 
-1. **`PROMPT_VERSION` constant does NOT exist** in `route.ts` (older session summary
-   claimed `v5-2026-08-26`). Do not "restore" a constant that was never in this baseline.
+1. **RESOLVED in M10**: `PROMPT_VERSION` now EXISTS — as `m10-2026-08-28` in
+   `src/lib/agent/prompt.ts` (NOT route.ts — App-Router route files may not
+   export arbitrary constants; the module split is the C1 contract). The old
+   phantom `v5-2026-08-26` claim stays historical: this is a NEW version
+   lineage (`m<milestone>.<rev>-YYYY-MM-DD`), not a restoration. Any semantic
+   prompt change bumps the constant and REQUIRES a full
+   `node scripts/eval_routing.mjs` run (≥90% gate).
 2. **`/api/upload` REBUILT in Wave D** (SPEC-M3 §12): POST multipart (20MB cap,
    txt/csv/md/json/tsv/log/pdf, de-collided names) + GET listing. The agent
    panel's paperclip works again; DocScreen gained the "Fill with AI" button
@@ -277,12 +283,22 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
    Wave-A feed/approvals/agent/system panels secondary; get_live_activity
    (tools 189) gains screens-active + busiest-families; menu 114 items,
    LIVEROUTES 146. 699 vitest, route_smoke_m9 38/38, context_check 385/385,
-   build EXIT 0, browser-verified. **Next candidates (SPEC-M9 §9, frozen
-   roadmap — pick top-down)**: M10 agent quality pass (prompt versioning +
-   golden-set eval ≥90% routing) → M11 /admin/settings flags UI → M12
-   Playwright E2E golden paths; then P2 (M13 notifications, M14 perf
-   pagination+indexes+SSE, M15 audit trail, M16 Dashboard 2.0). The M9 tracker
-   SSE upgrade + createdAt indexes live in M14.
+   build EXIT 0, browser-verified.
+11. **M10 DONE** (SPEC-M10): the Agent quality pass — PROMPT_VERSION
+   `m10-2026-08-28` in `src/lib/agent/prompt.ts` (16-domain map + 7
+   heuristics + 8 few-shots over the 4 confusion pairs; all normative rules
+   preserved), stamped on SSE start + every AgentTurn (schema column,
+   additive), agent-panel version chip; 37 weakest tool descriptions
+   rewritten (floor ≥40 chars, tools stay 189); `scripts/eval_routing.mjs`
+   50-prompt golden routing set (16 domains; --static every session + full
+   ≥90% gate on every PROMPT_VERSION change — session-end protocol step 1b);
+   prompt.test 10 pins → 709 vitest; context_check 398/398. **Next
+   candidates (SPEC-M9 §9 frozen roadmap — pick top-down)**: M11
+   /admin/settings flags UI (28 flags over /api/config, the set-password
+   admin pattern) → M12 Playwright E2E golden paths (8 specs); then P2 (M13
+   notifications digest, M14 perf indexes+pagination+SSE, M15 engine-level
+   audit trail, M16 role dashboards). The tracker SSE upgrade + createdAt
+   indexes live in M14.
 
 ## M5 Wave D notes for future sessions
 

@@ -34,6 +34,7 @@ model AgentTurn {
   approvedBy String?
   approvedAt DateTime?
   userId     String // plain string (auth out of scope for v1; would be FK to User.id in prod)
+  promptVersion String? // SPEC-M10 — the system-prompt version that drove this turn (observability; nullable for pre-M10 rows)
   createdAt  DateTime  @default(now())
 }
 

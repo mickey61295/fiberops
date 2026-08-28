@@ -253,7 +253,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_purchase_order',
-    description: 'Get a single PO by poNo with all lines.',
+    description: 'Get ONE purchase order by poNo (e.g. PO-Y-0001) with all lines, party and totals. Use to check what was ordered before a GRN or supplier payment.',
     domain: 'procurement',
     isWrite: false,
     schema: z.object({ poNo: z.string() }),
@@ -352,7 +352,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_cut_orders',
-    description: 'List cut orders with bundle counts.',
+    description: 'List cut orders (cutNo CUT-####, order, fabric issued kgs, total pcs, bundle counts). Use to review cutting progress per order.',
     domain: 'cutting',
     isWrite: false,
     schema: z.object({ status: z.string().optional() }),
@@ -453,7 +453,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_party_ledger',
-    description: 'Get party ledger (invoices + journals) by party code.',
+    description: 'Get one party ledger by party code (PRT-####): invoices, journals and running balance. Use to answer how much a party owes us.',
     domain: 'accounting',
     isWrite: false,
     schema: z.object({ partyCode: z.string() }),
@@ -503,7 +503,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_buyers',
-    description: 'List buyers.',
+    description: 'List buyer masters (code B-####, name, dept, merchandiser). Use to resolve a buyer name to its code before creating orders or samples.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -514,7 +514,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_styles',
-    description: 'List styles with their buyer.',
+    description: 'List style masters (styleNo STY-####, description, buyer name, sam, hsn). Use to resolve a model number to its styleNo before creating orders or BOMs.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -527,7 +527,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_fabrics',
-    description: 'List fabric masters.',
+    description: 'List fabric masters (code F-####, construction, gsm, width, dia, rate). Use to resolve a fabric to its code before POs, dyeing programs or stock tools.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -538,7 +538,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_yarns',
-    description: 'List yarn masters.',
+    description: 'List yarn masters (code Y-####, count, blend, uom, rate). Use to resolve a yarn to its code before POs, knitting programs or stock tools.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -549,7 +549,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_accessories',
-    description: 'List accessory masters.',
+    description: 'List accessory masters (code A-####, name, category, uom, rate) — zippers, buttons, labels. Use to resolve an accessory before POs or BOMs.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -560,7 +560,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_godowns',
-    description: 'List godowns (warehouses).',
+    description: 'List godowns / warehouses (code G1/G2/G3…, name, location). Use to resolve a godown name to its code for stock, transfer and GRN tools.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -571,7 +571,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_departments',
-    description: 'List departments.',
+    description: 'List departments / process stages (code D1-D6…, name, isProcess). Use to resolve a department name to its code before production entries.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -582,7 +582,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_cost_sheet',
-    description: 'Get cost sheet for an order by orderNo.',
+    description: 'Get the cost sheet for one order by orderNo: budgeted vs actual material, labour and overhead costs. Use before quoting or closing an order.',
     domain: 'costing',
     isWrite: false,
     schema: z.object({ orderNo: z.string() }),
@@ -602,7 +602,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_budget_vs_actual',
-    description: 'Get budget vs actual for an order (PO + production cost).',
+    description: 'Get budget vs actual for one order by orderNo: PO commitments vs production cost. Use to see whether an order is running over budget.',
     domain: 'costing',
     isWrite: false,
     schema: z.object({ orderNo: z.string() }),
@@ -627,7 +627,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_pending_approvals',
-    description: 'Get all pending approvals (PO/invoice/etc waiting for sign-off).',
+    description: 'List every approval waiting for sign-off (kind, entity, requestedBy, age). The approval inbox in chat — check this before approving anything.',
     domain: 'workflow',
     isWrite: false,
     schema: z.object({}),
@@ -654,7 +654,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_employees',
-    description: 'List employees with their department.',
+    description: 'List employees (code EMP-####, name, department, role, piece rate). Use to resolve an operator before production entries or wage payouts.',
     domain: 'hr',
     isWrite: false,
     schema: z.object({}),
@@ -743,7 +743,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'summarize_open_orders',
-    description: 'Summarize all open orders with buyer, style, qty, value, delivery.',
+    description: 'Summarize all open orders in one table: buyer, style, qty, value, delivery date. Use for a quick order-book overview.',
     domain: 'meta',
     isWrite: false,
     schema: z.object({}),
@@ -789,7 +789,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_colours',
-    description: 'List all colour masters.',
+    description: 'List colour masters (code, name). Use to resolve a colour name before creating order lines or mapping buyer colour codes (e.g. 59X NAVY → Navy).',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -803,7 +803,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_sizes',
-    description: 'List all size masters.',
+    description: 'List size masters (name, sort). Use to resolve size names before creating order lines, or batch-create a full scale via create_sizes.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -817,7 +817,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_dias',
-    description: 'List all knitting machine dias (e.g. 30, 34).',
+    description: 'List knitting machine dia masters (value, e.g. 30, 34). Use to resolve a dia before fabric creation or knitting setup.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -831,7 +831,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_lots',
-    description: 'List all fabric/yarn lots with party.',
+    description: 'List fabric/yarn lot masters (lotNo LOT-####, party). Use to resolve a lot before lab tests or lot-tracked stock queries.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -918,7 +918,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_seasons',
-    description: 'List all seasons.',
+    description: 'List season masters (code, name, start/end dates). Use to resolve a season before order or style entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -932,7 +932,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_merchandisers',
-    description: 'List all merchandisers.',
+    description: 'List merchandiser masters (name, email, phone). Use to resolve a merchandiser before buyer or order entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -946,7 +946,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_exporters',
-    description: 'List all exporters (the exporting entities).',
+    description: 'List exporter masters (code, name, IEC, GSTIN) — the exporting entities used on commercial/export documents.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -960,7 +960,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_lines',
-    description: 'List all production lines with department and capacity.',
+    description: 'List production lines (code, name, department, capacity pcs/hour). Use to resolve a line code before issuing to a sewing line or line transfers.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -974,7 +974,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_fin_years',
-    description: 'List all financial years with active flag.',
+    description: 'List financial years (code YY-YY, start, end, active). Use to resolve the right finYear for historical documents (e.g. 24-25).',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1010,7 +1010,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_despatches',
-    description: 'List all finished-goods despatches (DCs to buyers).',
+    description: 'List finished-goods despatch DCs to buyers (dcNo, order, buyer, qty, date) with order and buyer resolved. Use to review what shipped.',
     domain: 'orders',
     isWrite: false,
     schema: z.object({}),
@@ -1053,7 +1053,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_debit_notes',
-    description: 'List all debit notes raised against parties.',
+    description: 'List debit notes raised against parties (note no, party, amount, date). Use to review returns/charges raised on buyers or suppliers.',
     domain: 'accounting',
     isWrite: false,
     schema: z.object({}),
@@ -1843,7 +1843,7 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('govt-holiday', 'Update an existing govt holiday by date (ISO). Provide name to rename it.'),
   masterUpdateTool('shift', 'Update an existing shift by code. All fields optional; only provided fields are updated (name, fromTime, toTime, hours).'),
   masterUpdateTool('user', 'Update a user by email. Updatable: name, role, userGroup, active.'),
-  masterUpdateTool('user-group', 'Rename a user group by name.'),
+  masterUpdateTool('user-group', 'Rename an existing user group by its current name. Menu rights are NOT changed here — use /admin/menu-rights.'),
   masterUpdateTool('app-option', 'Update an app option by key. Updatable: label, value, group.'),
   masterUpdateTool('hsn', 'Update an HSN code by code. Updatable: description, gstRate, hsnType.'),
   masterUpdateTool('test-parameter', 'Update a test parameter by code. Updatable: name, stage, method, unit.'),
@@ -1853,7 +1853,7 @@ const masterUpdateTools: AgentTool[] = [
 const masterNewListTools: AgentTool[] = [
   {
     name: 'list_size_groups',
-    description: 'List size groups with their size names resolved.',
+    description: 'List size groups with their size names resolved (e.g. S-M-L, 92-98-104). Use to pick a group when a style runs a full size scale.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1872,7 +1872,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_parts',
-    description: 'List garment parts (e.g. Front Panel, Sleeve).',
+    description: 'List garment part masters (e.g. Front Panel, Sleeve, Collar). Use to resolve parts before BOM or cut-order detail entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1883,7 +1883,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_components',
-    description: 'List components (e.g. Self Fabric, Contrast Panel).',
+    description: 'List component masters (e.g. Self Fabric, Contrast Panel). Use to resolve components before BOM entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1894,7 +1894,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_designs',
-    description: 'List designs.',
+    description: 'List design masters (code, name). Use to resolve a design before style entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1905,7 +1905,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_govt_holidays',
-    description: 'List government holidays.',
+    description: 'List government holidays (date, name). Use to check the working-day calendar for wage and planning calculations.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1921,7 +1921,7 @@ const masterNewListTools: AgentTool[] = [
     // SPEC-M5 §7-D-32 — the shift master's list door (every master's listTool
     // must exist as a read tool — master-configs contract test).
     name: 'list_shifts',
-    description: 'List shift masters (code, name, from/to times, hours).',
+    description: 'List shift masters (code, name, from/to times, hours). Use to resolve a shift before employee or wage entry.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1937,7 +1937,7 @@ const masterNewListTools: AgentTool[] = [
   // requires a list door per config (§12-4).
   {
     name: 'list_users',
-    description: 'List users (login, name, role, group, active).',
+    description: 'List login users (email, name, role, user group, active). Use to resolve a user before granting rights or password admin.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1951,7 +1951,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_user_groups',
-    description: 'List user groups (name + menu rights summary).',
+    description: 'List user groups (name + menu rights summary). Use to resolve a group before user assignment or rights changes.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1968,7 +1968,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_app_options',
-    description: 'List app options (key, label, value, group).',
+    description: 'List app options / system settings (key, label, value, group). Use to read configuration such as print settings and defaults.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1979,7 +1979,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_hsns',
-    description: 'List HSN codes with GST rates.',
+    description: 'List HSN codes with GST rates (code, description, gstRate). Use to resolve the HSN/GST rate before invoicing a style.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),
@@ -1990,7 +1990,7 @@ const masterNewListTools: AgentTool[] = [
   },
   {
     name: 'list_test_parameters',
-    description: 'List lab test parameters (code, name, stage, method, unit).',
+    description: 'List lab test parameters (code, name, stage, method, unit). Use to resolve a parameter before logging a lab test.',
     domain: 'masters',
     isWrite: false,
     schema: z.object({}),

@@ -127,6 +127,14 @@ check "m9 tracker tests (6 feed + 1 modules board)" "7" "$(grep -c '^  it(' test
 check "m9 get_live_activity tool registered" "1" "$(grep -c "name: 'get_live_activity'" src/lib/agent/tools.ts)"
 check "m9 live-tracker menu item in home group" "1" "$(grep -c "id: 'live-tracker'" src/lib/erp/menu-registry.ts)"
 check "m9 tracker screen + component" "2" "$(ls 'src/app/(erp)/tracker/page.tsx' src/components/erp/live-tracker.tsx 2>/dev/null | wc -l)"
+check "m10 prompt module (PROMPT_VERSION + SYSTEM_PROMPT)" "2" "$(grep -cE "^export const (PROMPT_VERSION|SYSTEM_PROMPT)" src/lib/agent/prompt.ts)"
+check "m10 route imports the prompt module (versioned prompt in use)" "1" "$(grep -c "from '@/lib/agent/prompt'" src/app/api/agent/route.ts)"
+check "m10 route stamps promptVersion (SSE start + AgentTurn rows)" "2" "$(grep -c 'promptVersion: PROMPT_VERSION' src/app/api/agent/route.ts)"
+check "m10 AgentTurn.promptVersion column in schema" "1" "$(grep -c 'promptVersion String?' prisma/schema.prisma)"
+check "m10 routing eval script" "1" "$(ls scripts/eval_routing.mjs 2>/dev/null | wc -l)"
+check "m10 golden routing set entries (50 prompts, 16 domains)" "50" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
+check "m10 prompt unit tests" "10" "$(grep -c '^  it(' tests/unit/prompt.test.ts)"
+check "m10 routing eval report exists" "1" "$(ls download/eval-routing-report.json 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"
@@ -336,14 +344,17 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/tracker.ts src/app/api/tracker/route.ts \
          'src/app/(erp)/tracker/page.tsx' src/components/erp/live-tracker.tsx \
          tests/unit/tracker.test.ts scripts/route_smoke_m9.sh \
-         docs/CONTEXT/specs/SPEC-M9.md; do
+         docs/CONTEXT/specs/SPEC-M9.md \
+         src/lib/agent/prompt.ts scripts/eval_routing.mjs \
+         tests/unit/prompt.test.ts scripts/m10_description_audit.py \
+         docs/CONTEXT/specs/SPEC-M10.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 
 echo
 echo "[known-missing (expected gaps, do not 'fix' silently)]"
 [ -f src/app/api/upload/route.ts ] && echo "  OK    /api/upload EXISTS (Wave D §12 rebuild — STATE updated)" || echo "  MISSING /api/upload (Wave D regression — rebuild it)"
-grep -q "PROMPT_VERSION" src/app/api/agent/route.ts && echo "  NOTE  PROMPT_VERSION exists now (update STATE)" || echo "  OK    no PROMPT_VERSION (matches STATE drift note #1)"
+grep -q "PROMPT_VERSION = '" src/lib/agent/prompt.ts && echo "  OK    PROMPT_VERSION exists (M10 — STATE drift note #1 RESOLVED; src/lib/agent/prompt.ts)" || echo "  MISSING PROMPT_VERSION (M10 regression — the prompt module is gone)"
 [ -f src/components/erp/masters-view.tsx ] && echo "  NOTE  masters-view.tsx still exists (M2 should have deleted it)" || echo "  OK    masters-view.tsx deleted (M2)"
 
 echo

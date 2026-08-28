@@ -52,6 +52,10 @@ functions.** Full strategy: `docs/PLAN-2.0-MENU-PARITY.md`.
 
 ```
 1. tsc + tests green? (npx tsc --noEmit; npx vitest run)
+1b. Agent prompt/routing: node scripts/eval_routing.mjs --static (every
+    session — fast structural gate). FULL run (node scripts/eval_routing.mjs,
+    server up, ≥90% gate) is REQUIRED whenever PROMPT_VERSION in
+    src/lib/agent/prompt.ts changes (SPEC-M10 §2-C5).
 2. Update 01-STATE.md numbers + next actions
 3. Append worklog.md section (template at bottom of worklog)
 4. git add -A && git commit -m "<milestone|docs|fix>: ..."

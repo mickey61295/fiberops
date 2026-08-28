@@ -64,6 +64,8 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const [attachedFile, setAttachedFile] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // SPEC-M10 C2 — the active system-prompt version, streamed on the start event
+  const [promptVersion, setPromptVersion] = useState<string | null>(null)
 
   // Seed the input when the panel opens with a prompt (SPEC-M1 §6). Never auto-sends.
   useEffect(() => {
@@ -158,6 +160,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             continue
           }
           switch (payload.type) {
+            case 'start': {
+              // SPEC-M10 C2 — stamp the active prompt version for the operator
+              setPromptVersion(payload.promptVersion || null)
+              break
+            }
             case 'text-delta': {
               currentTextBuffer += payload.delta || ''
               setMessages((prev) => {
@@ -328,6 +335,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             </div>
             <span>Fiberpro Agent</span>
             <Badge variant="secondary" className="text-[10px]">GLM-4.6</Badge>
+            {promptVersion && (
+              <Badge variant="outline" className="text-[10px] font-mono text-slate-500" data-testid="prompt-version">
+                {promptVersion}
+              </Badge>
+            )}
           </SheetTitle>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
