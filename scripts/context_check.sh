@@ -83,7 +83,7 @@ check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio)" "28"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9-A live-tracker)" "29"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath blocks)" "27"      "$REGTESTS"
@@ -92,7 +92,7 @@ check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M6 Wave D — process tail; 113/113 COMPLETE)" "145"    "$LIVEROUTES"
+check "live routes (M6 Wave D process tail 113/113; M9-A +/live meta page)" "146"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C)" "20"       "$REGCFGS"
@@ -322,7 +322,10 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/print-docs.test.ts scripts/route_smoke_m8a.sh \
          src/lib/erp/print/fetchers-b.ts tests/unit/print-docs-b.test.ts \
          scripts/route_smoke_m8b.sh 'src/app/(erp)/dispatch/gate-view.tsx' \
-         docs/CONTEXT/specs/SPEC-M8.md; do
+         docs/CONTEXT/specs/SPEC-M8.md \
+         src/lib/erp/live-snapshot.ts src/components/erp/live-tracker.tsx \
+         'src/app/(erp)/live/page.tsx' src/app/api/live-tracker/route.ts \
+         src/app/api/live-tracker/stream/route.ts tests/unit/live-snapshot.test.ts; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

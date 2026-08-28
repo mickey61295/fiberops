@@ -20,9 +20,14 @@ export function ParityFooter() {
           <span className="font-semibold text-emerald-600">{s.coveragePct}%</span>{' '}
           ({s.legacyLive}/{s.legacyMapped} forms)
         </span>
-        <Link href="/parity" className="text-emerald-600 hover:text-emerald-700 font-medium">
-          Parity tracker →
-        </Link>
+        <span className="flex items-center gap-3">
+          <Link href="/live" className="text-emerald-600 hover:text-emerald-700 font-medium">
+            Live tracker
+          </Link>
+          <Link href="/parity" className="text-emerald-600 hover:text-emerald-700 font-medium">
+            Parity tracker →
+          </Link>
+        </span>
       </div>
     </footer>
   )

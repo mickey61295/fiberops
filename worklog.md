@@ -793,3 +793,24 @@ Stage Summary:
 - The registry pattern held exactly as SPEC-M8 §2 predicted — each family WAS a ~40-line fetcher; zero engine/route/sheet changes needed.
 - 691 vitest (673+18) · route_smoke_m8b 38/38 · context_check 369/369 · build EXIT 0 · tools 188 / models 65 / LIVEROUTES 145.
 - Next candidates (STATE #9): E2E hardening over the route surface, agent prompt polish over the 188-tool registry, /admin/settings flags UI over the repaired /api/config.
+
+---
+Task ID: m9-wave-a
+Agent: main
+Task: Live tracker view (user request — "real-time tracker, like the historical parity tracker"): build the real-time sibling of /parity, modeled on its UI/routing pattern, with a live data layer (SSE + polling fallback). Also deliver the forward plan beyond the current milestone.
+
+Work Log:
+- Re-explored the codebase after context loss: located the parity tracker (src/app/(erp)/parity/page.tsx + parity-footer.tsx + menu-registry parityStats()), read STATE/SPEC-M7/SPEC-M8 — project is actually at M8 COMPLETE (print templates), so the forward plan renumbers to M9+; the live tracker becomes M9 Wave A.
+- NEW src/lib/erp/live-snapshot.ts — ONE collector: health probe (SELECT-1 latency, process uptime, RSS, NODE_ENV), parityStats() verbatim, 12 flow families (orders/programs/pos/grns/invoices/payments/production/jobwork/despatch/journals/samples/gate) today + 7d counts via the (db as any)[model] delegate pattern from registers/resolve.ts, workload counters (open orders/POs, pending approvals, draft invoices, active programs, agent turns today), merged 12-event feed (docs + approvals + agent turns, newest-first); assessHealth() pure thresholds (db-down wins; >250ms latency or >50 pending approvals warn).
+- NEW /api/live-tracker (GET snapshot, no-store) + /api/live-tracker/stream (SSE, 3s tick, abort-clean via req.signal + cancel(), X-Accel-Buffering no) — both session-guarded with requireApiSession (M7-B rule).
+- NEW /live page (SSR first snapshot → zero loading flash) + src/components/erp/live-tracker.tsx (client): SSE-first hook with deterministic 5s-polling degradation + 60s SSE re-probe + hidden-tab pause + visibility refresh; parity-tracker visual language (max-w-5xl card stack, Stat blocks, text-xs tables, emerald/slate palette); sections: summary+connection badge, alerts strip, server+parity cards, open workload, 12-family activity table with share bars, 12-event stream.
+- Wiring: LIVE_ROUTES +/live (meta page — no menu group, open to any authed user, same rule as /parity), topbar breadcrumb 'Live Tracker', parity-footer 'Live tracker' link beside 'Parity tracker →'.
+- REGRESSION CAUGHT & FIXED: commit 19fdedc ("worklog: m8-wave-b addendum") accidentally deleted src/app/api/upload/route.ts (83 lines) → upload-route.test.ts failed at suite start. Restored verbatim from 19fdedc~1; 7/7 green again. (The new live-snapshot delegate test ALSO caught a real bug: Prisma delegate is gRN not grn.)
+- Tests: tests/unit/live-snapshot.test.ts ×9 (assessHealth ×4, registry shape ×3 incl. delegate existence, snapshot shape ×2 against dev DB).
+- Verification: tsc src/ 0 errors · vitest 700/700 · context_check 375/375 NO DRIFT (pins: erp-views 28→29, LIVEROUTES 145→146, +6 file-existence) · next build EXIT 0 · dev-server smoke 8/8 (unauth 307/401/401, login, /live 200 title-grep, snapshot 12 families/12 events/parity 113/113, SSE 3 frames in 8s, /parity 200).
+- Docs: STATE.md (Last-verified m9-wave-a, M9 milestone row, ground-truth rows, API routes row).
+
+Stage Summary:
+- M9 Wave A COMPLETE: /live is the real-time ops companion of /parity — live docs/approvals/agent events, server health, workload and parity, streamed over SSE with polling fallback.
+- 700 vitest · context_check 375/375 · build EXIT 0 · tools 188 / models 65 / LIVEROUTES 146.
+- Forward plan (recalibrated to actual state): M9-B thresholds+history, M9-C alert routing; M10 E2E hardening; M11 agent prompt polish + flags UI; M12 perf/scale baseline; M13 legacy decommission prep.

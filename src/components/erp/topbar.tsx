@@ -32,14 +32,16 @@ export function Topbar({
   let item = findItemByRoute(pathname)
   // coming pages: /coming/<id> → the registry item
   if (!item && pathname.startsWith('/coming/')) item = findItemById(pathname.slice('/coming/'.length))
-  if (pathname === '/parity') {
-    // parity is a utility page; show under Home
+  if (pathname === '/parity' || pathname === '/live') {
+    // parity + live are utility pages; show under Home
   }
 
   const itemLabel =
     pathname === '/parity'
       ? 'Parity Tracker'
-      : item?.label ?? (group && pathname === group.landingRoute ? 'Overview' : undefined)
+      : pathname === '/live'
+        ? 'Live Tracker'
+        : item?.label ?? (group && pathname === group.landingRoute ? 'Overview' : undefined)
 
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sticky top-0 z-10">
