@@ -32,6 +32,9 @@ import { getOrderBudgetActual } from '@/lib/erp/registers/budget'
 import { queryApprovalAudit } from '@/lib/erp/registers/approval-audit'
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
 import { findApprovalKind, approvalRefHref } from '@/lib/erp/approval-kinds'
+// SPEC-M9 — the live-activity read tool delegates to the SAME tracker service
+// behind /api/tracker (Contract rule #8: one service, two doors).
+import { getTrackerSnapshot } from '@/lib/erp/tracker'
 // SPEC-M3 Wave A — the transaction write tools are now THIN delegates over the
 // posting services (ADR-001 at transaction scale). Schemas move VERBATIM into
 // src/lib/erp/schemas/ (the agent prompt contract must not drift); the chain
@@ -692,6 +695,48 @@ const readTools: AgentTool[] = [
         text: `Dashboard: ${openOrders} open orders, ${pendingPos} pending POs, stock value ₹${stockValue.toFixed(0)}, ${todayPcs} pcs produced today, ${pendingApprovals} pending approvals, ${openInvoices} open invoices.`,
         json: {
           openOrders, pendingPos, stockValue, todayPcs, pendingApprovals, openInvoices,
+        },
+      }
+    },
+  },
+  {
+    name: 'get_live_activity',
+    description: 'Get the live operations pulse: what is being recorded RIGHT NOW — ' +
+      'docs today, pcs produced/despatched, stock moves, gate movements, agent turns, ' +
+      'pending approvals by kind, and the newest 15 feed events across all families ' +
+      '(orders, POs, GRNs, invoices, payments, cuts, production, despatches, jobwork, gate, samples, lab tests, expenses, approvals, agent).',
+    domain: 'meta',
+    isWrite: false,
+    schema: z.object({
+      feedLimit: z.number().int().min(1).max(40).optional()
+        .describe('Max feed events to return (default 15, max 40)'),
+    }),
+    async execute(args) {
+      const snap = await getTrackerSnapshot({ feedLimit: args?.feedLimit ?? 15 })
+      const k = snap.kpis
+      const top = snap.feed.slice(0, 8).map((e) => `${e.label} ${e.docNo} — ${e.meta}`).join('; ')
+      const pending = snap.approvals.pendingByKind.map((p) => `${p.label}×${p.count}`).join(', ') || 'none'
+      const busiest = snap.modules.groups
+        .flatMap((g) => g.families)
+        .filter((f) => f.today > 0)
+        .sort((a, b) => b.today - a.today)
+        .slice(0, 5)
+        .map((f) => `${f.label} ${f.today} today (latest ${f.latestDocNo ?? '—'})`)
+        .join(', ')
+      return {
+        text: `Live today: ${k.docsToday} docs, ${k.prodPcsToday} pcs produced, ` +
+          `${k.despatchPcsToday} pcs despatched, ${k.stockMovesToday} stock moves, ` +
+          `${k.gateToday} gate movements, ${k.agentTurnsToday} agent turns. ` +
+          `${snap.modules.activeToday}/${snap.modules.familiesTotal} screens active today` +
+          (busiest ? ` — busiest: ${busiest}` : '') +
+          `. Pending approvals: ${k.pendingApprovals} (${pending}). Newest: ${top || 'no activity yet'}.`,
+        json: {
+          generatedAt: snap.generatedAt,
+          kpis: k,
+          modules: snap.modules,
+          pendingApprovalsByKind: snap.approvals.pendingByKind,
+          oldestPendingMin: snap.approvals.oldestPendingMin,
+          feed: snap.feed,
         },
       }
     },

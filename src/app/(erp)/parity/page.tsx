@@ -10,7 +10,7 @@ import { MENU_GROUPS, itemsByGroup, isLive, getHref, parityStats } from '@/lib/e
 
 const ARCH_LABELS: Record<string, string> = {
   DB: 'Dashboard', MT: 'Master', DS: 'Doc', RG: 'Register',
-  IN: 'Inbox', RH: 'Report', ST: 'Settings',
+  IN: 'Inbox', RH: 'Report', ST: 'Settings', LT: 'Live',
 }
 
 export default function ParityPage() {

@@ -1,6 +1,7 @@
 /**
  * Menu registry unit tests — SPEC-M1 §10.
- * Guards the frozen contract: 113 items, 17 groups, unique ids/routes,
+ * Guards the frozen contract: 114 items (113 parity + M9 live-tracker),
+ * 17 groups, unique ids/routes,
  * LIVE_ROUTES matches files on disk, getHref/isLive/parityStats behavior.
  */
 import { describe, it, expect } from 'vitest'
@@ -27,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 113 items', () => {
-    expect(MENU_ITEMS.length).toBe(113)
+  it('has exactly 114 items (113 parity + M9 live-tracker)', () => {
+    expect(MENU_ITEMS.length).toBe(114)
   })
 
   it('has exactly 17 groups', () => {
@@ -77,10 +78,21 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(isLive(findItemById('pcs-receipt') as MenuItem)).toBe(true)
   })
 
-  it('parityStats: 113/113 live after M6 Wave D (process tail — M6 COMPLETE)', () => {
+  it('M9: live-tracker item — home group, live, page on disk, get_live_activity door (SPEC-M9)', () => {
+    const item = findItemById('live-tracker') as MenuItem
+    expect(item.groupId).toBe('home')
+    expect(item.route).toBe('/tracker')
+    expect(LIVE_ROUTES.has('/tracker')).toBe(true)
+    expect(isLive(item)).toBe(true)
+    expect(item.agentTools).toContain('get_live_activity')
+    expect(fs.existsSync(path.join(ERP_DIR, 'tracker/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, '../../app/api/tracker/route.ts'))).toBe(true)
+  })
+
+  it('parityStats: 114/114 live after M9 (113 parity M6 + live-tracker)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(113)
-    expect(s.liveItems).toBe(113)
+    expect(s.totalItems).toBe(114)
+    expect(s.liveItems).toBe(114)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)

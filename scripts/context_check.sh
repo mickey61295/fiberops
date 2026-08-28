@@ -73,26 +73,27 @@ echo "  m7-waveA: auth-lib=$(ls src/lib/auth/*.ts 2>/dev/null | wc -l) auth-api-
 echo "  m7-waveB: guarded-api-routes=$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts 2>/dev/null | wc -l)/5 agent-actor=AgentTurn.userId+approvedBy"
 echo "  m8-waveA: print-lib=$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l) print-families=$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
 echo "  m8-waveB: print-doors=$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' 2>/dev/null | wc -l)+gate-view=$(grep -l 'DocPrintLink' 'src/app/(erp)/dispatch/gate-view.tsx' 2>/dev/null | wc -l)"
+echo "  m9-waveA: tracker-service=$(ls src/lib/erp/tracker.ts 2>/dev/null | wc -l) tracker-api=$(ls src/app/api/tracker/route.ts 2>/dev/null | wc -l) feed-families=$(grep -cE "kind: '(order|po|grn|invoice|payment|journal|cut|production|despatch|jobwork|gate|sample|labtest|expense|approval|agent)'" src/lib/erp/tracker.ts)"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-27 M6-WaveD session (process tail; 113/113)]"
-check "agent tools (inline+factory+docTool)" "188" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-28 m9-wave-a session (live tracker; 114 items)]"
+check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio)" "28"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker)" "29"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath blocks)" "27"      "$REGTESTS"
+check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 live-tracker blocks)" "28"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items"                 "113"     "$MENUITEMS"
-check "live routes (M6 Wave D — process tail; 113/113 COMPLETE)" "145"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker)" "114"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker)" "146"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C)" "20"       "$REGCFGS"
@@ -117,6 +118,15 @@ check "m8-waveA print doc families in registry (invoice/po/grn/payment/dc)" "5" 
 check "m8 print doc families in registry (Wave A 5 + Wave B 15)" "20" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
 check "m8-waveA print door on doc view pages" "5" "$(grep -l 'DocPrintLink' 'src/app/(erp)/accounts/invoice/[id]/page.tsx' 'src/app/(erp)/procurement/po/[id]/page.tsx' 'src/app/(erp)/procurement/grn/[id]/page.tsx' 'src/app/(erp)/accounts/payments/[id]/page.tsx' 'src/app/(erp)/jobwork/order/[id]/page.tsx' 2>/dev/null | wc -l)"
 check "m8 print doors on doc view pages (Wave A 5 + Wave B 14 files; gate-view covers 2 routes)" "19" "$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' --include='gate-view.tsx' 2>/dev/null | wc -l)"
+check "m9 tracker service file (one service, two doors)" "1" "$(ls src/lib/erp/tracker.ts 2>/dev/null | wc -l)"
+check "m9 tracker API route (requireApiSession guarded)" "1" "$(grep -l 'requireApiSession' src/app/api/tracker/route.ts 2>/dev/null | wc -l)"
+check "m9 tracker feed families (16)" "16" "$(grep -cE "kind: '(order|po|grn|invoice|payment|journal|cut|production|despatch|jobwork|gate|sample|labtest|expense|approval|agent)'" src/lib/erp/tracker.ts)"
+check "m9 module-board groups (parity-style live scoreboard, §4-B)" "11" "$(grep -cE "id: '(orders|procurement|cutting|production|pieces|accounts|inventory|quality|costing|workflow|agent)', label:" src/lib/erp/tracker.ts)"
+check "m9 board summary tile in live-tracker component" "1" "$(grep -c 'Screens active today' src/components/erp/live-tracker.tsx)"
+check "m9 tracker tests (6 feed + 1 modules board)" "7" "$(grep -c '^  it(' tests/unit/tracker.test.ts)"
+check "m9 get_live_activity tool registered" "1" "$(grep -c "name: 'get_live_activity'" src/lib/agent/tools.ts)"
+check "m9 live-tracker menu item in home group" "1" "$(grep -c "id: 'live-tracker'" src/lib/erp/menu-registry.ts)"
+check "m9 tracker screen + component" "2" "$(ls 'src/app/(erp)/tracker/page.tsx' src/components/erp/live-tracker.tsx 2>/dev/null | wc -l)"
 
 echo
 echo "[file existence — critical assets]"
@@ -322,7 +332,11 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/print-docs.test.ts scripts/route_smoke_m8a.sh \
          src/lib/erp/print/fetchers-b.ts tests/unit/print-docs-b.test.ts \
          scripts/route_smoke_m8b.sh 'src/app/(erp)/dispatch/gate-view.tsx' \
-         docs/CONTEXT/specs/SPEC-M8.md; do
+         docs/CONTEXT/specs/SPEC-M8.md \
+         src/lib/erp/tracker.ts src/app/api/tracker/route.ts \
+         'src/app/(erp)/tracker/page.tsx' src/components/erp/live-tracker.tsx \
+         tests/unit/tracker.test.ts scripts/route_smoke_m9.sh \
+         docs/CONTEXT/specs/SPEC-M9.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

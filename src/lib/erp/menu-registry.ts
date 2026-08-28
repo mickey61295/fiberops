@@ -12,8 +12,8 @@
  *  - This file must stay importable from server, client AND vitest without app deps.
  */
 
-export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6'
+export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9'
 
 export interface MenuGroup {
   id: string
@@ -193,6 +193,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/accounts/hsn-gst', // HSN / GST Setup (M6 Wave D) — hsn-gst-setup (Hsn MasterTable)
   '/hr/employees', // Employees & Contractors (M6 Wave D) — employees (ALIAS of /masters/employee)
   '/quality/parameters', // Test Parameters (M6 Wave D) — test-parameters (TestParameter MasterTable)
+  // M9 Wave A (SPEC-M9) — the live operations tracker
+  '/tracker', // Live Tracker (M9 Wave A) — live-tracker (polling activity feed, home group)
 ])
 
 // ---------------------------------------------------------------------------
@@ -252,7 +254,7 @@ const MASTER_CREATE_TOOLS = [
 // ITEMS (113) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
-  // ---- home (3) ----
+  // ---- home (4) ----
   {
     id: 'dashboard', label: 'Dashboard', groupId: 'home', route: '/', arch: 'DB', phase: 'M1',
     description: 'KPI tiles and the 15-stage pipeline at a glance.',
@@ -270,6 +272,12 @@ export const MENU_ITEMS: MenuItem[] = [
     description: 'Day-book of all stock in/out movements across godowns.',
     legacyForms: ['frmDailyinout'], agentTools: ['get_daily_in_out'], pendingTools: [],
     agentPrompt: 'Show me today\u2019s stock in and out',
+  },
+  {
+    id: 'live-tracker', label: 'Live Tracker', groupId: 'home', route: '/tracker', arch: 'LT', phase: 'M9',
+    description: 'Live operations pulse: every document, approval and agent turn as it is recorded.',
+    legacyForms: [], agentTools: ['get_live_activity'], pendingTools: [],
+    agentPrompt: 'What is going on in the factory right now?',
   },
 
   // ---- orders (9) ----

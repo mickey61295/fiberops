@@ -102,7 +102,7 @@ describe('approval actor on commits (SPEC-M7 Wave B)', () => {
   })
 
   it('the tool registry still exposes every tool with the widened execute signature', () => {
-    expect(allTools.length).toBe(188)
+    expect(allTools.length).toBe(189)
     for (const t of allTools) {
       expect(typeof t.execute).toBe('function')
     }
@@ -110,5 +110,7 @@ describe('approval actor on commits (SPEC-M7 Wave B)', () => {
     expect(getTool('accept_grn')).toBeTruthy()
     expect(getTool('acknowledge_cutting_issue')).toBeTruthy()
     expect(getTool('create_bill_pass')).toBeTruthy()
+    // SPEC-M9 — the live-activity read door over the tracker service
+    expect(getTool('get_live_activity')).toBeTruthy()
   })
 })
