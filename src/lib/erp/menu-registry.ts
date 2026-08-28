@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11'
 
 export interface MenuGroup {
   id: string
@@ -165,6 +165,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/admin/users', // Users & Groups (M6 Wave B) — users-groups (two MasterTables ?tab=)
   '/admin/menu-rights', // Menu Rights (M6 Wave B) — menu-rights (rights matrix)
   '/admin/options', // Options & Settings (M6 Wave B) — options-settings (AppOption master)
+  '/admin/settings', // Feature Flags (M11) — feature-flags (LLD-07 registry board over setFlag)
   '/orders/enquiry', // Order Enquiry (M6 Wave C) — order-enquiry (ALIAS of order-register)
   '/programs/status', // Program Status (M6 Wave C) — program-status (RG)
   '/inventory/stock', // Current Stock (M6 Wave C) — stock-view (RG)
@@ -1024,7 +1025,7 @@ export const MENU_ITEMS: MenuItem[] = [
     notes: 'Tiles + 14-day production bars, all from REPORT_SERVICES (SPEC-M6 §4)',
   },
 
-  // ---- masters-admin (5) ----
+  // ---- masters-admin (6) ----
   {
     id: 'masters', label: 'All Masters (~40 entities)', groupId: 'masters-admin', route: '/masters', arch: 'MT', phase: 'M2',
     description: 'Party, buyer, style, fabric, yarn, accessory, godown, dept, employee, colour, size, UOM, dia, lot, season + 25 more — one MasterTable engine.',
@@ -1059,6 +1060,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['frmOptions', 'FrmOptionsPrint', 'frmDeptSettings'],
     agentTools: ['create_app_option', 'update_app_option', 'list_app_options'], pendingTools: [],
     notes: 'AppOption master grouped print|defaults|general (SPEC-M6 §7-B-2); print.* keys feed getPrintHeader',
+  },
+  {
+    id: 'feature-flags', label: 'Feature Flags', groupId: 'masters-admin', route: '/admin/settings', arch: 'ST', phase: 'M11',
+    description: 'The LLD-07 operating switches: tolerances, commercial rules, company config.',
+    legacyForms: ['frmOptionsFlags'],
+    agentTools: ['list_app_options'], pendingTools: [],
+    notes: '28-flag registry board (SPEC-M11): grouped toggles + effect notes + reset-to-default; writes ride POST /api/config → setFlag (admin-only, registry drift-safe); flag:* rows outside the registry render read-only',
   },
 ]
 

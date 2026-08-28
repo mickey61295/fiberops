@@ -372,3 +372,20 @@ costume — importer analysis is the triage. (2) On a noisy `git status`, trust
 `git diff --numstat`, not the file count. (3) A generic key-value model
 (AppOption) is the schema-free home for cross-cutting config — namespacing the
 key (`flag:`) keeps it collision-proof and greppable.
+
+34. next build OOMs while the dev server is up — and the platform reaps YOUR spawned servers · 2026-08-28 (M11 session)
+CONTEXT: `next build` was Killed twice (3.9GB RAM box; the system-managed dev
+server — started once at boot by /start.sh with NO watchdog — grows to ~1.5GB
+after a session of route compilations, starving the build). Killing the dev
+server fixed the build, but every replacement I spawned (`nohup`, even
+`setsid`) was reaped by the platform the moment the tool call that started it
+returned — the second route_smoke_m11 run died mid-script with curl 000s.
+FIX pattern: run the dev server AND anything that needs it (route smokes,
+agent-browser checks) inside ONE bash tool call — `(bun run dev > /tmp/dev.log
+2>&1 &)` + readiness curl loop + the smoke + `pkill -f "next dev"` at the end.
+Between calls, expect :3000 to be DOWN until the next call starts it again.
+LESSON: (1) `next build` needs ~2.5GB free — stop the dev server first
+(system one has no watchdog; nothing auto-restarts it). (2) A spawned process
+is not a persistent process: the platform reaps orphans between tool calls.
+(3) curl "000" in a smoke means "server gone", not "route broken" — check
+`ps aux | grep next` before debugging routes.

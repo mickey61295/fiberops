@@ -70,14 +70,15 @@ echo "  m3-waveD: live-routes=$LIVEROUTES  doc-configs=$DOCCFGS  docTool=$DOCTOO
 echo "  m4-waveA: register-configs=$REGCFGS  register-services=$REGSVCFILES  register-cfg-tests=$REGCFGTESTS"
 echo "  m6-waveA: report-configs=$REPORTCFGS  report-service-files=$REPORTSVCFILES"
 echo "  m7-waveA: auth-lib=$(ls src/lib/auth/*.ts 2>/dev/null | wc -l) auth-api-routes=$(ls -d src/app/api/auth/*/ 2>/dev/null | wc -l)"
-echo "  m7-waveB: guarded-api-routes=$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts 2>/dev/null | wc -l)/5 agent-actor=AgentTurn.userId+approvedBy"
+echo "  m7-waveB: guarded-api-routes=$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts src/app/api/tracker/route.ts src/app/api/config/route.ts 2>/dev/null | wc -l)/7 (+M9 tracker +M11 config) agent-actor=AgentTurn.userId+approvedBy"
 echo "  m8-waveA: print-lib=$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l) print-families=$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
 echo "  m8-waveB: print-doors=$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' 2>/dev/null | wc -l)+gate-view=$(grep -l 'DocPrintLink' 'src/app/(erp)/dispatch/gate-view.tsx' 2>/dev/null | wc -l)"
 echo "  m9-waveA: tracker-service=$(ls src/lib/erp/tracker.ts 2>/dev/null | wc -l) tracker-api=$(ls src/app/api/tracker/route.ts 2>/dev/null | wc -l) feed-families=$(grep -cE "kind: '(order|po|grn|invoice|payment|journal|cut|production|despatch|jobwork|gate|sample|labtest|expense|approval|agent)'" src/lib/erp/tracker.ts)"
+echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-tests=$(grep -c '^  it(' tests/unit/flags-config.test.ts 2>/dev/null) settings-screen=$(ls 'src/app/(erp)/admin/settings/page.tsx' 2>/dev/null | wc -l)"
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-28 m9-wave-a session (live tracker; 114 items)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-28 m11 session (flags UI; 115 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
@@ -87,13 +88,13 @@ check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker)" "29"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
-check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 live-tracker blocks)" "28"      "$REGTESTS"
+check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker)" "114"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker)" "146"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags)" "115"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings)" "147"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C)" "20"       "$REGCFGS"
@@ -108,7 +109,7 @@ check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" 
 check "m7-waveC auth lib files (rights + login-cookies)" "2" "$(ls src/lib/auth/rights.ts src/lib/auth/login-cookies.ts 2>/dev/null | wc -l)"
 check "m7-waveA auth api routes (login/logout/session/bootstrap)" "4" "$(ls -d src/app/api/auth/*/ 2>/dev/null | grep -v admin | wc -l)"
 check "m7-waveC admin api route (set-password)" "1" "$(ls src/app/api/auth/admin/set-password/route.ts 2>/dev/null | wc -l)"
-check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed)" "5" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts 2>/dev/null | wc -l)"
+check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M9 tracker + M11 config)" "7" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts src/app/api/tracker/route.ts src/app/api/config/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
@@ -135,6 +136,12 @@ check "m10 routing eval script" "1" "$(ls scripts/eval_routing.mjs 2>/dev/null |
 check "m10 golden routing set entries (50 prompts, 16 domains)" "50" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
 check "m10 prompt unit tests" "10" "$(grep -c '^  it(' tests/unit/prompt.test.ts)"
 check "m10 routing eval report exists" "1" "$(ls download/eval-routing-report.json 2>/dev/null | wc -l)"
+check "m11 flag registry defs (LLD-07 — 28 in, 28 out)" "28" "$(grep -c "name: '" src/lib/erp/flags.ts)"
+check "m11 POST /api/config admin door (set-password pattern)" "1" "$(grep -c 'export async function POST' src/app/api/config/route.ts)"
+check "m11 setFlag drift-safe message (registry names only)" "1" "$(grep -c 'not in the registry' src/lib/erp/flags.ts)"
+check "m11 flags screen + client board (page + FlagsAdmin)" "2" "$(ls 'src/app/(erp)/admin/settings/page.tsx' 'src/app/(erp)/admin/settings/flags-admin.tsx' 2>/dev/null | wc -l)"
+check "m11 feature-flags menu item (masters-admin group)" "1" "$(grep -c "id: 'feature-flags'" src/lib/erp/menu-registry.ts)"
+check "m11 flags unit tests (registry shape + route contract)" "14" "$(grep -c '^  it(' tests/unit/flags-config.test.ts)"
 
 echo
 echo "[file existence — critical assets]"
@@ -347,7 +354,11 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M9.md \
          src/lib/agent/prompt.ts scripts/eval_routing.mjs \
          tests/unit/prompt.test.ts scripts/m10_description_audit.py \
-         docs/CONTEXT/specs/SPEC-M10.md; do
+         docs/CONTEXT/specs/SPEC-M10.md \
+         'src/app/(erp)/admin/settings/page.tsx' \
+         'src/app/(erp)/admin/settings/flags-admin.tsx' \
+         tests/unit/flags-config.test.ts scripts/route_smoke_m11.sh \
+         scripts/m11_smoke_fixture.ts docs/CONTEXT/specs/SPEC-M11.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

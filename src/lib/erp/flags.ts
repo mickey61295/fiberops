@@ -117,7 +117,7 @@ export async function getFlag<T = any>(name: string): Promise<T> {
 /** Validate + persist a flag change. Returns the new typed value. */
 export async function setFlag(name: string, value: any): Promise<any> {
   const def = defByName.get(name)
-  if (!def) throw new Error(`Unknown flag: ${name} — available: ${FLAG_DEFS.map((f) => f.name).join(', ')}`)
+  if (!def) throw new Error(`Unknown flag: ${name} — not in the registry (available: ${FLAG_DEFS.map((f) => f.name).join(', ')})`)
   let stored: string
   if (def.valueType === 'number') {
     const n = Number(value)

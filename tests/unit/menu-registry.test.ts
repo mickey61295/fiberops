@@ -1,7 +1,7 @@
 /**
  * Menu registry unit tests — SPEC-M1 §10.
- * Guards the frozen contract: 114 items (113 parity + M9 live-tracker),
- * 17 groups, unique ids/routes,
+ * Guards the frozen contract: 115 items (113 parity + M9 live-tracker +
+ * M11 feature-flags), 17 groups, unique ids/routes,
  * LIVE_ROUTES matches files on disk, getHref/isLive/parityStats behavior.
  */
 import { describe, it, expect } from 'vitest'
@@ -28,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 114 items (113 parity + M9 live-tracker)', () => {
-    expect(MENU_ITEMS.length).toBe(114)
+  it('has exactly 115 items (113 parity + M9 live-tracker + M11 feature-flags)', () => {
+    expect(MENU_ITEMS.length).toBe(115)
   })
 
   it('has exactly 17 groups', () => {
@@ -89,10 +89,23 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(fs.existsSync(path.join(ERP_DIR, '../../app/api/tracker/route.ts'))).toBe(true)
   })
 
-  it('parityStats: 114/114 live after M9 (113 parity M6 + live-tracker)', () => {
+  it('M11: feature-flags item — masters-admin group, live, page on disk, list_app_options door (SPEC-M11 C4)', () => {
+    const item = findItemById('feature-flags') as MenuItem
+    expect(item.groupId).toBe('masters-admin')
+    expect(item.route).toBe('/admin/settings')
+    expect(LIVE_ROUTES.has('/admin/settings')).toBe(true)
+    expect(isLive(item)).toBe(true)
+    expect(item.agentTools).toContain('list_app_options')
+    expect(fs.existsSync(path.join(ERP_DIR, 'admin/settings/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'admin/settings/flags-admin.tsx'))).toBe(true)
+    // the admin screen resolves through the masters-admin group (rights layer)
+    expect(findGroupForPath('/admin/settings')?.id).toBe('masters-admin')
+  })
+
+  it('parityStats: 115/115 live after M11 (113 parity M6 + live-tracker + feature-flags)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(114)
-    expect(s.liveItems).toBe(114)
+    expect(s.totalItems).toBe(115)
+    expect(s.liveItems).toBe(115)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
@@ -400,6 +413,7 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     // admin screens resolve through their items → masters-admin
     expect(f('/admin/users')).toBe('masters-admin')
     expect(f('/admin/menu-rights')).toBe('masters-admin')
+    expect(f('/admin/settings')).toBe('masters-admin')
     // coming pages resolve through the registry id (group or item)
     expect(f('/coming/accounts')).toBe('accounts')
     expect(f('/coming/grn-entry')).toBe('procurement')
