@@ -976,3 +976,108 @@ model TestParameter {
   method String?
   unit   String? // gsm | % | mm
 }
+
+// ============== M19 WAVE C — ADR-019 masters completion (SPEC-M19 §3) ==============
+// The gap-audit §2 "8 painful ones": Bank(+account), Mill, Machine(+category),
+// State, Shade, ThreadType, CountGroup, Range(+group). 65 → 76 models, additive.
+
+// Legacy FrmBankMaster / FrmMasBank — banks for payment modes + remit-to blocks.
+model Bank {
+  id       String        @id @default(cuid())
+  code     String        @unique
+  name     String
+  notes    String?
+  accounts BankAccount[]
+}
+
+// Legacy FrmMasBankAccount — company accounts per bank (remit-to on invoices).
+model BankAccount {
+  id          String  @id @default(cuid())
+  accountNo   String  @unique
+  bankId      String
+  bank        Bank    @relation(fields: [bankId], references: [id])
+  branch      String?
+  ifsc        String?
+  accountType String? // current | savings | cc | od
+  upi         String?
+  active      Boolean @default(true)
+}
+
+// Legacy FrmMill — knitting/dyeing mills (first-class parties in job-work towns).
+model Mill {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  city  String?
+  gstin String?
+  notes String?
+}
+
+// Legacy FrmMachineCategory.
+model MachineCategory {
+  id       String    @id @default(cuid())
+  code     String    @unique
+  name     String
+  machines Machine[]
+}
+
+// Legacy FrmMachineMaster — line/machine capacity planning + maintenance.
+model Machine {
+  id                 String           @id @default(cuid())
+  code               String           @unique
+  name               String
+  machineCategoryId  String?
+  machineCategory    MachineCategory? @relation(fields: [machineCategoryId], references: [id])
+  capacityPcsPerHour Int              @default(0)
+  notes              String?
+}
+
+// Legacy FrmStateMaster — GST place-of-supply / e-way destination.
+model State {
+  id      String @id @default(cuid())
+  code    String @unique
+  name    String
+  gstCode String? // first 2 digits of GSTIN (33 = Tamil Nadu)
+}
+
+// Legacy FrmShadeEntry — shade ≠ colour in dyeing (colour family × depth).
+model Shade {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  notes String? // dye depth / family description
+}
+
+// Legacy FrmThreadTypeMaster — sewing-thread consumption costing.
+model ThreadType {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  notes String?
+}
+
+// Legacy FrmCountGroup — yarn count grouping for procurement.
+model CountGroup {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  notes String?
+}
+
+// Legacy FrmRangeGrp — size-range pack groups for export packing.
+model RangeGroup {
+  id     String     @id @default(cuid())
+  code   String     @unique
+  name   String
+  ranges SizeRange[]
+}
+
+// Legacy FrmRange / FrmRange_Orderwise — size-range packs (e.g. "104-110").
+model SizeRange {
+  id            String      @id @default(cuid())
+  code          String      @unique
+  name          String
+  rangeGroupId  String?
+  rangeGroup    RangeGroup? @relation(fields: [rangeGroupId], references: [id])
+  sizes         String? // CSV of size names (SizeGroup CSV precedent, plain text — no id resolution)
+}

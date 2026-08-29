@@ -1814,6 +1814,18 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('app-option', 'Create an app option (SPEC-M6 §7-B). Required: key (e.g. print.companyName), label, value. Optional: group (print|defaults|general).'),
   masterCreateTool('hsn', 'Create an HSN code with its GST rate (SPEC-M6 §7-D). Required: code (e.g. 61091000), description. Optional: gstRate (default 5), hsnType (goods|service).'),
   masterCreateTool('test-parameter', 'Create a lab test parameter (SPEC-M6 §7-D). Required: code (e.g. GSM), name. Optional: stage (knit|dye|print|sew|final), method, unit (gsm|%|mm).'),
+  // SPEC-M19 §3 Wave C (ADR-019) — masters completion
+  masterCreateTool('bank', 'Create a bank master. code is optional — auto-assigned BK-#### if omitted or taken. Required: name (e.g. HDFC Bank).'),
+  masterCreateTool('bank-account', 'Create a company bank account. accountNo is optional — auto-assigned ACC-#### if omitted or taken. Required: bankCode (bank code or name). Optional: branch, ifsc, accountType (current|savings|cc|od), upi, active.'),
+  masterCreateTool('mill', 'Create a knitting/dyeing mill master. code is optional — auto-assigned MIL-#### if omitted or taken. Required: name. Optional: city, gstin, notes.'),
+  masterCreateTool('machine-category', 'Create a machine category master. code is optional — auto-assigned MC-#### if omitted or taken. Required: name (e.g. Circular Knitting, Flat Lock).'),
+  masterCreateTool('machine', 'Create a machine master. code is optional — auto-assigned MCH-#### if omitted or taken. Required: name. Optional: machineCategoryCode, capacityPcsPerHour, notes.'),
+  masterCreateTool('state', 'Create a state master (GST place-of-supply). code is optional — auto-assigned ST-#### if omitted or taken. Required: name. Optional: gstCode (first 2 GSTIN digits, e.g. 33 = Tamil Nadu).'),
+  masterCreateTool('shade', 'Create a shade master (shade ≠ colour in dyeing: colour family × depth). code is optional — auto-assigned SHD-#### if omitted or taken. Required: name. Optional: notes.'),
+  masterCreateTool('thread-type', 'Create a sewing thread type master. code is optional — auto-assigned THR-#### if omitted or taken. Required: name. Optional: notes.'),
+  masterCreateTool('count-group', 'Create a yarn count group master. code is optional — auto-assigned CG-#### if omitted or taken. Required: name. Optional: notes (counts in this group, e.g. 30s–40s).'),
+  masterCreateTool('range-group', 'Create a size-range group master. code is optional — auto-assigned RG-#### if omitted or taken. Required: name.'),
+  masterCreateTool('size-range', 'Create a size range pack (export packing, e.g. "104-110"). code is optional — auto-assigned RNG-#### if omitted or taken. Required: name. Optional: rangeGroupCode, sizes (CSV of size names).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -1847,6 +1859,18 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('app-option', 'Update an app option by key. Updatable: label, value, group.'),
   masterUpdateTool('hsn', 'Update an HSN code by code. Updatable: description, gstRate, hsnType.'),
   masterUpdateTool('test-parameter', 'Update a test parameter by code. Updatable: name, stage, method, unit.'),
+  // SPEC-M19 §3 Wave C (ADR-019) — masters completion
+  masterUpdateTool('bank', 'Update an existing bank by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('bank-account', 'Update an existing bank account by accountNo. All fields optional; bankCode resolves by code or name.'),
+  masterUpdateTool('mill', 'Update an existing mill by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('machine-category', 'Update an existing machine category by code. All fields optional.'),
+  masterUpdateTool('machine', 'Update an existing machine by code. All fields optional; machineCategoryCode resolves by code or name.'),
+  masterUpdateTool('state', 'Update an existing state by code. All fields optional.'),
+  masterUpdateTool('shade', 'Update an existing shade by code. All fields optional.'),
+  masterUpdateTool('thread-type', 'Update an existing thread type by code. All fields optional.'),
+  masterUpdateTool('count-group', 'Update an existing count group by code. All fields optional.'),
+  masterUpdateTool('range-group', 'Update an existing range group by code. All fields optional.'),
+  masterUpdateTool('size-range', 'Update an existing size range by code. All fields optional; rangeGroupCode resolves by code or name.'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
@@ -1997,6 +2021,118 @@ const masterNewListTools: AgentTool[] = [
     async execute() {
       const rows = await db.testParameter.findMany({ orderBy: { code: 'asc' } })
       return { text: `${rows.length} test parameters`, json: rows }
+    },
+  },
+]
+
+// SPEC-M19 §3 Wave C (ADR-019) — list doors for the 11 completion masters.
+const waveCListTools: AgentTool[] = [
+  {
+    name: 'list_banks',
+    description: 'List bank masters (code, name). Use to resolve a bank before creating a bank account or setting payment modes.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.bank.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} banks`, json: rows.map((b: any) => ({ code: b.code, name: b.name })) }
+    },
+  },
+  {
+    name: 'list_bank_accounts',
+    description: 'List company bank accounts (accountNo, bank, branch, IFSC, type, active). Use to pick a remit-to account for invoices.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.bankAccount.findMany({ include: { bank: true }, orderBy: { accountNo: 'asc' } })
+      return {
+        text: `${rows.length} bank accounts`,
+        json: rows.map((a: any) => ({ accountNo: a.accountNo, bank: a.bank?.name ?? null, branch: a.branch, ifsc: a.ifsc, accountType: a.accountType, active: a.active })),
+      }
+    },
+  },
+  {
+    name: 'list_mills',
+    description: 'List knitting/dyeing mill masters (code, name, city, gstin). Use to resolve a mill for job-work or process programs.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.mill.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} mills`, json: rows.map((m: any) => ({ code: m.code, name: m.name, city: m.city, gstin: m.gstin })) }
+    },
+  },
+  {
+    name: 'list_machine_categories',
+    description: 'List machine categories (code, name). Use before creating machines.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.machineCategory.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} machine categories`, json: rows.map((c: any) => ({ code: c.code, name: c.name })) }
+    },
+  },
+  {
+    name: 'list_machines',
+    description: 'List machines (code, name, category, capacity pcs/hr). Use for capacity planning and maintenance.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.machine.findMany({ include: { machineCategory: true }, orderBy: { code: 'asc' } })
+      return {
+        text: `${rows.length} machines`,
+        json: rows.map((m: any) => ({ code: m.code, name: m.name, category: m.machineCategory?.name ?? null, capacityPcsPerHour: m.capacityPcsPerHour })),
+      }
+    },
+  },
+  {
+    name: 'list_states',
+    description: 'List state masters (code, name, GST code). Use for GST place-of-supply and e-way bill destinations.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.state.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} states`, json: rows.map((s: any) => ({ code: s.code, name: s.name, gstCode: s.gstCode })) }
+    },
+  },
+  {
+    name: 'list_shades',
+    description: 'List shade masters (code, name, notes). Shade ≠ colour in dyeing — resolve a shade for dyeing programs.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.shade.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} shades`, json: rows.map((s: any) => ({ code: s.code, name: s.name, notes: s.notes })) }
+    },
+  },
+  {
+    name: 'list_thread_types',
+    description: 'List sewing thread type masters (code, name). Use for thread consumption costing.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.threadType.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} thread types`, json: rows.map((t: any) => ({ code: t.code, name: t.name })) }
+    },
+  },
+  {
+    name: 'list_count_groups',
+    description: 'List yarn count groups (code, name, notes). Use to group counts for procurement.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.countGroup.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} count groups`, json: rows.map((g: any) => ({ code: g.code, name: g.name, notes: g.notes })) }
+    },
+  },
+  {
+    name: 'list_range_groups',
+    description: 'List size-range groups (code, name). Use before creating size ranges.',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.rangeGroup.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} range groups`, json: rows.map((g: any) => ({ code: g.code, name: g.name })) }
+    },
+  },
+  {
+    name: 'list_size_ranges',
+    description: 'List size-range packs (code, name, group, sizes CSV). Use for export packing (e.g. 104-110).',
+    domain: 'masters', isWrite: false, schema: z.object({}),
+    async execute() {
+      const rows = await db.sizeRange.findMany({ include: { rangeGroup: true }, orderBy: { code: 'asc' } })
+      return {
+        text: `${rows.length} size ranges`,
+        json: rows.map((r: any) => ({ code: r.code, name: r.name, group: r.rangeGroup?.name ?? null, sizes: r.sizes })),
+      }
     },
   },
 ]
@@ -2305,6 +2441,7 @@ const writeTools: AgentTool[] = [
   ...masterCreateTools,
   ...masterUpdateTools,
   ...masterNewListTools,
+  ...waveCListTools, // SPEC-M19 §3 Wave C — 11 completion-master list doors
   {
     name: 'create_sizes',
     description: 'Batch-create a full size scale in ONE call (preferred over repeated create_size when ingesting documents). Pass every size name of the scale via "names", e.g. names=["104","110","116","122","128","134","140"] or names=["XS","S","M","L","XL"]. Sizes that already exist are skipped automatically.',

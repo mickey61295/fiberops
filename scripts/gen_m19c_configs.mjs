@@ -1,0 +1,221 @@
+/** SPEC-M19 §3 Wave C — generates the remaining 10 master config files (bank.ts hand-written). */
+import fs from 'node:fs'
+
+const configs = [
+  {
+    file: 'bank-account.ts', varName: 'bankAccountConfig', legacy: 'FrmMasBankAccount',
+    slug: 'bank-account', entity: 'bankAccount', label: 'Bank Accounts', singular: 'Bank Account',
+    delegate: 'bankAccount', model: 'BankAccount', category: 'commercial',
+    codeField: 'accountNo', codePrefix: 'ACC-', titleField: 'accountNo',
+    searchFields: ['accountNo', 'branch', 'ifsc', 'bankName'],
+    listColumns: [
+      { field: 'accountNo', label: 'Account No', mono: true },
+      { field: 'bankName', label: 'Bank', refEntity: 'bank' },
+      { field: 'branch', label: 'Branch' },
+      { field: 'ifsc', label: 'IFSC', mono: true },
+      { field: 'accountType', label: 'Type' },
+    ],
+    fields: [
+      { name: 'accountNo', label: 'Account No', type: 'text', required: true },
+      { name: 'bankCode', label: 'Bank', type: 'text', refEntity: 'bank', required: true, description: 'Bank code (e.g. BK-0001) or name' },
+      { name: 'branch', label: 'Branch', type: 'text' },
+      { name: 'ifsc', label: 'IFSC', type: 'text' },
+      { name: 'accountType', label: 'Account type', type: 'select', options: [
+        { value: 'current', label: 'Current' }, { value: 'savings', label: 'Savings' },
+        { value: 'cc', label: 'CC' }, { value: 'od', label: 'OD' }] },
+      { name: 'upi', label: 'UPI ID', type: 'text' },
+      { name: 'active', label: 'Active', type: 'checkbox', defaultValue: true },
+    ],
+    tools: ['create_bank_account', 'update_bank_account', 'list_bank_accounts'],
+  },
+  {
+    file: 'mill.ts', varName: 'millConfig', legacy: 'FrmMill',
+    slug: 'mill', entity: 'mill', label: 'Mills', singular: 'Mill',
+    delegate: 'mill', model: 'Mill', category: 'commercial',
+    codeField: 'code', codePrefix: 'MIL-', titleField: 'name',
+    searchFields: ['code', 'name', 'city', 'gstin'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+      { field: 'city', label: 'City' },
+      { field: 'gstin', label: 'GSTIN', mono: true },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned MIL-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'city', label: 'City', type: 'text' },
+      { name: 'gstin', label: 'GSTIN', type: 'text' },
+      { name: 'notes', label: 'Notes', type: 'textarea' },
+    ],
+    tools: ['create_mill', 'update_mill', 'list_mills'],
+  },
+  {
+    file: 'machine-category.ts', varName: 'machineCategoryConfig', legacy: 'FrmMachineCategory',
+    slug: 'machine-category', entity: 'machineCategory', label: 'Machine Categories', singular: 'Machine Category',
+    delegate: 'machineCategory', model: 'MachineCategory', category: 'org',
+    codeField: 'code', codePrefix: 'MC-', titleField: 'name',
+    searchFields: ['code', 'name'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned MC-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+    ],
+    tools: ['create_machine_category', 'update_machine_category', 'list_machine_categories'],
+  },
+  {
+    file: 'machine.ts', varName: 'machineConfig', legacy: 'FrmMachineMaster',
+    slug: 'machine', entity: 'machine', label: 'Machines', singular: 'Machine',
+    delegate: 'machine', model: 'Machine', category: 'org',
+    codeField: 'code', codePrefix: 'MCH-', titleField: 'name',
+    searchFields: ['code', 'name', 'machineCategoryName'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+      { field: 'machineCategoryName', label: 'Category', refEntity: 'machine-category' },
+      { field: 'capacityPcsPerHour', label: 'Capacity pcs/hr', numeric: true },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned MCH-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'machineCategoryCode', label: 'Category', type: 'text', refEntity: 'machine-category', description: 'Machine category code (e.g. MC-0001) or name' },
+      { name: 'capacityPcsPerHour', label: 'Capacity pcs/hr', type: 'number', defaultValue: 0 },
+      { name: 'notes', label: 'Notes', type: 'textarea' },
+    ],
+    tools: ['create_machine', 'update_machine', 'list_machines'],
+  },
+  {
+    file: 'state.ts', varName: 'stateConfig', legacy: 'FrmStateMaster',
+    slug: 'state', entity: 'state', label: 'States', singular: 'State',
+    delegate: 'state', model: 'State', category: 'admin',
+    codeField: 'code', codePrefix: 'ST-', titleField: 'name',
+    searchFields: ['code', 'name', 'gstCode'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+      { field: 'gstCode', label: 'GST code', mono: true },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned ST-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'gstCode', label: 'GST code', type: 'text', description: 'First 2 digits of GSTIN (33 = Tamil Nadu)' },
+    ],
+    tools: ['create_state', 'update_state', 'list_states'],
+  },
+  {
+    file: 'shade.ts', varName: 'shadeConfig', legacy: 'FrmShadeEntry',
+    slug: 'shade', entity: 'shade', label: 'Shades', singular: 'Shade',
+    delegate: 'shade', model: 'Shade', category: 'product',
+    codeField: 'code', codePrefix: 'SHD-', titleField: 'name',
+    searchFields: ['code', 'name'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+      { field: 'notes', label: 'Notes' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned SHD-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'notes', label: 'Notes', type: 'textarea', description: 'Dye depth / colour family (shade ≠ colour in dyeing)' },
+    ],
+    tools: ['create_shade', 'update_shade', 'list_shades'],
+  },
+  {
+    file: 'thread-type.ts', varName: 'threadTypeConfig', legacy: 'FrmThreadTypeMaster',
+    slug: 'thread-type', entity: 'threadType', label: 'Thread Types', singular: 'Thread Type',
+    delegate: 'threadType', model: 'ThreadType', category: 'product',
+    codeField: 'code', codePrefix: 'THR-', titleField: 'name',
+    searchFields: ['code', 'name'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned THR-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'notes', label: 'Notes', type: 'textarea' },
+    ],
+    tools: ['create_thread_type', 'update_thread_type', 'list_thread_types'],
+  },
+  {
+    file: 'count-group.ts', varName: 'countGroupConfig', legacy: 'FrmCountGroup',
+    slug: 'count-group', entity: 'countGroup', label: 'Count Groups', singular: 'Count Group',
+    delegate: 'countGroup', model: 'CountGroup', category: 'product',
+    codeField: 'code', codePrefix: 'CG-', titleField: 'name',
+    searchFields: ['code', 'name'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned CG-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'notes', label: 'Notes', type: 'textarea', description: 'Yarn counts in this group (e.g. 30s–40s single jersey)' },
+    ],
+    tools: ['create_count_group', 'update_count_group', 'list_count_groups'],
+  },
+  {
+    file: 'range-group.ts', varName: 'rangeGroupConfig', legacy: 'FrmRangeGrp',
+    slug: 'range-group', entity: 'rangeGroup', label: 'Range Groups', singular: 'Range Group',
+    delegate: 'rangeGroup', model: 'RangeGroup', category: 'product',
+    codeField: 'code', codePrefix: 'RG-', titleField: 'name',
+    searchFields: ['code', 'name'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned RG-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+    ],
+    tools: ['create_range_group', 'update_range_group', 'list_range_groups'],
+  },
+  {
+    file: 'size-range.ts', varName: 'sizeRangeConfig', legacy: 'FrmRange',
+    slug: 'size-range', entity: 'sizeRange', label: 'Size Ranges', singular: 'Size Range',
+    delegate: 'sizeRange', model: 'SizeRange', category: 'product',
+    codeField: 'code', codePrefix: 'RNG-', titleField: 'name',
+    searchFields: ['code', 'name', 'sizes'],
+    listColumns: [
+      { field: 'code', label: 'Code', mono: true },
+      { field: 'name', label: 'Name' },
+      { field: 'rangeGroupName', label: 'Group', refEntity: 'range-group' },
+      { field: 'sizes', label: 'Sizes' },
+    ],
+    fields: [
+      { name: 'code', label: 'Code', type: 'text', description: 'Optional — auto-assigned RNG-#### if omitted' },
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'rangeGroupCode', label: 'Group', type: 'text', refEntity: 'range-group', description: 'Range group code (e.g. RG-0001) or name' },
+      { name: 'sizes', label: 'Sizes', type: 'text', description: 'CSV of size names (e.g. 104,110,116)' },
+    ],
+    tools: ['create_size_range', 'update_size_range', 'list_size_ranges'],
+  },
+]
+
+for (const c of configs) {
+  const lines = [
+    `import type { MasterConfig } from './types'`,
+    ``,
+    `// SPEC-M19 §3 Wave C (ADR-019) — legacy ${c.legacy}.`,
+    `export const ${c.varName}: MasterConfig = {`,
+    `  slug: '${c.slug}', entity: '${c.entity}', label: '${c.label}', singular: '${c.singular}',`,
+    `  delegate: '${c.delegate}', model: '${c.model}', category: '${c.category}',`,
+    `  codeField: '${c.codeField}', codePrefix: '${c.codePrefix}', titleField: '${c.titleField}',`,
+    `  searchFields: ${JSON.stringify(c.searchFields)},`,
+    `  defaultSort: { field: '${c.codeField}', dir: 'asc' },`,
+    `  listColumns: [`,
+    ...c.listColumns.map((l) => `    ${JSON.stringify(l).replace(/"([a-zA-Z]+)":/g, '$1: ').replace(/"/g, "'")},`),
+    `  ],`,
+    `  fields: [`,
+    ...c.fields.map((f) => `    ${JSON.stringify(f).replace(/"([a-zA-Z]+)":/g, '$1: ').replace(/"/g, "'").replace(/options: \[(.*?)\]/, (m) => m.replace(/'/g, '"'))},`),
+    `  ],`,
+    `  createTool: '${c.tools[0]}', updateTool: '${c.tools[1]}', listTool: '${c.tools[2]}',`,
+    `  legacyForms: ['${c.legacy}'],`,
+    `}`,
+    ``,
+  ]
+  fs.writeFileSync(`/home/z/my-project/src/lib/erp/master-configs/${c.file}`, lines.join('\n'))
+  console.log(`wrote ${c.file}`)
+}

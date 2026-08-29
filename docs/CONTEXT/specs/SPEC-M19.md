@@ -124,13 +124,43 @@ Decisions (the §2 open questions, resolved):
   supplier-history rollup + last-receipt; inhand trading/manufacturing
   discriminator) + register-configs slug pin 27→32 + menu pins 121→126.
 
-## 3. Wave C — masters completion (schema-touching; own ADR)
+## 3. Wave C — masters completion (FROZEN 2026-08-30; ADR-019)
 
-Bank (+ account), Mill, Machine (+ category), State, Shade, ThreadType, CountGroup,
-Range (+ group). Each ≈30-line master config + Prisma model (65→~73, additive) +
-create/update tools + menu items. The audit's "~14 minor ones" get a one-line ADR
-disposition (most fold into AppOption-style config). DEFER shift-wages register here
-too (needs a ProductionEntry ⇄ Shift linkage decision — no shiftId field exists).
+The gap-audit §2 "8 painful ones" become 11 Prisma models (65→76, additive —
+spec said "~73"; the "+account/+category/+group" children in the spec's own
+line account for the delta) + 11 master configs + create/update/list tools.
+
+| model | config slug | category | code prefix | key fields |
+|---|---|---|---|---|
+| Bank | bank | commercial | BK- | name |
+| BankAccount | bank-account | commercial | ACC- | accountNo, bankCode→bankId, branch, ifsc, accountType, upi, active |
+| Mill | mill | commercial | MIL- | name, city, gstin, notes |
+| MachineCategory | machine-category | org | MC- | name |
+| Machine | machine | org | MCH- | name, machineCategoryCode→machineCategoryId, capacityPcsPerHour, notes |
+| State | state | admin | ST- | name, gstCode (first-2 GSTIN digits) |
+| Shade | shade | product | SHD- | name, notes (shade ≠ colour: family × depth) |
+| ThreadType | thread-type | product | THR- | name, notes |
+| CountGroup | count-group | product | CG- | name, notes |
+| RangeGroup | range-group | product | RG- | name |
+| SizeRange | size-range | product | RNG- | name, rangeGroupCode→rangeGroupId, sizes (CSV text — SizeGroup 'list' type is sizeGroup-only in the service; a plain CSV keeps the service generic) |
+
+- Prisma delegate names: db.bank / bankAccount / mill / machineCategory / machine /
+  state / shade / threadType / countGroup / rangeGroup / sizeRange.
+- FK resolution rides the generic refEntity defaults (bankName /
+  machineCategoryName / rangeGroupName display keys; no OVERRIDES needed).
+- Tools: 11 create + 11 update (masterCreateTool/masterUpdateTool factories)
+  + 11 list doors (inline, the list_shifts pattern) → 189→222 tools.
+- Menu: ZERO new items — the /masters hub auto-lists configs by category
+  (configsByCategory); MASTER_FORMS already claims these legacy forms.
+- Tests: master-configs contract count 30→41; master-parity inputFor cases
+  +11 (the runtime loop auto-generates the both-doors parity suite); FK
+  resolution test for bank-account (by bank code); context_check pins.
+- The ~14 minor masters (Concern, DeliveryAt, WorkNature, Template, BuyerDept,
+  Fcy/FCR, FomGrp, DeptGroup, CommRate/PrdnRate/RateMaster, StageWiseTag,
+  PreCostingCompMas) → ADR-019: AppOption-style config / folded into existing
+  masters / rejected-as-obsolete. NO models.
+- shift-wages linkage stays DEFERRED (needs a ProductionEntry⇄Shift decision —
+  no shiftId field; do not invent one without a spec).
 
 ## 4. Wave D — closing-stock as-of, counter-book mode, Tally JSON
 

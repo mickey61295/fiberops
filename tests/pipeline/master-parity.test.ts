@@ -51,6 +51,18 @@ function inputFor(slug: string, v: string): Record<string, unknown> {
     case 'app-option': return { key: `print.test${t}`, label: `M2E Option ${t}`, value: `val-${t}`, group: 'general' }
     case 'hsn': return { code: `61${String(9000000 + (n % 999999))}`, description: `M2E HSN ${t}`, gstRate: 5, hsnType: 'goods' }
     case 'test-parameter': return { code: `M2TP${t}`, name: `M2E Param ${t}`, stage: 'final', unit: 'gsm' }
+    // SPEC-M19 §3 Wave C (ADR-019) — masters completion
+    case 'bank': return { name: `M2E Bank ${t}` }
+    case 'bank-account': return { bankCode: 'M2E-BANK-REF', branch: `Branch ${t}`, ifsc: 'HDFC0001234' } // no accountNo → ACC-#### auto-code path
+    case 'mill': return { name: `M2E Mill ${t}`, city: 'Tirupur' }
+    case 'machine-category': return { name: `M2E MachCat ${t}` }
+    case 'machine': return { name: `M2E Machine ${t}`, capacityPcsPerHour: 220 }
+    case 'state': return { name: `M2E State ${t}`, gstCode: '33' }
+    case 'shade': return { name: `M2E Shade ${t}`, notes: 'mid depth' }
+    case 'thread-type': return { name: `M2E Thread ${t}` }
+    case 'count-group': return { name: `M2E CountGrp ${t}` }
+    case 'range-group': return { name: `M2E RangeGrp ${t}` }
+    case 'size-range': return { name: `M2E Range ${t}`, sizes: '104,110,116' }
     default: throw new Error(`no test input for ${slug}`)
   }
 }
@@ -121,6 +133,11 @@ describe('master form↔agent parity (SPEC-M2 §11.2)', () => {
       const r = await callTool('create_buyer', { name: 'M2E Dep Buyer' })
       testBuyerCode = String(r.committed?.code ?? '')
       track('buyer', r.committed?.id)
+    }
+    // SPEC-M19 §3 Wave C — the bank-account FK dep
+    if (!(await db.bank.findUnique({ where: { code: 'M2E-BANK-REF' } }))) {
+      const r = await callTool('create_bank', { code: 'M2E-BANK-REF', name: 'M2E Dep Bank' })
+      track('bank', r.committed?.id)
     }
   })
 

@@ -202,3 +202,33 @@ admin-override semantics are explicit (role beats group rights); the grant
 lag is the accepted cost of zero-dependency edge verification (single-tenant
 dev app, per SPEC-M7 §2 non-goals). Test surface: 653 vitest (rights 20 +
 set-password 11 + 2 amended), route_smoke_m7c.sh 36/36.
+
+## ADR-019 — Masters completion: 11 real models, the ~14 minor masters stay config (M19 Wave C)
+
+Date: 2026-08-30 · Status: accepted · Spec: SPEC-M19 §3
+
+The gap audit (docs/GAP-ANALYSIS-FIBERPRO.md §2) found 30 of 52 legacy master
+forms buildable. The 8 painful missing entities get REAL models because they
+carry references from transactions or statutory output: Bank + BankAccount
+(payment modes, invoice remit-to), Mill (job-work towns treat mills as
+first-class parties), Machine + MachineCategory (capacity planning), State
+(GST place-of-supply, e-way), Shade (dyeing: colour family × depth ≠ colour),
+ThreadType (sewing-thread costing), CountGroup (yarn procurement grouping),
+RangeGroup + SizeRange (export size-range packing). 65 → 76 models, additive;
+each rides the M2 MasterTable engine + master-service (one config file, zero
+engine code) + create/update factory tools + list doors → 222 tools.
+
+The ~14 minor masters (Concern, DeliveryAt, WorkNature, Template, BuyerDept,
+Fcy/FCR currency, FomGrp, DeptGroup, CommRate/PrdnRate/RateMaster,
+StageWiseTag, PreCostingCompMas) get NO models: they are legacy UI-shaping or
+rate-lookup tables whose behaviour is already covered by AppOption config,
+existing masters (Buyer.dept, Party state/city), or the flags registry
+(ADR-014). If export invoicing goes multi-currency, Fcy is the one worth
+revisiting (Order.currency + fxRate already carry the transaction side).
+
+Consequence: every master a transaction or statutory form references is now
+creatable via BOTH doors; the masters hub is the single configuration surface
+(41 cards); schema stays single-tenant-safe; shift-wages linkage stays
+DEFERRED (needs a ProductionEntry⇄Shift decision — no shiftId field; do not
+invent one without a spec). Test surface: 126 runtime parity tests loop all
+41 masters; route_smoke_m19c.sh 22/22.

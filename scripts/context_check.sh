@@ -78,19 +78,19 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveB session (cutting/issue/supplier registers; 126 items)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveC session (masters completion; 222 tools / 76 models)]"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33)" "222" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
-check "factory create tools"       "30"      "$FACTORY_CREATE"
-check "factory update tools"       "30"      "$FACTORY_UPDATE"
+check "factory create tools"       "41"      "$FACTORY_CREATE"
+check "factory update tools"       "41"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
-check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
+check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11)" "76"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password)" "33" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
 check "master config tests"        "8"       "$CFGTESTS"
-check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
+check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
 check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers)" "126"     "$MENUITEMS"
@@ -99,7 +99,7 @@ check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b)" "22"       "$REGCFGS"
 check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×7)" "30"       "$REGSVCFILES"
-check "master configs (24 M2 + shift + 5 ADR-016)" "30"      "$MASTERCFGS"
+check "master configs (24 M2 + shift + 5 ADR-016 + 11 M19-C)" "41"      "$MASTERCFGS"
 check "shared zod schema files (+ M6-D dispatch/transfer variants)" "39"      "$SCHEMAFILES"
 check "posting service files"      "35"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
@@ -400,7 +400,19 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/procurement/po/register/page.tsx' \
          'src/app/(erp)/procurement/supplier-history/page.tsx' \
          tests/unit/wave-b-registers.test.ts scripts/gen_m19b_pages.mjs \
-         scripts/route_smoke_m19b.sh; do
+         scripts/route_smoke_m19b.sh \
+         src/lib/erp/master-configs/bank.ts \
+         src/lib/erp/master-configs/bank-account.ts \
+         src/lib/erp/master-configs/mill.ts \
+         src/lib/erp/master-configs/machine-category.ts \
+         src/lib/erp/master-configs/machine.ts \
+         src/lib/erp/master-configs/state.ts \
+         src/lib/erp/master-configs/shade.ts \
+         src/lib/erp/master-configs/thread-type.ts \
+         src/lib/erp/master-configs/count-group.ts \
+         src/lib/erp/master-configs/range-group.ts \
+         src/lib/erp/master-configs/size-range.ts \
+         scripts/gen_m19c_configs.mjs scripts/route_smoke_m19c.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

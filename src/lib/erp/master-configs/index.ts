@@ -1,5 +1,5 @@
-// SPEC-M2 §4 — the master config registry: 25 entities, one engine
-// (24 M2 masters + SPEC-M5 §7-D-32 shift).
+// SPEC-M2 §4 — the master config registry: 41 entities, one engine
+// (24 M2 masters + SPEC-M5 §7-D-32 shift + ADR-016 five + SPEC-M19 §3 Wave C eleven).
 import type { MasterConfig, MasterCategory } from './types'
 
 import { partyConfig } from './party'
@@ -32,6 +32,17 @@ import { userGroupConfig } from './user-group'
 import { appOptionConfig } from './app-option'
 import { hsnConfig } from './hsn'
 import { testParameterConfig } from './test-parameter'
+import { bankConfig } from './bank'
+import { bankAccountConfig } from './bank-account'
+import { millConfig } from './mill'
+import { machineCategoryConfig } from './machine-category'
+import { machineConfig } from './machine'
+import { stateConfig } from './state'
+import { shadeConfig } from './shade'
+import { threadTypeConfig } from './thread-type'
+import { countGroupConfig } from './count-group'
+import { rangeGroupConfig } from './range-group'
+import { sizeRangeConfig } from './size-range'
 
 export const MASTER_CONFIGS: MasterConfig[] = [
   partyConfig,
@@ -66,6 +77,18 @@ export const MASTER_CONFIGS: MasterConfig[] = [
   appOptionConfig,
   hsnConfig,
   testParameterConfig,
+  // SPEC-M19 §3 Wave C (ADR-019) — masters completion
+  bankConfig,
+  bankAccountConfig,
+  millConfig,
+  machineCategoryConfig,
+  machineConfig,
+  stateConfig,
+  shadeConfig,
+  threadTypeConfig,
+  countGroupConfig,
+  rangeGroupConfig,
+  sizeRangeConfig,
 ]
 
 export const MASTER_CATEGORIES: Array<{ key: MasterCategory; label: string; blurb: string }> = [

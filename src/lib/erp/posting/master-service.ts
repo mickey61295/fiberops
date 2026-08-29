@@ -19,6 +19,8 @@ import type { MasterConfig, MasterField, MasterRow } from '../master-configs/typ
 const FK_COLUMN_OVERRIDES: Record<string, string> = {
   department: 'deptId',
   'user-group': 'userGroupId', // ADR-016 (M6-B): slug has a hyphen, column is camelCase
+  'machine-category': 'machineCategoryId', // SPEC-M19 §3 Wave C
+  'range-group': 'rangeGroupId', // SPEC-M19 §3 Wave C
 }
 
 /** flattened display key per refEntity (listColumns / searchFields use these) */
@@ -29,12 +31,16 @@ const DISPLAY_KEYS: Record<string, string> = {
   dia: 'diaValue',
   department: 'deptName',
   'user-group': 'userGroupName', // ADR-016 (M6-B)
+  'machine-category': 'machineCategoryName', // SPEC-M19 §3 Wave C
+  'range-group': 'rangeGroupName', // SPEC-M19 §3 Wave C
 }
 
 /** Prisma relation field name per refEntity (for include) — default refEntity */
 const RELATION_OVERRIDES: Record<string, string> = {
   department: 'department',
   'user-group': 'userGroup', // ADR-016 (M6-B)
+  'machine-category': 'machineCategory', // SPEC-M19 §3 Wave C
+  'range-group': 'rangeGroup', // SPEC-M19 §3 Wave C
 }
 
 /** entities whose titleField is ALSO unique (SPEC-M2 ERRATUM 3) */
