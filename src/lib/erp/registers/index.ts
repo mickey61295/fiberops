@@ -34,6 +34,7 @@ import { querySupplierPending } from './supplier-pending'
 import { queryPoRegister } from './po-register'
 import { querySupplierHistory } from './supplier-history'
 import { queryClosingStock } from './closing-stock'
+import { queryAuditLog } from './audit-log'
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -69,6 +70,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'po-register': queryPoRegister, // SPEC-M19 §2 Wave B
   'supplier-history': querySupplierHistory, // SPEC-M19 §2 Wave B
   'closing-stock': queryClosingStock, // SPEC-M19 §4 Wave D
+  'audit-log': queryAuditLog, // SPEC-M9 §9 M15 — admin audit viewer
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

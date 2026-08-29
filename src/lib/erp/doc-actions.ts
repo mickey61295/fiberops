@@ -14,6 +14,8 @@
 import { revalidatePath } from 'next/cache'
 import { getDocConfig } from '@/lib/erp/doc-configs'
 import { coerceDocInput, type DocFormPayload } from '@/lib/erp/doc-configs/coerce'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 
 export interface DocPlanView {
   text: string
@@ -135,7 +137,15 @@ export async function commitDocAction(slug: string, payload: DocFormPayload): Pr
   const r = await runPlan(slug, payload)
   if (!r.ok) return r
   try {
-    const doc = await r.plan.commit()
+    // SPEC-M9 §9 M15 — the FORM DOOR audit choke point: runCommit executes the
+    // plan's commit (still the ONLY write path) and records the AuditLog row.
+    // Outside a request scope (vitest) the actor degrades to 'system'.
+    const user = await getSessionUser().catch(() => null)
+    const doc = await runCommit(r.plan, {
+      actorName: user?.email ?? 'system',
+      actorSource: user ? 'form' : 'system',
+      slug,
+    })
     // revalidate the screens that list this doc family (SLUG_REVALIDATE map —
     // Wave C: every screen is force-dynamic, so this is a Router-Cache hint).
     // Guarded: revalidation must never fail a COMMIT that already succeeded

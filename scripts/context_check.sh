@@ -78,13 +78,13 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m14 session (perf + SSE; 129 items / 162 routes)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33)" "222" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
-check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11)" "76"      "$MODELS"
+check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog)" "77"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker)" "34" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
@@ -93,12 +93,12 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest)" "129"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live)" "162"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit)" "130"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live + M15 audit)" "163"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
-check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock)" "23"       "$REGCFGS"
-check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×10)" "33"       "$REGSVCFILES"
+check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock + audit-log)" "24"       "$REGCFGS"
+check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×10 + audit)" "34"       "$REGSVCFILES"
 check "master configs (24 M2 + shift + 5 ADR-016 + 11 M19-C)" "41"      "$MASTERCFGS"
 check "shared zod schema files (+ M6-D dispatch/transfer variants)" "39"      "$SCHEMAFILES"
 check "posting service files"      "35"      "$POSTINGSVCS"
@@ -146,8 +146,11 @@ check "m13 flags registry count (28 LLD-07 + 4 notification)" "32" "$(grep -c ' 
 check "m13 digest files (service + cron route + screen + send button)" "4" "$(ls src/lib/erp/notifications/digest.ts src/app/api/cron/digest/route.ts 'src/app/(erp)/notifications/digest/page.tsx' 'src/app/(erp)/notifications/digest/send-button.tsx' 2>/dev/null | wc -l)"
 check "m14 SSE files (live-snapshot + snapshot route + stream route + live page + client)" "5" "$(ls src/lib/erp/live-snapshot.ts src/app/api/live-tracker/route.ts src/app/api/live-tracker/stream/route.ts 'src/app/(erp)/live/page.tsx' src/components/erp/live-stream-tracker.tsx 2>/dev/null | wc -l)"
 check "m14 perf gate test file" "1" "$(ls tests/perf/registers-perf.test.ts 2>/dev/null | wc -l)"
-check "m14 createdAt indexes (16 feed families + StockLedger)" "17" "$(grep -c '@@index(\[createdAt\])' prisma/schema.prisma)"
+check "m14 createdAt indexes (16 feed families + StockLedger + M15 AuditLog)" "18" "$(grep -c '@@index(\[createdAt\])' prisma/schema.prisma)"
 check "m14 StockLedger docDate index" "1" "$(grep -c '@@index(\[docDate\])' prisma/schema.prisma)"
+check "m15 audit engine (audit.ts runCommit+writeAudit)" "2" "$(grep -cE 'export (async )?function (runCommit|writeAudit)' src/lib/erp/audit.ts)"
+check "m15 commit doors routing through runCommit" "13" "$(grep -rl 'runCommit' src/app src/lib/erp/doc-actions.ts src/lib/erp/cancel-action.ts 2>/dev/null | grep -v audit.ts | wc -l)"
+check "m15 audit viewer files (service + config + page + csv)" "4" "$(ls src/lib/erp/registers/audit-log.ts src/lib/erp/register-configs/audit-log.ts 'src/app/(erp)/admin/audit/page.tsx' 'src/app/(erp)/admin/audit/csv/route.ts' 2>/dev/null | wc -l)"
 check "m12 playwright config (dedicated :3100 + isolated e2e.db)" "1" "$(ls playwright.config.ts 2>/dev/null | wc -l)"
 check "m12 golden-path spec files (8)" "8" "$(ls tests/e2e/*.spec.ts 2>/dev/null | wc -l)"
 check "m12 e2e test cases across the suite" "14" "$(grep -ch '^  test(' tests/e2e/*.spec.ts | awk '{s+=$1} END {print s}')"
@@ -439,7 +442,13 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/components/erp/live-stream-tracker.tsx \
          tests/unit/live-snapshot.test.ts \
          tests/perf/registers-perf.test.ts scripts/perf_probe.ts scripts/route_smoke_m14.sh \
-         docs/CONTEXT/specs/SPEC-M14.md; do
+         docs/CONTEXT/specs/SPEC-M14.md \
+         src/lib/erp/audit.ts \
+         src/lib/erp/registers/audit-log.ts \
+         src/lib/erp/register-configs/audit-log.ts \
+         'src/app/(erp)/admin/audit/page.tsx' \
+         'src/app/(erp)/admin/audit/csv/route.ts' \
+         tests/unit/audit.test.ts scripts/route_smoke_m15.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

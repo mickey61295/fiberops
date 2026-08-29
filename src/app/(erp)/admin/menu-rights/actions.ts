@@ -8,6 +8,8 @@
  * persists + renders the matrix only.
  */
 import { revalidatePath } from 'next/cache'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { planMasterUpdate } from '@/lib/erp/posting/master-service'
 
@@ -22,7 +24,8 @@ export async function saveMenuRightsAction(
   try {
     const plan = await planMasterUpdate(config, { name: groupName, rights })
     if (!plan.ok) return { ok: false, errors: plan.errors }
-    await plan.commit()
+    const _user = await getSessionUser().catch(() => null)
+    await runCommit({ ok: plan.ok, commit: plan.commit, summary: plan.summary, creates: plan.creates ? [plan.creates] : undefined, updates: plan.updates ? [plan.updates] : undefined }, { actorName: _user?.email ?? 'system', actorSource: _user ? 'form' : 'system', action: 'update', entity: 'userGroup' })
     revalidatePath('/admin/menu-rights')
     revalidatePath('/admin/users')
     return { ok: true }

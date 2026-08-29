@@ -6,6 +6,8 @@
  *  service is the ONE source). W6: budget-vs-actual deep-link when an order
  *  filter is active. W2: rows drill to the employee master. */
 import { revalidatePath } from 'next/cache'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 import Link from 'next/link'
 import { BadgeIndianRupee } from 'lucide-react'
 import { db } from '@/lib/db'
@@ -56,7 +58,10 @@ export default async function ProductionWagesPage({
       partyCode: undefined,
       narration: `Wage bill ${period}${fp.order ? ` · order ${fp.order}` : ''}${fp.q ? ` · dept ${fp.q}` : ''} (${res.count} operators)`,
     })
-    if (plan.ok) await plan.commit()
+    if (plan.ok) {
+      const _user = await getSessionUser().catch(() => null)
+      await runCommit(plan, { actorName: _user?.email ?? 'system', actorSource: _user ? 'form' : 'system', action: 'wage-bill', entity: 'journal' })
+    }
     revalidatePath('/hr/wages')
     revalidatePath('/accounts/journal')
   }

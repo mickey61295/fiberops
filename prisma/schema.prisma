@@ -1116,3 +1116,25 @@ model SizeRange {
   rangeGroup    RangeGroup? @relation(fields: [rangeGroupId], references: [id])
   sizes         String? // CSV of size names (SizeGroup CSV precedent, plain text — no id resolution)
 }
+
+// ============== M15 — AUDIT LOG (SPEC-M9 §9 P2-3) ==============
+// Engine-level trail: ONE executor (runCommit in lib/erp/audit.ts) writes a
+// row for every committed plan — the agent door (/api/agent/approve) and the
+// form doors (doc-actions / masters actions / lifecycle actions) all route
+// through it, so no posting service can bypass. Best-effort: an audit write
+// failure must never fail the commit it records.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorName  String // who (email) — 'system' when no request scope (tests/scripts)
+  actorSource String  @default("form") // form | agent | system
+  action     String // create | update | cancel | close | complete | amend | approve | bom
+  entity     String // table/entity name (e.g. purchaseOrder, party, order)
+  entityId   String?
+  docNo      String?
+  summary    String?
+  payload    String? // JSON: the plan's creates/updates (after-image)
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity])
+}

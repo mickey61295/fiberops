@@ -2,12 +2,15 @@
 import { db } from '@/lib/db'
 import { getTool } from '@/lib/agent/tools'
 import { requireApiSession } from '@/lib/auth/api-guard'
+import { runCommit } from '@/lib/erp/audit'
 
 // Approval endpoint - client posts { toolName, args } and we execute commit()
 // SPEC-M7 Wave B — guarded + the session user is the APPROVAL ACTOR:
 //   - execute() receives the actor so approval commits stamp
 //     Approval.approvedBy = the human's email (was hardcoded 'agent')
 //   - AgentTurn rows for this user get approvedBy/approvedAt
+// SPEC-M9 §9 M15 — the AGENT DOOR audit choke point: every approved tool
+// commit routes through runCommit (the engine-level audit executor).
 export async function POST(req: Request) {
   const guard = await requireApiSession()
   if (guard.error) return guard.error
@@ -22,7 +25,10 @@ export async function POST(req: Request) {
     const result = await t.execute(args, actor)
     if (!result.commit) return Response.json({ error: 'No commit function' }, { status: 500 })
 
-    const committed = await result.commit()
+    const committed = await runCommit(
+      { ok: true, commit: result.commit, summary: result.plan?.summary ?? toolName, creates: result.plan?.creates, updates: result.plan?.updates },
+      { actorName: actor.email, actorSource: 'agent' },
+    )
 
     // Update latest agent turn for this user to mark approved (scoped to the
     // actor's turns — pre-M7B this marked EVERY pending turn globally)

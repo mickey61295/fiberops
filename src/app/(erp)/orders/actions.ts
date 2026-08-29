@@ -9,6 +9,8 @@
  * DOCUMENTED single-door exception (P2 note in 01-STATE.md, revisit M5).
  */
 import { revalidatePath } from 'next/cache'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 import { db } from '@/lib/db'
 import { planBom } from '@/lib/erp/posting/bom'
 import { BOM_SCHEMA } from '@/lib/erp/schemas/bom'
@@ -34,7 +36,8 @@ export async function addBomLineAction(
   try {
     const plan = await planBom(parsed.data)
     if (!plan.ok) return { ok: false, errors: [plan.error] }
-    await plan.commit()
+    const _user = await getSessionUser().catch(() => null)
+    await runCommit(plan, { actorName: _user?.email ?? 'system', actorSource: _user ? 'form' : 'system', action: 'bom', entity: 'bom' })
     try { revalidatePath('/orders') } catch { /* outside request scope (tests) */ }
     return { ok: true, summary: plan.summary }
   } catch (err) {

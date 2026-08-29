@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M19'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19'
 
 export interface MenuGroup {
   id: string
@@ -215,6 +215,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/accounts/tally-export', // Tally Export (M19-D) — tally-export (RG, JSON adapter + preview screen)
   // M13 (SPEC-M9 §9) — notifications digest
   '/notifications/digest', // Daily Digest (M13) — daily-digest (approvals + low stock + gate, webhook channels)
+  // M15 (SPEC-M9 §9) — engine-level audit trail
+  '/admin/audit', // Audit Log (M15) — audit-log (admin viewer over the runCommit trail)
 ])
 
 // ---------------------------------------------------------------------------
@@ -271,7 +273,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (129 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest) — SPEC-M1 §5.2
+// ITEMS (130 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -1184,6 +1186,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['frmOptionsFlags'],
     agentTools: ['list_app_options'], pendingTools: [],
     notes: '28-flag registry board (SPEC-M11): grouped toggles + effect notes + reset-to-default; writes ride POST /api/config → setFlag (admin-only, registry drift-safe); flag:* rows outside the registry render read-only',
+  },
+  {
+    id: 'audit-log', label: 'Audit Log', groupId: 'masters-admin', route: '/admin/audit', arch: 'RG', phase: 'M15',
+    description: 'Every committed plan — who, what, when, from which door — the engine-level trail.',
+    legacyForms: ['FrmAuditTrail'],
+    agentTools: ['get_approval_audit'], pendingTools: [],
+    notes: 'SPEC-M9 §9 M15: AuditLog rows written by the runCommit executor at every commit door (agent approve + form actions); admin role door',
   },
 ]
 

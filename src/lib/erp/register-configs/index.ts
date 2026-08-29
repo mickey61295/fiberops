@@ -32,6 +32,7 @@ import {
   poRegisterConfig, supplierHistoryConfig,
 } from './wave-b'
 import { closingStockConfig } from './closing-stock'
+import { auditLogConfig } from './audit-log'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -67,6 +68,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   poRegisterConfig, // SPEC-M19 §2 Wave B
   supplierHistoryConfig, // SPEC-M19 §2 Wave B
   closingStockConfig, // SPEC-M19 §4 Wave D
+  auditLogConfig, // SPEC-M9 §9 M15 — admin audit viewer
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

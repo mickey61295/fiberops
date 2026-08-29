@@ -15,6 +15,8 @@
  * re-runs plan + commit (the same re-derivation commitDocAction performs).
  */
 import { revalidatePath } from 'next/cache'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 import { planCancelOrder, planCancelInvoice } from './posting/cancel'
 import { planPoLifecycle, planCancelProgram } from './posting/lifecycle'
 import type { DocPlanResult } from './posting/types'
@@ -63,7 +65,9 @@ export async function commitCancelDocView(slug: string, docNo: string, reason: s
   const plan = await service(docNo, reason)
   if (!plan.ok) return { ok: false, error: plan.error! }
   try {
-    await plan.commit()
+    // SPEC-M9 §9 M15 — audit choke point (doc-view cancel door)
+    const _user = await getSessionUser().catch(() => null)
+    await runCommit(plan, { actorName: _user?.email ?? 'system', actorSource: _user ? 'form' : 'system', action: 'cancel', entity: slug })
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }

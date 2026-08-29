@@ -8,6 +8,8 @@
 import { revalidatePath } from 'next/cache'
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { planMasterCreate, planMasterUpdate } from '@/lib/erp/posting/master-service'
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
 
 export type SaveMasterResult =
   | { ok: true; code?: string }
@@ -33,7 +35,12 @@ export async function saveMasterAction(
       ? await planMasterUpdate(config, raw)
       : await planMasterCreate(config, raw)
     if (!plan.ok) return { ok: false, errors: plan.errors }
-    const committed = await plan.commit()
+    // SPEC-M9 §9 M15 — audit choke point (form door for masters)
+    const user = await getSessionUser().catch(() => null)
+    const committed = await runCommit(
+      { ok: true, commit: plan.commit, summary: plan.summary, creates: plan.creates ? [plan.creates] : undefined, updates: plan.updates ? [plan.updates] : undefined },
+      { actorName: user?.email ?? 'system', actorSource: user ? 'form' : 'system', entity: config.model.toLowerCase(), action: id ? 'update' : 'create' },
+    )
 
     revalidatePath('/masters')
     revalidatePath(`/masters/${slug}`)
