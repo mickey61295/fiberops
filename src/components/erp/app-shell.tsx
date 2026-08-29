@@ -8,8 +8,15 @@
  * SPEC-M7 §4 (Wave C): allowedGroupIds (menu group ids from the fresh
  * UserGroup.rights derivation in the layout) filters the NavSidebar; the
  * admin role flag gates the destructive Seed button.
+ *
+ * SPEC-M18 §B + P0-⑧ convergence: the '/' reflex is GLOBAL here — M17's
+ * per-MasterTable listener covered master screens only; registers (the daily
+ * ledger surfaces) had no '/'. This listener targets input[data-slash]
+ * (register filter bar opts in via slashIdx) then falls back to the first
+ * visible search-flavoured input (masters keep working — their own listener
+ * and this one focus the same box, no-op double fire).
  */
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { NavSidebar } from '@/components/erp/nav-sidebar'
@@ -35,6 +42,35 @@ export function AppShell({
     setRefreshKey((k) => k + 1)
     router.refresh()
   }, [router])
+
+  // '/' → the screen's search/filter box (never while typing in a field,
+  // never with modifiers). data-slash targets first; search-flavoured input
+  // fallback keeps master screens working alongside M17's own listener.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return
+      const t = e.target instanceof Element ? e.target : null
+      if (t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+      const explicit = document.querySelector<HTMLInputElement>('input[data-slash]')
+      const fallback = [...document.querySelectorAll('input[type="search"], input:not([type="hidden"])')]
+        .filter((el): el is HTMLInputElement => el instanceof HTMLInputElement)
+        .find((el) => {
+          if (el.type === 'hidden' || el.disabled || el.readOnly) return false
+          const r = el.getBoundingClientRect()
+          if (r.width === 0 || r.height === 0) return false
+          const hint = `${el.placeholder} ${el.getAttribute('aria-label') ?? ''}`.toLowerCase()
+          return hint.includes('search') || hint.includes('filter')
+        })
+      const target: HTMLInputElement | null | undefined = explicit ?? fallback
+      if (target) {
+        e.preventDefault()
+        target.focus()
+        target.select()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <AgentPanelProvider onCommitted={refresh}>

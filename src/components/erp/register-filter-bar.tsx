@@ -60,9 +60,19 @@ export function RegisterFilterBar({ config, route, params }: Props) {
 
   const hasActive = config.filters.some((f) => params[f.key])
 
+  // P0-⑧ (global '/' convergence): this bar opts its FIRST TEXT filter into
+  // the app-shell '/' reflex (typing a doc no / party name is the 99% case);
+  // registers without a text filter fall back to the first date input;
+  // selects never take the cursor (arrow keys belong to them natively).
+  const slashIdx = (() => {
+    const text = config.filters.findIndex((f) => !['dateRange', 'itemType', 'status', 'select'].includes(f.type))
+    if (text >= 0) return text
+    return config.filters.findIndex((f) => f.type === 'dateRange')
+  })()
+
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-white p-3 shadow-sm">
-      {config.filters.map((f) => {
+      {config.filters.map((f, fi) => {
         const id = `rf-${f.key}`
         if (f.type === 'dateRange') {
           return (
@@ -71,6 +81,7 @@ export function RegisterFilterBar({ config, route, params }: Props) {
               <Input
                 id={id}
                 type="date"
+                data-slash={fi === slashIdx ? 'from' : undefined}
                 className="h-9 w-[150px]"
                 value={draft[f.key] ?? ''}
                 onChange={(e) => set(f.key, e.target.value, true)}
@@ -104,6 +115,7 @@ export function RegisterFilterBar({ config, route, params }: Props) {
             <Input
               id={id}
               className="h-9 w-[170px]"
+              data-slash={fi === slashIdx ? 'q' : undefined}
               placeholder={f.placeholder ?? ''}
               list={listSlug ? `${id}-list` : undefined}
               value={draft[f.key] ?? ''}

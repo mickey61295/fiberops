@@ -993,3 +993,24 @@ Stage Summary:
 - ⌘K is now the jump bar (rights-parity command palette); the agent moved to ⌘J everywhere incl. the 10 synthetic dispatch doors; Excel blocks paste straight into any doc grid.
 - No schema/menu/service changes (ADR-001 untouched); PRINT registry grew read-side only.
 - Wave C remains spec'd-only (doc-view Cancel/Void/Duplicate, rate memory last_rate, change password) — SPEC-M18 §4 is the ready-made next-session brief.
+
+---
+Task ID: 18
+Agent: main (Super Z)
+Task: P0 execution → THIRD PARALLEL-SESSION RACE discovered at push time → convergence per the m11-convergence precedent (adopt remote, preserve local, port the superior bits).
+
+Work Log:
+- Started from the summary of the prior session (audit delivered + P0 approved). Sandbox reality: docs/GAP-ANALYSIS-FIBERPRO.md and worklog Task 16 did NOT exist (lost pre-commit — same failure class as m11-convergence), and src/app/api/upload/route.ts had a spurious uncommitted deletion.
+- Recovered: upload route git-restored; eval-routing-report.json regenerated via --static; GAP-ANALYSIS-FIBERPRO.md RECONSTRUCTED from session memory (provenance note inside); baseline gates verified (724/724, 410/410, static PASS).
+- Built the FULL P0 locally as commit 07603f6 (tag p0, pushed): ① Enter row-spawn + implicit-submit swallow ② F2/F4/F9/Esc ③ date-default-today (localTodayISO en-CA local-time — IST 05:30 safe) ④ post-commit Print CTA over a VERIFIED 20-pair SLUG_PRINT_DOC map ⑤ register-rows.tsx + master-table useRowCursor keyboard rows ⑥ Despatch spelling ⑦ tool chips off ⑧ global '/' (app-shell listener + data-slash). 20-test keyboard-reflex suite; context_check 410→418; LIVE browser-verified (Enter spawned a row with NO review card, F4 first-empty, arrows+Enter → exact order Hub, '/' → rf-q, zero console errors). Mid-verify bug found+fixed live: fi===0 '/' targeting missed configs whose first filter is a select (orders register) → slashIdx first-TEXT-filter heuristic.
+- PUSH REJECTED: remote main had advanced c3adb5b→b66d0cb — a PARALLEL session had shipped M12 (Playwright E2E 8 golden paths + two real bugs fixed), M17 "Operator Reflex Pack" (≈ my P0: same 8 fixes, same file set, their own register-rows.tsx, doc-type-map 20 families, print-doc-map.test 4 pins) and M18 (Print & Command Fidelity: order print family + invoice HSN/bank + Large/Cost-bearing templates + print-on-save + ⌘K CommandPalette + paste-into-grid). Their GAP-ANALYSIS was committed — my reconstruction matched its scope.
+- DECISION (m11-convergence precedent): remote is newer and strictly ahead (M18 = the whole next milestone); local P0 preserved on branch p0-reflex-pack-alt (and remote tag p0 — objects pushed with the tag); local main reset to origin/main b66d0cb.
+- Diffed M17 vs my P0. Functionally equivalent on ①–⑦ (their todayISO is also en-CA local-time; their register rows are clickable + ↑↓/Enter). ONE GENUINE GAP: their '/' was bound per-MasterTable (master screens only) — REGISTERS (the daily ledger surfaces) had no '/'.
+- PORTED the superior bit as the P0-⑧ convergence: app-shell.tsx document-level '/' listener (guards: modifiers/editable/defaultPrevented; targets input[data-slash], falls back to first visible search-flavoured input so masters keep working — M17's own listener and this focus the same box, no conflict) + register-filter-bar.tsx slashIdx opt-in (first TEXT filter via the exclude-list heuristic — orders register's filters[0] is a status select; date fallback) + tests/unit/global-slash.test.ts 4 pins (listener/guards, slashIdx + exclusion list, M17 listener survives, order-register q filter).
+- Gates on adopted+ported state: vitest 739/739 (735 M18 + 4 global-slash) · tsc src/ 0 · context_check 426/426 NO DRIFT · LIVE browser-verified: '/' → rf-q on /orders/register, rf-godown on /inventory/ledger, buyer search on masters, ZERO console errors, screenshot download/p0-convergence-slash.png.
+
+Stage Summary:
+- Repo converged at b66d0cb + this port: M12 E2E, M17 reflex pack, M18 print/command fidelity, and the global '/' now truly global.
+- Local P0 work preserved: branch p0-reflex-pack-alt + remote tag p0 (its 20-test keyboard-reflex suite and live-verification notes are the record; superseded by M17 for code).
+- PAT NOTE: origin URL PAT was scrubbed after the earlier push per the security protocol — this commit needs the user (or a PAT re-embed) to push.
+- Next per the frozen roadmap (STATE next-actions): P2 M13 digest notifications / M14 perf (the m9-wave-a-alt SSE accelerator branch still parked) — while M17/M18 have already absorbed the P0/M13-print scopes, so verify STATE next-actions numbering before starting.
