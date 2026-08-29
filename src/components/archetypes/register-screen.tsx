@@ -6,16 +6,23 @@
  * parses searchParams → calls the REGISTER_SERVICES entry → hands over here;
  * CSV export is a sibling `<register>/csv/route.ts` (pages cannot return
  * Responses — Next.js rule, hit in Wave A).
+ *
+ * SPEC-M19 §4 Wave D — COUNTER-BOOK MODE (?mode=counter, configs that declare
+ * `counterBook`): rows grouped into ascending date sections with per-day
+ * subtotal rows — the handwritten day-book Tirupur accountants keep (audit
+ * §7-C). Pure render mode: the service, filters, CSV and pagination are
+ * untouched; the flat RegisterRows table stays the default.
  */
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { BookOpen, Table2, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
 import { RegisterFilterBar } from '@/components/erp/register-filter-bar'
 import { RegisterRows } from '@/components/erp/register-rows'
-import type { RegisterConfig } from '@/lib/erp/register-configs/types'
+import type { RegisterConfig, RegisterColumn } from '@/lib/erp/register-configs/types'
 import type { RegisterResult } from '@/lib/erp/registers/types'
 import { filtersAsText } from '@/lib/erp/registers/resolve'
+import { groupCounterBook, counterBookColumns } from '@/lib/erp/registers/counter-book'
 
 /** Register rows (incl. Cell + badge tones) moved to the client component
  *  RegisterRows (SPEC-M17 §2-E) — full-row click + ↑↓/Enter navigation. */
@@ -31,6 +38,56 @@ export interface RegisterScreenProps {
   params: Record<string, string>
   page: number
   limit: number
+}
+
+const fmtVal = (v: number, format?: string) =>
+  format === 'inr' ? `₹${Math.round(v).toLocaleString('en-IN')}`
+    : format === 'int' ? Math.round(v).toLocaleString('en-IN')
+      : (Math.round(v * 100) / 100).toLocaleString('en-IN')
+
+function CounterBookTable({ config, rows }: { config: RegisterConfig; rows: Record<string, unknown>[] }) {
+  const cb = config.counterBook!
+  const cols = counterBookColumns(config.columns)
+  const sections = groupCounterBook(rows, config.columns as RegisterColumn[], cb.groupBy, cb.balancePairs ?? [])
+  const dateCol = config.columns.find((c) => c.name === cb.groupBy)
+  return (
+    <div className="space-y-4">
+      {sections.map((s) => {
+        const heading = dateCol?.format === 'date' && s.key !== '—' ? new Date(s.key).toISOString().slice(0, 10) : s.key
+        return (
+          <div key={s.key} data-counter-section={s.key} className="overflow-hidden rounded-lg border bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-slate-100/70 px-3 py-2">
+              <span className="text-[13px] font-semibold text-slate-700">{heading}</span>
+              <span className="text-[11px] text-slate-500">{s.rows.length} entr{s.rows.length === 1 ? 'y' : 'ies'}</span>
+            </div>
+            <table className="w-full text-sm">
+              <tbody>
+                {s.rows.map((r, i) => (
+                  <tr key={String(r.id ?? i)} className="border-b border-slate-100 last:border-0">
+                    {config.columns.map((c) => (
+                      <td key={c.name} className={`px-3 py-1.5 whitespace-nowrap ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                        {c.format === 'date' && c.name === cb.groupBy ? '' : String(r[c.name] ?? '')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr data-counter-subtotal className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
+                  {config.columns.map((c) => (
+                    <td key={c.name} className={`px-3 py-2 text-[13px] whitespace-nowrap ${c.align === 'right' ? 'text-right tabular-nums' : ''}`}>
+                      {c.name === cb.groupBy ? 'Day total' : cols.includes(c.name) ? fmtVal(s.subtotal[c.name] ?? 0, c.format) : ''}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )
+      })}
+      {sections.length === 0 && (
+        <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">{config.emptyMessage ?? 'No rows.'}</div>
+      )}
+    </div>
+  )
 }
 
 export function RegisterScreen({ config, result, route, groupLabel, groupHref, params, page, limit }: RegisterScreenProps) {
@@ -52,6 +109,7 @@ export function RegisterScreen({ config, result, route, groupLabel, groupHref, p
   const from = result.count === 0 ? 0 : (page - 1) * limit + 1
   const to = (page - 1) * limit + shown
   const hasNext = to < result.count
+  const counterMode = Boolean(config.counterBook) && params.mode === 'counter'
 
   return (
     <div className="space-y-4">
@@ -68,6 +126,14 @@ export function RegisterScreen({ config, result, route, groupLabel, groupHref, p
             {config.description && <p className="text-sm text-slate-500 mt-0.5">{config.description}</p>}
           </div>
           <div className="flex items-center gap-2">
+            {config.counterBook && (
+              <Button asChild size="sm" variant={counterMode ? 'default' : 'outline'} title="Counter-book: date sections with day subtotals (audit §7-C)">
+                <Link href={withParams({ mode: counterMode ? '' : 'counter' })} data-counter-toggle>
+                  {counterMode ? <Table2 className="h-3.5 w-3.5 mr-1" /> : <BookOpen className="h-3.5 w-3.5 mr-1" />}
+                  {counterMode ? 'Flat table' : 'Counter-book'}
+                </Link>
+              </Button>
+            )}
             <AskAgentButton prompt={askText} label="Ask about this data" />
             <Button asChild size="sm" variant="outline">
               <Link href={csvHref}>
@@ -82,21 +148,25 @@ export function RegisterScreen({ config, result, route, groupLabel, groupHref, p
 
       <div className="text-xs text-slate-500">{result.summary}</div>
 
-      {/* table */}
-      <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-slate-50/80">
-              {config.columns.map((c) => (
-                <th key={c.name} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <RegisterRows columns={config.columns} rows={result.rows} emptyMessage={config.emptyMessage} />
-        </table>
-      </div>
+      {/* table — flat (default) or counter-book grouped (SPEC-M19 §4 Wave D) */}
+      {counterMode ? (
+        <CounterBookTable config={config} rows={result.rows as unknown as Record<string, unknown>[]} />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-slate-50/80">
+                {config.columns.map((c) => (
+                  <th key={c.name} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 whitespace-nowrap ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
+                    {c.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <RegisterRows columns={config.columns} rows={result.rows} emptyMessage={config.emptyMessage} />
+          </table>
+        </div>
+      )}
 
       {/* totals band (SPEC-M4 §6): label: value chips, inr-formatted where numeric */}
       {result.totals && result.totals.length > 0 && (

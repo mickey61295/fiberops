@@ -33,6 +33,7 @@ import { queryLineIssues } from './line-issues'
 import { querySupplierPending } from './supplier-pending'
 import { queryPoRegister } from './po-register'
 import { querySupplierHistory } from './supplier-history'
+import { queryClosingStock } from './closing-stock'
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -67,6 +68,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'supplier-pending': querySupplierPending, // SPEC-M19 §2 Wave B
   'po-register': queryPoRegister, // SPEC-M19 §2 Wave B
   'supplier-history': querySupplierHistory, // SPEC-M19 §2 Wave B
+  'closing-stock': queryClosingStock, // SPEC-M19 §4 Wave D
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

@@ -40,4 +40,6 @@ export const stockLedgerConfig: RegisterConfig = {
   agentTools: ['get_stock_ledger'],
   askPrompt: 'Show me the stock ledger',
   emptyMessage: 'No ledger entries for these filters yet.',
+  // SPEC-M19 §4 Wave D — counter-book grouped mode (audit §7-C)
+  counterBook: { groupBy: 'docDate' },
 }

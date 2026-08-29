@@ -78,7 +78,7 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveC session (masters completion; 222 tools / 76 models)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveD session (closing-stock + counter-book + tally; 128 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33)" "222" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
@@ -93,12 +93,12 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers)" "126"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×11)" "158"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally)" "128"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally)" "160"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
-check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b)" "22"       "$REGCFGS"
-check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×7)" "30"       "$REGSVCFILES"
+check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock)" "23"       "$REGCFGS"
+check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×10)" "33"       "$REGSVCFILES"
 check "master configs (24 M2 + shift + 5 ADR-016 + 11 M19-C)" "41"      "$MASTERCFGS"
 check "shared zod schema files (+ M6-D dispatch/transfer variants)" "39"      "$SCHEMAFILES"
 check "posting service files"      "35"      "$POSTINGSVCS"
@@ -109,7 +109,7 @@ check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" 
 check "m7-waveC auth lib files (rights + login-cookies)" "2" "$(ls src/lib/auth/rights.ts src/lib/auth/login-cookies.ts 2>/dev/null | wc -l)"
 check "m7-waveA auth api routes (login/logout/session/bootstrap + M18-C change-password)" "5" "$(ls -d src/app/api/auth/*/ 2>/dev/null | grep -v admin | wc -l)"
 check "m7-waveC admin api route (set-password)" "1" "$(ls src/app/api/auth/admin/set-password/route.ts 2>/dev/null | wc -l)"
-check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M9 tracker + M11 config)" "7" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts src/app/api/tracker/route.ts src/app/api/config/route.ts 2>/dev/null | wc -l)"
+check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M9 tracker + M11 config + M19-D tally)" "8" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts src/app/api/tracker/route.ts src/app/api/config/route.ts src/app/api/tally/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
@@ -412,7 +412,15 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/master-configs/count-group.ts \
          src/lib/erp/master-configs/range-group.ts \
          src/lib/erp/master-configs/size-range.ts \
-         scripts/gen_m19c_configs.mjs scripts/route_smoke_m19c.sh; do
+         scripts/gen_m19c_configs.mjs scripts/route_smoke_m19c.sh \
+         src/lib/erp/registers/closing-stock.ts \
+         src/lib/erp/registers/counter-book.ts \
+         src/lib/erp/registers/tally.ts \
+         src/lib/erp/register-configs/closing-stock.ts \
+         src/app/api/tally/route.ts \
+         'src/app/(erp)/inventory/closing-stock/page.tsx' \
+         'src/app/(erp)/accounts/tally-export/page.tsx' \
+         tests/unit/wave-d-registers.test.ts scripts/route_smoke_m19d.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

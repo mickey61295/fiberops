@@ -209,6 +209,9 @@ export const LIVE_ROUTES = new Set<string>([
   '/procurement/supplier-pending', // Supplier Pending Orders (M19-B) — supplier-pending (RG, frmSupordPendReg)
   '/procurement/po/register', // PO Register (M19-B) — po-register (RG, FrmSupplierOrderRegister)
   '/procurement/supplier-history', // Supplier Order History (M19-B) — supplier-history (RG, FrmSuppOrderHistoryReg)
+  // M19 Wave D (SPEC-M19 §4) — closing-stock as-of + Tally JSON
+  '/inventory/closing-stock', // Closing Stock as-of (M19-D) — closing-stock (RG, cumulative period-end statement)
+  '/accounts/tally-export', // Tally Export (M19-D) — tally-export (RG, JSON adapter + preview screen)
 ])
 
 // ---------------------------------------------------------------------------
@@ -265,7 +268,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (126 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers) — SPEC-M1 §5.2
+// ITEMS (128 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -496,6 +499,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmStockRegister', 'FrmStockRegister_Style', 'FrmStockRegister_StylePcs', 'FrmStockRegister_SplRpt'],
     agentTools: ['get_stock_ledger'], pendingTools: [],
     agentPrompt: 'Show me the stock register',
+  },
+  {
+    id: 'closing-stock', label: 'Closing Stock (as-of)', groupId: 'inventory', route: '/inventory/closing-stock', arch: 'RG', phase: 'M19',
+    description: 'Period-end stock statement — cumulative in/out to the as-of date, per item and godown, with valuation.',
+    legacyForms: ['FrmClosingStockRegister', 'RptClosingStock'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me closing stock as of a date',
   },
   // M19 Wave A (SPEC-M19 §1-B) — the material-wise day-books legacy operators lived in
   {
@@ -931,6 +941,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmSupplierBillReg'],
     agentTools: ['list_supplier_bills'], pendingTools: [],
     agentPrompt: 'Show me the supplier bill register',
+  },
+  {
+    id: 'tally-export', label: 'Tally Export', groupId: 'accounts', route: '/accounts/tally-export', arch: 'RG', phase: 'M19',
+    description: 'Sales/receipts/payments/journals for a window as Tally-import JSON, with preview counts.',
+    legacyForms: ['FrmTallyExport'],
+    agentTools: ['list_invoices'], pendingTools: [],
+    agentPrompt: 'Show me invoices and payments for this month',
   },
   {
     id: 'payments-receipts', label: 'Payments & Receipts', groupId: 'accounts', route: '/accounts/payments', arch: 'DS', phase: 'M3',

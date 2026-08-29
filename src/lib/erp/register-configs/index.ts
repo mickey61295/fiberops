@@ -31,6 +31,7 @@ import {
   cuttingRegisterConfig, lineIssueRegisterConfig, supplierPendingConfig,
   poRegisterConfig, supplierHistoryConfig,
 } from './wave-b'
+import { closingStockConfig } from './closing-stock'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -65,6 +66,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   supplierPendingConfig, // SPEC-M19 §2 Wave B
   poRegisterConfig, // SPEC-M19 §2 Wave B
   supplierHistoryConfig, // SPEC-M19 §2 Wave B
+  closingStockConfig, // SPEC-M19 §4 Wave D
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

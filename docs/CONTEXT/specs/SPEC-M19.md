@@ -162,12 +162,46 @@ line account for the delta) + 11 master configs + create/update/list tools.
 - shift-wages linkage stays DEFERRED (needs a ProductionEntry⇄Shift decision —
   no shiftId field; do not invent one without a spec).
 
-## 4. Wave D — closing-stock as-of, counter-book mode, Tally JSON
+## 4. Wave D — closing-stock as-of, counter-book mode, Tally JSON (FROZEN 2026-08-30)
 
-- Closing stock as-of-date (period-end statement, godown/party-wise — new service,
-  StockLedger cumulative to date).
-- Counter-book grouped register mode (audit §7-C).
-- Tally JSON export (open decision #3).
+**D1 — Closing stock as-of-date** (audit §3-C1-2 "period-end statement, godown/party-wise"):
+NEW service `queryClosingStock` (registers/closing-stock.ts) — StockLedger rows with
+docDate ≤ the `to` filter (CUMULATIVE — `from` is ignored by design, the config declares
+only `to`), grouped by (itemType, itemId, godown): closing = Σin − Σout per uom column
+SEPARATELY (never across uoms — gotcha §14), item codes via the id-map helper, valuation =
+closing qty × the LATEST ledger rate for that (item, godown, uom). Columns: type, item,
+godown, bags/kgs/mtrs/pcs closing, value. Config `closing-stock` → /inventory/closing-stock
+(menu inventory, after stock-register; FrmClosingStockRegister family). agentTools:
+get_stock_ledger (the same read path). Filters: to (as-of), godown, itemType, q.
+
+**D2 — Counter-book grouped register mode** (audit §7-C): registers get a
+`counterBook?` config — present → the screen offers a Counter-book toggle
+(`?mode=counter`): rows grouped into sections by a row field (docDate), sections
+rendered ASCENDING (the handwritten day-book is chronological), each with a per-day
+subtotal row over the numeric columns, and optional cumulative running-balance columns
+from `balancePairs` (in−out running). v1 ships on the two day-book surfaces —
+stock-ledger (/inventory/ledger) + daily-in-out (/registers/daily-in-out) — with NO
+balancePairs (multi-uom running balances are ill-defined; subtotals only — honest).
+Render is a server-side group helper + section table in RegisterScreen; rows keep W2
+drill-downs; CSV/page params unchanged; RegisterRows stays for the flat mode.
+
+**D3 — Tally JSON export** (audit §3-C1-10, open decision #3 RESOLVED as "JSON adapter"):
+NEW service `buildTallyExport(from, to)` (registers/tally.ts) — reads SalesInvoice
+(Sales voucher: party Dr / Sales Cr + GST split), Payment (Receipt when direction=in /
+Payment when out: party Cr|Dr / Bank-Cash Dr|Cr), Journal (Journal: debitAccount Dr /
+creditAccount Cr) for the window → Tally-import-shaped JSON
+{ companyName (AppOption print.companyName), fromDate, toDate, vouchers: [{
+voucherType, date, voucherNo, party, amount, narration, ledgerEntries: [{ ledger,
+amount, isDebit }] }] }. Exported via guarded GET /api/tally?from=&to= (requireApiSession;
+attachment disposition) + a small /accounts/tally-export screen (date pickers + preview
+counts + download) → menu item 'tally-export' (accounts group, RG). agentTools chip:
+list_invoices (the chat door for the same data).
+
+Menu: +2 items (closing-stock, tally-export) → 128 items / 160 LIVE_ROUTES.
+Tests: tests/unit/wave-d-registers.test.ts (closing math incl. as-of cutoff + per-uom
+separation + latest-rate valuation; counter-book grouping/subtotal/ascending math as a
+pure function; tally adapter voucher shapes + GST split + direction mapping) +
+register-configs 32→33 + menu pins 126→128 + api-guard family +tally.
 
 ## 5. Acceptance gates (Wave A)
 

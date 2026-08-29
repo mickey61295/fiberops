@@ -50,6 +50,16 @@ export interface RegisterConfig {
   askPrompt: string
   emptyMessage?: string
   defaultLimit?: number
+  /** SPEC-M19 §4 Wave D — counter-book grouped mode (audit §7-C). Present →
+   *  the screen offers a Counter-book toggle (?mode=counter): rows grouped
+   *  into sections by `groupBy` (ascending, the day-book is chronological),
+   *  each with a per-section subtotal row; balancePairs add cumulative
+   *  running-balance columns (in − out running). Pure render mode — the
+   *  service, filters, CSV and pagination stay untouched. */
+  counterBook?: {
+    groupBy: string
+    balancePairs?: { in: string; out: string; label: string }[]
+  }
 }
 
 /** Keys a config's filters may declare (SPEC-M4 §4 frozen set). */

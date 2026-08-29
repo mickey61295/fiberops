@@ -38,4 +38,6 @@ export const dailyInOutConfig: RegisterConfig = {
   agentTools: ['get_daily_in_out'],
   askPrompt: 'Show me daily stock in/out',
   emptyMessage: 'No stock movements for these filters yet.',
+  // SPEC-M19 §4 Wave D — counter-book grouped mode (audit §7-C)
+  counterBook: { groupBy: 'docDate' },
 }

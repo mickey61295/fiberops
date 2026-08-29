@@ -50,12 +50,13 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'supplier-pending': '/procurement/supplier-pending',
   'po-register': '/procurement/po/register',
   'supplier-history': '/procurement/supplier-history',
+  'closing-stock': '/inventory/closing-stock',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B: exactly the 32 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D: exactly the 33 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
-      'acc-stock', 'approval-audit', 'bills-register', 'budget-vs-actual', 'current-stock', 'cutting-register', 'daily-in-out',
+      'acc-stock', 'approval-audit', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out',
       'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register',
       'line-issue-register', 'lot-tracking', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
