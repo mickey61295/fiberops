@@ -31,7 +31,7 @@ export default async function DcReturnPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="DC Return (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="DC Return (new)" />
       <DocScreen
         config={toScreenConfig(dcReturnConfig)}
         mode="new"

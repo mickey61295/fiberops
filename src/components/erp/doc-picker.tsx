@@ -128,6 +128,8 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
       )}
       <button
         type="button"
+        data-picker-trigger
+        data-filled={value ? '1' : '0'}
         onClick={() => { setOpen((o) => !o); setQ('') }}
         className={`mt-1 flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 ${inline ? 'h-8' : 'h-9'} text-left text-sm ${value ? 'text-slate-900' : 'text-slate-400'} hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-200`}
         aria-label={label}
@@ -149,7 +151,7 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
               placeholder={`Search ${config?.label.toLowerCase() || slug}…`}
               className="w-full text-sm outline-none"
               onKeyDown={(e) => {
-                if (e.key === 'Escape') setOpen(false)
+                if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) }
                 if (e.key === 'Enter' && options.length > 0) {
                   e.preventDefault()
                   onChange(options[0].value)

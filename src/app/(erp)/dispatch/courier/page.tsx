@@ -32,7 +32,7 @@ export default async function CourierDcPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="Courier DC (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="Courier DC (new)" />
       <DocScreen
         config={toScreenConfig(courierDcConfig)}
         mode="new"

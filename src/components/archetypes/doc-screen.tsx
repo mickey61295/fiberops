@@ -10,16 +10,21 @@
  *
  * Draft preservation (§9.3): header + lines live in THIS component's state;
  * picker create-on-the-fly overlays (Sheets) never unmount it.
+ *
+ * P0 KEYBOARD REFLEXES (GAP-ANALYSIS §6 conflicts #1/#2/#5/#8, 2026-08):
+ * legacy Fiberpro fingers expect Enter = commit row + spawn next row (never
+ * implicit form submit), F2 = save, F4 = jump to next empty field, F9 = print
+ * the committed doc, Esc = back to edit — and date fields default to today.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, ChevronLeft, Loader2, Paperclip, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, Check, ChevronLeft, Loader2, Paperclip, Plus, Printer, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+// Badge import dropped with the P0-⑦ tool chips (no other Badge use here)
 import { ChainBar } from '@/components/erp/chain-bar'
 import { DocPicker } from '@/components/erp/doc-picker'
 import { useAgent } from '@/components/agent/agent-panel-provider'
@@ -46,18 +51,84 @@ export interface DocScreenProps {
   chainCtx?: { orderNo?: string; poNo?: string; dcNo?: string; invoiceNo?: string; id?: string }
 }
 
+/**
+ * P0-④ — slug → PRINT_DOCS key, VERIFIED against the doc view pages' live
+ * DocPrintLink usage (19 families). Slugs absent here have no print route
+ * yet (notably 'order' — the order-sheet print gap, GAP-ANALYSIS §3/M13).
+ */
+export const SLUG_PRINT_DOC: Record<string, string> = {
+  invoice: 'invoice',
+  'purchase-order': 'po',
+  grn: 'grn',
+  payment: 'payment',
+  'dc-entry': 'dc',
+  'debit-note': 'debit-note',
+  journal: 'journal',
+  budget: 'budget',
+  'cost-sheet': 'cost-sheet',
+  expense: 'expense',
+  cut: 'cut-order',
+  'gate-entry': 'gate-entry',
+  'gate-pass': 'gate-pass',
+  sample: 'sample',
+  despatch: 'pcs-despatch',
+  'packing-list': 'packing-list',
+  rejection: 'rejection',
+  production: 'production-entry',
+  'line-issue': 'line-issue',
+  'lab-test': 'lab-test',
+}
+
+/** P0-③ — local-today as YYYY-MM-DD (en-CA locale = ISO order; IST-safe
+ * unlike toISOString which is UTC and reads "yesterday" before 05:30). */
+export function localTodayISO(): string {
+  try {
+    return new Date().toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
+}
+
+/** P0-③ — fresh header state: date fields default to TODAY (legacy reflex),
+ * everything else blank; prefill still wins. */
+export function initialHeader(config: DocScreenConfig, prefill?: Record<string, string>): Record<string, string> {
+  return {
+    ...Object.fromEntries(config.headerFields.map((f) => [f.name, f.type === 'date' ? localTodayISO() : ''])),
+    ...(prefill ?? {}),
+  }
+}
+
 const emptyRow = (fields: DocLineField[]): Record<string, string> =>
   Object.fromEntries(fields.map((f) => [f.name, '']))
+
+/** Focus a grid cell by (row, col) — the td carries data-cell="r-c"; focus its
+ * first focusable child (input | select | picker trigger button). */
+function focusCell(root: HTMLElement, r: number, c: number) {
+  const td = root.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)
+  ;(td?.querySelector<HTMLElement>('input, select, button[data-picker-trigger]') ?? td)?.focus()
+}
+
+/** P0-② F4 — legacy "next field" walk: first EMPTY control in DOM order
+ * (header inputs/selects, picker triggers via data-filled, then line cells). */
+function focusFirstEmpty(root: HTMLElement) {
+  const controls = root.querySelectorAll<HTMLElement>(
+    'input:not([type="hidden"]):not([disabled]), select:not([disabled]), button[data-picker-trigger]:not([disabled])',
+  )
+  for (const el of controls) {
+    if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+      if (!el.value) { el.focus(); return }
+    } else if ((el as HTMLButtonElement).dataset.filled === '0') {
+      el.focus(); return
+    }
+  }
+}
 
 export function DocScreen({
   config, mode, initial, docNo, prefill, viewRoutePattern, chainState, chainCtx,
 }: DocScreenProps) {
   const { openAgent } = useAgent()
   const [phase, setPhase] = useState<Phase>('edit')
-  const [header, setHeader] = useState<Record<string, string>>(() => ({
-    ...Object.fromEntries(config.headerFields.map((f) => [f.name, ''])),
-    ...(prefill ?? {}),
-  }))
+  const [header, setHeader] = useState<Record<string, string>>(() => initialHeader(config, prefill))
   const [lines, setLines] = useState<Array<Record<string, string>>>(() =>
     config.lineFields ? [emptyRow(config.lineFields)] : [],
   )
@@ -65,10 +136,24 @@ export function DocScreen({
   const [errors, setErrors] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [committed, setCommitted] = useState<Record<string, unknown> | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  // P0-① — Enter on the LAST row spawns the next row; its cells render only
+  // after the state update, so the focus order rides this pending ref.
+  const pendingFocus = useRef<{ r: number; c: number } | null>(null)
+  useEffect(() => {
+    if (pendingFocus.current && formRef.current) {
+      const { r, c } = pendingFocus.current
+      pendingFocus.current = null
+      focusCell(formRef.current, r, c)
+    }
+  }, [lines])
 
   const hasLineEditor = !!config.lineFields?.length
   const qtyField = config.lineFields?.find((f) => f.name === 'qty')
   const rateField = config.lineFields?.find((f) => f.name === 'rate')
+  // first column that renders an actual focusable cell (any type qualifies —
+  // selects, pickers and inputs are all focusable via their td)
+  const firstEditableCol = 0
 
   const totals = useMemo(() => {
     const qty = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0)
@@ -120,7 +205,7 @@ export function DocScreen({
   }
 
   function resetForAnother() {
-    setHeader({ ...Object.fromEntries(config.headerFields.map((f) => [f.name, ''])), ...(prefill ?? {}) })
+    setHeader(initialHeader(config, prefill))
     setLines(config.lineFields ? [emptyRow(config.lineFields)] : [])
     setPlan(null)
     setCommitted(null)
@@ -144,6 +229,11 @@ export function DocScreen({
   }, [config.chainStage, committed, chainCtx?.orderNo])
 
   const viewUrl = committed?.id && viewRoutePattern ? viewRoutePattern.replace('[id]', String(committed.id)) : null
+  // P0-④/F9 — post-commit print door (only slugs with a verified print family)
+  const printDocType = SLUG_PRINT_DOC[config.slug]
+  const printUrl = committed?.id && printDocType
+    ? `/print/${printDocType}/${encodeURIComponent(String(committed.id))}?copy=original`
+    : null
 
   // ------------------------------------------------------------------ VIEW
   if (mode === 'view') {
@@ -154,11 +244,9 @@ export function DocScreen({
             {config.title}
             {docNo && <span className="ml-2 font-mono text-base text-slate-500">{docNo}</span>}
           </h1>
-          <div className="flex gap-1">
-            {config.agentTools.map((t) => (
-              <Badge key={t} variant="outline" className="text-[10px] font-mono">{t}</Badge>
-            ))}
-          </div>
+          {/* P0-⑦ — tool-name chips hidden (GAP-ANALYSIS §6: internal tool ids
+              are engineer furniture, not operator UI; agentTools data stays on
+              the config for the registry tests + Ask-agent prompts) */}
         </div>
         <ChainBar state={chainState} currentStage={config.chainStage} ctx={chainCtx} />
         <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -202,9 +290,32 @@ export function DocScreen({
     <div
       className="space-y-4"
       onKeyDown={(e) => {
+        // Ctrl/Cmd+S — save (pre-existing)
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
           e.preventDefault()
           if (phase === 'edit') save()
+          return
+        }
+        // P0-② — legacy F-keys (GAP-ANALYSIS §6 #2: zero F-keys was reflex
+        // conflict; F2 save / F4 next-field / F9 print / Esc back-to-edit)
+        if (e.key === 'F2') {
+          e.preventDefault()
+          if (phase === 'edit') save()
+          else if (phase === 'review') commit()
+          return
+        }
+        if (e.key === 'F4') {
+          e.preventDefault()
+          if (phase === 'edit' && formRef.current) focusFirstEmpty(formRef.current)
+          return
+        }
+        if (e.key === 'F9') {
+          if (printUrl) { e.preventDefault(); window.open(printUrl, '_blank') }
+          return
+        }
+        if (e.key === 'Escape' && phase === 'review') {
+          if (e.defaultPrevented) return // a picker handled it first
+          setPhase('edit')
         }
       }}
     >
@@ -217,11 +328,8 @@ export function DocScreen({
           </span>
         )}
         <div className="flex-1" />
-        <div className="flex gap-1">
-          {config.agentTools.map((t) => (
-            <Badge key={t} variant="outline" className="text-[10px] font-mono">{t}</Badge>
-          ))}
-        </div>
+        {/* P0-⑦ — tool-name chips hidden (engineer furniture, not operator UI;
+            agentTools data stays for the registry tests + Ask-agent prompts) */}
         <Button
           size="sm" variant="outline"
           onClick={() => openAgent(`Create a ${config.title.toLowerCase()} from the attached document — attach the buyer PO / invoice PDF with the paperclip, then ingest it and ask me for whatever details you still need.${header.orderNo ? ` The order is ${header.orderNo}.` : ''}`)}
@@ -248,8 +356,36 @@ export function DocScreen({
 
       {phase === 'edit' && (
         <form
+          ref={formRef}
           onSubmit={(e) => { e.preventDefault(); save() }}
           className="space-y-4"
+          onKeyDown={(e) => {
+            // P0-① — Enter NEVER implicit-submits the doc (GAP-ANALYSIS §6 #1:
+            // the legacy reflex is Enter = row done / next field, and an
+            // accidental whole-doc save mid-entry is the violation). Selects,
+            // textareas and buttons keep native behavior; the DocPicker search
+            // marks its own Enter handled (defaultPrevented) before we see it.
+            if (e.key !== 'Enter' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return
+            const t = e.target as HTMLElement
+            if (!(t instanceof HTMLInputElement) || t.tagName !== 'INPUT') return
+            e.preventDefault()
+            const root = formRef.current
+            if (!root || !hasLineEditor) { focusFirstEmpty(root ?? t.closest('form') ?? document.body); return }
+            const r = t.closest('td')?.getAttribute('data-cell')?.split('-')
+            if (!r) { focusFirstEmpty(root); return } // header field → next empty
+            const ri = Number(r[0])
+            const ci = Number(r[1])
+            if (ri < lines.length - 1) {
+              focusCell(root, ri + 1, ci) // mid-grid: same column, next row
+            } else {
+              // last row: spawn a successor only when this row carries data
+              const rowHasData = Object.values(lines[ri] ?? {}).some((v) => v !== '')
+              if (rowHasData) {
+                setLines((prev) => [...prev, emptyRow(config.lineFields!)])
+                pendingFocus.current = { r: ri + 1, c: firstEditableCol }
+              }
+            }
+          }}
         >
           {/* Header card */}
           <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -365,8 +501,8 @@ export function DocScreen({
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </td>
-                        {config.lineFields!.map((f) => (
-                          <td key={f.name} className="px-2 py-1.5">
+                        {config.lineFields!.map((f, ci) => (
+                          <td key={f.name} data-cell={`${i}-${ci}`} className="px-2 py-1.5">
                             {f.type === 'select' ? (
                               <select
                                 className="h-8 w-full rounded-md border border-slate-200 bg-white px-1.5 text-sm"
@@ -464,7 +600,7 @@ export function DocScreen({
             <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={busy}>
               {busy ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Planning…</> : 'Save & review plan'}
             </Button>
-            <span className="text-[11px] text-slate-400">Ctrl+S · same service as the agent&apos;s {config.agentTools[0]}</span>
+            <span className="text-[11px] text-slate-400">F2 / Ctrl+S save · Enter adds rows · F4 next field · same service as the agent&apos;s {config.agentTools[0]}</span>
           </div>
         </form>
       )}

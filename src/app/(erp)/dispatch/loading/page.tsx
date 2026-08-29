@@ -32,7 +32,7 @@ export default async function LoadingPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="Loading Challan (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="Loading Challan (new)" />
       <DocScreen
         config={toScreenConfig(loadingConfig)}
         mode="new"

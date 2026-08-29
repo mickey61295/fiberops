@@ -32,7 +32,7 @@ export default async function ProcessDcPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="Process DC (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="Process DC (new)" />
       <DocScreen
         config={toScreenConfig(processDcConfig)}
         mode="new"

@@ -211,7 +211,7 @@ export const MENU_GROUPS: MenuGroup[] = [
   { id: 'pieces', label: 'Pieces (Finished Goods)', icon: 'Shirt', landingRoute: '/pieces/despatch', order: 7, description: 'Pcs despatch/receipt/transfer/stock/packing' },
   { id: 'production', label: 'Production & Shopfloor', icon: 'Factory', landingRoute: '/production', order: 8, description: 'Entries, line issue/output, WIP, bundles' },
   { id: 'jobwork', label: 'Job Work', icon: 'Handshake', landingRoute: '/jobwork/order', order: 9, description: 'Outsourced jobwork out/in & balances' },
-  { id: 'dispatch', label: 'Dispatch & Logistics', icon: 'Truck', landingRoute: '/dispatch/unit-transfer-ack', order: 10, description: 'DCs (all materials), gate, courier, loading' },
+  { id: 'dispatch', label: 'Despatch & Logistics', icon: 'Truck', landingRoute: '/dispatch/unit-transfer-ack', order: 10, description: 'DCs (all materials), gate, courier, loading' }, // P0-⑥: legacy spelling "Despatch" (GAP-ANALYSIS §7-T terminology fidelity)
   { id: 'accounts', label: 'Accounts & GST', icon: 'Receipt', landingRoute: '/accounts', order: 11, description: 'Invoices, bills, payments, journals, HSN' },
   { id: 'costing', label: 'Costing & Budgets', icon: 'Calculator', landingRoute: '/costing', order: 12, description: 'Cost sheets, budgets, expenses, P&L' },
   { id: 'hr', label: 'HR & Payroll', icon: 'Users', landingRoute: '/hr', order: 13, description: 'Employees, shifts, wages' },

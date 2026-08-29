@@ -23,6 +23,43 @@ import type { MasterConfig, MasterRow } from '@/lib/erp/master-configs/types'
 
 type EditState = { mode: 'new' } | { mode: 'edit'; row: MasterRow } | null
 
+/** P0-⑤ — keyboard roving over the master grid: ↑↓ move the row cursor,
+ * Enter opens the row for edit (the click reflex's keyboard twin), Home/End
+ * jump to the ends. The sheet stays a mouse-free round trip. */
+function useRowCursor(
+  count: number,
+  onOpen: (index: number) => void,
+) {
+  const [active, setActive] = useState<number | null>(null)
+  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([])
+  function move(delta: number) {
+    if (count === 0) return
+    setActive((prev) => {
+      const base = prev ?? (delta > 0 ? -1 : count)
+      const next = Math.min(count - 1, Math.max(0, base + delta))
+      rowRefs.current[next]?.focus()
+      rowRefs.current[next]?.scrollIntoView({ block: 'nearest' })
+      return next
+    })
+  }
+  const rowProps = (i: number) => ({
+    ref: (el: HTMLTableRowElement | null) => { rowRefs.current[i] = el },
+    tabIndex: active === i ? 0 : -1,
+    'aria-selected': active === i,
+    onFocus: () => setActive(i),
+    onClick: () => { setActive(i); onOpen(i) },
+    onKeyDown: (e: React.KeyboardEvent<HTMLTableRowElement>) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
+      else if (e.key === 'Home') { e.preventDefault(); setActive(0); rowRefs.current[0]?.focus() }
+      else if (e.key === 'End') { e.preventDefault(); const last = count - 1; setActive(last); rowRefs.current[last]?.focus() }
+      else if (e.key === 'Enter') { e.preventDefault(); setActive(i); onOpen(i) }
+    },
+    className: undefined,
+  })
+  return { active, rowProps }
+}
+
 export function MasterTable({ config, rows }: { config: MasterConfig; rows: MasterRow[] }) {
   const router = useRouter()
   const { openAgent } = useAgent()
@@ -37,6 +74,12 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
     const q = search.trim().toLowerCase()
     return rows.filter((r) => config.searchFields.some((f) => String(r[f] ?? '').toLowerCase().includes(q)))
   }, [rows, search, config])
+
+  function openRow(i: number) {
+    setEditing({ mode: 'edit', row: filtered[i] })
+    setErrors([])
+  }
+  const { rowProps } = useRowCursor(filtered.length, openRow)
 
   function exportCsv() {
     const cols = config.listColumns
@@ -94,6 +137,7 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
           <Input
             ref={searchRef}
+            data-slash="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Search ${config.label.toLowerCase()}… (press /)`}
@@ -140,12 +184,19 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
-                  onClick={() => { setEditing({ mode: 'edit', row }); setErrors([]) }}
-                >
+              {filtered.map((row, i) => {
+                const rp = rowProps(i)
+                return (
+                  <tr
+                    key={row.id}
+                    ref={rp.ref}
+                    tabIndex={rp.tabIndex}
+                    aria-selected={rp['aria-selected']}
+                    onFocus={rp.onFocus}
+                    onClick={rp.onClick}
+                    onKeyDown={rp.onKeyDown}
+                    className={`border-t border-slate-100 hover:bg-slate-50 cursor-pointer focus:outline-none ${rp['aria-selected'] ? 'bg-emerald-50/80 ring-1 ring-inset ring-emerald-300' : ''}`}
+                  >
                   {config.listColumns.map((c) => (
                     <td
                       key={c.field}
@@ -162,7 +213,8 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
                     <Pencil className="h-3.5 w-3.5" />
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={config.listColumns.length + 1} className="px-3 py-8 text-center text-slate-500 text-sm">

@@ -33,7 +33,7 @@ export default async function DcEntryPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="Material DC (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="Material DC (new)" />
       <DocScreen
         config={toScreenConfig(dcEntryConfig)}
         mode="new"

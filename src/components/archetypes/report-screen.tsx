@@ -139,13 +139,8 @@ export function ReportScreen({ config, result, route, params, page, limit, print
             <PrintButton route={route} />
           </div>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-slate-400">Agent door:</span>
-          <Badge variant="outline" className="text-[10px] font-mono bg-slate-50 text-slate-600">render_report</Badge>
-          {config.agentTools.filter((t) => t !== 'render_report').map((t) => (
-            <Badge key={t} variant="outline" className="text-[10px] font-mono bg-slate-50 text-slate-600">{t}</Badge>
-          ))}
-        </div>
+        {/* P0-⑦ — agent-door tool chips removed from the operator surface
+            (GAP-ANALYSIS §6; the Ask-agent button IS the agent door) */}
       </div>
 
       <div className="print:hidden">

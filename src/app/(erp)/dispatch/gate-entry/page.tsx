@@ -34,7 +34,7 @@ export default async function GateEntryPage() {
   }))
   return (
     <div className="space-y-5">
-      <DocBreadcrumb href="/dispatch" label="Dispatch" title="Gate Entry (new)" />
+      <DocBreadcrumb href="/dispatch" label="Despatch" title="Gate Entry (new)" />
       <DocScreen
         config={toScreenConfig(gateEntryConfig)}
         mode="new"
