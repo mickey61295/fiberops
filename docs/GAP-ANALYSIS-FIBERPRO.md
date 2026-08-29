@@ -288,10 +288,10 @@ e-way mock; barcode decision (#2); multi-company decision (#1); holiday surfacin
 Numbering note (2026-08-29): P0 shipped as SPEC-M17 (`m17-reflex`); P1 shipped as
 SPEC-M18 Waves A+B (`m18-print-cmd` — order print, invoice HSN/bank block, large +
 cost-bearing templates, 3-copy burst, print-on-save, ⌘K palette with agent→⌘J,
-paste-into-grid; Wave C = doc-view Cancel/Void/Duplicate + rate memory + change
-password remains spec'd) — M13–M16 were already reserved by the frozen SPEC-M9 §9
-P2 roadmap (digest/perf/audit/dashboards); the P2/P3 lanes below become M19+ as
-they are picked up.
+paste-into-grid) **and Wave C (2026-08-29 — doc-view Cancel/Void + Duplicate ×57
+families + rate memory last_rate + self-service change password)** — M13–M16 were
+already reserved by the frozen SPEC-M9 §9 P2 roadmap (digest/perf/audit/dashboards);
+the P2/P3 lanes below become M19+ as they are picked up.
 
 Sequence rationale: P0 removes active pain for anyone who touches the app today; P1 completes the
 *print-and-keyboard* contract that legacy users consider table stakes; P2 closes the measurable

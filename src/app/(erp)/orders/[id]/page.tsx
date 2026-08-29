@@ -17,6 +17,7 @@ import { ChainBar } from '@/components/erp/chain-bar'
 import { BomCard, type BomDisplayLine } from '@/components/erp/bom-card'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
 import { DocPrintLink } from '@/components/erp/doc-print-button'
+import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
 
@@ -188,6 +189,29 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
           <div className="flex-1" />
           {/* SPEC-M18 §2-A1: the order sheet print door (gap audit: order printed NOTHING) */}
           <DocPrintLink docType="order" id={order.orderNo} />
+          {/* SPEC-M18 §4-C1/C2 — Cancel + Duplicate (the Hub is the order's view) */}
+          <DocViewActions
+            slug="order"
+            docNo={order.orderNo}
+            status={order.status}
+            seed={{
+              docNo: order.orderNo,
+              header: {
+                buyerCode: order.buyer?.code ?? '',
+                styleNo: order.style?.styleNo ?? '',
+                orderDate: d(order.orderDate) === '—' ? '' : d(order.orderDate),
+                deliveryDate: d(order.deliveryDate) === '—' ? '' : d(order.deliveryDate),
+                finYear: order.finYear ?? '',
+                notes: order.notes ?? '',
+              },
+              lines: (order.lines ?? []).map((l: { colour?: { name: string } | null; size?: { name: string } | null; qty: number; rate: number }) => ({
+                colourName: l.colour?.name ?? '',
+                sizeName: l.size?.name ?? '',
+                qty: l.qty,
+                rate: l.rate,
+              })),
+            }}
+          />
           <AskAgentButton
             prompt={`Show me the pipeline status for order ${order.orderNo} — what's done, what's the next step, and what are the balances?`}
             label="Ask agent about this order"

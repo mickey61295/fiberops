@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ChainBar } from '@/components/erp/chain-bar'
 import { DocPicker } from '@/components/erp/doc-picker'
+import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import { planDocAction, commitDocAction, type DocPlanView } from '@/lib/erp/doc-actions'
 import { CHAIN, nextStage, resolveStageUrl, type ChainStateFlags } from '@/lib/erp/chain'
@@ -107,6 +108,98 @@ export function DocScreen({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // SPEC-M18 §4-C2: consume a Duplicate stash ONCE. DocViewActions on the
+  // source doc wrote sessionStorage['fo.duplicate.<slug>']; seed header (minus
+  // the number field — fresh auto number) + lines. Declared AFTER the §2-C
+  // date effect so source dates win over today-defaults (legacy duplicate
+  // copies dates; the operator edits what differs).
+  useEffect(() => {
+    if (mode !== 'new') return
+    let raw: string | null = null
+    try { raw = sessionStorage.getItem(`fo.duplicate.${config.slug}`) } catch { return }
+    if (!raw) return
+    try { sessionStorage.removeItem(`fo.duplicate.${config.slug}`) } catch { /* keep going */ }
+    try {
+      const src = JSON.parse(raw) as { docNo?: string; header?: Record<string, unknown>; lines?: Array<Record<string, unknown>> }
+      const h: Record<string, string> = {}
+      for (const f of config.headerFields) {
+        if (f.name === config.numberField) continue
+        const v = src.header?.[f.name]
+        if (v !== undefined && v !== null && String(v) !== '') h[f.name] = String(v)
+      }
+      if (Object.keys(h).length) setHeader((prev) => ({ ...prev, ...h }))
+      if (config.lineFields && Array.isArray(src.lines) && src.lines.length) {
+        const lf = config.lineFields // narrow once for the closure (TS18048)
+        const ls = src.lines
+          .map((row) => {
+            const r: Record<string, string> = {}
+            let any = false
+            for (const f of lf) {
+              const v = row?.[f.name]
+              if (v !== undefined && v !== null && String(v) !== '') { r[f.name] = String(v); any = true }
+            }
+            return any ? r : null
+          })
+          .filter((r): r is Record<string, string> => r !== null)
+        if (ls.length) setLines(ls)
+      }
+      toast.success(`Duplicated from ${src.docNo ?? 'source doc'} — review & Save (F2)`)
+    } catch {
+      toast.error('Could not read the duplicate stash — starting blank')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // SPEC-M18 §4-C3: rate memory — when a line has party+item but a BLANK rate
+  // cell, ask /api/erp last_rate (latest PO/GRN line for that pair) and fill
+  // it, citing the source doc + date. Never overwrites a typed rate (checked
+  // again inside the state update); each (party, itemType, item) looked up
+  // once per screen-visit so a manually-cleared rate stays cleared.
+  const rateMemorySeen = useRef<Set<string>>(new Set())
+  const itemLineField = config.lineFields?.find((f) => f.name === 'itemCode')
+  useEffect(() => {
+    if (mode !== 'new' || !hasLineEditor || !rateField || !itemLineField) return
+    const party = header.partyCode
+    if (!party) return
+    const pending: Array<{ idx: number; itemType: string; itemCode: string }> = []
+    lines.forEach((row, idx) => {
+      const itemType = row.itemType
+      const itemCode = row.itemCode
+      if (!itemType || !itemCode || row.rate) return
+      const key = `${party}|${itemType}|${itemCode}`
+      if (rateMemorySeen.current.has(key)) return
+      rateMemorySeen.current.add(key)
+      pending.push({ idx, itemType, itemCode })
+    })
+    if (!pending.length) return
+    let dead = false
+    ;(async () => {
+      for (const p of pending) {
+        if (dead) return
+        try {
+          const res = await fetch(
+            `/api/erp?resource=last_rate&party=${encodeURIComponent(party)}&itemType=${encodeURIComponent(p.itemType)}&itemCode=${encodeURIComponent(p.itemCode)}`,
+          )
+          if (!res.ok) continue
+          const hit = (await res.json()) as { rate?: number; source?: string; docNo?: string; date?: string }
+          if (!hit?.rate || dead) continue
+          const rate = String(hit.rate)
+          setLines((prev) =>
+            prev.map((row, i) =>
+              i === p.idx && row.itemCode === p.itemCode && !row.rate ? { ...row, rate } : row,
+            ),
+          )
+          toast.success(`Rate ₹${hit.rate} filled — last ${hit.source} ${hit.docNo} (${hit.date})`)
+        } catch {
+          /* offline — cell stays blank, operator types */
+        }
+      }
+    })()
+    return () => { dead = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [header.partyCode, lines])
+
 
   // SPEC-M17 §2-A: after "last cell → new row", focus the new row's first cell.
   useEffect(() => {
@@ -324,6 +417,14 @@ export function DocScreen({
             {config.title}
             {docNo && <span className="ml-2 font-mono text-base text-slate-500">{docNo}</span>}
           </h1>
+          <div className="flex-1" />
+          {/* SPEC-M18 §4-C1/C2 — Cancel/Void + Duplicate on the doc view */}
+          <DocViewActions
+            slug={config.slug}
+            docNo={docNo}
+            status={typeof initial?.status === 'string' ? (initial.status as string) : undefined}
+            seed={initial ? { docNo, header: initial, lines: initial.lines } : undefined}
+          />
         </div>
         <ChainBar state={chainState} currentStage={config.chainStage} ctx={chainCtx} />
         <div className="rounded-lg border border-slate-200 bg-white p-4">

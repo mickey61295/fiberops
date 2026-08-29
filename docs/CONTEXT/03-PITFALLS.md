@@ -455,3 +455,29 @@ steps in smokes (let them fail loudly — `|| bad "seed errored"`), and when a s
 ABSENCE, make the PRESENCE half of the round-trip prove the fixture actually landed. Related
 finding: `getPrintHeader()` returns null unless `print.companyName` exists (SPEC-M6 §5) —
 bank-strip tests must seed companyName too, or the whole header (not just the strip) degrades.
+
+### 39 — The upload-route gremlin graduated: this time the deletion was COMMITTED (M18-C)
+`src/app/api/upload/route.ts` has now vanished from the working tree THREE times (worklog
+Tasks 14/15 called it "spurious uncommitted deletion"). Wave C made it worse: the convergence
+commit cb5626a had the deletion STAGED — `git add -A` swept the gremlin's working-tree
+deletion into the commit, which was then PUSHED. The commit message even claimed "739 vitest"
+because the gates ran while the file still existed on disk; it vanished between the gate run
+and the commit. Detection came a session later: the full vitest run failed to COLLECT
+tests/unit/upload-route.test.ts ("Cannot find module") — a missing-module collection failure
+counts as a failed FILE and drops the test count by that file's tests (751 vs 758), so
+**treat an unexplained test-count drop as a vanished file, not a flake**. `git ls-tree HEAD
+<path>` (not `git status`) is the truth — a committed deletion shows NOTHING in status.
+Repair: `git show <good-commit>:<path> > <path>`. Protocol addition for the convergence/
+commit moment: `git status --short` BEFORE `git add -A`, and if any ` D ` line appears for a
+file you did not intend to delete — restore it (`git restore -- <path>`) and re-check.
+
+### 40 — Prisma Restrict + `.catch(() => {})` in afterAll = silent fixture leaks (M18-C)
+The Wave C suites deleted fixture POs with `db.purchaseOrder.deleteMany({ where: { poNo… } })`
+inside a swallowing cleanup helper. POs with POLine children CANNOT be deleted — Prisma's
+default referential action for the required POLine→PO relation is Restrict — so every run
+leaked the PO (and then its PARTY, blocked by the PO child). 11 runs leaked 34 POs + 28 lines
++ 21 parties into db/custom.db before a post-run residue audit caught it. Rules: (1) in test
+cleanups, delete CHILDREN first (`pOLine.deleteMany({ where: { po: { poNo… } } })` before the
+PO); (2) never put FK-bearing deletes inside a blind `.catch` — log the failure; (3) after
+introducing DB fixtures, run a marker-prefix residue count once (`poNo startsWith 'XX-'`)
+before trusting the suite. One-shot cleaner: scripts/cleanup_m18c_residue.ts.
