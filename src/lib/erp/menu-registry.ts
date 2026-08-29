@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M19'
 
 export interface MenuGroup {
   id: string
@@ -196,6 +196,13 @@ export const LIVE_ROUTES = new Set<string>([
   '/quality/parameters', // Test Parameters (M6 Wave D) — test-parameters (TestParameter MasterTable)
   // M9 Wave A (SPEC-M9) — the live operations tracker
   '/tracker', // Live Tracker (M9 Wave A) — live-tracker (polling activity feed, home group)
+  // M19 Wave A (SPEC-M19) — material-wise stock day-books + orderwise pcs
+  '/inventory/stock/yarn', // Yarn Stock Register (M19) — yarn-stock (RG, preset itemType=yarn)
+  '/inventory/stock/fabric', // Fabric Stock Register (M19) — fabric-stock (RG, preset fabric)
+  '/inventory/stock/accessory', // Accessory Stock Register (M19) — acc-stock (RG, preset accessory)
+  '/inventory/stock/general', // General Stock Register (M19) — general-stock (RG, all materials)
+  '/inventory/stock/itemwise', // Itemwise Stock Register (M19) — itemwise-stock (RG, per-item movement summary)
+  '/pieces/orderwise', // Orderwise Pcs Register (M19) — orderwise-pcs (RG, pcs stock grouped by order)
 ])
 
 // ---------------------------------------------------------------------------
@@ -252,7 +259,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (115 — 113 parity + M9 live-tracker + M11 feature-flags) — SPEC-M1 §5.2
+// ITEMS (121 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×6 registers) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -463,6 +470,42 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['get_stock_ledger'], pendingTools: [],
     agentPrompt: 'Show me the stock register',
   },
+  // M19 Wave A (SPEC-M19 §1-B) — the material-wise day-books legacy operators lived in
+  {
+    id: 'yarn-stock', label: 'Yarn Stock Register', groupId: 'inventory', route: '/inventory/stock/yarn', arch: 'RG', phase: 'M19',
+    description: 'The yarn day-book — every yarn movement (preset item type).',
+    legacyForms: ['FrmYarnStockRegister'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me the yarn stock register',
+  },
+  {
+    id: 'fabric-stock', label: 'Fabric Stock Register', groupId: 'inventory', route: '/inventory/stock/fabric', arch: 'RG', phase: 'M19',
+    description: 'The fabric day-book — every fabric movement (preset item type).',
+    legacyForms: ['FrmFabricStockRegister'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me the fabric stock register',
+  },
+  {
+    id: 'acc-stock', label: 'Accessory Stock Register', groupId: 'inventory', route: '/inventory/stock/accessory', arch: 'RG', phase: 'M19',
+    description: 'The accessory day-book — trims, labels, packing material movements.',
+    legacyForms: ['FrmAccStockRegister'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me the accessory stock register',
+  },
+  {
+    id: 'general-stock', label: 'General Stock Register', groupId: 'inventory', route: '/inventory/stock/general', arch: 'RG', phase: 'M19',
+    description: 'The all-material day-book — yarn, fabric, accessory and pcs together.',
+    legacyForms: ['FrmGeneralStockRegister'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me the general stock register',
+  },
+  {
+    id: 'itemwise-stock', label: 'Itemwise Stock Register', groupId: 'inventory', route: '/inventory/stock/itemwise', arch: 'RG', phase: 'M19',
+    description: 'Movements grouped per item for the period — in/out totals by uom.',
+    legacyForms: ['FrmItemwiseStockRegister'],
+    agentTools: ['get_stock_ledger'], pendingTools: [],
+    agentPrompt: 'Show me itemwise stock movements for the period',
+  },
   {
     id: 'opening-stock', label: 'Opening Stock', groupId: 'inventory', route: '/inventory/opening-stock', arch: 'DS', phase: 'M2',
     description: 'Set opening balances when onboarding a godown/item.',
@@ -620,6 +663,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmPieceStock', 'FrmPieceStock_All', 'FrmRejPieceStock'],
     agentTools: ['get_stock'], pendingTools: [],
     agentPrompt: 'Show me finished goods (pcs) stock',
+  },
+  {
+    id: 'orderwise-pcs', label: 'Orderwise Pcs Register', groupId: 'pieces', route: '/pieces/orderwise', arch: 'RG', phase: 'M19',
+    description: 'Pcs stock grouped by order — styles, godowns, pcs and value per order.',
+    legacyForms: ['FrmOrderwisePcsReg'],
+    agentTools: ['get_stock'], pendingTools: [],
+    agentPrompt: 'Show me pcs stock grouped by order',
   },
   {
     id: 'finished-goods-entry', label: 'Finished Goods Entry', groupId: 'pieces', route: '/pieces/finished-goods', arch: 'DS', phase: 'M5',

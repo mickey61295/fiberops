@@ -26,6 +26,8 @@ import { queryPieceRates } from './piece-rates'
 import { queryWages } from './wages'
 import { queryProgramStatus } from './program-status'
 import { queryCurrentStock } from './current-stock'
+import { queryItemwiseStock } from './itemwise-stock'
+import { queryOrderwisePcs } from './orderwise-pcs'
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -49,6 +51,12 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'production-wages': queryWages,
   'program-status': queryProgramStatus, // SPEC-M6 §7-C-2
   'current-stock': queryCurrentStock, // SPEC-M6 §7-C-3
+  'yarn-stock': queryStockLedger, // SPEC-M19 §1-B — preset day-book over the ledger service
+  'fabric-stock': queryStockLedger, // SPEC-M19 §1-B
+  'acc-stock': queryStockLedger, // SPEC-M19 §1-B
+  'general-stock': queryStockLedger, // SPEC-M19 §1-B
+  'itemwise-stock': queryItemwiseStock, // SPEC-M19 §1-B
+  'orderwise-pcs': queryOrderwisePcs, // SPEC-M19 §1-C
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

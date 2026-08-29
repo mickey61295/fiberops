@@ -22,8 +22,11 @@ interface Props {
 export function RegisterFilterBar({ config, route, params }: Props) {
   const router = useRouter()
   const [draft, setDraft] = useState<Record<string, string>>(() => {
+    // SPEC-M19 §1-A: a preset filter seeds the draft when the URL param is
+    // absent — the day-book lands on its home value (selects with a preset
+    // hide "All": the register is type-scoped, like the legacy form).
     const d: Record<string, string> = {}
-    for (const f of config.filters) d[f.key] = params[f.key] ?? ''
+    for (const f of config.filters) d[f.key] = params[f.key] ?? f.preset ?? ''
     return d
   })
   const [listOptions, setListOptions] = useState<Record<string, { value: string; label: string }[]>>({})
@@ -99,7 +102,7 @@ export function RegisterFilterBar({ config, route, params }: Props) {
                 value={draft[f.key] ?? ''}
                 onChange={(e) => set(f.key, e.target.value, true)}
               >
-                <option value="">All</option>
+                {!f.preset && <option value="">All</option>}
                 {(f.options ?? []).map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}

@@ -481,3 +481,15 @@ cleanups, delete CHILDREN first (`pOLine.deleteMany({ where: { po: { poNo… } }
 PO); (2) never put FK-bearing deletes inside a blind `.catch` — log the failure; (3) after
 introducing DB fixtures, run a marker-prefix residue count once (`poNo startsWith 'XX-'`)
 before trusting the suite. One-shot cleaner: scripts/cleanup_m18c_residue.ts.
+
+### 41 — Smoke fixtures must be FUTURE-dated AND HUGE (M19)
+The first route_smoke_m19 run failed 3 checks that passed logically: the dev seed carries
+≈800 StockLedger rows dated 2026-09-20 — a FUTURE date relative to session days — and the
+day-books page by `docDate DESC` (limit 100), so fixtures dated `new Date()` (today) never
+made page 1. The itemwise register ranks by TOTAL MOVEMENT, so small fixture quantities
+(10 kgs) sank below dev items. Rules for deterministic register smokes: (1) date ledger
+fixtures in the far future (e.g. 2026-12-31) so they sort first; (2) make quantities huge
+(99999) so movement-ranked views surface them; (3) when grepping rendered numbers remember
+`toLocaleString('en-IN')` — 99999 renders "99,999", so grep the COMMA form; (4) the sidebar
+renders only the ACTIVE group's items — assert group-local pages (orderwise label on
+/pieces/*, not /inventory).

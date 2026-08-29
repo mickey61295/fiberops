@@ -23,6 +23,10 @@ import { rateConfirmationConfig } from './rate-confirmation'
 import { pieceRateConfirmationConfig } from './piece-rate-confirmation'
 import { productionWagesConfig } from './wages'
 import { programStatusConfig, currentStockConfig } from './m6-wave-c'
+import {
+  yarnStockConfig, fabricStockConfig, accStockConfig, generalStockConfig,
+  itemwiseStockConfig, orderwisePcsConfig,
+} from './material-stock'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -46,6 +50,12 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   productionWagesConfig,
   programStatusConfig, // SPEC-M6 §7-C-2
   currentStockConfig, // SPEC-M6 §7-C-3
+  yarnStockConfig, // SPEC-M19 §1-B
+  fabricStockConfig, // SPEC-M19 §1-B
+  accStockConfig, // SPEC-M19 §1-B
+  generalStockConfig, // SPEC-M19 §1-B
+  itemwiseStockConfig, // SPEC-M19 §1-B
+  orderwisePcsConfig, // SPEC-M19 §1-C
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

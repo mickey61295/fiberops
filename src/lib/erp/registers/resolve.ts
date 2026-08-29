@@ -38,25 +38,29 @@ const intOr = (s: string | undefined, fallback: number, min: number, max: number
 /**
  * Parse flattened searchParams against a config's declared filters (SPEC-M4 §6).
  * Only keys the config declares are honored — unknown params are ignored.
+ * SPEC-M19 §1-A: a declared filter's `preset` applies when the param is absent
+ * (day-book home value); an explicit URL param always wins.
  */
 export function parseRegisterQuery(
   config: RegisterConfig,
   params: Record<string, string>,
 ): RegisterQuery {
+  const filterByKey = new Map(config.filters.map((f) => [f.key, f]))
+  const val = (key: string): string | undefined => params[key] ?? filterByKey.get(key)?.preset
   const keys = new Set(config.filters.map((f) => f.key))
   const q: RegisterQuery = {
     limit: intOr(params.limit, config.defaultLimit ?? 100, 10, 500),
     page: intOr(params.page, 1, 1, 10000),
   }
-  if (keys.has('from')) q.from = dateOrUndefined(params.from)
-  if (keys.has('to')) q.to = dateOrUndefined(params.to, true)
-  if (keys.has('party')) q.party = params.party
-  if (keys.has('order')) q.order = params.order
-  if (keys.has('godown')) q.godown = params.godown
-  if (keys.has('itemType')) q.itemType = params.itemType
-  if (keys.has('status')) q.status = params.status
-  if (keys.has('variant')) q.variant = params.variant
-  if (keys.has('q')) q.q = params.q
+  if (keys.has('from')) q.from = dateOrUndefined(val('from'))
+  if (keys.has('to')) q.to = dateOrUndefined(val('to'), true)
+  if (keys.has('party')) q.party = val('party')
+  if (keys.has('order')) q.order = val('order')
+  if (keys.has('godown')) q.godown = val('godown')
+  if (keys.has('itemType')) q.itemType = val('itemType')
+  if (keys.has('status')) q.status = val('status')
+  if (keys.has('variant')) q.variant = val('variant')
+  if (keys.has('q')) q.q = val('q')
   return q
 }
 

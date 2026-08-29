@@ -22,6 +22,10 @@ export interface RegisterFilter {
   /** for itemType/status/select */
   options?: { value: string; label: string }[]
   placeholder?: string
+  /** SPEC-M19 §1-A: applied when the searchParam is ABSENT — the day-book's
+   *  home value (explicit URL params always win). Selects with a preset hide
+   *  the "All" option: a material day-book is always type-scoped. */
+  preset?: string
 }
 
 export interface RegisterColumn {

@@ -39,16 +39,22 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'production-wages': '/hr/wages',
   'program-status': '/programs/status',
   'current-stock': '/inventory/stock',
+  'yarn-stock': '/inventory/stock/yarn',
+  'fabric-stock': '/inventory/stock/fabric',
+  'acc-stock': '/inventory/stock/accessory',
+  'general-stock': '/inventory/stock/general',
+  'itemwise-stock': '/inventory/stock/itemwise',
+  'orderwise-pcs': '/pieces/orderwise',
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C: exactly the 21 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Wave A: exactly the 27 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
-      'approval-audit', 'bills-register', 'budget-vs-actual', 'current-stock', 'daily-in-out',
-      'inhand-orders', 'io-history', 'jobwork-register', 'lot-tracking',
-      'order-register', 'party-balance', 'party-ledger', 'pcs-stock',
+      'acc-stock', 'approval-audit', 'bills-register', 'budget-vs-actual', 'current-stock', 'daily-in-out',
+      'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register',
+      'lot-tracking', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
       'piece-rate-confirmation', 'production-status', 'production-wages', 'program-status',
-      'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills',
+      'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills', 'yarn-stock',
     ])
   })
 

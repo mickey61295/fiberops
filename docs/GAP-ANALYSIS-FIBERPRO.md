@@ -291,7 +291,14 @@ cost-bearing templates, 3-copy burst, print-on-save, ⌘K palette with agent→�
 paste-into-grid) **and Wave C (2026-08-29 — doc-view Cancel/Void + Duplicate ×57
 families + rate memory last_rate + self-service change password)** — M13–M16 were
 already reserved by the frozen SPEC-M9 §9 P2 roadmap (digest/perf/audit/dashboards);
-the P2/P3 lanes below become M19+ as they are picked up.
+the P2/P3 lanes below become M19+ as they are picked up. **P2 Wave A shipped as
+SPEC-M19 (2026-08-29)**: the 5 material-wise stock registers (yarn/fabric/acc/
+general/itemwise — the first four ride the stock-ledger service with the new
+`preset` filter mechanism; itemwise is a per-item aggregation service) + the
+orderwise pcs register; menu 121/153 routes. Remaining P2: cutting register,
+supplier pending/history, shift-wages (needs a shift⇄production linkage decision),
+masters completion (Bank/Mill/Machine/State/Shade/ThreadType/CountGroup/Range),
+closing-stock as-of, counter-book grouping, Tally JSON — SPEC-M19 §2–§4.
 
 Sequence rationale: P0 removes active pain for anyone who touches the app today; P1 completes the
 *print-and-keyboard* contract that legacy users consider table stakes; P2 closes the measurable
