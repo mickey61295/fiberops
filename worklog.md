@@ -933,3 +933,22 @@ Stage Summary:
 - The agent specs drive the LIVE GLM end-to-end (prompt → tool chain → pending approval → human commit → DB truth) and are the only tests that would have caught the send() recursion — the UI-interaction layer the curl smokes cannot provide.
 - 724 vitest · context_check 418/418 · build EXIT 0 · tools 189 / models 65 / menu 115 / LIVEROUTES 147 (all unchanged — M12 touched zero product surfaces except the agent SSE guard).
 - Next: P2 per SPEC-M9 §9 — M13 notifications digest, then M14 perf (indexes + pagination + tracker SSE — the m9-wave-a-alt branch is the drop-in accelerator), M15 audit trail, M16 role dashboards.
+
+---
+Task ID: 16
+Agent: main
+Task: Deep-dive audit — what's still missing vs original Fiberpro + how to tap Tirupur muscle memory (user request, read-only investigation)
+
+Work Log:
+- Re-read frozen legacy evidence: form-taxonomy.json (321 forms), REQUIREMENTS.md (16 modules), PLAN-2.0-MENU-PARITY.md (403 lines). Confirmed source-erp/ reverse-engineering tree is GONE from this sandbox.
+- Cross-checked taxonomy against menu-registry.ts (115 items, 147 LIVE_ROUTES, MASTER_FORMS/APPROVAL_FORMS aggregates), master-configs (30), report-configs (28), print/PRINT_DOCS (20), schema.prisma (65 models).
+- Ran 3 parallel Explore audits (taxonomy parity / reports+print / muscle-memory UX) + grep-verified every headline claim myself (phantom forms, missing Prisma models, PRINT_DOCS lacks 'order', doc-screen form-wraps-grid, no F-keys/attendance-tool/e-invoice/last-rate/csv-import).
+- Wrote docs/GAP-ANALYSIS-FIBERPRO.md (read-only audit — no code changed).
+
+Stage Summary:
+- Coverage truth: 235/321 forms mapped; 86 unmapped (21 registers incl. ALL material-wise stock registers, 10 DC variants, ~30 misc, 12 admin/settings, 7 production/wages, 4 utilities) — each dispositioned MAP/FOLD/DROP/DECIDE.
+- Masters: 30/52 built; Bank/Mill/Machine/State/Shade/ThreadType/CountGroup/Range have NO models despite being claimed via MASTER_FORMS.
+- Reports: 28 slugs vs ~80 unique legacy outputs; print has 20 doc types but 1 template (plan promised 3) and NO order-sheet print; invoice lacks HSN column + bank/remit block; no print-on-save.
+- Muscle memory: 10 verified day-1 reflex collisions (Enter-submits-whole-doc #1, zero F-keys, no command palette, mouse-bound pickers, blank dates, non-keyboard registers, one-group sidebar, no print-on-save, 2-step save, no doc-level void/duplicate).
+- Playbook R/C/P/D/E/K/V/G/H/T: rate memory, counter-book registers, paper rituals, SMS→digest, Excel paste, keypad mode, Tamil voice, global jump bar, holiday calendar, terminology polish.
+- Proposal: P0 reflex fixes → M13 print&keyboard fidelity → M14 register/masters long tail → M15 channels/integrations. Also logged hygiene debts (29 phantom legacyForms strings, stale ITEMS(113) comment).
