@@ -78,7 +78,7 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveD session (closing-stock + counter-book + tally; 128 items)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m13 session (notifications digest; 129 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33)" "222" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
@@ -93,8 +93,8 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally)" "128"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally)" "160"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest)" "129"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest)" "161"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock)" "23"       "$REGCFGS"
@@ -136,12 +136,14 @@ check "m10 routing eval script" "1" "$(ls scripts/eval_routing.mjs 2>/dev/null |
 check "m10 golden routing set entries (50 prompts, 16 domains)" "50" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
 check "m10 prompt unit tests" "10" "$(grep -c '^  it(' tests/unit/prompt.test.ts)"
 check "m10 routing eval report exists" "1" "$(ls download/eval-routing-report.json 2>/dev/null | wc -l)"
-check "m11 flag registry defs (LLD-07 — 28 in, 28 out)" "28" "$(grep -c "name: '" src/lib/erp/flags.ts)"
+check "m11+m13 flag registry defs (28 LLD-07 + 4 notification)" "32" "$(grep -c "name: '" src/lib/erp/flags.ts)"
 check "m11 POST /api/config admin door (set-password pattern)" "1" "$(grep -c 'export async function POST' src/app/api/config/route.ts)"
 check "m11 setFlag drift-safe message (registry names only)" "1" "$(grep -c 'not in the registry' src/lib/erp/flags.ts)"
 check "m11 flags screen + client board (page + FlagsAdmin)" "2" "$(ls 'src/app/(erp)/admin/settings/page.tsx' 'src/app/(erp)/admin/settings/flags-admin.tsx' 2>/dev/null | wc -l)"
 check "m11 feature-flags menu item (masters-admin group)" "1" "$(grep -c "id: 'feature-flags'" src/lib/erp/menu-registry.ts)"
 check "m11 flags unit tests (registry shape + route contract)" "14" "$(grep -c '^  it(' tests/unit/flags-config.test.ts)"
+check "m13 flags registry count (28 LLD-07 + 4 notification)" "32" "$(grep -c '  { name:' src/lib/erp/flags.ts)"
+check "m13 digest files (service + cron route + screen + send button)" "4" "$(ls src/lib/erp/notifications/digest.ts src/app/api/cron/digest/route.ts 'src/app/(erp)/notifications/digest/page.tsx' 'src/app/(erp)/notifications/digest/send-button.tsx' 2>/dev/null | wc -l)"
 check "m12 playwright config (dedicated :3100 + isolated e2e.db)" "1" "$(ls playwright.config.ts 2>/dev/null | wc -l)"
 check "m12 golden-path spec files (8)" "8" "$(ls tests/e2e/*.spec.ts 2>/dev/null | wc -l)"
 check "m12 e2e test cases across the suite" "14" "$(grep -ch '^  test(' tests/e2e/*.spec.ts | awk '{s+=$1} END {print s}')"
@@ -420,7 +422,12 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/app/api/tally/route.ts \
          'src/app/(erp)/inventory/closing-stock/page.tsx' \
          'src/app/(erp)/accounts/tally-export/page.tsx' \
-         tests/unit/wave-d-registers.test.ts scripts/route_smoke_m19d.sh; do
+         tests/unit/wave-d-registers.test.ts scripts/route_smoke_m19d.sh \
+         src/lib/erp/notifications/digest.ts \
+         src/app/api/cron/digest/route.ts \
+         'src/app/(erp)/notifications/digest/page.tsx' \
+         'src/app/(erp)/notifications/digest/send-button.tsx' \
+         tests/unit/digest.test.ts scripts/route_smoke_m13.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

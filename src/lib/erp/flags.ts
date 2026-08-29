@@ -16,7 +16,7 @@ export interface FlagDef {
   name: string
   value: string // stored (string) default
   valueType: FlagValueType
-  category: 'tolerance' | 'numbering' | 'module' | 'commercial' | 'company'
+  category: 'tolerance' | 'numbering' | 'module' | 'commercial' | 'company' | 'notification'
   description: string
 }
 
@@ -54,6 +54,13 @@ export const FLAG_DEFS: FlagDef[] = [
   { name: 'coy_state', value: '33', valueType: 'string', category: 'company', description: 'Company GST state code (33 = Tamil Nadu) — drives CGST/SGST vs IGST split' },
   // — Non-return DC aging (gendcdays) —
   { name: 'gendcdays', value: '5', valueType: 'number', category: 'module', description: 'Non-return jobwork DC aging days before digest flags it' },
+  // — Notifications & digest (SPEC-M9 §9 M13) — arm the channels; the digest
+  // itself is built by lib/erp/notifications/digest.ts, surfaced at
+  // /notifications/digest + /api/cron/digest —
+  { name: 'notification.digest_enabled', value: 'false', valueType: 'boolean', category: 'notification', description: 'Master arm for the daily digest SEND (preview stays available; webhook fires only when true)' },
+  { name: 'notification.webhook_url', value: '', valueType: 'string', category: 'notification', description: 'Webhook target the digest is POSTed to (Slack/Discord/Make/Zapier-style JSON endpoint). Empty = nowhere to send.' },
+  { name: 'notification.cron_secret', value: '', valueType: 'string', category: 'notification', description: 'Shared secret for unauthenticated /api/cron/digest calls (?secret=...). Empty = session-only access.' },
+  { name: 'notification.low_stock_pcs', value: '0', valueType: 'number', category: 'notification', description: 'Low-stock alert threshold on pcs current-stock buckets (0 = section off; negative material balances are always flagged)' },
 ]
 
 const defByName = new Map(FLAG_DEFS.map((f) => [f.name, f]))

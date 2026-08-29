@@ -19,13 +19,14 @@ import { Badge } from '@/components/ui/badge'
 
 type Values = Record<string, unknown>
 
-const CATEGORY_ORDER: FlagDef['category'][] = ['tolerance', 'commercial', 'module', 'company', 'numbering']
+const CATEGORY_ORDER: FlagDef['category'][] = ['tolerance', 'commercial', 'module', 'company', 'numbering', 'notification']
 const CATEGORY_LABELS: Record<FlagDef['category'], string> = {
   tolerance: 'Tolerances & Deviations',
   commercial: 'Commercial Switches',
   module: 'Module Behaviour',
   company: 'Company Config',
   numbering: 'Numbering',
+  notification: 'Notifications & Digest', // SPEC-M9 §9 M13
 }
 const TYPE_CHIP: Record<FlagDef['valueType'], string> = {
   boolean: 'bool',

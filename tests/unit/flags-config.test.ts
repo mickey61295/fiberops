@@ -89,26 +89,27 @@ async function loginAs(id: string) {
 }
 
 describe('flag registry shape (LLD-07, SPEC-M11)', () => {
-  it('has exactly 28 defs with unique names', () => {
-    expect(FLAG_DEFS.length).toBe(28)
+  it('has exactly 32 defs with unique names (28 LLD-07 + 4 M13 notification)', () => {
+    expect(FLAG_DEFS.length).toBe(32)
     const names = FLAG_DEFS.map((f) => f.name)
-    expect(new Set(names).size).toBe(28)
+    expect(new Set(names).size).toBe(32)
   })
 
   it('every def has a valid valueType, category and non-trivial description', () => {
     for (const f of FLAG_DEFS) {
       expect(['number', 'boolean', 'string'], f.name).toContain(f.valueType)
-      expect(['tolerance', 'numbering', 'module', 'commercial', 'company'], f.name).toContain(f.category)
+      expect(['tolerance', 'numbering', 'module', 'commercial', 'company', 'notification'], f.name).toContain(f.category)
       expect(f.description.length, `${f.name} description`).toBeGreaterThanOrEqual(10)
     }
   })
 
-  it('populates the 4 known categories with the expected counts', () => {
+  it('populates the known categories with the expected counts', () => {
     const byCat = (c: string) => FLAG_DEFS.filter((f) => f.category === c).length
     expect(byCat('tolerance')).toBe(21)
     expect(byCat('commercial')).toBe(5)
     expect(byCat('module')).toBe(1)
     expect(byCat('company')).toBe(1)
+    expect(byCat('notification')).toBe(4) // SPEC-M9 §9 M13
   })
 
   it('defaults are well-formed (finite numbers, parseable booleans)', () => {
@@ -192,15 +193,15 @@ describe('/api/config route (SPEC-M11 C1)', () => {
     expect(row?.value).toBe('7')
   })
 
-  it('GET (admin) reflects the typed values + the 28-entry registry', async () => {
+  it('GET (admin) reflects the typed values + the 32-entry registry', async () => {
     await loginAs(adminId)
     const res = await GET()
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.flags.po_bud).toBe(false)
     expect(body.flags.grn_dev).toBe(7)
-    expect(Object.keys(body.flags).length).toBe(28)
-    expect(body.registry.length).toBe(28)
+    expect(Object.keys(body.flags).length).toBe(32)
+    expect(body.registry.length).toBe(32)
     expect(body.registry[0]).toMatchObject({ name: expect.any(String), valueType: expect.any(String) })
   })
 })

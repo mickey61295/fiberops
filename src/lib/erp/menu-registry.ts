@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M19'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M19'
 
 export interface MenuGroup {
   id: string
@@ -212,6 +212,8 @@ export const LIVE_ROUTES = new Set<string>([
   // M19 Wave D (SPEC-M19 §4) — closing-stock as-of + Tally JSON
   '/inventory/closing-stock', // Closing Stock as-of (M19-D) — closing-stock (RG, cumulative period-end statement)
   '/accounts/tally-export', // Tally Export (M19-D) — tally-export (RG, JSON adapter + preview screen)
+  // M13 (SPEC-M9 §9) — notifications digest
+  '/notifications/digest', // Daily Digest (M13) — daily-digest (approvals + low stock + gate, webhook channels)
 ])
 
 // ---------------------------------------------------------------------------
@@ -268,7 +270,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (128 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally) — SPEC-M1 §5.2
+// ITEMS (129 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -295,6 +297,12 @@ export const MENU_ITEMS: MenuItem[] = [
     description: 'Live operations pulse: every document, approval and agent turn as it is recorded.',
     legacyForms: [], agentTools: ['get_live_activity'], pendingTools: [],
     agentPrompt: 'What is going on in the factory right now?',
+  },
+  {
+    id: 'daily-digest', label: 'Daily Digest', groupId: 'home', route: '/notifications/digest', arch: 'LT', phase: 'M13',
+    description: 'Pending approvals, low-stock alerts and gate movements — the cron digest surface.',
+    legacyForms: [], agentTools: ['get_pending_approvals', 'get_live_activity'], pendingTools: [],
+    agentPrompt: 'What needs my attention today — approvals, low stock, gate movements?',
   },
 
   // ---- orders (9) ----
