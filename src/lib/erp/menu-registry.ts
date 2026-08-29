@@ -154,6 +154,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/admin/company', // Company / FinYear (M2) — company-finyear menu item
   '/approvals', // WorkflowView — Approval Inbox shell
   '/parity', // parity tracker page
+  '/live', // live tracker SSE page (M14 — ported from the parked m9-wave-a-alt accelerator)
   '/coming', // prefix for dynamic coming-soon pages
   '/reports', // Report Hub (M6 Wave A) — report-hub (28-report registry)
   '/reports/packs', // Report Packs (M6 Wave A) — report-packs (6 domain packs)

@@ -36,7 +36,9 @@ model AgentTurn {
   userId     String // plain string (auth out of scope for v1; would be FK to User.id in prod)
   promptVersion String? // SPEC-M10 — the system-prompt version that drove this turn (observability; nullable for pre-M10 rows)
   createdAt  DateTime  @default(now())
+  @@index([createdAt])
 }
+
 
 // ============== MASTERS ==============
 model Party {
@@ -282,7 +284,9 @@ model Order {
   payments          Payment[]
   party             Party?            @relation(fields: [partyId], references: [id])
   partyId           String?
+  @@index([createdAt])
 }
+
 
 model OrderLine {
   id       String  @id @default(cuid())
@@ -326,7 +330,9 @@ model PurchaseOrder {
   createdAt    DateTime  @default(now())
   lines        POLine[]
   grns         GRN[]
+  @@index([createdAt])
 }
+
 
 model POLine {
   id          String        @id @default(cuid())
@@ -363,7 +369,9 @@ model GRN {
   totalValue Float          @default(0)
   createdAt  DateTime       @default(now())
   lines      GRNLine[]
+  @@index([createdAt])
 }
+
 
 model GRNLine {
   id       String  @id @default(cuid())
@@ -408,7 +416,10 @@ model StockLedger {
   createdAt DateTime @default(now())
   godown    Godown?  @relation(fields: [godownId], references: [id])
   party     Party?   @relation(fields: [partyId], references: [id])
+  @@index([createdAt])
+  @@index([docDate])
 }
+
 
 model CurrentStock {
   id         String      @id @default(cuid())
@@ -449,7 +460,9 @@ model CutOrder {
   efficiency   Float?
   createdAt    DateTime    @default(now())
   bundles      CutBundle[]
+  @@index([createdAt])
 }
+
 
 model CutBundle {
   id         String   @id @default(cuid())
@@ -497,7 +510,9 @@ model ProductionEntry {
   goodFlag        String     @default("G") // G | M
   rejectionTypeId String?
   createdAt       DateTime   @default(now())
+  @@index([createdAt])
 }
+
 
 model Line {
   id                 String      @id @default(cuid())
@@ -523,7 +538,9 @@ model PcsDespatch {
   status       String            @default("draft") // draft | despatched | delivered
   createdAt    DateTime          @default(now())
   lines        PcsDespatchLine[]
+  @@index([createdAt])
 }
+
 
 model PcsDespatchLine {
   id            String      @id @default(cuid())
@@ -563,7 +580,9 @@ model SalesInvoice {
   irn          String? // e-invoice IRN
   status       String   @default("draft") // draft | issued | paid | cancelled
   createdAt    DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 model DebitNote {
   id        String   @id @default(cuid())
@@ -592,7 +611,9 @@ model Journal {
   amount        Float    @default(0)
   narration     String?
   createdAt     DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // ============== COSTING ==============
 model CostSheet {
@@ -648,7 +669,9 @@ model JobworkOrder {
   itc04Line      String?
   orderId        String?
   createdAt      DateTime  @default(now())
+  @@index([createdAt])
 }
+
 
 // ============== PCS LEDGER (LLD Pcs_StockTable port) ==============
 // Piece stock per order × style × lot × stage × part × colour × size ×
@@ -666,7 +689,9 @@ model Approval {
   comments    String?
   createdAt   DateTime  @default(now())
   approvedAt  DateTime?
+  @@index([createdAt])
 }
+
 
 model GovtHoliday {
   id   String   @id @default(cuid())
@@ -757,7 +782,9 @@ model Payment {
   reference String? // cheque/UTR no
   notes     String?
   createdAt DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // ============== PRODUCTION PIPELINE (order -> program -> cut -> line) ==============
 
@@ -835,7 +862,9 @@ model Sample {
   enquiryRef  String? // linked enquiry/order no
   remarks     String?
   createdAt   DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // Gate log for vehicle in/out (legacy FrmGateEntry / FrmGatePass).
 // GE-#### (in) / GP-#### (out). partyId is a free FK col.
@@ -850,7 +879,9 @@ model GateEntry {
   purpose      String?
   status       String   @default("logged") // logged | cleared
   createdAt    DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // Export packing list (legacy FrmPackingList). Auto PKL-####.
 // despatchId/orderId/buyerId are free FK cols; lines carry carton detail.
@@ -900,7 +931,9 @@ model LabTest {
   values    String? // JSON string of parameter results
   remarks   String?
   createdAt DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // Expense book (legacy FrmExpenses). Auto EXP-####. orderId/partyId are
 // free FK cols; stylewise expenses carry the order.
@@ -916,7 +949,9 @@ model Expense {
   narration String?
   status    String   @default("recorded") // recorded | settled
   createdAt DateTime @default(now())
+  @@index([createdAt])
 }
+
 
 // Shift/hours master (legacy frmHours / FrmHourlySetting1 — MT archetype).
 model Shift {
