@@ -121,6 +121,52 @@ export function DocScreen({
     setLines((prev) => prev.map((row, i) => (i === rowIdx ? { ...row, [name]: value } : row)))
   }
 
+  /** SPEC-M18 §2-B3: paste-into-grid — an Excel/TSV block pasted into a grid
+   * cell fills from that anchor: rows grow as needed; picker cells are
+   * skipped (their clipboard column is consumed so Excel columns stay
+   * aligned with the visible grid); select cells match by value OR label;
+   * number cells get the numeric token (₹/,/$-stripped). Single-cell pastes
+   * keep native behavior. */
+  function handleCellPaste(e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) {
+    if (!config.lineFields) return
+    const text = e.clipboardData.getData('text/plain')
+    if (!text) return
+    const clipRows = text.replace(/\r/g, '').split('\n')
+    while (clipRows.length > 0 && clipRows[clipRows.length - 1] === '') clipRows.pop()
+    const parsed = clipRows.map((r) => r.split('\t'))
+    if (parsed.length < 1 || (parsed.length === 1 && parsed[0].length === 1)) return // native
+    e.preventDefault()
+    const fields = config.lineFields
+    let filled = 0
+    let skipped = 0
+    setLines((prev) => {
+      const next = prev.map((r) => ({ ...r }))
+      while (next.length < rowIdx + parsed.length) next.push(emptyRow(fields))
+      for (let r = 0; r < parsed.length; r++) {
+        for (let c = 0; c < parsed[r].length; c++) {
+          const f = fields[colIdx + c]
+          if (!f) break // pasted wider than the grid — clip
+          const token = (parsed[r][c] ?? '').trim()
+          if (f.type === 'picker') { skipped++; continue } // column consumed, cell preserved
+          if (f.type === 'select') {
+            const opt = (f.options ?? []).find((o) => o.value === token || o.label.toLowerCase() === token.toLowerCase())
+            if (opt) { next[rowIdx + r][f.name] = opt.value; filled++ } else skipped++
+            continue
+          }
+          if (f.type === 'number') {
+            const num = token.replace(/[₹$,\s]/g, '')
+            next[rowIdx + r][f.name] = num !== '' && !isNaN(Number(num)) ? num : token
+          } else {
+            next[rowIdx + r][f.name] = token
+          }
+          filled++
+        }
+      }
+      return next
+    })
+    toast.success(`Pasted ${parsed.length} row(s) · ${filled} cell(s) filled${skipped ? ` · ${skipped} skipped (picker/unmatched)` : ''}`)
+  }
+
   async function save() {
     if (busy) return
     setBusy(true)
@@ -187,11 +233,30 @@ export function DocScreen({
   const viewUrl = committed?.id && viewRoutePattern ? viewRoutePattern.replace('[id]', String(committed.id)) : null
 
   // SPEC-M17 §2-D: the done-card print door (+ F9 target). Only families whose
-  // view pages already print (PRINT_DOC_BY_DOCTYPE, 20 today).
+  // view pages already print (PRINT_DOC_BY_DOCTYPE, 21 today).
   const printDocType = config.docType ? PRINT_DOC_BY_DOCTYPE[config.docType] : undefined
   const printHref = printDocType && committed?.id
     ? `/print/${printDocType}/${encodeURIComponent(String(committed.id))}?copy=original`
     : null
+
+  // SPEC-M18 §2-A5: print-on-save (client pref, localStorage.fo.printOnSave).
+  // Auto-opens the print sheet once after commit (popup-blocker fallback: the
+  // Print link / F9 stay). burstOpened guards re-fires on re-render/reset.
+  const [printOnSave, setPrintOnSave] = useState(false)
+  const burstOpened = useRef<string | null>(null)
+  useEffect(() => {
+    try { setPrintOnSave(localStorage.getItem('fo.printOnSave') === '1') } catch { /* private mode */ }
+  }, [])
+  useEffect(() => {
+    if (phase !== 'done' || !printHref || !printOnSave) return
+    if (burstOpened.current === printHref) return
+    burstOpened.current = printHref
+    window.open(printHref, '_blank', 'noopener')
+  }, [phase, printHref, printOnSave])
+  const togglePrintOnSave = (on: boolean) => {
+    setPrintOnSave(on)
+    try { localStorage.setItem('fo.printOnSave', on ? '1' : '0') } catch { /* private mode */ }
+  }
 
   /** SPEC-M17 §2-A/§2-B keyboard contract:
    *  Enter advances header fields; in the grid it advances cells and at the last
@@ -455,7 +520,7 @@ export function DocScreen({
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </td>
-                        {config.lineFields!.map((f) => (
+                        {config.lineFields!.map((f, ci) => (
                           <td key={f.name} className="px-2 py-1.5">
                             {f.type === 'select' ? (
                               <select
@@ -489,6 +554,7 @@ export function DocScreen({
                                   type="text"
                                   value={row[f.name] ?? ''}
                                   onChange={(e) => setCell(i, f.name, e.target.value)}
+                                  onPaste={(e) => handleCellPaste(e, i, ci)}
                                   placeholder="type first"
                                   aria-label={f.label}
                                 />
@@ -511,6 +577,7 @@ export function DocScreen({
                                 step={f.type === 'number' ? 'any' : undefined}
                                 value={row[f.name] ?? ''}
                                 onChange={(e) => setCell(i, f.name, e.target.value)}
+                                onPaste={(e) => handleCellPaste(e, i, ci)}
                                 placeholder={f.type === 'number' ? '0' : undefined}
                                 aria-label={f.label}
                               />
@@ -542,10 +609,11 @@ export function DocScreen({
                   </tfoot>
                 </table>
               </div>
-              <div className="border-t border-slate-100 px-3 py-2">
+              <div className="border-t border-slate-100 px-3 py-2 flex items-center gap-3">
                 <Button type="button" size="sm" variant="outline" onClick={() => setLines((prev) => [...prev, emptyRow(config.lineFields!)])}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add row
                 </Button>
+                <span className="text-[11px] text-slate-400">Paste an Excel block into any cell — rows grow automatically (SPEC-M18 §2-B3)</span>
               </div>
             </div>
           )}
@@ -603,9 +671,20 @@ export function DocScreen({
           </div>
           <div className="flex flex-wrap gap-2">
             {printHref && (
-              <Link href={printHref} className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100" title="F9">
-                <Printer className="h-3 w-3" /> Print
-              </Link>
+              <>
+                <Link href={printHref} className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100" title="F9">
+                  <Printer className="h-3 w-3" /> Print
+                </Link>
+                <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-emerald-900" title="Opens the print sheet automatically after every commit (remembered per browser)">
+                  <input
+                    type="checkbox"
+                    checked={printOnSave}
+                    onChange={(e) => togglePrintOnSave(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-600"
+                  />
+                  Auto-print after save
+                </label>
+              </>
             )}
             {viewUrl && (
               <Link href={viewUrl} className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100">

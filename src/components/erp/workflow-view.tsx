@@ -127,7 +127,7 @@ export function WorkflowView({ kind }: { kind?: string }) {
 
   useEffect(() => { load() }, [kind]) // eslint-disable-line react-hooks/set-state-in-effect
 
-  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
   const activeKind = kind ? findApprovalKind(kind) : undefined
 
   return (

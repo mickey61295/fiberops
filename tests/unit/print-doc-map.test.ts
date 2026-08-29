@@ -1,7 +1,8 @@
 /**
- * print-doc-map tests — SPEC-M17 §4-2: pin the doc-config→print bridge.
+ * print-doc-map tests — SPEC-M17 §4-2 (updated SPEC-M18 §2-A1): pin the
+ * doc-config→print bridge.
  * (1) every PRINT_DOC_BY_DOCTYPE value is a real PRINT_DOCS key;
- * (2) all 20 PRINT_DOCS families are reachable from some doc-config docType;
+ * (2) all 21 PRINT_DOCS families are reachable from some doc-config docType;
  * (3) every mapped docType exists in DOC_CONFIGS (no phantom entries).
  */
 import { describe, it, expect } from 'vitest'
@@ -9,10 +10,11 @@ import { PRINT_DOC_BY_DOCTYPE } from '@/lib/erp/print/doc-type-map'
 import { PRINT_DOCS, getPrintDocTypes } from '@/lib/erp/print'
 import { DOC_CONFIGS } from '@/lib/erp/doc-configs'
 
-describe('PRINT_DOC_BY_DOCTYPE (SPEC-M17 §2-D)', () => {
-  it('maps exactly the 20 printable families', () => {
-    expect(Object.keys(PRINT_DOC_BY_DOCTYPE).length).toBe(20)
-    expect(getPrintDocTypes().length).toBe(20)
+describe('PRINT_DOC_BY_DOCTYPE (SPEC-M17 §2-D, SPEC-M18 §2-A1)', () => {
+  it('maps exactly the 21 printable families (M18 added order)', () => {
+    expect(Object.keys(PRINT_DOC_BY_DOCTYPE).length).toBe(21)
+    expect(getPrintDocTypes().length).toBe(21)
+    expect(PRINT_DOC_BY_DOCTYPE.order).toBe('order')
   })
 
   it('every map value is a real PRINT_DOCS key', () => {

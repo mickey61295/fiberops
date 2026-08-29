@@ -6,6 +6,7 @@
  */
 import type { PrintFetcher } from './types'
 import { fetchInvoicePrint, fetchPoPrint, fetchGrnPrint, fetchPaymentPrint, fetchDcPrint } from './fetchers'
+import { fetchOrderPrint } from './fetchers-order'
 import {
   fetchDebitNotePrint,
   fetchJournalPrint,
@@ -25,6 +26,8 @@ import {
 } from './fetchers-b'
 
 export const PRINT_DOCS: Record<string, PrintFetcher> = {
+  // SPEC-M18 §2-A1: the order sheet — previously unprintable (gap audit §3)
+  order: fetchOrderPrint,
   invoice: fetchInvoicePrint,
   po: fetchPoPrint,
   grn: fetchGrnPrint,

@@ -5,14 +5,17 @@
  * a client component and cannot import it. This map is pure data — importable from
  * client, server AND vitest.
  *
- * Scope (frozen): ONLY the 20 families the doc VIEW pages already print via
- * DocPrintLink (the exact set asserted by tests/unit/print-doc-map.test.ts). The
- * variant families (local-invoice, multi-process-grn, courier-dc, opening-stock,
- * cutting-production, panel-*, rework, pcs-transfer, …) are deliberately UNMAPPED
- * here — they join with the print-fidelity milestone (SPEC-M17 §3 non-goals).
+ * Scope: the 21 families the doc VIEW pages already print via DocPrintLink
+ * (the exact set asserted by tests/unit/print-doc-map.test.ts) — SPEC-M18 §2-A1
+ * added `order` (the Order Hub sheet). The variant families (local-invoice,
+ * multi-process-grn, courier-dc, opening-stock, cutting-production, panel-*,
+ * rework, pcs-transfer, …) are deliberately UNMAPPED here — they join with the
+ * register/masters long-tail milestone.
  */
 
 export const PRINT_DOC_BY_DOCTYPE: Record<string, string> = {
+  // orders (SPEC-M18 §2-A1 — the Order Hub prints the SALES ORDER sheet)
+  order: 'order',
   // accounts
   invoice: 'invoice',
   'debit-note': 'debit-note',

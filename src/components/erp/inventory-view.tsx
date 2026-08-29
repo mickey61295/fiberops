@@ -26,7 +26,7 @@ export function InventoryView() {
   if (loading) return <div className="text-sm text-slate-500">Loading inventory...</div>
   if (!data) return <div className="text-sm text-red-600">Failed</div>
 
-  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
 
   const txnTypeColors: Record<string, string> = {
     opening: 'bg-slate-100 text-slate-700',

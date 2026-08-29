@@ -34,10 +34,12 @@ export function AgentPanelProvider({
     setOpen(true)
   }, [])
 
-  // Cmd+K / Ctrl+K opens the agent panel globally.
+  // Cmd+J / Ctrl+J opens the agent panel globally (SPEC-M18 §2-B2: ⌘K moved
+  // to the command palette — the gap-audit jump bar; the 10 view-file
+  // dispatchers synthesize {key:'j', metaKey:true} to match).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
         e.preventDefault()
         setOpen(true)
       }

@@ -29,8 +29,19 @@ export function DocPrintButton({ docType, id }: { docType: string; id: string })
     const url = new URL(window.location.href)
     url.searchParams.set('copy', copy)
     url.searchParams.set('autoprint', '0') // manual click = user keeps control
+    url.searchParams.delete('copies')
     window.history.replaceState(null, '', url.toString())
     window.print()
+  }
+  // SPEC-M18 §2-A4: the 3-copy burst — Original/Duplicate/Triplicate on one
+  // dialog (page-break separated by the route).
+  const printBurst = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('copies', '3')
+    url.searchParams.delete('copy')
+    url.searchParams.delete('autoprint') // burst must auto-fire (3 pages)
+    window.history.replaceState(null, '', url.toString())
+    window.location.reload() // server component re-renders the burst + PrintAuto
   }
   return (
     <DropdownMenu>
@@ -45,6 +56,7 @@ export function DocPrintButton({ docType, id }: { docType: string; id: string })
             {LABEL[c]}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuItem onClick={printBurst}>All 3 copies (burst)</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -444,3 +444,14 @@ files to the file-existence block, and re-run to NO DRIFT — all in the SAME co
 lesson applies to the STATE table's formula rows (e.g. view/shell components): the formula
 column is honest, the bold number must be bumped or the next session's checker-vs-STATE
 comparison sends you chasing a rollback that never happened.
+
+### 38 — `tsx -e` rejects top-level await; swallowing its stderr fabricated a product bug (M18)
+Two traps conspired in route_smoke_m18's first run: (1) `npx tsx -e "…await…"` fails with
+"Top-level await is currently not supported with the cjs output format" — eval mode compiles
+as CJS; wrap the body in `(async () => { … })()`. (2) The step ran with `>/dev/null 2>&1`,
+so the never-executed seed looked identical to a real "bank strip missing" product failure
+and sent debugging into PrintSheet/getPrintHeader for nothing. Rules: never silence seed
+steps in smokes (let them fail loudly — `|| bad "seed errored"`), and when a smoke asserts
+ABSENCE, make the PRESENCE half of the round-trip prove the fixture actually landed. Related
+finding: `getPrintHeader()` returns null unless `print.companyName` exists (SPEC-M6 §5) —
+bank-strip tests must seed companyName too, or the whole header (not just the strip) degrades.

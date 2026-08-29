@@ -424,7 +424,7 @@ export function LiveTracker({ initial = null }: { initial?: TrackerSnapshot | nu
                   <span className="text-xs text-slate-400">{snapshot.kpis.agentTurnsToday} today</span>
                 </div>
                 {snapshot.agent.turns.length === 0 ? (
-                  <div className="text-xs text-slate-500 py-2">No agent turns yet. Press ⌘K to try it.</div>
+                  <div className="text-xs text-slate-500 py-2">No agent turns yet. Press ⌘J to try it.</div>
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
                     {snapshot.agent.turns.map((t, i) => (

@@ -85,7 +85,7 @@ check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows)" "30"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette)" "31" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
@@ -113,12 +113,12 @@ check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
-check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index + M17 doc-type-map)" "6" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
+check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index + M17 doc-type-map + M18 fetchers-order)" "7" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
 check "m8-waveA print components (print-sheet/print-auto/doc-print-button)" "3" "$(ls src/components/erp/print-sheet.tsx src/components/erp/print-auto.tsx src/components/erp/doc-print-button.tsx 2>/dev/null | wc -l)"
 check "m8-waveA print doc families in registry (invoice/po/grn/payment/dc)" "5" "$(grep -cE '^  (invoice|po|grn|payment|dc): ' src/lib/erp/print/index.ts)"
-check "m8 print doc families in registry (Wave A 5 + Wave B 15)" "20" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
+check "m8 print doc families in registry (Wave A 5 + Wave B 15 + M18 order)" "21" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
 check "m8-waveA print door on doc view pages" "5" "$(grep -l 'DocPrintLink' 'src/app/(erp)/accounts/invoice/[id]/page.tsx' 'src/app/(erp)/procurement/po/[id]/page.tsx' 'src/app/(erp)/procurement/grn/[id]/page.tsx' 'src/app/(erp)/accounts/payments/[id]/page.tsx' 'src/app/(erp)/jobwork/order/[id]/page.tsx' 2>/dev/null | wc -l)"
-check "m8 print doors on doc view pages (Wave A 5 + Wave B 14 files; gate-view covers 2 routes)" "19" "$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' --include='gate-view.tsx' 2>/dev/null | wc -l)"
+check "m8 print doors on doc view pages (Wave A 5 + Wave B 14 files + M18 Order Hub; gate-view covers 2 routes)" "20" "$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' --include='gate-view.tsx' 2>/dev/null | wc -l)"
 check "m9 tracker service file (one service, two doors)" "1" "$(ls src/lib/erp/tracker.ts 2>/dev/null | wc -l)"
 check "m9 tracker API route (requireApiSession guarded)" "1" "$(grep -l 'requireApiSession' src/app/api/tracker/route.ts 2>/dev/null | wc -l)"
 check "m9 tracker feed families (16)" "16" "$(grep -cE "kind: '(order|po|grn|invoice|payment|journal|cut|production|despatch|jobwork|gate|sample|labtest|expense|approval|agent)'" src/lib/erp/tracker.ts)"
@@ -368,7 +368,9 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/flags-config.test.ts scripts/route_smoke_m11.sh \
          scripts/m11_smoke_fixture.ts docs/CONTEXT/specs/SPEC-M11.md \
          src/components/erp/register-rows.tsx src/lib/erp/print/doc-type-map.ts \
-         tests/unit/print-doc-map.test.ts docs/CONTEXT/specs/SPEC-M17.md; do
+         tests/unit/print-doc-map.test.ts docs/CONTEXT/specs/SPEC-M17.md \
+         src/lib/erp/print/fetchers-order.ts src/components/erp/command-palette.tsx \
+         tests/unit/print-fidelity.test.ts docs/CONTEXT/specs/SPEC-M18.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

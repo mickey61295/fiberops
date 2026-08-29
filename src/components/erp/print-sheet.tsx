@@ -5,32 +5,53 @@
  * amount-in-words, signatures, terms. On-screen it previews as a white
  * 210mm page; browser print CSS hides the app chrome (M6-A rules) and the
  * route's inline @page flips A4 landscape (reports) → portrait (docs).
+ *
+ * SPEC-M18 §2-A2/A3: masthead carries phone/email/CIN; money docs (invoice,
+ * debit-note, payment) render a Bank Details & Remittance strip when the
+ * AppOption print.bank* keys exist; `size="large"` scales the type up
+ * (~+30%) for counter/godown printing; `autoPrint={false}` lets the route
+ * render multi-copy bursts with ONE print dialog.
  */
 import type { PrintDoc } from '@/lib/erp/print/types'
 import { getPrintHeader } from '@/lib/erp/reports/report-csv'
 import { PrintAuto } from '@/components/erp/print-auto'
 import { DocPrintButton } from '@/components/erp/doc-print-button'
 
-export async function PrintSheet({ doc }: { doc: PrintDoc }) {
+const MONEY_DOCS = new Set(['invoice', 'debit-note', 'payment'])
+
+export async function PrintSheet({ doc, size = 'regular', autoPrint = true }: { doc: PrintDoc; size?: 'regular' | 'large'; autoPrint?: boolean }) {
   const header = await getPrintHeader()
   const company = header?.companyName ?? 'FiberOps'
   const copy = doc.copy ?? 'Original'
+  const large = size === 'large'
+  const bank = header && (header.bankName || header.bankAcNo || header.bankIfsc || header.upi)
+    ? header
+    : null
 
   return (
-    <div className="mx-auto w-[210mm] max-w-full bg-white p-10 text-[11px] leading-relaxed text-slate-900 shadow-sm print:w-full print:p-0 print:shadow-none">
+    <div className={`mx-auto w-[210mm] max-w-full bg-white p-10 text-slate-900 shadow-sm print:w-full print:p-0 print:shadow-none ${large ? 'text-[14px] leading-relaxed' : 'text-[11px] leading-relaxed'}`}>
       {/* auto window.print() on mount (client shim; ?autoprint=0 skips) */}
-      <PrintAuto />
+      {autoPrint && <PrintAuto />}
 
       {/* masthead */}
       <div className="border-b-2 border-slate-800 pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-2xl font-bold uppercase tracking-wide">{company}</div>
-            {header?.address && <div className="text-[11px] text-slate-600">{header.address}</div>}
-            {header?.gstin && <div className="text-[11px] text-slate-600">GSTIN: {header.gstin}</div>}
+            <div className={`${large ? 'text-4xl' : 'text-2xl'} font-bold uppercase tracking-wide`}>{company}</div>
+            {header?.address && <div className={`${large ? 'text-[12px]' : 'text-[11px]'} text-slate-600`}>{header.address}</div>}
+            <div className={`${large ? 'text-[12px]' : 'text-[11px]'} text-slate-600`}>
+              {[
+                header?.gstin && `GSTIN: ${header.gstin}`,
+                header?.phone && `Ph: ${header.phone}`,
+                header?.email && header.email,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+            {header?.cin && <div className={`${large ? 'text-[12px]' : 'text-[11px]'} text-slate-600`}>CIN: {header.cin}</div>}
           </div>
           <div className="text-right">
-            <div className="text-sm font-bold uppercase tracking-widest">{doc.title}</div>
+            <div className={`${large ? 'text-xl' : 'text-sm'} font-bold uppercase tracking-widest`}>{doc.title}</div>
             <div className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-500">
               {copy} — not a tax document unless titled Tax Invoice
             </div>
@@ -160,6 +181,25 @@ export async function PrintSheet({ doc }: { doc: PrintDoc }) {
           </table>
         ) : null}
       </div>
+
+      {/* bank details & remittance strip — money docs only (SPEC-M18 §2-A2) */}
+      {bank && MONEY_DOCS.has(doc.docType) && (
+        <div className="mt-3 border border-slate-300 bg-slate-50 px-3 py-1.5 print:bg-white">
+          <span className="mr-2 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+            Bank Details &amp; Remittance
+          </span>
+          <span className={`${large ? 'text-[12px]' : 'text-[10px]'} text-slate-700`}>
+            {[
+              bank.bankName && [bank.bankName, bank.bankBranch].filter(Boolean).join(', '),
+              bank.bankAcNo && `A/c ${bank.bankAcNo}`,
+              bank.bankIfsc && `IFSC ${bank.bankIfsc}`,
+              bank.upi && `UPI ${bank.upi}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        </div>
+      )}
 
       {/* signatures */}
       {doc.signatures && (

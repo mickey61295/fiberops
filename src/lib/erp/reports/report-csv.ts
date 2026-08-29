@@ -29,6 +29,16 @@ export interface PrintHeader {
   companyName: string
   address?: string
   gstin?: string
+  /** SPEC-M18 §2-A2: masthead + bank-strip extras (AppOption print.* keys —
+   *  every field optional; absent keys stay hidden, report headers unchanged). */
+  phone?: string
+  email?: string
+  cin?: string
+  bankName?: string
+  bankBranch?: string
+  bankAcNo?: string
+  bankIfsc?: string
+  upi?: string
 }
 
 /** Print header from AppOption print.* keys (SPEC-M6 §5). Degrades to null
@@ -40,10 +50,19 @@ export async function getPrintHeader(): Promise<PrintHeader | null> {
     const map = new Map<string, string>(rows.map((r: any) => [r.key as string, r.value as string]))
     const companyName = map.get('print.companyName')
     if (!companyName) return null
+    const opt = (k: string) => map.get(k) || undefined
     return {
       companyName,
-      address: map.get('print.address') || undefined,
-      gstin: map.get('print.gstin') || undefined,
+      address: opt('print.address'),
+      gstin: opt('print.gstin'),
+      phone: opt('print.phone'),
+      email: opt('print.email'),
+      cin: opt('print.cin'),
+      bankName: opt('print.bankName'),
+      bankBranch: opt('print.bankBranch'),
+      bankAcNo: opt('print.bankAcNo'),
+      bankIfsc: opt('print.bankIfsc'),
+      upi: opt('print.upi'),
     }
   } catch {
     return null

@@ -16,6 +16,7 @@ import { findItemByRoute, getHref, isLive } from '@/lib/erp/menu-registry'
 import { ChainBar } from '@/components/erp/chain-bar'
 import { BomCard, type BomDisplayLine } from '@/components/erp/bom-card'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
+import { DocPrintLink } from '@/components/erp/doc-print-button'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
 
@@ -185,6 +186,8 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <div className="text-sm capitalize">{order.status}</div>
           </div>
           <div className="flex-1" />
+          {/* SPEC-M18 §2-A1: the order sheet print door (gap audit: order printed NOTHING) */}
+          <DocPrintLink docType="order" id={order.orderNo} />
           <AskAgentButton
             prompt={`Show me the pipeline status for order ${order.orderNo} — what's done, what's the next step, and what are the balances?`}
             label="Ask agent about this order"

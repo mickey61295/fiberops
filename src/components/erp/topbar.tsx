@@ -87,7 +87,7 @@ export function Topbar({
           className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
         >
           <Sparkles className="h-4 w-4 mr-1" />
-          Agent <kbd className="ml-1 text-[10px] opacity-70">⌘K</kbd>
+          Agent <kbd className="ml-1 text-[10px] opacity-70">⌘J</kbd>
         </Button>
         {user && (
           <Button

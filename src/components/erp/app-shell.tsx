@@ -15,6 +15,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { NavSidebar } from '@/components/erp/nav-sidebar'
 import { Topbar, type TopbarUser } from '@/components/erp/topbar'
 import { ParityFooter } from '@/components/erp/parity-footer'
+import { CommandPalette } from '@/components/erp/command-palette'
 import { AgentPanelProvider } from '@/components/agent/agent-panel-provider'
 
 export function AppShell({
@@ -58,6 +59,10 @@ export function AppShell({
           </div>
           <ParityFooter />
         </main>
+
+        {/* SPEC-M18 §2-B1: the global jump bar — inside the provider so its
+            agent entry can use the openAgent context. */}
+        <CommandPalette allowedGroupIds={allowedGroupIds} />
       </div>
     </AgentPanelProvider>
   )

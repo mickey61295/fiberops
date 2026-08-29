@@ -48,7 +48,7 @@ export function Dashboard({ onNavigate, kpiHref }: DashboardProps) {
   const { kpis } = data
 
   const openAgent = () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
   }
 
   return (
@@ -62,7 +62,7 @@ export function Dashboard({ onNavigate, kpiHref }: DashboardProps) {
             <p className="text-sm text-slate-300 mt-1 max-w-md">Modern web rebuild of the original VB.NET textile ERP, now with an AI agent harness that can drive the entire system through natural language.</p>
           </div>
           <Button onClick={openAgent} className="bg-emerald-500 hover:bg-emerald-400 text-white">
-            <Sparkles className="h-4 w-4 mr-1" /> Open Agent (⌘K)
+            <Sparkles className="h-4 w-4 mr-1" /> Open Agent (⌘J)
           </Button>
         </div>
       </Card>
@@ -190,7 +190,7 @@ export function Dashboard({ onNavigate, kpiHref }: DashboardProps) {
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-emerald-900">Try the AI Agent</h3>
-            <p className="text-xs text-emerald-800 mt-1">Press <kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded text-[10px] font-mono">⌘K</kbd> or click the Agent button. Ask it to:</p>
+            <p className="text-xs text-emerald-800 mt-1">Press <kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded text-[10px] font-mono">⌘J</kbd> or click the Agent button. Ask it to:</p>
             <ul className="mt-2 text-xs text-emerald-800 space-y-1">
               <li>· "Create a sales order for buyer B001 for 5000 pcs of S-1001 in red/M=1000..."</li>
               <li>· "List open purchase orders"</li>

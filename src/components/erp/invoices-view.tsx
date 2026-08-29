@@ -22,7 +22,7 @@ export function InvoicesView() {
       .finally(() => setLoading(false))
   }, [])
 
-  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
+  const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
 
   if (loading) return <div className="text-sm text-slate-500">Loading invoices...</div>
 

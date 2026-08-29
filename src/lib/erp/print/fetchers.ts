@@ -47,13 +47,33 @@ async function itemMaps(): Promise<Record<string, Map<string, string>>> {
 }
 
 // ── invoice: TAX INVOICE with the service-computed GST split ──────────────
+// SPEC-M18 §2-A2: when the invoice has an order with lines, the body prints
+// per-order-line rows with the HSN column (style.hsn) + an HSN summary note
+// (taxable proportioned by qty — marked "derived"); without an order the
+// legacy summary row stays.
 export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null> {
-  const include = { party: true, order: true }
+  const include = {
+    party: true,
+    order: { include: { lines: { include: { style: true, colour: true, size: true } } } },
+  }
   let inv = await db.salesInvoice.findUnique({ where: { id: idOrNo }, include }).catch(() => null)
   if (!inv) inv = await db.salesInvoice.findUnique({ where: { invoiceNo: idOrNo }, include })
   if (!inv) return null
 
   const igst = inv.igstRate > 0
+  const gstRate = igst ? inv.igstRate : inv.cgstRate + inv.sgstRate
+  const orderLines = inv.order?.lines ?? []
+  const hasBody = orderLines.length > 0
+  const orderQty = orderLines.reduce((s, l) => s + (l.qty || 0), 0)
+  // HSN summary (derived): qty-proportioned taxable share per HSN bucket
+  const hsnBuckets = new Map<string, { qty: number; taxable: number }>()
+  for (const l of orderLines) {
+    const hsn = l.style?.hsn || '—'
+    const b = hsnBuckets.get(hsn) ?? { qty: 0, taxable: 0 }
+    b.qty += l.qty || 0
+    b.taxable += orderQty > 0 ? (inv.taxableValue * (l.qty || 0)) / orderQty : 0
+    hsnBuckets.set(hsn, b)
+  }
   const totals: [string, string][] = [
     ['Taxable Value', inr(inv.taxableValue)],
   ]
@@ -72,6 +92,13 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
     if (inv.ern) notes.push(`Export Report Number: ${inv.ern}`)
   }
   if (inv.status === 'cancelled') notes.push('*** CANCELLED ***')
+  if (hasBody) {
+    notes.push(
+      `HSN summary (derived from order lines): ${[...hsnBuckets.entries()]
+        .map(([h, b]) => `${h} — ${qty(b.qty)} pcs · ${inr(b.taxable)} @ ${gstRate}%`)
+        .join(' | ')}`,
+    )
+  }
   notes.push('Goods once sold will not be taken back. Subject to Tirupur jurisdiction.')
 
   return {
@@ -87,23 +114,43 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
       ['Quantity', qty(inv.totalQty)],
       ...(inv.irn ? [['IRN', inv.irn] as [string, string]] : []),
     ],
-    lines: {
-      columns: [
-        { label: 'Description' },
-        { label: 'Qty', align: 'right' },
-        { label: 'Taxable Value', align: 'right' },
-        { label: 'GST', align: 'right' },
-      ],
-      rows: [
-        [
-          `${inv.billType.replace(/_/g, ' ')} invoice — order ${inv.order?.orderNo ?? '—'}${inv.party ? ` (${inv.party.name})` : ''}`,
-          qty(inv.totalQty),
-          inr(inv.taxableValue),
-          igst ? `IGST ${inv.igstRate}% = ${inr(inv.igstAmt)}` : `CGST+SGST ${inv.cgstRate + inv.sgstRate}% = ${inr(inv.cgstAmt + inv.sgstAmt)}`,
-        ],
-      ],
-      footer: [`Total Qty: ${qty(inv.totalQty)}`],
-    },
+    lines: hasBody
+      ? {
+          columns: [
+            { label: 'S.No', align: 'right' },
+            { label: 'Description' },
+            { label: 'HSN' },
+            { label: 'Qty', align: 'right' },
+            { label: 'Rate', align: 'right' },
+            { label: 'Amount', align: 'right' },
+          ],
+          rows: orderLines.map((l, i) => [
+            i + 1,
+            [l.style?.styleNo ?? l.styleId, l.colour?.name, l.size?.name].filter(Boolean).join(' / '),
+            l.style?.hsn ?? '—',
+            qty(l.qty),
+            inr(l.rate),
+            inr((l.qty || 0) * (l.rate || 0)),
+          ]),
+          footer: [`Total Qty: ${qty(orderQty)}`],
+        }
+      : {
+          columns: [
+            { label: 'Description' },
+            { label: 'Qty', align: 'right' },
+            { label: 'Taxable Value', align: 'right' },
+            { label: 'GST', align: 'right' },
+          ],
+          rows: [
+            [
+              `${inv.billType.replace(/_/g, ' ')} invoice — order ${inv.order?.orderNo ?? '—'}${inv.party ? ` (${inv.party.name})` : ''}`,
+              qty(inv.totalQty),
+              inr(inv.taxableValue),
+              igst ? `IGST ${inv.igstRate}% = ${inr(inv.igstAmt)}` : `CGST+SGST ${inv.cgstRate + inv.sgstRate}% = ${inr(inv.cgstAmt + inv.sgstAmt)}`,
+            ],
+          ],
+          footer: [`Total Qty: ${qty(inv.totalQty)}`],
+        },
     totals,
     amountWords: amountInWords(inv.billAmount),
     signatures: [`For ${(await getCompanyName())}`, 'Receiver'],
@@ -275,6 +322,9 @@ export async function fetchPaymentPrint(idOrNo: string): Promise<PrintDoc | null
 }
 
 // ── dc: DELIVERY CHALLAN (jobwork) — the goods-accompanying print ─────────
+// SPEC-M18 §2-A3: cost-bearing auto-template — totalValue > 0 prints the
+// value columns + words + COST BEARING banner; 0 prints the plain challan
+// (no values — the statutory non-cost-bearing form jobworkers expect).
 export async function fetchDcPrint(idOrNo: string): Promise<PrintDoc | null> {
   const include = { jobworker: true }
   let jw = await db.jobworkOrder.findUnique({ where: { id: idOrNo }, include }).catch(() => null)
@@ -282,10 +332,11 @@ export async function fetchDcPrint(idOrNo: string): Promise<PrintDoc | null> {
   if (!jw) return null
 
   const parent = jw.orderId ? await db.order.findUnique({ where: { id: jw.orderId } }) : null
+  const costBearing = (jw.totalValue || 0) > 0
 
   return {
     docType: 'dc',
-    title: 'DELIVERY CHALLAN (JOBWORK)',
+    title: costBearing ? 'DELIVERY CHALLAN (JOBWORK — COST BEARING)' : 'DELIVERY CHALLAN (JOBWORK — NON-COST BEARING)',
     docNo: jw.dcNo,
     docDate: d(jw.outDate),
     party: partyBlock(jw.jobworker, 'Jobworker'),
@@ -297,29 +348,51 @@ export async function fetchDcPrint(idOrNo: string): Promise<PrintDoc | null> {
       ['Status', jw.status],
     ],
     lines: {
-      columns: [
-        { label: 'Description' },
-        { label: 'Qty', align: 'right' },
-        { label: 'Value', align: 'right' },
-      ],
-      rows: [
-        [
-          `${jw.processType} process — order ${parent?.orderNo ?? '—'}`,
-          qty(jw.totalQty),
-          inr(jw.totalValue),
-        ],
-      ],
+      columns: costBearing
+        ? [
+            { label: 'Description' },
+            { label: 'Qty', align: 'right' },
+            { label: 'Rate/Unit (approx.)', align: 'right' },
+            { label: 'Value', align: 'right' },
+          ]
+        : [
+            { label: 'Description' },
+            { label: 'Qty', align: 'right' },
+          ],
+      rows: costBearing
+        ? [
+            [
+              `${jw.processType} process — order ${parent?.orderNo ?? '—'}`,
+              qty(jw.totalQty),
+              jw.totalQty > 0 ? inr(jw.totalValue / jw.totalQty) : '—',
+              inr(jw.totalValue),
+            ],
+          ]
+        : [
+            [`${jw.processType} process — order ${parent?.orderNo ?? '—'}`, qty(jw.totalQty)],
+          ],
       footer: [`Total Qty: ${qty(jw.totalQty)}`],
     },
-    totals: [
-      ['Total Qty', qty(jw.totalQty)],
-      ['Process Value', inr(jw.totalValue)],
-    ],
-    amountWords: amountInWords(jw.totalValue),
+    totals: costBearing
+      ? [
+          ['Total Qty', qty(jw.totalQty)],
+          ['Process Value', inr(jw.totalValue)],
+        ]
+      : [
+          ['Total Qty', qty(jw.totalQty)],
+        ],
+    amountWords: costBearing ? amountInWords(jw.totalValue) : undefined,
     signatures: [`For ${(await getCompanyName())}`, 'Jobworker'],
-    notes: [
-      'Goods sent for jobwork — to be returned after processing.',
-      'Please return unused material along with the processed goods.',
-    ],
+    notes: costBearing
+      ? [
+          'COST BEARING challan — process value as per agreed jobwork rates.',
+          'Goods sent for jobwork — to be returned after processing.',
+          'Please return unused material along with the processed goods.',
+        ]
+      : [
+          'NON-COST BEARING challan — no commercial value (jobwork process only).',
+          'Goods sent for jobwork — to be returned after processing.',
+          'Please return unused material along with the processed goods.',
+        ],
   }
 }

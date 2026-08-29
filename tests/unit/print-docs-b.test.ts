@@ -186,10 +186,10 @@ describe('M8 Wave B print docs (SPEC-M8 §6)', () => {
     await sw(db.party.deleteMany({ where: { id: partyId } }).catch(() => {}))
   })
 
-  it('registry: Wave B adds exactly the 15 families (20 total)', () => {
+  it('registry: Wave B adds the 15 families (21 total with M18 order)', () => {
     const types = getPrintDocTypes()
     for (const t of WAVE_B_TYPES) expect(types).toContain(t)
-    expect(types).toHaveLength(20)
+    expect(types).toHaveLength(21)
   })
 
   it('debit-note: DEBIT NOTE with party + words', async () => {

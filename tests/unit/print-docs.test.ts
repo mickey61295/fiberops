@@ -2,7 +2,8 @@
  * print-docs tests — SPEC-M8 §6: registry completeness + the 5 Wave-A
  * fetchers against seeded fixtures (the doc-parity pattern: create rows,
  * assert the normalized PrintDoc shape, clean up). Wave B grew the registry
- * to 20 families (print-docs-b.test.ts covers the 15 new fetchers).
+ * to 20 families (print-docs-b.test.ts covers the 15 new fetchers); SPEC-M18
+ * §2-A1 added `order` → 21.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
@@ -85,10 +86,11 @@ describe('M8 Wave A print docs (SPEC-M8 §6)', () => {
     await sw(db.party.deleteMany({ where: { id: partyId } }).catch(() => {}))
   })
 
-  it('registry has the 5 Wave-A docTypes (20 with Wave B)', () => {
+  it('registry has the 5 Wave-A docTypes (21 with Wave B + M18 order)', () => {
     const types = getPrintDocTypes()
     for (const t of ['dc', 'grn', 'invoice', 'payment', 'po']) expect(types).toContain(t)
-    expect(Object.keys(PRINT_DOCS)).toHaveLength(20)
+    expect(Object.keys(PRINT_DOCS)).toHaveLength(21)
+    expect(types).toContain('order')
   })
 
   it('invoice: TAX INVOICE with the CGST+SGST split and words', async () => {
@@ -155,7 +157,7 @@ describe('M8 Wave A print docs (SPEC-M8 §6)', () => {
 
   it('dc: DELIVERY CHALLAN with process + parent order meta', async () => {
     const doc = await PRINT_DOCS.dc(DC_NO)!
-    expect(doc!.title).toBe('DELIVERY CHALLAN (JOBWORK)')
+    expect(doc!.title).toBe('DELIVERY CHALLAN (JOBWORK — COST BEARING)') // SPEC-M18 §2-A3: value>0 → cost-bearing title
     expect(doc!.party?.label).toBe('Jobworker')
     expect(doc!.meta!.some(([l, v]) => l === 'Process' && v === 'washing')).toBe(true)
     expect(doc!.lines!.footer![0]).toBe('Total Qty: 100')
