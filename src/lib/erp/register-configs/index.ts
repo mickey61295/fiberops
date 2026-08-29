@@ -27,6 +27,10 @@ import {
   yarnStockConfig, fabricStockConfig, accStockConfig, generalStockConfig,
   itemwiseStockConfig, orderwisePcsConfig,
 } from './material-stock'
+import {
+  cuttingRegisterConfig, lineIssueRegisterConfig, supplierPendingConfig,
+  poRegisterConfig, supplierHistoryConfig,
+} from './wave-b'
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -56,6 +60,11 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   generalStockConfig, // SPEC-M19 §1-B
   itemwiseStockConfig, // SPEC-M19 §1-B
   orderwisePcsConfig, // SPEC-M19 §1-C
+  cuttingRegisterConfig, // SPEC-M19 §2 Wave B
+  lineIssueRegisterConfig, // SPEC-M19 §2 Wave B
+  supplierPendingConfig, // SPEC-M19 §2 Wave B
+  poRegisterConfig, // SPEC-M19 §2 Wave B
+  supplierHistoryConfig, // SPEC-M19 §2 Wave B
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

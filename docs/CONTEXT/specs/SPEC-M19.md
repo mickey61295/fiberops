@@ -79,17 +79,50 @@ order, buyer, styles, godowns, pcs, value. agentTools chip: `get_stock`.
   (day-book cluster), one (`orderwise-pcs`) after `pcs-stock` in pieces. ITEMS 115→121,
   LIVE_ROUTES 147→153. legacyForms cited per the audit table; phase M19; arch RG.
 
-## 2. Wave B (next session) — cutting & issue day-books + supplier pending
+## 2. Wave B — cutting & issue day-books + supplier pending (FROZEN 2026-08-30)
 
-- Cutting register (FrmCutingReg — register over cut orders; NEW service over CutOrder
-  + CutLine).
-- Order/bundle issue-to-line register (FrmOrdBundIssToLineReg — line-issue register view).
-- Supplier pending register (frmSupordPendReg — PO ordered-vs-received per party;
-  note party-balance already carries the per-party pending math — decide register vs
-  preset filter on party-balance).
-- Supplier order history (FrmSuppOrderHistoryReg) + supplier order register
-  (FrmSupplierOrderRegister).
-- Trading in-hand: FOLD into /orders/in-hand with a `type=trading` filter (audit A1).
+ERRATUM (verified against the real schema before code — rule #4): there is no
+`CutLine` model; CutOrder's children are `CutBundle` (relation `bundles`). The
+cutting register aggregates CutOrder + CutBundle counts.
+
+| slug | route | group | legacy form | service (all NEW unless noted) |
+|---|---|---|---|---|
+| `cutting-register` | /cutting/register | cutting | FrmCutingReg | queryCuttingRegister (CutOrder ← order.style, bundle counts) |
+| `line-issue-register` | /production/issue/register | production | FrmOrdBundIssToLineReg | queryLineIssues (LineIssue ← order, line) |
+| `supplier-pending` | /procurement/supplier-pending | procurement | frmSupordPendReg | querySupplierPending (per-PO ordered vs received — party-balance stays the per-PARTY rollup; this is the per-PO chase list) |
+| `po-register` | /procurement/po/register | procurement | FrmSupplierOrderRegister | queryPoRegister (the PO day-book — poNo/type/party/dates/qty/value/status; `variant` select = poType, NO preset: all POs is home) |
+| `supplier-history` | /procurement/supplier-history | procurement | FrmSuppOrderHistoryReg | querySupplierHistory (per-party period rollup: POs, ordered, received, pending value, last receipt date — party-balance is the pending-chase; this is the full-period supplier view incl. closed POs) |
+
+Decisions (the §2 open questions, resolved):
+- frmSupordPendReg = per-PO rows (NOT a preset on party-balance — different grain:
+  party-balance rolls up per party; the pending register is one row per PO with
+  pending > 0 by default, status filter widens).
+- FrmSupplierOrderRegister maps to a full PO day-book (`po-register`) — the app's
+  "supplier order" family (poType=general) is one poType option in the variant
+  select, NOT a preset (an all-PO register is the honest home; the supplier-order
+  family keeps its own doc screens).
+- Trading in-hand FOLD: /orders/in-hand gains a `variant` select
+  (all | manufacturing | trading). DISCRIMINATOR IS DERIVED (zero schema):
+  manufacturing = order has ≥1 CutOrder OR ≥1 Program OR ≥1 ProductionEntry
+  (the factory touched it); trading = none of those (nothing manufactured —
+  pure buy/sell or not yet started; the option label says "Trading (no
+  production)" to stay honest). queryInhandOrders changes ADDITIVELY (a filter
+  branch, not a fork — Wave A's "zero service changes" stance is waived for
+  this one additive filter by this spec line).
+
+- agentTools chips: ZERO new tools — cutting-register cites `list_cut_orders`;
+  line-issue-register cites `get_line_status` + `issue_to_line`; supplier-pending
+  cites `list_purchase_orders` + `get_party_ledger`; po-register cites
+  `list_purchase_orders`; supplier-history cites `get_party_ledger`.
+- Pages: 5 page.tsx + 5 csv/route.ts (gen_m19b_pages.mjs, same template as Wave A).
+- Menu: +5 items → 126 items / 158 LIVE_ROUTES (cutting 10→11 after
+  cutting-production; production after issue-to-line; procurement after
+  party-balance ×3). Phase 'M19'.
+- Tests: tests/unit/wave-b-registers.test.ts (cutting math incl. bundle counts +
+  status filter; line-issue rows + order filter; supplier-pending ordered-vs-
+  received math + pending-only default; po-register variant=poType + date filter;
+  supplier-history rollup + last-receipt; inhand trading/manufacturing
+  discriminator) + register-configs slug pin 27→32 + menu pins 121→126.
 
 ## 3. Wave C — masters completion (schema-touching; own ADR)
 

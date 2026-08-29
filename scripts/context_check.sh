@@ -78,7 +78,7 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-29 m19 session (material-wise registers; 121 items)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m19-waveB session (cutting/issue/supplier registers; 126 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
@@ -93,12 +93,12 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 75 tests at runtime
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×6 registers)" "121"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×6)" "153"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers)" "126"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×11)" "158"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
-check "register config files (M4 + M5 + M6-C + M19 material-stock)" "21"       "$REGCFGS"
-check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×2)" "25"       "$REGSVCFILES"
+check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b)" "22"       "$REGCFGS"
+check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×7)" "30"       "$REGSVCFILES"
 check "master configs (24 M2 + shift + 5 ADR-016)" "30"      "$MASTERCFGS"
 check "shared zod schema files (+ M6-D dispatch/transfer variants)" "39"      "$SCHEMAFILES"
 check "posting service files"      "35"      "$POSTINGSVCS"
@@ -387,7 +387,20 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/inventory/stock/itemwise/page.tsx' \
          'src/app/(erp)/pieces/orderwise/page.tsx' \
          tests/unit/material-stock.test.ts scripts/route_smoke_m19.sh \
-         docs/CONTEXT/specs/SPEC-M19.md scripts/gen_m19_pages.mjs; do
+         docs/CONTEXT/specs/SPEC-M19.md scripts/gen_m19_pages.mjs \
+         src/lib/erp/register-configs/wave-b.ts \
+         src/lib/erp/registers/cutting.ts \
+         src/lib/erp/registers/line-issues.ts \
+         src/lib/erp/registers/supplier-pending.ts \
+         src/lib/erp/registers/po-register.ts \
+         src/lib/erp/registers/supplier-history.ts \
+         'src/app/(erp)/cutting/register/page.tsx' \
+         'src/app/(erp)/production/issue/register/page.tsx' \
+         'src/app/(erp)/procurement/supplier-pending/page.tsx' \
+         'src/app/(erp)/procurement/po/register/page.tsx' \
+         'src/app/(erp)/procurement/supplier-history/page.tsx' \
+         tests/unit/wave-b-registers.test.ts scripts/gen_m19b_pages.mjs \
+         scripts/route_smoke_m19b.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

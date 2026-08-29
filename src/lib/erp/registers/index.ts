@@ -28,6 +28,11 @@ import { queryProgramStatus } from './program-status'
 import { queryCurrentStock } from './current-stock'
 import { queryItemwiseStock } from './itemwise-stock'
 import { queryOrderwisePcs } from './orderwise-pcs'
+import { queryCuttingRegister } from './cutting'
+import { queryLineIssues } from './line-issues'
+import { querySupplierPending } from './supplier-pending'
+import { queryPoRegister } from './po-register'
+import { querySupplierHistory } from './supplier-history'
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -57,6 +62,11 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'general-stock': queryStockLedger, // SPEC-M19 §1-B
   'itemwise-stock': queryItemwiseStock, // SPEC-M19 §1-B
   'orderwise-pcs': queryOrderwisePcs, // SPEC-M19 §1-C
+  'cutting-register': queryCuttingRegister, // SPEC-M19 §2 Wave B
+  'line-issue-register': queryLineIssues, // SPEC-M19 §2 Wave B
+  'supplier-pending': querySupplierPending, // SPEC-M19 §2 Wave B
+  'po-register': queryPoRegister, // SPEC-M19 §2 Wave B
+  'supplier-history': querySupplierHistory, // SPEC-M19 §2 Wave B
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

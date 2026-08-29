@@ -203,6 +203,12 @@ export const LIVE_ROUTES = new Set<string>([
   '/inventory/stock/general', // General Stock Register (M19) — general-stock (RG, all materials)
   '/inventory/stock/itemwise', // Itemwise Stock Register (M19) — itemwise-stock (RG, per-item movement summary)
   '/pieces/orderwise', // Orderwise Pcs Register (M19) — orderwise-pcs (RG, pcs stock grouped by order)
+  // M19 Wave B (SPEC-M19 §2) — cutting/issue day-books + supplier registers
+  '/cutting/register', // Cutting Register (M19-B) — cutting-register (RG, FrmCutingReg)
+  '/production/issue/register', // Issue to Line Register (M19-B) — line-issue-register (RG, FrmOrdBundIssToLineReg)
+  '/procurement/supplier-pending', // Supplier Pending Orders (M19-B) — supplier-pending (RG, frmSupordPendReg)
+  '/procurement/po/register', // PO Register (M19-B) — po-register (RG, FrmSupplierOrderRegister)
+  '/procurement/supplier-history', // Supplier Order History (M19-B) — supplier-history (RG, FrmSuppOrderHistoryReg)
 ])
 
 // ---------------------------------------------------------------------------
@@ -259,7 +265,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (121 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×6 registers) — SPEC-M1 §5.2
+// ITEMS (126 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -446,6 +452,27 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['get_party_ledger'], pendingTools: [],
     agentPrompt: 'Show me party balances and pending POs',
   },
+  {
+    id: 'supplier-pending', label: 'Supplier Pending Orders', groupId: 'procurement', route: '/procurement/supplier-pending', arch: 'RG', phase: 'M19',
+    description: 'Per-PO ordered vs received — the pending purchase chase list.',
+    legacyForms: ['frmSupordPendReg'],
+    agentTools: ['list_purchase_orders', 'get_party_ledger'], pendingTools: [],
+    agentPrompt: 'Show me pending supplier orders',
+  },
+  {
+    id: 'po-register', label: 'PO Register', groupId: 'procurement', route: '/procurement/po/register', arch: 'RG', phase: 'M19',
+    description: 'The supplier PO day-book — every purchase order with type, party, dates and value.',
+    legacyForms: ['FrmSupplierOrderRegister'],
+    agentTools: ['list_purchase_orders'], pendingTools: [],
+    agentPrompt: 'Show me the PO register',
+  },
+  {
+    id: 'supplier-history', label: 'Supplier Order History', groupId: 'procurement', route: '/procurement/supplier-history', arch: 'RG', phase: 'M19',
+    description: 'Per-supplier period rollup — POs, ordered vs received, last receipt date.',
+    legacyForms: ['FrmSuppOrderHistoryReg'],
+    agentTools: ['get_party_ledger'], pendingTools: [],
+    agentPrompt: 'Show me supplier order history',
+  },
 
   // ---- inventory (9) ----
   {
@@ -577,6 +604,13 @@ export const MENU_ITEMS: MenuItem[] = [
     agentPrompt: 'I want to post cutting production',
   },
   {
+    id: 'cutting-register', label: 'Cutting Register', groupId: 'cutting', route: '/cutting/register', arch: 'RG', phase: 'M19',
+    description: 'The cut day-book — every cutting job order with bundles, fabric issued and output pcs.',
+    legacyForms: ['FrmCutingReg'],
+    agentTools: ['list_cut_orders'], pendingTools: [],
+    agentPrompt: 'Show me the cutting register',
+  },
+  {
     id: 'cutting-ack', label: 'Cutting Ack', groupId: 'cutting', route: '/cutting/ack', arch: 'IN', phase: 'M3',
     description: 'Acknowledge issued fabric reached cutting.',
     legacyForms: ['frmcuttingack'],
@@ -699,6 +733,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmIssueToProduction', 'FrmLineInput', 'FrmLineInput_Manual'],
     agentTools: ['issue_to_line'], pendingTools: [],
     agentPrompt: 'I want to issue pieces to a production line',
+  },
+  {
+    id: 'line-issue-register', label: 'Issue to Line Register', groupId: 'production', route: '/production/issue/register', arch: 'RG', phase: 'M19',
+    description: 'Order/bundle issues to sewing lines — the issue-to-line day-book.',
+    legacyForms: ['FrmOrdBundIssToLineReg'],
+    agentTools: ['get_line_status', 'issue_to_line'], pendingTools: [],
+    agentPrompt: 'Show me issues to lines',
   },
   {
     id: 'line-output', label: 'Line Output', groupId: 'production', route: '/production/line-output', arch: 'DS', phase: 'M3',

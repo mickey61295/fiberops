@@ -1,7 +1,7 @@
 /**
  * Menu registry unit tests — SPEC-M1 §10.
- * Guards the frozen contract: 121 items (113 parity + M9 live-tracker +
- * M11 feature-flags + M19 ×6 registers), 17 groups, unique ids/routes,
+ * Guards the frozen contract: 126 items (113 parity + M9 live-tracker +
+ * M11 feature-flags + M19 ×11 registers), 17 groups, unique ids/routes,
  * LIVE_ROUTES matches files on disk, getHref/isLive/parityStats behavior.
  */
 import { describe, it, expect } from 'vitest'
@@ -28,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 121 items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×6 registers)', () => {
-    expect(MENU_ITEMS.length).toBe(121)
+  it('has exactly 126 items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×11 registers)', () => {
+    expect(MENU_ITEMS.length).toBe(126)
   })
 
   it('has exactly 17 groups', () => {
@@ -102,10 +102,10 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupForPath('/admin/settings')?.id).toBe('masters-admin')
   })
 
-  it('parityStats: 121/121 live after M19 (113 parity M6 + live-tracker + feature-flags + 6 registers)', () => {
+  it('parityStats: 126/126 live after M19-B (113 parity M6 + live-tracker + feature-flags + 11 registers)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(121)
-    expect(s.liveItems).toBe(121)
+    expect(s.totalItems).toBe(126)
+    expect(s.liveItems).toBe(126)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
