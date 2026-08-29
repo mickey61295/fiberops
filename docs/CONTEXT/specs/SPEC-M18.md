@@ -68,7 +68,7 @@ Excel column block into the line grid does nothing.
   skipped (column preserved) and reported once in the paste toast. Single-cell
   pastes keep native behavior.
 
-## 4. Scope — Wave C (doc lifecycle + rate memory — spec'd, next session)
+## 4. Scope — Wave C (doc lifecycle + rate memory — SHIPPED 2026-08-29, §8)
 
 - **C1.** doc-view Cancel/Void via the existing update posting services (status
   transitions only, ADR-001-safe server actions); **C2.** doc-view Duplicate
@@ -156,5 +156,70 @@ never-ran script into a false "bank strip missing" bug; also getPrintHeader
 returns null unless `print.companyName` exists (SPEC-M6 §5 gate) — the smoke
 now seeds it and cleans up.
 
-**Wave C remains spec'd-only** (§4): doc-view Cancel/Void/Duplicate, rate
-memory (`last_rate` read door), self-service change password.
+**Wave C shipped 2026-08-29** (§8 record below): doc-view Cancel/Void +
+Duplicate, rate memory (`last_rate` read door + auto-fill), self-service
+change password.
+
+## 8-bis. Implementation record — Wave C (2026-08-29)
+
+- **C1 Cancel/Void:** `src/lib/erp/cancel-action.ts` ('use server':
+  planCancelDocView returns the service's own summary + sideEffects for the
+  confirm dialog; commitCancelDocView re-runs plan + commit + revalidates the
+  family registers) riding the EXISTING services — order→planCancelOrder,
+  purchase-order→planPoLifecycle cancel (receipts guard), invoice→
+  planCancelInvoice, program→planCancelProgram (ledger net-zero guard).
+  `src/components/erp/doc-view-actions.tsx` (client) renders the action row;
+  hidden in terminal statuses (cancelled/completed/received/paid/complete —
+  both program spellings) but the SERVICE stays the enforcement. DocScreen view
+  mode renders it generically from `initial.status`; PO/invoice/program view
+  pages add `status` to initial; the Order Hub passes explicit props (it is
+  not a DocScreen view).
+- **C2 Duplicate:** `src/lib/erp/new-routes.ts` — NEW_ROUTE_BY_SLUG, all 57
+  doc families (tests pin: keys ⊆ doc-config registry, values ⊆ LIVE_ROUTES,
+  registry parity — a drifted route fails the suite). DocViewActions stashes
+  `{docNo, header, lines}` in `sessionStorage['fo.duplicate.<slug>']` and
+  pushes the New route; the New DocScreen consumes the stash once on mount
+  (number field skipped — fresh auto number; source dates win over §2-C
+  today-defaults; lines mapped onto lineFields only; toast cites the source).
+- **C3 rate memory:** `src/lib/erp/rate-memory.ts` findLastRate — latest
+  POLine (cancelled POs excluded) vs GRNLine for party+item, newer document
+  wins; exposed as `GET /api/erp?resource=last_rate` (session-guarded, 400 on
+  missing params, `{}` when no history). DocScreen New-mode effect: rows with
+  party+item and a BLANK rate fetch once per (party,itemType,item); the fill
+  re-checks blankness inside the state update so a typed rate is never
+  overwritten, and a manually-cleared rate stays cleared. Note: within one PO
+  the line tiebreak is cuid (no createdAt on POLine) — the cited toast lets
+  the operator verify. Order grids never fire it (partyCode is the trigger —
+  purchase-side memory, per the spec).
+- **C4 change password:** `src/app/api/auth/change-password/route.ts`
+  (requireApiSession → zod {currentPassword, newPassword≥8} →
+  verifyPassword(current) 401 'Current password is incorrect' → same-password
+  400 → hashPassword + update; session stays valid — cookie signs id/email/
+  role, not the hash) + `src/components/erp/change-password.tsx` (topbar key
+  icon → dialog current/new/confirm → POST → toast; min-8 + mismatch checks
+  client-side too).
+- **REPAIR (pre-existing):** the convergence commit cb5626a had
+  accidentally COMMITTED the deletion of `src/app/api/upload/route.ts` (the
+  third visit of the sandbox gremlin — this time inside a commit, and pushed).
+  Caught by upload-route.test in the full-suite run; restored from b66d0cb.
+  PITFALLS #39.
+- **Tests:** doc-view-actions 8 (map integrity ×3 + cancel plan/guards/commit
+  roundtrips + source pins) · rate-memory 5 (GRN-wins/PO-wins/cancelled-
+  excluded/unknown-pairs/party-scoped + wiring pins) · change-password 6
+  (401/400×3/401-wrong/200-rotate + old-rejected-new-re-changes).
+- **Gates:** vitest **758/758** (739+19) · tsc src/ 0 · eval_routing --static
+  PASS · context_check **435/435** (views 31→33, auth routes 4→5, +9 file
+  pins) · **route_smoke_m18c.sh 22/22 NEW** (last_rate 401/400/hit/cites/{},
+  change-password 401/400/rotate/old-rejected, PO+invoice+Hub action rows,
+  topbar key door) · route_smoke_m18 15/15 · route_smoke_m9 38/38 (with its
+  boot preamble — the script predates the platform server-reaping).
+- **Live browser verification:** Duplicate on a PO view → New PO form seeded
+  (party/type pickers, delivery date copied, order date = today, both lines
+  qty+rate) with the stash consumed; rate memory on a fresh PO → blank rate
+  auto-filled 95 from the source PO; zero console errors; screenshot
+  download/m18c-duplicate-po.png.
+- **Residue bug found & fixed:** first suite runs leaked POs+parties — afterAll
+  deleted POs without deleting POLine children first (Prisma Restrict +
+  .catch swallow). Fixed in both suites + the smoke; one-shot
+  scripts/cleanup_m18c_residue.ts removed 34 POs + 28 lines + 21 parties;
+  post-fix re-run leaves zero residue. PITFALLS #40.

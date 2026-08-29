@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { LogOut, Menu, RefreshCw, Sparkles, ChevronRight } from 'lucide-react'
 import { useAgent } from '@/components/agent/agent-panel-provider'
+import { ChangePasswordButton } from '@/components/erp/change-password'
 import {
   findItemByRoute, findGroupForPath, findItemById, groupLandingHref, isLive,
 } from '@/lib/erp/menu-registry'
@@ -90,18 +91,22 @@ export function Topbar({
           Agent <kbd className="ml-1 text-[10px] opacity-70">⌘J</kbd>
         </Button>
         {user && (
-          <Button
-            variant="ghost"
-            size="sm"
-            title={`Sign out (${user.email})`}
-            onClick={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
-              router.replace('/login')
-              router.refresh()
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <>
+            {/* SPEC-M18 §4-C4 — self-service change password (FrmChangePassword) */}
+            <ChangePasswordButton />
+            <Button
+              variant="ghost"
+              size="sm"
+              title={`Sign out (${user.email})`}
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+                router.replace('/login')
+                router.refresh()
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </>
         )}
       </div>
     </header>

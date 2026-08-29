@@ -35,6 +35,7 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
     gstType: inv.igstRate > 0 ? 'igst' : 'cgst_sgst',
     invoiceDate: d(inv.invoiceDate),
     notes: '',
+    status: inv.status, // SPEC-M18 §4-C1 — drives the Void/Duplicate action row
   }
 
   // chain state from the order include (W1): the invoice is step 13

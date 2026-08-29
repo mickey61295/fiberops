@@ -41,6 +41,7 @@ export default async function PurchaseOrderViewPage({ params }: { params: Promis
     orderDate: d(po.orderDate),
     deliveryDate: d(po.deliveryDate),
     notes: po.notes ?? '',
+    status: po.status, // SPEC-M18 §4-C1 — drives the Cancel/Duplicate action row
     lines: po.lines.map((l) => ({
       itemType: l.itemType,
       itemCode: itemMaps[l.itemType]?.get(l.itemId) ?? l.itemId,

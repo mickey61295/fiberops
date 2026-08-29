@@ -4,6 +4,7 @@ import { getMasterConfig } from '@/lib/erp/master-configs'
 import { listMasters } from '@/lib/erp/posting/master-service'
 import { approvalRefHref } from '@/lib/erp/approval-kinds'
 import { requireApiSession } from '@/lib/auth/api-guard'
+import { findLastRate } from '@/lib/erp/rate-memory'
 
 // GET /api/erp?resource=orders|purchase_orders|inventory|cutting|production|invoices|costing|hr|approvals|masters|master_search&...
 // SPEC-M7 Wave B — guarded: no session → 401 JSON (browser fetches send the
@@ -225,6 +226,19 @@ export async function GET(req: Request) {
           db.employee.findMany({ include: { department: true } }),
         ])
         return Response.json({ buyers, styles, parties, godowns, departments, colours, sizes, yarns, fabrics, accessories, employees })
+      }
+      case 'last_rate': {
+        // SPEC-M18 §4-C3 — rate memory read door: the latest PO/GRN line rate
+        // for party+item, so a blank rate cell can auto-fill with the last
+        // price this supplier was paid (DocScreen toasts the source doc+date).
+        const party = url.searchParams.get('party') || ''
+        const itemType = url.searchParams.get('itemType') || ''
+        const itemCode = url.searchParams.get('itemCode') || ''
+        if (!party || !itemType || !itemCode) {
+          return Response.json({ error: 'party, itemType and itemCode are required' }, { status: 400 })
+        }
+        const hit = await findLastRate(party, itemType, itemCode)
+        return Response.json(hit ?? {})
       }
       case 'agent_turns': {
         const turns = await db.agentTurn.findMany({

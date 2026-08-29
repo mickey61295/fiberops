@@ -1014,3 +1014,41 @@ Stage Summary:
 - Local P0 work preserved: branch p0-reflex-pack-alt + remote tag p0 (its 20-test keyboard-reflex suite and live-verification notes are the record; superseded by M17 for code).
 - PAT NOTE: origin URL PAT was scrubbed after the earlier push per the security protocol — this commit needs the user (or a PAT re-embed) to push.
 - Next per the frozen roadmap (STATE next-actions): P2 M13 digest notifications / M14 perf (the m9-wave-a-alt SSE accelerator branch still parked) — while M17/M18 have already absorbed the P0/M13-print scopes, so verify STATE next-actions numbering before starting.
+
+---
+Task ID: 19
+Agent: main (Super Z)
+Task: Push the P0-convergence state to GitHub (user supplied a fresh PAT after the prior session ended PAT-scrubbed and unpushed).
+
+Work Log:
+- Re-synced from worklog tail: repo had converged at cb5626a (remote M12+M17+M18 adopted + my global-'/' port); origin/main was still b66d0cb → exactly one unpushed commit.
+- Embedded the user's PAT in the remote URL, fetched: remote still b66d0cb (no fourth parallel race), local 1 ahead / 0 behind.
+- Pushed main b66d0cb→cb5626a (fast-forward). Also pushed preservation branches p0-reflex-pack-alt (07603f6) and m9-wave-a-alt (dde0797) — both new on remote; tag p0 was already there.
+- Scrubbed the PAT from .git/config (remote URL back to PAT-free https form); verified via ls-remote: main=cb5626a, both branches present.
+
+Stage Summary:
+- Remote now carries the full converged history: M12 E2E + M17 Operator Reflex Pack + M18 Print & Command Fidelity + the global-'/' convergence commit.
+- Both parked accelerator branches are remote-preserved (sandbox-loss insurance — this is the mitigation for the 3 parallel-session races).
+- SECURITY: PAT was pasted in chat — user should revoke it at https://github.com/settings/tokens after this session and mint a fresh one for future pushes.
+- Next: SPEC-M18 §4 Wave C (doc-view Cancel/Void/Duplicate + rate memory last_rate + self-service change password) — the ready-made brief from Task 18.
+
+---
+Task ID: 20
+Agent: main (Super Z)
+Task: SPEC-M18 Wave C — doc lifecycle + rate memory (the ready-made brief from Task 18's stage summary), plus the cb5626a upload-route repair.
+
+Work Log:
+- Bootstrapped per protocol: worklog read (Task 19 push), STATE next-actions #15 → Wave C top; recon of cancel services (posting/cancel.ts + lifecycle.ts guards), DocScreen view mode, doc-actions registry, auth stack (password.ts scrypt + set-password route as template), PO config fields, print-fidelity/flags-config test patterns, context_check pin lines.
+- C1 Cancel/Void: NEW src/lib/erp/cancel-action.ts ('use server': planCancelDocView → summary+sideEffects; commitCancelDocView → plan+commit+revalidate) over the EXISTING services (order→planCancelOrder, purchase-order→planPoLifecycle cancel w/ receipts guard, invoice→planCancelInvoice, program→planCancelProgram w/ ledger net-zero); NEW src/components/erp/doc-view-actions.tsx (client action row, terminal-status hidden, 'use server' async-only rule caught: isCancelableSlug moved to a client-side Set); DocScreen view renders it from initial.status; status added to initial on PO/invoice/program view pages; Order Hub gets explicit props.
+- C2 Duplicate: NEW src/lib/erp/new-routes.ts (NEW_ROUTE_BY_SLUG, 57 families; tests pin keys⊆registry + values⊆LIVE_ROUTES + registry parity); DocViewActions stashes to sessionStorage['fo.duplicate.<slug>'] + pushes; New DocScreen consumes once (number skipped, source dates beat §2-C today, lineFields-only mapping, toast).
+- C3 rate memory: NEW src/lib/erp/rate-memory.ts findLastRate (POLine cancelled-excluded vs GRNLine, newer doc wins); /api/erp case last_rate (guarded, 400, {} empty); DocScreen effect fills BLANK rate cells once per (party,itemType,item) with blankness re-check inside the state update.
+- C4 change password: NEW /api/auth/change-password (session→zod→verify current 401→same-pw 400→hash+update; session stays valid) + NEW change-password.tsx topbar key-icon dialog; admin set-password stays admin-only.
+- REPAIR: cb5626a had COMMITTED src/app/api/upload/route.ts deletion (gremlin #3, inside a commit + pushed). Caught by upload-route.test collection failure (count 758→751 = vanished file signature); restored from b66d0cb; PITFALLS #39 (check git status for ' D ' BEFORE git add -A).
+- Residue bug (PITFALLS #40): afterAll PO deletes FK-restricted by POLine children + .catch swallow → 11 runs leaked 34 POs/28 lines/21 parties; suites+smoke fixed children-first; scripts/cleanup_m18c_residue.ts one-shot cleaned; re-run leaves zero.
+- Gates: vitest 758/758 (739+19: doc-view-actions 8, rate-memory 5, change-password 6) · tsc src/ 0 · eval_routing --static PASS · context_check 426→435/435 NO DRIFT (views 31→33, auth api 4→5, +9 file pins; new-routes.ts moved OUT of doc-configs to keep the 41≠40 pin semantics clean) · NEW route_smoke_m18c.sh 22/22 · route_smoke_m18 15/15 · route_smoke_m9 38/38 (needs boot preamble — predates platform reaping) · LIVE browser: Duplicate seeds the full New PO form (pickers, dates, both lines) + stash consumed; rate memory auto-filled a blank rate (95) from the source PO; zero console errors; screenshot download/m18c-duplicate-po.png.
+- Docs: SPEC-M18 §4 marked shipped + §8-bis record, STATE (m18c Last-verified + M18 row amended + views 33 + next-actions #16), PITFALLS #39/#40, GAP-ANALYSIS §9 note, this log.
+
+Stage Summary:
+- M18 is now FULLY complete (A+B+C). The four doc-lifecycle/reflex gaps from the audit's §5 (no doc-level cancel/void, no duplicate, no rate memory, no self-service password) are closed; zero schema changes; ADR-001 untouched (cancels ride the same services as the agent tools).
+- The upload-route gremlin has a PROTOCOL now (PITFALLS #39) — it escalated from uncommitted deletions to a committed+pushed one this time.
+- Next: STATE next-actions #16 — P2 register/masters long tail (M19+), reserved SPEC-M9 §9 queue (M13 digest → M14 perf/SSE w/ parked m9-wave-a-alt), or M15-channels (keypad/voice/attendance/waste/e-invoice).

@@ -85,7 +85,7 @@ check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette)" "31" "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password)" "33" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
@@ -107,7 +107,7 @@ check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" "$(ls src/lib/auth/*.ts 2>/dev/null | grep -v rights.ts | grep -v login-cookies.ts | wc -l)"
 check "m7-waveC auth lib files (rights + login-cookies)" "2" "$(ls src/lib/auth/rights.ts src/lib/auth/login-cookies.ts 2>/dev/null | wc -l)"
-check "m7-waveA auth api routes (login/logout/session/bootstrap)" "4" "$(ls -d src/app/api/auth/*/ 2>/dev/null | grep -v admin | wc -l)"
+check "m7-waveA auth api routes (login/logout/session/bootstrap + M18-C change-password)" "5" "$(ls -d src/app/api/auth/*/ 2>/dev/null | grep -v admin | wc -l)"
 check "m7-waveC admin api route (set-password)" "1" "$(ls src/app/api/auth/admin/set-password/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M9 tracker + M11 config)" "7" "$(grep -l 'requireApiSession' src/app/api/erp/route.ts src/app/api/agent/route.ts src/app/api/agent/approve/route.ts src/app/api/upload/route.ts src/app/api/seed/route.ts src/app/api/tracker/route.ts src/app/api/config/route.ts 2>/dev/null | wc -l)"
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
@@ -370,7 +370,13 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/components/erp/register-rows.tsx src/lib/erp/print/doc-type-map.ts \
          tests/unit/print-doc-map.test.ts docs/CONTEXT/specs/SPEC-M17.md \
          src/lib/erp/print/fetchers-order.ts src/components/erp/command-palette.tsx \
-         tests/unit/print-fidelity.test.ts docs/CONTEXT/specs/SPEC-M18.md; do
+         tests/unit/print-fidelity.test.ts docs/CONTEXT/specs/SPEC-M18.md \
+         src/lib/erp/new-routes.ts src/lib/erp/cancel-action.ts \
+         src/lib/erp/rate-memory.ts src/components/erp/doc-view-actions.tsx \
+         src/components/erp/change-password.tsx \
+         src/app/api/auth/change-password/route.ts \
+         tests/unit/doc-view-actions.test.ts tests/unit/rate-memory.test.ts \
+         tests/unit/change-password.test.ts; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

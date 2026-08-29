@@ -32,6 +32,7 @@ export default async function ProgramViewPage({ params }: { params: Promise<{ id
     deptCode: program.department?.code ?? '',
     targetDate: d(program.targetDate),
     notes: program.notes ?? '',
+    status: program.status, // SPEC-M18 §4-C1 — drives the Cancel/Duplicate action row
   }
   const state = program.order ? computeChainState(program.order) : undefined
   const chainCtx = program.order ? { orderNo: program.order.orderNo, id: program.order.id } : undefined
