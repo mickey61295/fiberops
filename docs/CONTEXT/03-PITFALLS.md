@@ -434,3 +434,13 @@ finally. E2E server log is now clean.
 LESSON: (1) mechanical rewrites need a same-shape review, not just a typecheck
 pass; (2) SSE routes must treat controller writes as fallible — a disconnect
 is a NORMAL lifecycle event, not an error.
+
+### 37 — Adding files under counted dirs silently trips context_check DRIFT (M17)
+`context_check.sh` pins are HARDCODED counts, not derived from STATE. Adding any file under
+`src/components/erp/` or `src/lib/erp/print/` (or any other counted dir) flips two checks to
+DRIFT on the next bootstrap. Protocol when intentionally growing a counted dir: bump the pin
+in `scripts/context_check.sh` (with a `+Mxx` note), bump the STATE table row, add the new
+files to the file-existence block, and re-run to NO DRIFT — all in the SAME commit. Same
+lesson applies to the STATE table's formula rows (e.g. view/shell components): the formula
+column is honest, the bold number must be bumped or the next session's checker-vs-STATE
+comparison sends you chasing a rollback that never happened.

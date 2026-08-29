@@ -952,3 +952,24 @@ Stage Summary:
 - Muscle memory: 10 verified day-1 reflex collisions (Enter-submits-whole-doc #1, zero F-keys, no command palette, mouse-bound pickers, blank dates, non-keyboard registers, one-group sidebar, no print-on-save, 2-step save, no doc-level void/duplicate).
 - Playbook R/C/P/D/E/K/V/G/H/T: rate memory, counter-book registers, paper rituals, SMS→digest, Excel paste, keypad mode, Tamil voice, global jump bar, holiday calendar, terminology polish.
 - Proposal: P0 reflex fixes → M13 print&keyboard fidelity → M14 register/masters long tail → M15 channels/integrations. Also logged hygiene debts (29 phantom legacyForms strings, stale ITEMS(113) comment).
+
+---
+Task ID: 17
+Agent: main
+Task: M17 — Operator Reflex Pack (user picked "start with your choice" → the gap audit's P0 lane; SPEC-M17)
+
+Work Log:
+- Bootstrapped per protocol: context_check 418/418 NO DRIFT, static routing PASS; confirmed M13–M16 are reserved by the frozen SPEC-M9 §9 roadmap → this queue-jump is numbered M17 (noted in SPEC-M17 + GAP-ANALYSIS §9).
+- Wrote + froze docs/CONTEXT/specs/SPEC-M17.md (8 items, all frontend, zero schema/service changes).
+- NEW src/lib/erp/print/doc-type-map.ts (PRINT_DOC_BY_DOCTYPE: the 20 doc-config docTypes that view pages already print; neutral module because print/index.ts is server-only) + tests/unit/print-doc-map.test.ts (4 pins: 20↔20 bijection with PRINT_DOCS, no phantom docTypes).
+- doc-screen.tsx: Enter contract (grid: advance cell, last cell → append row + focus it; header: advance field, last → first grid cell; Enter NEVER implicit-submits; buttons/textarea excluded), F2=save / F9=print(done) / Esc=back-to-edit(review), date fields default LOCAL today post-mount (SSR-safe ''), resetForAnother re-applies, Print link on the done card, agent-tool chips removed from both headers, hint updated "Ctrl+S / F2 · Enter adds rows".
+- doc-picker.tsx: focus returns to the trigger when the dropdown closes without opening the create sheet.
+- NEW src/components/erp/register-rows.tsx (client): full-row click opens doc, roving tabindex, ↑/↓/Enter navigation; register-screen.tsx keeps server shell, drops its tbody + "Agent door" badge row.
+- master-table.tsx: real global '/' listener (decoy tabIndex={-1} fixed); menu-registry.ts: 'Despatch & Logistics' label + ITEMS(115) comment.
+- Gates: tsc src/ 0 · vitest 728/728 (724+4) · eval_routing --static PASS · context_check pins bumped (views 29→30, print lib 5→6, +4 file pins) → 422/422 NO DRIFT · authenticated curl smokes: orders/new, orders/register, inventory/ledger, masters/buyer, procurement/grn all 200 with SSR markers (data-doc-header/data-doc-lines/tabindex rows/Despatch label).
+- Docs: STATE (m17 Last-verified + M17 milestone row + next-actions #14 + views row 30), PITFALLS #37 (hardcoded-pin protocol), GAP-ANALYSIS §9 numbering note, this log.
+
+Stage Summary:
+- The gap audit's top reflex collisions are fixed: Enter now behaves like legacy (commit row, spawn next), F-keys exist, dates open with today, print is one click/keystroke after commit, register rows are clickable + keyboard-navigable, '/' actually searches, the Dispatch/Despatch inconsistency is gone, operator headers are clean of dev-facing tool chips.
+- No DB/schema/service changes; posting paths untouched (ADR-001 unaffected).
+- Next: M18 muscle-memory backlog (order print + invoice HSN/bank block, command palette, paste-into-grid, rate memory, doc-view Cancel/Duplicate) or the reserved P2 queue (M13 digest → M14 perf/SSE).

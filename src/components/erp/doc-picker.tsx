@@ -52,6 +52,14 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
   const [submitting, setSubmitting] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // SPEC-M17 (picker focus-return): when the dropdown closes WITHOUT opening the
+  // create sheet, focus returns to the trigger — keyboard flow never drops.
+  const wasOpenRef = useRef(false)
+  useEffect(() => {
+    if (wasOpenRef.current && !open && !creating) triggerRef.current?.focus()
+    wasOpenRef.current = open
+  }, [open, creating])
 
   // debounced search against the shared read path
   useEffect(() => {
@@ -127,6 +135,7 @@ export function DocPicker({ slug, valueField, value, onChange, label, required, 
         </Label>
       )}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => { setOpen((o) => !o); setQ('') }}
         className={`mt-1 flex w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 ${inline ? 'h-8' : 'h-9'} text-left text-sm ${value ? 'text-slate-900' : 'text-slate-400'} hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-200`}

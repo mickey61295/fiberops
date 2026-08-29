@@ -7,7 +7,7 @@
  * master-service the agent tools call (ADR-001) — via the server action
  * `saveMasterAction`.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Download, Pencil, Plus, Search, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,20 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // SPEC-M17 §2-F: a REAL global "/" — focus search from anywhere on the page
+  // (unless already typing in a field). The old hint was a decoy button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows
@@ -103,7 +117,8 @@ export function MasterTable({ config, rows }: { config: MasterConfig; rows: Mast
         </div>
         <Button
           size="sm" variant="outline" onClick={() => searchRef.current?.focus()}
-          className="hidden md:inline-flex text-xs text-slate-500" tabIndex={-1}
+          className="hidden md:inline-flex text-xs text-slate-500"
+          title="Press / anywhere to search"
         >
           /
         </Button>

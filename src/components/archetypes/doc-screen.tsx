@@ -11,20 +11,20 @@
  * Draft preservation (§9.3): header + lines live in THIS component's state;
  * picker create-on-the-fly overlays (Sheets) never unmount it.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, ChevronLeft, Loader2, Paperclip, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, Check, ChevronLeft, Loader2, Paperclip, Plus, Printer, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { ChainBar } from '@/components/erp/chain-bar'
 import { DocPicker } from '@/components/erp/doc-picker'
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import { planDocAction, commitDocAction, type DocPlanView } from '@/lib/erp/doc-actions'
 import { CHAIN, nextStage, resolveStageUrl, type ChainStateFlags } from '@/lib/erp/chain'
+import { PRINT_DOC_BY_DOCTYPE } from '@/lib/erp/print/doc-type-map'
 import type { DocScreenConfig, DocField, DocLineField } from '@/lib/erp/doc-configs/types'
 
 type Phase = 'edit' | 'review' | 'done'
@@ -49,15 +49,30 @@ export interface DocScreenProps {
 const emptyRow = (fields: DocLineField[]): Record<string, string> =>
   Object.fromEntries(fields.map((f) => [f.name, '']))
 
+/** Local-calendar today as yyyy-mm-dd (SPEC-M17 §2-C). en-CA yields ISO shape. */
+const todayISO = () => new Date().toLocaleDateString('en-CA')
+
+/** Initial header state; `withDates` fills blank date fields with local today
+ *  (client-only — the SSR pass passes false to avoid hydration mismatch). */
+function initialHeaderFor(config: DocScreenConfig, prefill: Record<string, string> | undefined, withDates: boolean): Record<string, string> {
+  const base: Record<string, string> = {}
+  for (const f of config.headerFields) {
+    base[f.name] = withDates && f.type === 'date' ? todayISO() : ''
+  }
+  return { ...base, ...(prefill ?? {}) }
+}
+
+const FOCUSABLE = 'input:not([type=hidden]), select' as const
+type FocusableEl = HTMLInputElement | HTMLSelectElement
+const focusablesIn = (root: Element): FocusableEl[] =>
+  Array.from(root.querySelectorAll<FocusableEl>(FOCUSABLE)).filter((el) => !el.disabled)
+
 export function DocScreen({
   config, mode, initial, docNo, prefill, viewRoutePattern, chainState, chainCtx,
 }: DocScreenProps) {
   const { openAgent } = useAgent()
   const [phase, setPhase] = useState<Phase>('edit')
-  const [header, setHeader] = useState<Record<string, string>>(() => ({
-    ...Object.fromEntries(config.headerFields.map((f) => [f.name, ''])),
-    ...(prefill ?? {}),
-  }))
+  const [header, setHeader] = useState<Record<string, string>>(() => initialHeaderFor(config, prefill, false))
   const [lines, setLines] = useState<Array<Record<string, string>>>(() =>
     config.lineFields ? [emptyRow(config.lineFields)] : [],
   )
@@ -65,6 +80,9 @@ export function DocScreen({
   const [errors, setErrors] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [committed, setCommitted] = useState<Record<string, unknown> | null>(null)
+  // SPEC-M17 §2-A/§2-B keyboard contract plumbing
+  const linesBodyRef = useRef<HTMLTableSectionElement>(null)
+  const pendingNewRowFocus = useRef(false)
 
   const hasLineEditor = !!config.lineFields?.length
   const qtyField = config.lineFields?.find((f) => f.name === 'qty')
@@ -74,6 +92,29 @@ export function DocScreen({
     const qty = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0)
     const value = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0)
     return { qty, value }
+  }, [lines])
+
+  // SPEC-M17 §2-C: blank date fields fill with LOCAL today post-mount (client
+  // only — SSR renders '' so hydration never mismatches across UTC/IST edges).
+  useEffect(() => {
+    setHeader((h) => {
+      let changed = false
+      const next = { ...h }
+      for (const f of config.headerFields) {
+        if (f.type === 'date' && !next[f.name]) { next[f.name] = todayISO(); changed = true }
+      }
+      return changed ? next : h
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // SPEC-M17 §2-A: after "last cell → new row", focus the new row's first cell.
+  useEffect(() => {
+    if (!pendingNewRowFocus.current) return
+    pendingNewRowFocus.current = false
+    const trs = linesBodyRef.current?.querySelectorAll('tr')
+    const last = trs?.[trs.length - 1]
+    focusablesIn(last ?? linesBodyRef.current ?? document.body)[0]?.focus()
   }, [lines])
 
   function setCell(rowIdx: number, name: string, value: string) {
@@ -120,7 +161,7 @@ export function DocScreen({
   }
 
   function resetForAnother() {
-    setHeader({ ...Object.fromEntries(config.headerFields.map((f) => [f.name, ''])), ...(prefill ?? {}) })
+    setHeader(initialHeaderFor(config, prefill, true)) // dates reset to TODAY (§2-C)
     setLines(config.lineFields ? [emptyRow(config.lineFields)] : [])
     setPlan(null)
     setCommitted(null)
@@ -145,6 +186,70 @@ export function DocScreen({
 
   const viewUrl = committed?.id && viewRoutePattern ? viewRoutePattern.replace('[id]', String(committed.id)) : null
 
+  // SPEC-M17 §2-D: the done-card print door (+ F9 target). Only families whose
+  // view pages already print (PRINT_DOC_BY_DOCTYPE, 20 today).
+  const printDocType = config.docType ? PRINT_DOC_BY_DOCTYPE[config.docType] : undefined
+  const printHref = printDocType && committed?.id
+    ? `/print/${printDocType}/${encodeURIComponent(String(committed.id))}?copy=original`
+    : null
+
+  /** SPEC-M17 §2-A/§2-B keyboard contract:
+   *  Enter advances header fields; in the grid it advances cells and at the last
+   *  cell commits the row and spawns the next; Enter NEVER implicit-submits.
+   *  F2/Ctrl+S = save · F9 = print (done) · Esc = back to edit (review). */
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault()
+      if (phase === 'edit') save()
+      return
+    }
+    if (e.key === 'F2') {
+      e.preventDefault()
+      if (phase === 'edit') save()
+      return
+    }
+    if (e.key === 'F9') {
+      e.preventDefault()
+      if (phase === 'done' && printHref) window.open(printHref, '_blank', 'noopener')
+      return
+    }
+    if (e.key === 'Escape' && phase === 'review' && !busy) {
+      setPhase('edit')
+      return
+    }
+    if (e.key !== 'Enter' || phase !== 'edit') return
+    const el = e.target as HTMLElement
+    const tag = el.tagName
+    if (tag !== 'INPUT' && tag !== 'SELECT') return // buttons keep native click; textarea keeps newline
+    e.preventDefault() // THE contract: Enter is never an implicit form submit
+    const input = el as FocusableEl
+    // grid: advance cell; last cell → append row & focus its first cell
+    const tr = el.closest('tr')
+    if (tr && linesBodyRef.current?.contains(tr)) {
+      const cells = focusablesIn(tr)
+      const idx = cells.indexOf(input)
+      if (idx >= 0 && idx < cells.length - 1) {
+        cells[idx + 1].focus()
+      } else if (config.lineFields) {
+        const lf = config.lineFields // narrow for the closure (TS2345)
+        setLines((prev) => [...prev, emptyRow(lf)])
+        pendingNewRowFocus.current = true
+      }
+      return
+    }
+    // header: advance field; last field → first grid cell
+    const card = el.closest('[data-doc-header]')
+    if (card) {
+      const fields = focusablesIn(card)
+      const idx = fields.indexOf(input)
+      if (idx >= 0 && idx < fields.length - 1) {
+        fields[idx + 1].focus()
+      } else {
+        focusablesIn(linesBodyRef.current ?? document.body)[0]?.focus()
+      }
+    }
+  }
+
   // ------------------------------------------------------------------ VIEW
   if (mode === 'view') {
     return (
@@ -154,11 +259,6 @@ export function DocScreen({
             {config.title}
             {docNo && <span className="ml-2 font-mono text-base text-slate-500">{docNo}</span>}
           </h1>
-          <div className="flex gap-1">
-            {config.agentTools.map((t) => (
-              <Badge key={t} variant="outline" className="text-[10px] font-mono">{t}</Badge>
-            ))}
-          </div>
         </div>
         <ChainBar state={chainState} currentStage={config.chainStage} ctx={chainCtx} />
         <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -201,12 +301,7 @@ export function DocScreen({
   return (
     <div
       className="space-y-4"
-      onKeyDown={(e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          if (phase === 'edit') save()
-        }
-      }}
+      onKeyDown={handleKeyDown}
     >
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-2">
@@ -217,11 +312,6 @@ export function DocScreen({
           </span>
         )}
         <div className="flex-1" />
-        <div className="flex gap-1">
-          {config.agentTools.map((t) => (
-            <Badge key={t} variant="outline" className="text-[10px] font-mono">{t}</Badge>
-          ))}
-        </div>
         <Button
           size="sm" variant="outline"
           onClick={() => openAgent(`Create a ${config.title.toLowerCase()} from the attached document — attach the buyer PO / invoice PDF with the paperclip, then ingest it and ask me for whatever details you still need.${header.orderNo ? ` The order is ${header.orderNo}.` : ''}`)}
@@ -252,7 +342,7 @@ export function DocScreen({
           className="space-y-4"
         >
           {/* Header card */}
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div data-doc-header className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
               {config.headerFields.map((f) => (
                 <div key={f.name} className={f.colSpan === 2 ? 'sm:col-span-2' : ''}>
@@ -351,7 +441,7 @@ export function DocScreen({
                       {qtyField && rateField && <th className="px-3 py-2 font-medium text-right">Amount</th>}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody ref={linesBodyRef} data-doc-lines>
                     {lines.map((row, i) => (
                       <tr key={i} className="border-t border-slate-100">
                         <td className="px-2 py-1.5 text-center">
@@ -464,7 +554,7 @@ export function DocScreen({
             <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={busy}>
               {busy ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Planning…</> : 'Save & review plan'}
             </Button>
-            <span className="text-[11px] text-slate-400">Ctrl+S · same service as the agent&apos;s {config.agentTools[0]}</span>
+            <span className="text-[11px] text-slate-400">Ctrl+S / F2 · Enter adds rows · same service as the agent&apos;s {config.agentTools[0]}</span>
           </div>
         </form>
       )}
@@ -512,6 +602,11 @@ export function DocScreen({
             <Check className="h-4 w-4" /> {plan?.summary}
           </div>
           <div className="flex flex-wrap gap-2">
+            {printHref && (
+              <Link href={printHref} className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100" title="F9">
+                <Printer className="h-3 w-3" /> Print
+              </Link>
+            )}
             {viewUrl && (
               <Link href={viewUrl} className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100">
                 View document <ArrowRight className="h-3 w-3" />

@@ -78,14 +78,14 @@ echo "  m11: flags-registry=$(grep -c "name: '" src/lib/erp/flags.ts) flags-test
 echo "  api-routes: $APIS"
 
 echo
-echo "[vs STATE.md claims — hardcoded from last verified 2026-08-29 m12 session (Playwright E2E; 115 items)]"
+echo "[vs STATE.md claims — hardcoded from last verified 2026-08-29 m17 session (Operator Reflex Pack; 115 items)]"
 check "agent tools (inline+factory+docTool + M9 get_live_activity)" "189" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "30"      "$FACTORY_CREATE"
 check "factory update tools"       "30"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4)" "65"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker)" "29"      "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows)" "30"      "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
@@ -113,7 +113,7 @@ check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
-check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index — Wave B +fetchers-b)" "5" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
+check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index + M17 doc-type-map)" "6" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
 check "m8-waveA print components (print-sheet/print-auto/doc-print-button)" "3" "$(ls src/components/erp/print-sheet.tsx src/components/erp/print-auto.tsx src/components/erp/doc-print-button.tsx 2>/dev/null | wc -l)"
 check "m8-waveA print doc families in registry (invoice/po/grn/payment/dc)" "5" "$(grep -cE '^  (invoice|po|grn|payment|dc): ' src/lib/erp/print/index.ts)"
 check "m8 print doc families in registry (Wave A 5 + Wave B 15)" "20" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
@@ -366,7 +366,9 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/admin/settings/page.tsx' \
          'src/app/(erp)/admin/settings/flags-admin.tsx' \
          tests/unit/flags-config.test.ts scripts/route_smoke_m11.sh \
-         scripts/m11_smoke_fixture.ts docs/CONTEXT/specs/SPEC-M11.md; do
+         scripts/m11_smoke_fixture.ts docs/CONTEXT/specs/SPEC-M11.md \
+         src/components/erp/register-rows.tsx src/lib/erp/print/doc-type-map.ts \
+         tests/unit/print-doc-map.test.ts docs/CONTEXT/specs/SPEC-M17.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 
