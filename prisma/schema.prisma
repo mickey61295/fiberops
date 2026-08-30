@@ -578,7 +578,9 @@ model SalesInvoice {
   roundOff     Float    @default(0)
   billAmount   Float    @default(0)
   ern          String? // Export Report Number
-  irn          String? // e-invoice IRN
+  irn          String? // e-invoice IRN (SPEC-M23 mock handshake)
+  irnAckNo     String? // SPEC-M23 — mock IRN acknowledgement no (10 digits)
+  ewbNo        String? // SPEC-M23 — mock e-Way Bill no (12 digits, only >₹50k consignments)
   status       String   @default("draft") // draft | issued | paid | cancelled
   createdAt    DateTime @default(now())
   @@index([createdAt])

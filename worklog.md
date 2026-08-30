@@ -1187,3 +1187,22 @@ Stage Summary:
 - The operator reflex surface shipped: a line tablet scans a QR → /production/entry?mode=keypad → big targets → plan → CONFIRM → WST-/PE-docNo screen. Same services, same audit trail.
 - Zero menu/route/tool/schema churn (a mode, not a surface).
 - Next: M23 e-invoice/e-way mock IRN (the last code task of this run).
+
+---
+Task ID: 33 (six-task run #2, final: M16 + hygiene + M20 + M21 + M22 + M23)
+Agent: main (Super Z)
+Task: M23 — mock e-invoice/e-way bill (SPEC-M23, gap-audit Gap D #11: "not even the v1-promised mock IRN exists (verified: zero code)").
+
+Work Log:
+- SPEC-M23 frozen BEFORE code: deterministic offline mock, real workflow rules (issued-only, one-IRN-per-invoice, ₹50k e-Way threshold), real formats (64-hex IRN over the REAL govt input tuple, 10-digit ack, 12-digit EWB); OUT: signing/QR image, cancellation, export ERN.
+- SalesInvoice +irnAckNo +ewbNo (additive nullable; models stay 78) — the irn field finally gets used.
+- src/lib/erp/einvoice.ts: irnTuple (seller AppOption print.gstin | buyer Party.gstin | invoiceNo | dd/mm/yyyy | value) → mockIrnFor (SHA-256), mockAckNoFor/mockEwbNoFor (hash-derived digits — BigInt avoided, target predates ES2020), planGenerateIrn (3 guards + threshold; commit = ONE update).
+- Doors: generate_einvoice_irn docTool (226) + invoice-view "Generate IRN (mock)" button → server action through runCommit — a genuine 14th commit door (context_check pin moved 13→14; first run door-count change since M15).
+- Surfaces: print meta +IRN Ack No +e-Way Bill No; view block w/ the honest "No e-Way — consignment ≤ ₹50,000" line.
+- Tests: einvoice.test NEW 10; pins (tools 226 ×7, docTool 54, schemas 41, doors 14).
+- Gates: tsc src/ 0 · 968 vitest · eval --static PASS · context_check 540→545/545 NO DRIFT · route_smoke_m23 15/15.
+
+Stage Summary:
+- Gap D #11 CLOSED. The second six-task run is COMPLETE: M16 dashboards (P2 queue done) + branch hygiene + M20 attendance + M21 waste receipt + M22 keypad mode + M23 mock e-invoice.
+- Run totals: 909→968 vitest; tools 222→226; models 77→78; menu 130→132; routes 163→165; context_check 516→545/545; six specs frozen (M16/M20/M21/M22/M23 + the hygiene chore); every milestone committed, tagged (m16/m20/m21/m22/m23) and PUSHED with the session PAT.
+- Next candidates for the next session: voice entry V (STT decision), pcs-despatch line-grid keypad, IRN cancellation, print QR image, P3 residuals (multi-company #1, barcode #2, holiday surfacing H).

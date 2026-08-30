@@ -113,6 +113,8 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
       ['Order', inv.order?.orderNo ?? '—'],
       ['Quantity', qty(inv.totalQty)],
       ...(inv.irn ? [['IRN', inv.irn] as [string, string]] : []),
+      ...(inv.irnAckNo ? [['IRN Ack No', inv.irnAckNo] as [string, string]] : []),
+      ...(inv.ewbNo ? [['e-Way Bill No', inv.ewbNo] as [string, string]] : []),
     ],
     lines: hasBody
       ? {

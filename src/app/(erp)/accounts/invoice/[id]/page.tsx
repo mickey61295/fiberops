@@ -13,8 +13,31 @@ import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
 import { ReconCard } from '@/components/erp/recon-card'
 import { invoiceRecon } from '@/lib/erp/registers/recon'
 import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
+import { planGenerateIrn } from '@/lib/erp/einvoice' // SPEC-M23 — mock e-invoice
+import { runCommit } from '@/lib/erp/audit'
+import { getSessionUser } from '@/lib/auth/current-user'
+import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
+
+/** SPEC-M23 — the FORM door of the mock e-invoice handshake: the same
+ *  planGenerateIrn the generate_einvoice_irn tool calls, through runCommit
+ *  (the M15 form-door audit pattern, the wage-bill precedent). */
+async function generateIrnAction(formData: FormData) {
+  'use server'
+  const invoiceNo = String(formData.get('invoiceNo') || '')
+  const plan = await planGenerateIrn({ invoiceNo })
+  if (!plan.ok) return // the button only renders on the eligible path; the
+  // agent door gives the full error UX — the form door fails soft here
+  const user = await getSessionUser().catch(() => null)
+  await runCommit(plan, {
+    actorName: user?.email ?? 'system',
+    actorSource: user ? 'form' : 'system',
+    slug: 'einvoice-irn',
+  })
+  revalidatePath(`/accounts/invoice/${invoiceNo}`)
+  revalidatePath('/accounts/invoice')
+}
 
 export default async function InvoiceViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -76,6 +99,32 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
             <> · order{' '}
               <Link href={`/orders/${inv.order.id}`} className="font-mono text-emerald-700 hover:underline">{inv.order.orderNo}</Link>
             </>
+          )}
+        </div>
+        {/* SPEC-M23 — the mock e-invoice handshake: stamped values, or the
+            Generate door on eligible (issued, not-yet-stamped) invoices */}
+        <div className="mt-3 border-t border-slate-100 pt-2 text-xs text-slate-600" data-testid="einvoice-block">
+          {inv.irn ? (
+            <div className="space-y-1">
+              <div><span className="font-semibold">IRN (mock):</span> <span className="font-mono break-all">{inv.irn}</span></div>
+              {inv.irnAckNo && <div><span className="font-semibold">IRN Ack No:</span> <span className="font-mono">{inv.irnAckNo}</span></div>}
+              {inv.ewbNo && <div><span className="font-semibold">e-Way Bill No (mock):</span> <span className="font-mono">{inv.ewbNo}</span></div>}
+              {!inv.ewbNo && <div className="text-slate-400">No e-Way Bill — consignment ≤ ₹50,000</div>}
+            </div>
+          ) : inv.status === 'issued' ? (
+            <form action={generateIrnAction} className="flex items-center gap-2">
+              <input type="hidden" name="invoiceNo" value={inv.invoiceNo} />
+              <button
+                type="submit"
+                className="rounded-md bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-white font-semibold"
+                data-testid="generate-irn-button"
+              >
+                Generate IRN (mock e-invoice)
+              </button>
+              <span className="text-slate-400">offline deterministic mock — SPEC-M23</span>
+            </form>
+          ) : (
+            <div className="text-slate-400">e-invoice (mock) needs an issued invoice</div>
           )}
         </div>
       </div>

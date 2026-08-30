@@ -81,6 +81,7 @@ import { PROGRAM_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/program-allotment'
 import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
 import { WASTE_RECEIPT_SCHEMA } from '@/lib/erp/schemas/stock-adj'
+import { EINVOICE_SCHEMA } from '@/lib/erp/schemas/einvoice'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -124,6 +125,7 @@ import { planProgramAllotment } from '@/lib/erp/posting/program-allotment'
 import { planProductionBill } from '@/lib/erp/posting/production-bill'
 import { planAttendance } from '@/lib/erp/posting/attendance'
 import { planWasteReceipt } from '@/lib/erp/posting/stock-adj'
+import { planGenerateIrn } from '@/lib/erp/einvoice'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -1762,6 +1764,13 @@ const docTools: AgentTool[] = [
     'accounting',
     PRODUCTION_BILL_SCHEMA,
     planProductionBill,
+  ),
+  docTool(
+    'generate_einvoice_irn',
+    'Generate the MOCK e-invoice IRN for an ISSUED sales invoice (SPEC-M23 — offline deterministic handshake: 64-hex IRN + 10-digit ack; e-Way Bill no only when the consignment exceeds ₹50,000). Required: invoiceNo. Guards: invoice must be issued and not already IRN-stamped. The IRN + Ack + e-Way rows appear on the invoice print/view.',
+    'accounting',
+    EINVOICE_SCHEMA,
+    planGenerateIrn,
   ),
   docTool(
     'receive_waste',
