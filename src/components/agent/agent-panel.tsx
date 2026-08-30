@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff } from 'lucide-react'
 import { toast } from 'sonner'
-import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, type VoiceSession } from '@/lib/agent/voice'
+import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, VOICE_SPEAK_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, getSpeechSynthesis, planSpeechText, speak, stopSpeaking, type VoiceSession } from '@/lib/agent/voice'
 
 interface AgentPanelProps {
   open: boolean
@@ -73,19 +73,34 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const voiceSessionRef = useRef<VoiceSession | null>(null)
   const voiceBaseRef = useRef('') // the pre-voice textarea tail base; interim = base + live text
   const voiceSupported = typeof window !== 'undefined' && getSpeechRecognition() !== null
+  // SPEC-M32 — the TTS confirm loop: the talking-panel toggle (default OFF —
+  // never surprise audio) + the pending-plan read-back
+  const [voiceSpeak, setVoiceSpeak] = useState(false)
+  const voiceSpeakRef = useRef(false) // the SSE-closure mirror (never stale)
+  const ttsSupported = typeof window !== 'undefined' && getSpeechSynthesis() !== null
 
   // Restore the persisted language on mount (client-only — SSR-safe default).
   useEffect(() => {
     const saved = window.localStorage.getItem(VOICE_LANG_STORAGE_KEY)
     if (saved && VOICE_LANGS.some((l) => l.code === saved)) setVoiceLang(saved)
+    setVoiceSpeak(window.localStorage.getItem(VOICE_SPEAK_STORAGE_KEY) === '1')
   }, [])
 
-  // Stop any live session when the panel closes (no orphaned mics).
+  // Keep the ref mirror in step (the SSE callback reads the ref).
   useEffect(() => {
-    if (!open && listening) {
-      voiceSessionRef.current?.stop()
-      voiceSessionRef.current = null
-      setListening(false)
+    voiceSpeakRef.current = voiceSpeak
+  }, [voiceSpeak])
+
+  // Stop any live session when the panel closes (no orphaned mics — and no
+  // orphaned AUDIO: the M32 twin of the mic discipline).
+  useEffect(() => {
+    if (!open) {
+      if (listening) {
+        voiceSessionRef.current?.stop()
+        voiceSessionRef.current = null
+        setListening(false)
+      }
+      stopSpeaking()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -284,7 +299,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                 }
                 return next
               })
-              // If write + has plan + has commit fn → pending approval
+              // If write + has plan + has commit fn → pending approval.
+              // SPEC-M32 — the TTS confirm loop: when the operator enabled the
+              // speaker, the review card READS ITS PLAN ALOUD (the legacy
+              // read-back reborn — eyes-busy/hands-busy shop floor).
               if (output?.isWrite && output?.plan && output?.hasCommitFn) {
                 setPendingApprovals((prev) => ({
                   ...prev,
@@ -296,6 +314,9 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                     messageId: assistantMsgId,
                   },
                 }))
+                if (voiceSpeakRef.current) {
+                  speak(planSpeechText(output.plan))
+                }
               }
               break
             }
@@ -366,6 +387,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       const data = await res.json()
       if (data.success) {
         toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)
+        if (voiceSpeakRef.current) speak('Committed.') // SPEC-M32 — the spoken ack
         setPendingApprovals((prev) => {
           const next = { ...prev }
           delete next[toolCallId]
@@ -386,6 +408,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       delete next[toolCallId]
       return next
     })
+    if (voiceSpeakRef.current) speak('Rejected.') // SPEC-M32 — the spoken ack
     toast.info('Plan rejected')
   }
 
@@ -647,6 +670,30 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                   className="h-7 px-2 text-[10px] font-semibold rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-50"
                 >
                   {VOICE_LANGS.find((l) => l.code === voiceLang)?.label ?? 'EN'}
+                </button>
+              )}
+              {/* SPEC-M32 — the talking-panel toggle: read pending plans +
+                  approve/reject acks aloud (default OFF — never surprise audio) */}
+              {ttsSupported && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !voiceSpeak
+                    setVoiceSpeak(next)
+                    window.localStorage.setItem(VOICE_SPEAK_STORAGE_KEY, next ? '1' : '0')
+                    if (!next) stopSpeaking()
+                  }}
+                  title={voiceSpeak
+                    ? 'Voice confirm ON — pending plans are read aloud. Click to silence.'
+                    : 'Voice confirm OFF — click to have pending plans read aloud (the legacy read-back)'}
+                  data-testid="voice-speak-toggle"
+                  className={`h-7 px-2 text-[10px] font-semibold rounded-md border ${
+                    voiceSpeak
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {voiceSpeak ? '🔊' : '🔇'}
                 </button>
               )}
               <Button

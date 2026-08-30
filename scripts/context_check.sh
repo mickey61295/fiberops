@@ -490,7 +490,8 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/legacy-aliases.ts \
          tests/unit/legacy-aliases.test.ts \
          docs/CONTEXT/specs/SPEC-M30.md \
-         docs/CONTEXT/specs/SPEC-M31.md; do
+         docs/CONTEXT/specs/SPEC-M31.md \
+         docs/CONTEXT/specs/SPEC-M32.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

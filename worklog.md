@@ -1378,3 +1378,19 @@ Stage Summary:
 - The delivery promise now speaks working days: the Order Hub runway tells the merchandiser how many days are actually workable, the chat answers planning arithmetic, and planFinishDate is the WF_PlanFinishDateArrival lineage reborn.
 - The seed is now holiday-idempotent (a data bug the M31 surface caught in its first hour — the pattern repeats: new surfaces find old data sins).
 - Fourth six-task run in progress: M32 voice TTS → M33 barcode → M34 terms master → M35 digest.
+---
+Task ID: 43 (fourth six-task run, task 3)
+Agent: main (Super Z)
+Task: M32 — voice TTS confirm loop (the M24 OUT promise: the legacy voice confirm was read-back).
+
+Work Log:
+- SPEC-M32 frozen BEFORE code: browser speechSynthesis only (the M24 browser-first ADR); plans speak ENGLISH (summaries are English — en-IN + rate 0.95); DEFAULT OFF (never surprise audio); OUT: server TTS, ta-IN plan speech, voice-command approval, text-answer read-back.
+- voice.ts: getSpeechSynthesis probe + PLAN_SPEECH_CAP 320 + PURE planSpeechText (summary + Creates/Updates counts + ≤3 side effects, singular/plural) + speak (cancel-first — the newest confirm moment wins; voice-by-lang-prefix; graceful no-ctor) + stopSpeaking.
+- agent-panel: the 🔇/🔊 toggle (fo.voiceSpeak localStorage, data-testid=voice-speak-toggle) + voiceSpeakRef SSE-closure mirror + the isPending → speak(planSpeechText(plan)) wiring + Approve→'Committed.'/Reject→'Rejected.' acks + panel-close stopSpeaking.
+- SANDBOX LESSON: background processes (the dev server) die between bash commands — the LIVE check became scripts/m32_live_check.sh (server + login + panel + toggle + persistence in ONE flow with dynamic ref discovery; refs shift after hydration).
+- LIVE: panel renders Voice/EN/🔇 → toggle ON → 🔊 + fo.voiceSpeak=1 → OFF → 0; zero console errors; screenshot m32-voice-confirm.png. The headless browser HAS speechSynthesis (toggle rendered = probe true).
+- Tests: voice.test +15 → 1072 vitest. Gates: tsc src/ 0 · eval --static PASS · context_check 564→565/565 NO DRIFT. Zero tools/menu/routes/schema change.
+
+Stage Summary:
+- The voice loop is closed: dictate the instruction (M24), HEAR the plan (M32), approve — the legacy read-back ritual reborn with zero dependencies.
+- Fourth six-task run in progress: M33 barcode → M34 terms master → M35 digest.
