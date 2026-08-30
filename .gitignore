@@ -70,3 +70,4 @@ db/e2e.db*
 tests/e2e/.e2e-state.json
 tests/e2e/.results/
 playwright-report/
+.analysis/

@@ -1466,3 +1466,20 @@ Stage Summary:
 - FOURTH SIX-TASK RUN COMPLETE AND VERIFIED: M30 legacy-alias hygiene · M31 working-day arithmetic · M32 voice TTS · M33 barcode bundle flow · M34 terms master · M35 digest holidays.
 - Run totals: 1036→1112 vitest (+76) · tools 228→230 · models 78 (stays) · context_check 565→574 · 6 specs frozen (SPEC-M30…M35) · 6 route smokes NEW (m30…m35) · every surface LIVE browser-verified (4 with VLM confirmation).
 - The planned backlog is now EMPTY: convergence plan Phases 0-4 done, gap-audit §7 + §8 closed, all four six-task runs shipped.
+---
+Task ID: 48 (loomerp phase, task 1)
+Agent: main (Super Z)
+Task: Marker commit + two-repo deep analysis kickoff (owner's message: commit/push everything, empty "starting loomerp analysis" commit, polish complaints list, study loomERP-placeholder@AI_updates code-only w/o AI + w/o docs, present findings).
+
+Work Log:
+- Git: working tree clean, all M30-M35 committed+tagged from prior session (fourth six-task run complete). Empty marker commit 0d8f632 "starting loomerp analysis" created per owner instruction.
+- Push BLOCKED (verified): no PAT (scrubbed at third-run close-out), no SSH key, no credential helper, no gh CLI — 12 commits + 57 tags stack locally, ready to push on credentials.
+- loomERP clone BLOCKED: repo is PRIVATE (anonymous public-repo clone works from this env; loomERP-placeholder demands auth). Needs PAT re-supply or temp-public. Constraints logged: skip all AI code there, ignore their docs, copy nothing.
+- Deep analysis of OUR repo executed (two parallel Explore agents + own spot-verification): full inventory (168 routes, 132 live menu items, 230 tools, 78 models, 23 print docs, 28 reports, 36 registers, 41 masters) + 28-finding partially-finished audit (5H/8M/15L).
+- LIVE browser verification (admin@fiberpro.local, dev server :3000): (1) AI chat "weird text" ROOT-CAUSED — route.ts:273 chunker regex /.{1,4}/g strips ALL newlines (rendered msg newlineCount=0) + no markdown rendering (agent-panel.tsx:468 raw text; react-markdown installed but never imported); (2) chat file upload WORKS end-to-end (CSV → chip → list_documents + extract_document → correct 3-PO answer, zero console errors); (3) user profile screen CONFIRMED ABSENT (inert topbar chip); (4) /admin CONFIRMED 404 live (dead breadcrumb from 4 admin screens — the "admin management screen is not there" feel); (5) toaster bug CONFIRMED live — sonner toast() called by 20 components, sonner Toaster never mounted (sonnerToasterMounted:false in DOM).
+- Evidence: screenshots download/loom-analysis/chat-raw-markdown.png + admin-404.png; test artifact .analysis/test-po-upload.csv (gitignored).
+- Findings doc: docs/ANALYSIS/2026-08-30-loomerp-phase-app-audit.md (inventory + verified complaints + 28 findings + P0/P1/P2 next-phase queue).
+
+Stage Summary:
+- The "partially finished" feeling is now a precise, evidence-backed list; the four owner complaints all verified with root causes (two are one-line fixes).
+- Next: owner supplies PAT → push 12 commits+tags AND clone loomERP for the gap comparison (code-only, no AI, no docs); then the P0 polish queue (toaster, regex, markdown, /admin hub, approval buttons).
