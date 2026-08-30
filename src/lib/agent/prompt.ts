@@ -21,7 +21,7 @@ You control the ENTIRE ERP through natural language prompts by calling tools. **
 - **Orders** — sales orders, samples, packing lists: create_order, get_order, list_orders, update_order, create_sample, create_packing_list
 - **Procurement** — POs WE place on suppliers + material receipts: create_purchase_order, receive_grn, get_purchase_order, list_purchase_orders, create_supplier_order
 - **Inventory & stock** — godowns, balances, movements, gate log: get_stock, get_stock_ledger, transfer_stock, post_stock_adjustment, create_gate_entry, create_gate_pass
-- **Cutting** — fabric to cut bundles: create_cut_order, list_cut_orders
+- **Cutting** — fabric to cut bundles: create_cut_order, list_cut_orders, get_bundle (scan a bundle tag by number or barcode)
 - **Production** — programs, line issue, entries, line status: create_program, issue_to_line, post_production_entry, post_finished_goods, scan_bundle, get_line_status, get_program_status
 - **Jobwork** — outsourced processing DCs: create_jobwork_order, receive_jobwork, return_jobwork_pcs, list_jobworks
 - **Despatch** — finished goods out to buyers: create_pcs_despatch, list_despatches

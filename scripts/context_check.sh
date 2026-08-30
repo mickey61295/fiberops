@@ -79,7 +79,7 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn + M31 working-days)" "228" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn + M31 working-days + M33 get_bundle)" "229" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
@@ -113,10 +113,10 @@ check "m7-waveB guarded API route files (erp/agent/agent-approve/upload/seed + M
 check "m7-waveB cookie fixture scripts using api-auth.mjs" "3" "$(grep -l "lib/api-auth.mjs" scripts/test_ingest.mjs scripts/eval_ingest.mjs scripts/test_money_loop.mjs 2>/dev/null | wc -l)"
 check "m7-waveC middleware imports rights + menu-registry (per-route check)" "2" "$(grep -cE "from '@/lib/(auth/rights|erp/menu-registry)'" src/middleware.ts)"
 check "m7-waveC fo_rights set at both login doors (login + bootstrap)" "2" "$(grep -l 'setLoginCookies' src/app/api/auth/login/route.ts src/app/api/auth/bootstrap/route.ts 2>/dev/null | wc -l)"
-check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index + M17 doc-type-map + M18 fetchers-order + M27 qr)" "8" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
+check "m8 print lib files (types/amount-words/fetchers/fetchers-b/index + M17 doc-type-map + M18 fetchers-order + M27 qr + M33 barcode)" "9" "$(ls src/lib/erp/print/*.ts 2>/dev/null | wc -l)"
 check "m8-waveA print components (print-sheet/print-auto/doc-print-button)" "3" "$(ls src/components/erp/print-sheet.tsx src/components/erp/print-auto.tsx src/components/erp/doc-print-button.tsx 2>/dev/null | wc -l)"
 check "m8-waveA print doc families in registry (invoice/po/grn/payment/dc)" "5" "$(grep -cE '^  (invoice|po|grn|payment|dc): ' src/lib/erp/print/index.ts)"
-check "m8 print doc families in registry (Wave A 5 + Wave B 15 + M18 order)" "21" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
+check "m8 print doc families in registry (Wave A 5 + Wave B 15 + M18 order + M33 bundle labels ×2)" "23" "$(grep -cE "^  '?[a-z-]+'?: fetch" src/lib/erp/print/index.ts)"
 check "m8-waveA print door on doc view pages" "5" "$(grep -l 'DocPrintLink' 'src/app/(erp)/accounts/invoice/[id]/page.tsx' 'src/app/(erp)/procurement/po/[id]/page.tsx' 'src/app/(erp)/procurement/grn/[id]/page.tsx' 'src/app/(erp)/accounts/payments/[id]/page.tsx' 'src/app/(erp)/jobwork/order/[id]/page.tsx' 2>/dev/null | wc -l)"
 check "m8 print doors on doc view pages (Wave A 5 + Wave B 14 files + M18 Order Hub; gate-view covers 2 routes)" "20" "$(grep -rl 'DocPrintLink' 'src/app/(erp)' --include='page.tsx' --include='gate-view.tsx' 2>/dev/null | wc -l)"
 check "m9 tracker service file (one service, two doors)" "1" "$(ls src/lib/erp/tracker.ts 2>/dev/null | wc -l)"
@@ -491,7 +491,12 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/legacy-aliases.test.ts \
          docs/CONTEXT/specs/SPEC-M30.md \
          docs/CONTEXT/specs/SPEC-M31.md \
-         docs/CONTEXT/specs/SPEC-M32.md; do
+         docs/CONTEXT/specs/SPEC-M32.md \
+         src/lib/erp/print/barcode.ts \
+         tests/unit/print-barcode.test.ts \
+         tests/fixtures/code128-reference.json \
+         scripts/gen_code128_fixture.py \
+         docs/CONTEXT/specs/SPEC-M33.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

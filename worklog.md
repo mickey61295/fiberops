@@ -1394,3 +1394,25 @@ Work Log:
 Stage Summary:
 - The voice loop is closed: dictate the instruction (M24), HEAR the plan (M32), approve — the legacy read-back ritual reborn with zero dependencies.
 - Fourth six-task run in progress: M33 barcode → M34 terms master → M35 digest.
+---
+Task ID: 44 (fourth six-task run, task 4)
+Agent: main (Super Z)
+Task: M33 — barcode bundle flow (gap-audit P3 #2, the SPEC-M9 §9 parked item; the CutBundle.barcode data existed since M3 with zero visual artifact).
+
+Work Log:
+- Session opened on the SEVENTH parallel-session artifact: local a390a30 (user's db/custom.db binary commit, UUID message) carrying M33 PREP — scripts/gen_code128_fixture.py + tests/fixtures/code128-reference.json (python-barcode ground truth, the jsQR discipline 1D edition). Fixture EXTENDED +8 samples for the C-start paths → 14 ground-truth encodings.
+- SPEC-M33 frozen BEFORE code: vendored Code128 B+C encoder + bundle-labels/bundle-label print docTypes + PrintSheet label-card grid + get_bundle tool (G5); OUT: hardware scanners, Code A, GS1-128.
+- NEW src/lib/erp/print/barcode.ts: python-barcode's state machine ported literally (charset C initial, digit-run ≥4 → TO_C, lone odd digit buffer flush via TO_B, START collapse). GATE CATCH #1: the hand-typed CODES table had 46 drift errors → table GENERATED from the fixture (never hand-type). GATE CATCH #2: _try_to_optimize ALSO collapses START_C+99 (the '99' digit pair ≡ TO_C) — '99' failed 13/14 until ported. Final parity: 14/14 BYTE-IDENTICAL.
+- TS lessons: narrowing-proof charset read (closure defeats flow analysis — the state machine mutates mid-block); Map tuple + 'asc' const widening.
+- Print surfaces: PrintDoc.labels + PrintLabelCard (types.ts); PrintSheet 2-col label-card grid (data-testid=label-cards / label-barcode-N); fetchBundleLabelsPrint (cut order → N cards, ordered) + fetchBundleLabelPrint (reprint by bundleNo/barcode/id, safeDecode for the %2F path form); PRINT_DOCS registry 21→23; DocPrintLink +label prop; cut-order view 'Print bundle labels' door.
+- print-doc-map no-orphan invariant AMENDED honestly (NON_CONFIG_DOORS allowlist — the label docTypes ride the cut-order view link + the get_bundle tool); registry pins updated ×3 test files.
+- agent tool get_bundle (228→229, read/cutting — the scan reflex chat-reachable; resolves bundleNo/barcode/id + labelPrint deep link; pins ×9 files; SYSTEM_PROMPT cutting line).
+- FIXTURE SURGERY: the parallel-session db commit had degraded the LPP PO regression fixture (orders kept exact pcs/values but lost 696GJ link + USD flag → eval --static 13/15). NEW scripts/repair_lpp_fixture.ts (idempotent) — 15/15 PASS again.
+- Tests: print-barcode.test NEW 19 (parity ×2 + a test-local DECODER round-trip + valueB identity + C-start/'99' pins + SVG ×4 + fetchers ×4 service-level + registry/tool pins + source pins ×4) → 1091 vitest.
+- Gates: tsc src/ 0 · 1091 vitest · eval --static PASS 15/15 · context_check 565→570/570 NO DRIFT (print lib 9, families 23, tools 229) · NEW route_smoke_m33 17/17 · LIVE browser-verified (login → cut order view → Print bundle labels → 3 cards + 3 Code128 SVGs + barcode text; zero console errors; screenshot m33-bundle-labels.png, VLM-confirmed bars + meta rows).
+
+Stage Summary:
+- The bundle barcode is now a PHYSICAL artifact: the cutter prints Code128 sticker labels per cut order, and the scan reflex is chat-reachable (get_bundle) with a reprint deep link.
+- The M27 verification discipline repeats: independent-encoder parity caught two real bugs in the first hour (46-entry table drift + the missing TO_C collapse rule).
+- Push still pending (no PAT this session); committed+tagged m33 locally.
+- Fourth six-task run in progress: M34 terms master → M35 digest holidays.

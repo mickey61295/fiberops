@@ -189,7 +189,7 @@ describe('M8 Wave B print docs (SPEC-M8 §6)', () => {
   it('registry: Wave B adds the 15 families (21 total with M18 order)', () => {
     const types = getPrintDocTypes()
     for (const t of WAVE_B_TYPES) expect(types).toContain(t)
-    expect(types).toHaveLength(21)
+    expect(types).toHaveLength(23) // 21 + SPEC-M33 bundle labels
   })
 
   it('debit-note: DEBIT NOTE with party + words', async () => {

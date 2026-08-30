@@ -38,7 +38,11 @@ export default async function CutOrderViewPage({ params }: { params: Promise<{ i
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <DocBreadcrumb href="/cutting/job-order" label="Cut Orders" title={cut.cutNo} />
-        <DocPrintLink docType="cut-order" id={cut.cutNo} />
+        <div className="flex gap-2">
+          <DocPrintLink docType="cut-order" id={cut.cutNo} />
+          {/* SPEC-M33 — the bundle sticker sheet (one Code128 label per bundle) */}
+          <DocPrintLink docType="bundle-labels" id={cut.cutNo} label="Print bundle labels" />
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium capitalize text-slate-600">

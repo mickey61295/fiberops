@@ -106,6 +106,33 @@ export async function PrintSheet({ doc, size = 'regular', autoPrint = true }: { 
         ) : null}
       </div>
 
+      {/* SPEC-M33 — bundle label cards (2-col sticker grid; present = label
+          sheet mode — the cards ARE the payload, party/lines/totals stay off) */}
+      {doc.labels && doc.labels.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-3" data-testid="label-cards">
+          {doc.labels.map((card, i) => (
+            <div key={card.heading} className="border border-slate-400 p-2.5 break-inside-avoid">
+              <div className="flex items-baseline justify-between border-b border-slate-300 pb-1">
+                <div className="text-[13px] font-bold font-mono">{card.heading}</div>
+                <div className="text-[9px] uppercase tracking-widest text-slate-500">Bundle</div>
+              </div>
+              <div className="mt-1">
+                {card.meta.map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-2 py-[1px] text-[10px]">
+                    <span className="text-slate-500">{label}</span>
+                    <span className="font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 flex flex-col items-center" data-testid={`label-barcode-${i}`}>
+                <div dangerouslySetInnerHTML={{ __html: card.barcode }} />
+                <div className="font-mono text-[9px] tracking-wider text-slate-700">{card.barcodeText}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* line table */}
       {doc.lines && doc.lines.rows.length > 0 && (
         <table className="mt-3 w-full border-collapse border border-slate-400 text-[11px]">

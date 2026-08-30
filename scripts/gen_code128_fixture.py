@@ -22,6 +22,16 @@ samples = [
     'SO-1042',
     'ABC-abc-0123',
     'LPP-696GJ',
+    # SPEC-M33 §1: code-set-C coverage — digit-LEADING texts start in C
+    # directly (no START_B collapse), odd digit counts exercise the buffer.
+    '1234',            # 4 digits → START C, two pairs, no B at all
+    '001',             # odd digit run → C pair + buffered '1' flushed via TO_B
+    '12',              # one C pair, minimal C-only symbol
+    '1042AB',          # digit-lead then letters → C pairs, TO_B mid-stream
+    'SO-1041',         # 4-digit run then ODD single trailing digit
+    'X',               # single letter → pure START B one-char minimal
+    '99',              # pure two-digit → START C one pair
+    'CUT-0009/B12',    # the bundleNo format, 2-digit bundle suffix
 ]
 encodings = {}
 for text in samples:

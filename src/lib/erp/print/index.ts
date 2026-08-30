@@ -14,6 +14,8 @@ import {
   fetchCostSheetPrint,
   fetchExpensePrint,
   fetchCutOrderPrint,
+  fetchBundleLabelsPrint,
+  fetchBundleLabelPrint,
   fetchGateEntryPrint,
   fetchGatePassPrint,
   fetchSamplePrint,
@@ -40,6 +42,9 @@ export const PRINT_DOCS: Record<string, PrintFetcher> = {
   'cost-sheet': fetchCostSheetPrint,
   expense: fetchExpensePrint,
   'cut-order': fetchCutOrderPrint,
+  // SPEC-M33 — the bundle sticker sheet (cut order) + the single reprint
+  'bundle-labels': fetchBundleLabelsPrint,
+  'bundle-label': fetchBundleLabelPrint,
   'gate-entry': fetchGateEntryPrint,
   'gate-pass': fetchGatePassPrint,
   sample: fetchSamplePrint,

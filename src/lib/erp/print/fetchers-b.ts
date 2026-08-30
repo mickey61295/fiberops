@@ -10,13 +10,24 @@
  * #21) are resolved via explicit lookups, exactly like the view pages.
  */
 import { db } from '@/lib/db'
-import type { PrintDoc, PrintParty } from './types'
+import type { PrintDoc, PrintParty, PrintLabelCard } from './types'
 import { amountInWords } from './amount-words'
 import { d, inr, qty, partyBlock, getCompanyName } from './fetchers'
+import { code128Svg } from './barcode'
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const co = () => getCompanyName()
 const clean = (s: string | null | undefined) => (s && s.trim() ? s : undefined)
+
+/** decodeURIComponent that never throws (malformed % sequences pass through). */
+function safeDecode(s: string): string | null {
+  try {
+    const d = decodeURIComponent(s)
+    return d !== s ? d : null
+  } catch {
+    return null
+  }
+}
 
 /** Free-FK party lookup (PITFALLS #21) → PrintParty | undefined. */
 async function partyById(partyId: string | null | undefined, label: string): Promise<PrintParty | undefined> {
@@ -256,6 +267,104 @@ export async function fetchCutOrderPrint(idOrNo: string): Promise<PrintDoc | nul
     ],
   }
 }
+
+// ── SPEC-M33 — bundle labels (the physical sticker sheet) ─────────────────
+// bundle-labels: ONE cut order → one card per bundle (the sheet the cutter
+// sticks on every 100-pc bundle). bundle-label: the single torn-label
+// reprint, resolving by bundleNo / barcode / db id.
+async function bundleLabelCards(bundles: {
+  bundleNo: string; barcode: string; colourId: string | null; sizeId: string | null; qty: number
+}[], orderNo: string, styleNo: string | null): Promise<PrintLabelCard[]> {
+  // free-FK colour/size lookups (PITFALLS #21)
+  const colourIds = new Set(bundles.map((b) => b.colourId).filter(Boolean) as string[])
+  const sizeIds = new Set(bundles.map((b) => b.sizeId).filter(Boolean) as string[])
+  const [colours, sizes] = await Promise.all([
+    colourIds.size ? db.colour.findMany({ where: { id: { in: [...colourIds] } }, select: { id: true, name: true } }) : [],
+    sizeIds.size ? db.size.findMany({ where: { id: { in: [...sizeIds] } }, select: { id: true, name: true } }) : [],
+  ])
+  const colourById = new Map<string, string>(colours.map((c) => [c.id, c.name] as [string, string]))
+  const sizeById = new Map<string, string>(sizes.map((s) => [s.id, s.name] as [string, string]))
+
+  return bundles.map((b) => ({
+    heading: b.bundleNo,
+    meta: [
+      ['Order', orderNo],
+      ...(styleNo ? [['Style', styleNo] as [string, string]] : []),
+      ...(b.colourId && colourById.get(b.colourId) ? [['Colour', colourById.get(b.colourId)!] as [string, string]] : []),
+      ...(b.sizeId && sizeById.get(b.sizeId) ? [['Size', sizeById.get(b.sizeId)!] as [string, string]] : []),
+      ['Qty', `${qty(b.qty)} pcs`],
+    ],
+    barcode: code128Svg(b.barcode),
+    barcodeText: b.barcode,
+  }))
+}
+
+export async function fetchBundleLabelsPrint(idOrNo: string): Promise<PrintDoc | null> {
+  const include = { order: { include: { style: true } }, bundles: { orderBy: { bundleNo: 'asc' as const } } }
+  let cut = await db.cutOrder.findUnique({ where: { id: idOrNo }, include }).catch(() => null)
+  if (!cut) cut = await db.cutOrder.findUnique({ where: { cutNo: idOrNo }, include })
+  if (!cut) return null
+
+  const orderNo = cut.order?.orderNo ?? '—'
+  const styleNo = cut.order?.style?.styleNo ?? null
+  const cards = await bundleLabelCards(cut.bundles, orderNo, styleNo)
+
+  return {
+    docType: 'bundle-labels',
+    title: 'BUNDLE LABELS',
+    docNo: cut.cutNo,
+    docDate: d(cut.cutDate),
+    meta: [
+      ['Order', orderNo],
+      ...(styleNo ? [['Style', styleNo] as [string, string]] : []),
+      ['Bundles', String(cards.length)],
+      ['Total Pcs', qty(cut.totalPcs)],
+      ['Status', cap(cut.status)],
+    ],
+    labels: cards,
+    notes: [
+      'One label per bundle — stick on the bundle tie before despatch to sewing.',
+      'Scan the barcode at Production → Bundle / Barcode Entry to post output.',
+    ],
+  }
+}
+
+export async function fetchBundleLabelPrint(idOrNo: string): Promise<PrintDoc | null> {
+  // bundleNo carries '/' (CUT-0001/B1) — the print route's [id] param may
+  // arrive URL-encoded (%2F, Next keeps it encoded in dynamic segments) or
+  // raw. Try both, then the barcode and the db id.
+  const candidates = [idOrNo, safeDecode(idOrNo)]
+  let bundle: Awaited<ReturnType<typeof db.cutBundle.findUnique>> | null = null
+  for (const key of candidates) {
+    if (bundle || !key) continue
+    bundle = await db.cutBundle.findUnique({ where: { bundleNo: key } }).catch(() => null)
+    if (!bundle) bundle = await db.cutBundle.findUnique({ where: { barcode: key } }).catch(() => null)
+    if (!bundle) bundle = await db.cutBundle.findUnique({ where: { id: key } }).catch(() => null)
+  }
+  if (!bundle) return null
+
+  const cut = bundle.cutOrderId
+    ? await db.cutOrder.findUnique({ where: { id: bundle.cutOrderId }, include: { order: { include: { style: true } } } }).catch(() => null)
+    : null
+  const orderNo = cut?.order?.orderNo ?? '—'
+  const styleNo = cut?.order?.style?.styleNo ?? null
+  const cards = await bundleLabelCards([bundle], orderNo, styleNo)
+
+  return {
+    docType: 'bundle-label',
+    title: 'BUNDLE LABEL',
+    docNo: bundle.bundleNo,
+    docDate: cut ? d(cut.cutDate) : new Date().toISOString().slice(0, 10),
+    meta: [
+      ['Order', orderNo],
+      ['Cut Order', cut?.cutNo ?? '—'],
+      ['Status', cap(bundle.status.replace(/_/g, ' '))],
+    ],
+    labels: cards,
+    notes: ['Reprint — original labels print with the cut order (Print bundle labels).'],
+  }
+}
+
 
 // ── gate-entry / gate-pass: ONE model, gateType variants (§4 rule-2) ──────
 async function fetchGatePrint(idOrNo: string, gateType: 'in' | 'out'): Promise<PrintDoc | null> {

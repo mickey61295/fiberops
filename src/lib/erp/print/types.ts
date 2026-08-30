@@ -53,6 +53,21 @@ export interface PrintDoc {
   qr?: string
   /** Label under the QR, e.g. 'Scan to verify (mock IRN)'. */
   qrLabel?: string
+  /** SPEC-M33 — bundle label cards (the cut-order sticker sheet). Present =
+   *  label-card grid mode: one Code128 barcode per bundle, 2 columns. */
+  labels?: PrintLabelCard[]
+}
+
+/** SPEC-M33 — one physical bundle sticker: heading + meta rows + Code128 SVG. */
+export interface PrintLabelCard {
+  /** Card heading, e.g. the bundleNo 'CUT-0001/B1' */
+  heading: string
+  /** Key-value rows (order, style, colour, size, qty…) */
+  meta: PrintMetaRow[]
+  /** Inline Code128 SVG of CutBundle.barcode */
+  barcode: string
+  /** Human-readable barcode text under the bars */
+  barcodeText: string
 }
 
 /** Registry entry: a docType's fetcher (resolves by db id OR doc no). */

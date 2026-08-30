@@ -63,11 +63,11 @@ export function DocPrintButton({ docType, id }: { docType: string; id: string })
 }
 
 /** Link variant (doc view pages): opens the print route. */
-export function DocPrintLink({ docType, id }: { docType: string; id: string }) {
+export function DocPrintLink({ docType, id, label = 'Print' }: { docType: string; id: string; label?: string }) {
   return (
     <Button asChild size="sm" variant="outline">
       <Link href={`/print/${docType}/${encodeURIComponent(id)}?copy=original`}>
-        <Printer className="h-3.5 w-3.5 mr-1" /> Print
+        <Printer className="h-3.5 w-3.5 mr-1" /> {label}
       </Link>
     </Button>
   )
