@@ -1627,3 +1627,19 @@ Stage Summary:
 - Dive 3 verdict: owner issue 1 = 4 stacked render defects (2 known PRD-P0 + remark-gfm missing + no prompt formatting contract); issue 2 = the model never learns approve/reject/commit outcomes while the prompt demands it — single highest-leverage fix is ~20 lines of synthetic outcome events; issue 3 = yes, and cheapest win in the dive (76 authored agentPrompts + findItemByRoute + one ctx POST field; also fixes context-blindness).
 - Consolidation: ~110 findings total across 3 dives; 11 P0s; PRD A-J covers platform but misses loop-closure bugs, agent QoL beyond P0 queue, payroll, final accounts, stock take, backup/TZ, invoice-lines-before-G.
 - Deliverables: 2 new analysis docs (committed); no code changed.
+---
+Task ID: 54
+Agent: main (Super Z)
+Task: Owner asked to "create a detailed spec file for all these requirements and fixes" — turn the consolidated findings (dives 1-3 + register) into an implementable engineering specification.
+
+Work Log:
+- Read all four source docs (dives 1-3 + consolidated gap register) in full; re-verified 5 load-bearing evidence citations verbatim (route.ts:273 chunk regex, agent-panel.tsx:467 raw-text render, tools.ts:1631 {text:error} no error field, approve/route.ts:24-38 re-execute + updateMany-all-turns, recovery_drill.sh:40 --accept-data-loss).
+- Wrote docs/PRD/PHASE-6B-REMEDIATION-SPEC.md (committed 509d791): 90 requirements / 11 batches / 18 sections. ID scheme: HFX 19 (13 correctness one-liners + 6 render-stack), OPS 5, CHAT 12, JWL 9, PAY 8, PRC 9, INV 8, PRG 5, K 4, L 6, M 5. Each FR = requirement + acceptance criteria as observable behavior; each batch = problem (evidence-cited) + FR table + design notes + tests + effort + deps. Plus: §14 five PRD amendments (AM-1 SalesInvoiceLine-before-G owner flag), §15 loop-closure test family (6 seams, both doors), §16 sequencing table (~9-11 batches; minimal path = 0+1+2+tests), §17 eight open decisions, §18 theme traceability.
+- Resolved dive-2 vs register inconsistency: vitest DB pinning lives in Batch 0 (HFX-13), not Batch 1.
+- Formal docx via docx skill (established Task-50 pattern): scripts/gen_phase6b_docx.js — R1 cover/GO-1 palette, 3 sections (cover / Document Control + TOC roman / body arabic start=1), markdown-driven generation (multi-line paragraph join, escaped-pipe cells, *italic* inline, bullets, numbered items, shape-keyed column widths). Two bugs found+fixed during verification: (1) md line-reflow hazard — a wrapped line starting "- 0.01" parsed as a bullet, splitting the Batch-4 problem paragraph (fixed source); (2) docx-js PERCENTAGE cell widths under FIXED layout write degenerate tblGrid (all 100s) which LibreOffice honors → equal-width columns; fixed with explicit DXA columnWidths (common-rules workaround).
+- Pipeline: gen → add_toc_placeholders --auto (20 headings) → patch_phase6b_docx_footers.py (ROMAN/arabic switches + empty pgNumType strip) → postcheck 9/9, 0 errors, 0 warnings; LibreOffice PDF render verified (cover, doc control, TOC, FR tables, 4/5-col tables) — 21 pages. Deliverable: download/FiberPro-Phase6B-Remediation-Spec.docx (committed cf794d9 with scripts; docx itself gitignored per repo convention).
+
+Stage Summary:
+- The spec is the implementation contract for the entire remediation program: every dive finding now has a stable FR ID, acceptance criteria, batch, dependencies, and test hook; dives 1-3 + register remain the evidence layer, PHASE-6B-REMEDIATION-SPEC.md is the build layer.
+- Sequencing: Batches 0-2 (hotfix + ops + chat QoL, ~2-3 weeks) close all three owner chatbot issues and make numbers trustworthy; 3-6 close the six seams; 7/K/L/M are depth amendments; AM-1 (SalesInvoiceLine) gates Phase-6 Module G.
+- No production code changed this session (docs + generator scripts only).
