@@ -1577,3 +1577,19 @@ Stage Summary:
 - VERDICT: production/quality is fully TRANSACTIONAL and backward-looking; planning is limited to Order.deliveryDate + Program.targetDate + GovtHoliday working-day runway (M31). Eight target capabilities ALL absent: TNA calendar, capacity forecast vs order book, line loading/scheduling, SAM/line-balancing (beyond a dormant Style.sam column), machine PM/breakdown/OEE, AQL sampling, DHU tracking, 4-point fabric grading.
 - Structural seams a PRD can build on: the dormant PCS stage pipeline (schema columns + movement matrix + PCS_TXN_TYPES ready; needs Stage/RejectionType/PcsStock models), the Line/Machine capacityPcsPerHour masters, the 15-stage chain as a TNA backbone, the LabTest.values JSON precedent, and the Shift master for hourly capture.
 - Findings delivered verbatim-ready with exact file:line citations; no project files modified (research only).
+---
+Task ID: 51
+Agent: main (Super Z)
+Task: Owner asked whether our Order and Program forms function the way legacy FiberPro's did — line items, cost projection, everything. Deep-dive comparison analysis.
+
+Work Log:
+- Evidence audit (source-erp tree is gone; legacy reconstructed from form-taxonomy.json, PLAN-2.0-MENU-PARITY, GAP-ANALYSIS-FIBERPRO, SPEC-M3/M5, legacy-enums.ts, and the ported ProgBalance schema columns).
+- Read our full chain: doc-configs order/program/cost-sheet/costing-input/program-allotment + posting order/program/cost-sheet + schemas/order.ts + registers/program-status.ts + projectors.ts + reports (cost-sheet-summary, daily-unit-pnl) + Order Hub cost card + order print grid.
+- ORDER: skeleton is faithful parity (SO-####, colour/size/qty/rate lines, auto totals, amendment/close/enquiry, Excel paste, print w/ HSN+FX, rate memory). Gaps: no buyer-PO ref field (696GJ rides notes), single style enforced though OrderLine.styleId allows per-line styles, single deliveryDate (multi-shipment = split orders), domestic/trading variants folded (no orderType flag).
+- PROGRAM: core parity (PGM-####, stage→dept STAGE_DEPT, required qty, allotment, cancel/complete). Gaps: ProgBalanceFabric carries colourId/designId/finDiaId/finGsm/ll (the knitting physics) but NO writer anywhere — legacy had FrmPrg_GSM_LL_EditEntry; the 9-column balance waterfall (req→po→dc→grn→progComp→finished) is dead except reqKgs (projectors.ts only called by the dormant posting-engine); register shows required/actual/balance from ledger, not the waterfall; no yarn-cons entry, no accessories program, no component-wise cancel; requirements hand-typed (no BOM×qty computation despite BomLine.rate existing).
+- COST PROJECTION (biggest divergence): our CostSheet = 6 hand-typed heads, naive sum, marginPct stored-not-computed (sideEffects 'Margin % recalculated' is aspirational copy), versions good. Legacy had FrmPreCostingCompMas (component master) + Frm_CostingInput multi-level + Frm_ProductionCost actuals rollup + pre-budget prod plan + Sp_DailyUnitPANDL. Our daily-unit-pnl = wage-margin only (amount − shiftWages − expenses, no material). cost-sheet-summary = list over stored rows, not computation.
+- Findings doc: docs/ANALYSIS/2026-08-30-order-program-forms-vs-legacy.md — scorecard (9 parity / 5 better-or-parity / 8 gaps / 3 thinner) + 6 recommendations (~3-4 batches): Module K costing depth (BOM×qty computed per-pc cost, computed margin, est-vs-actual), ledger-derived waterfall columns on program-status register, GSM/LL form fields, BOM→program pre-fill, buyerPoRef/orderType/OrderDelivery schema additions; drop/park knitting-party inclusion + compwise cancel + order groups.
+
+Stage Summary:
+- Answer: skeleton yes (deliberate port), depth no in 3 places — cost projection is a snapshot not a calculator, program lost the knitting physics (GSM/LL orphaned columns), balance waterfall 80% dormant.
+- None of these gaps are in the Phase-6 PRD (A-J) — recommendations proposed as Module K + program-flow extensions (~3-4 batches to close every gap row).
