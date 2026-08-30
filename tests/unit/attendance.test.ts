@@ -163,7 +163,7 @@ describe('SPEC-M20 §4 — agent tools', () => {
     expect(json.some((r) => r.code === E1)).toBe(true)
   })
 
-  it('registry grew 222 → 224 (the two M20 tools)', () => {
-    expect(allTools.length).toBe(224)
+  it('registry grew 222 → 225 (the two M20 tools)', () => {
+    expect(allTools.length).toBe(225)
   })
 })

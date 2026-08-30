@@ -80,6 +80,7 @@ import { CONTRACT_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/contract-allotment'
 import { PROGRAM_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/program-allotment'
 import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
+import { WASTE_RECEIPT_SCHEMA } from '@/lib/erp/schemas/stock-adj'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -122,6 +123,7 @@ import { planContractAllotment } from '@/lib/erp/posting/contract-allotment'
 import { planProgramAllotment } from '@/lib/erp/posting/program-allotment'
 import { planProductionBill } from '@/lib/erp/posting/production-bill'
 import { planAttendance } from '@/lib/erp/posting/attendance'
+import { planWasteReceipt } from '@/lib/erp/posting/stock-adj'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -1760,6 +1762,13 @@ const docTools: AgentTool[] = [
     'accounting',
     PRODUCTION_BILL_SCHEMA,
     planProductionBill,
+  ),
+  docTool(
+    'receive_waste',
+    'Receive waste/scrap INTO stock (WST-#### auto; knitting/dyeing/cutting/packing/general waste classes — waste is tracked religiously in Tirupur units). Required: godownCode, itemType (yarn|fabric|accessory), itemCode, qty, wasteClass. Optional: adjDate, notes. Lands a stock_adjustment_add ledger row whose reason carries the waste class.',
+    'inventory',
+    WASTE_RECEIPT_SCHEMA,
+    planWasteReceipt,
   ),
   docTool(
     'post_attendance',

@@ -56,7 +56,7 @@ import { productionBillConfig } from './production-bill'
 import { multiProcessGrnConfig, dcReturnConfig } from './grn-variants'
 import { dcEntryConfig, processDcConfig } from './dispatch-variants'
 import { pcsTransferConfig, readyToCutConfig } from './transfer-variants'
-import { openingStockConfig } from './inventory-variants'
+import { openingStockConfig, wasteReceiptConfig } from './inventory-variants'
 import { cuttingIssueConfig, cuttingProductionConfig } from './cut-variants'
 import { lineOutputConfig } from './production-variants'
 
@@ -120,6 +120,7 @@ export {
   pcsTransferConfig,
   readyToCutConfig,
   openingStockConfig,
+  wasteReceiptConfig, // SPEC-M21 — waste receipt (stock-adj variant, WST-####)
   cuttingIssueConfig,
   cuttingProductionConfig,
   lineOutputConfig,
@@ -185,6 +186,7 @@ export const DOC_CONFIGS: DocConfig[] = [
   pcsTransferConfig,
   readyToCutConfig,
   openingStockConfig,
+  wasteReceiptConfig, // SPEC-M21 — waste receipt (stock-adj variant, WST-####)
   cuttingIssueConfig,
   cuttingProductionConfig,
   lineOutputConfig,

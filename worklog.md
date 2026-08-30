@@ -1148,3 +1148,23 @@ Stage Summary:
 - Gap D attendance closure shipped: model + write tool + read tool + day-book register + menu + honest HR button.
 - Tools 224, models 78, menu 131/164 routes, 942 vitest, context_check 531/531.
 - Next in the run: M21 waste receipt → M22 keypad mode → M23 e-invoice mock.
+
+---
+Task ID: 31
+Agent: main (Super Z)
+Task: Second six-task run, task 4 of 6 — M21 Waste Receipt (SPEC-M21, legacy FrmWasteReceiptEntry; gap-audit disposition "stock-adj variant — waste is tracked religiously in knitting units").
+
+Work Log:
+- SPEC-M21 frozen BEFORE code: the opening-stock variant recipe verbatim (WST-#### space, action='add' fixed, reason `Waste — <class>`), waste classes knitting|dyeing|cutting|packing|general, NO new txnType (rides stock_adjustment_add; WST- docNo + notes distinguish), no dedicated register (stock ledger covers it).
+- schemas/stock-adj.ts: WASTE_RECEIPT_SCHEMA (STOCK_ADJ extend + wasteClass + notes).
+- posting/stock-adj.ts: planWasteReceipt + nextWasteNo — base service byte-identical (pinned by test).
+- doc-configs/inventory-variants.ts: wasteReceiptConfig (rides the variants file — DOCCFGS file-count stays 40, first pin correction after context_check caught my own arithmetic).
+- Page /inventory/waste-receipt: DocScreen + recent WST rows (wasteClass recovered from notes); tool receive_waste (225); menu item (inventory, DS, M21) → 132/165.
+- Contract tests did their job twice: the mirror rule demanded readonly action/reason header fields (opening-stock precedent); NEW_ROUTE_BY_SLUG demanded a duplicate-door entry.
+- Tests: waste-receipt.test NEW 7 (incl. G2 proof — ledger row AND CurrentStock bucket +40 kgs); pins updated (225 ×6, docTool 53, menu 132 ×4, routes 165).
+- Gates: tsc src/ 0 · 949 vitest · eval --static PASS · context_check 531→535/535 NO DRIFT · route_smoke_m21 15/15 (form fields incl. chindi, WST row recent+ledger, group link, tool).
+
+Stage Summary:
+- Waste Receipt shipped as a first-class doc family with both doors (form + agent) over ONE service — ADR-001 holds.
+- Tools 225, menu 132/165, 949 vitest, context_check 535/535.
+- Next in the run: M22 keypad-operator mode → M23 e-invoice/e-way mock IRN.

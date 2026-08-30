@@ -81,6 +81,7 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'pcs-transfer',
       'ready-to-cut',
       'opening-stock',
+      'waste-receipt',
       'cutting-issue',
       'cutting-production',
       'line-output',

@@ -29,3 +29,16 @@ export const OPENING_STOCK_SCHEMA = STOCK_ADJ_SCHEMA.extend({
 })
 
 export type OpeningStockInput = z.infer<typeof OPENING_STOCK_SCHEMA>
+
+// SPEC-M21 — waste-receipt VARIANT (/inventory/waste-receipt, legacy
+// FrmWasteReceiptEntry; gap-audit disposition "stock-adj variant"). Same
+// recipe as opening-stock: the wrapper fixes action='add' + composes the
+// reason from the wasteClass; planStockAdjustment stays VERBATIM.
+export const WASTE_RECEIPT_SCHEMA = STOCK_ADJ_SCHEMA.extend({
+  action: z.string().optional().describe('Fixed to add by the variant — no need to pass.'),
+  reason: z.string().optional().describe('Composed from wasteClass by the variant — no need to pass.'),
+  wasteClass: z.string().describe('knitting | dyeing | cutting | packing | general (the waste SOURCE)'),
+  notes: z.string().optional().describe('Free note appended to the composed reason'),
+})
+
+export type WasteReceiptInput = z.infer<typeof WASTE_RECEIPT_SCHEMA>

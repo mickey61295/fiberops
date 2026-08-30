@@ -75,6 +75,7 @@ export const NEW_ROUTE_BY_SLUG: Record<string, string> = {
   'pcs-transfer': '/pieces/transfer',
   'ready-to-cut': '/cutting/ready-to-cut',
   'opening-stock': '/inventory/opening-stock',
+  'waste-receipt': '/inventory/waste-receipt', // SPEC-M21 — the DocScreen IS the new route (no [id] view)
   'cutting-issue': '/cutting/issue',
   'cutting-production': '/cutting/production',
   'line-output': '/production/line-output',

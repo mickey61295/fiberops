@@ -79,11 +79,11 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2)" "224" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste)" "225" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
-check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance)" "52"    "$DOCTOOLS"
+check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance + M21 waste)" "53"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance)" "78"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker)" "34" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
@@ -93,8 +93,8 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M20 attendance)" "131"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live + M15 audit + M20 /hr/attendance)" "164"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M20 attendance + M21 waste)" "132"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live + M15 audit + M20 /hr/attendance + M21 /inventory/waste-receipt)" "165"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
 check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock + audit-log + M20 attendance)" "25"       "$REGCFGS"
@@ -103,7 +103,7 @@ check "master configs (24 M2 + shift + 5 ADR-016 + 11 M19-C)" "41"      "$MASTER
 check "shared zod schema files (+ M6-D dispatch/transfer variants + M20 attendance)" "40"      "$SCHEMAFILES"
 check "posting service files (+ M20 attendance)"      "36"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
-check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D 2)" "40"       "$DOCCFGS"
+check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D 2; M21 waste rides inventory-variants)" "40"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
 check "m7-waveA auth lib files (password/session/current-user + api-guard)" "4" "$(ls src/lib/auth/*.ts 2>/dev/null | grep -v rights.ts | grep -v login-cookies.ts | wc -l)"
 check "m7-waveC auth lib files (rights + login-cookies)" "2" "$(ls src/lib/auth/rights.ts src/lib/auth/login-cookies.ts 2>/dev/null | wc -l)"
@@ -461,7 +461,10 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/hr/attendance/page.tsx' \
          'src/app/(erp)/hr/attendance/csv/route.ts' \
          tests/unit/attendance.test.ts scripts/route_smoke_m20.sh \
-         docs/CONTEXT/specs/SPEC-M20.md; do
+         docs/CONTEXT/specs/SPEC-M20.md \
+         'src/app/(erp)/inventory/waste-receipt/page.tsx' \
+         tests/unit/waste-receipt.test.ts scripts/route_smoke_m21.sh \
+         docs/CONTEXT/specs/SPEC-M21.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

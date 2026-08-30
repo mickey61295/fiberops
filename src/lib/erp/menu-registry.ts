@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21'
 
 export interface MenuGroup {
   id: string
@@ -219,6 +219,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/admin/audit', // Audit Log (M15) — audit-log (admin viewer over the runCommit trail)
   // M20 (gap-audit P3, Gap D) — attendance
   '/hr/attendance', // Attendance (M20) — attendance (day-book; posted via post_attendance agent tool)
+  // M21 (gap-audit P3) — waste receipt
+  '/inventory/waste-receipt', // Waste Receipt (M21) — waste-receipt (WST-#### stock-adj variant, FrmWasteReceiptEntry)
 ])
 
 // ---------------------------------------------------------------------------
@@ -561,6 +563,13 @@ export const MENU_ITEMS: MenuItem[] = [
     description: 'Set opening balances when onboarding a godown/item.',
     legacyForms: ['frmOpeningStock', 'frmOpeningStock_CompWise', 'frmPcsStagewiseOpeningStock'],
     agentTools: ['post_opening'], pendingTools: [],
+  },
+  {
+    id: 'waste-receipt', label: 'Waste Receipt', groupId: 'inventory', route: '/inventory/waste-receipt', arch: 'DS', phase: 'M21',
+    description: 'Receive waste/scrap into stock (knitting/dyeing/cutting/packing/general classes).',
+    legacyForms: ['FrmWasteReceiptEntry'],
+    agentTools: ['receive_waste'], pendingTools: [],
+    agentPrompt: 'Receive 25 kgs of knitting waste for yarn YRN-001 into godown G1',
   },
   {
     id: 'stock-adjustment', label: 'Stock Adjustment', groupId: 'inventory', route: '/inventory/adjustment', arch: 'DS', phase: 'M3',
