@@ -472,7 +472,10 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/einvoice.ts \
          src/lib/erp/schemas/einvoice.ts \
          tests/unit/einvoice.test.ts scripts/route_smoke_m23.sh \
-         docs/CONTEXT/specs/SPEC-M23.md; do
+         docs/CONTEXT/specs/SPEC-M23.md \
+         src/lib/agent/voice.ts \
+         tests/unit/voice.test.ts \
+         docs/CONTEXT/specs/SPEC-M24.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

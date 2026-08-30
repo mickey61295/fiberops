@@ -8,8 +8,9 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, type VoiceSession } from '@/lib/agent/voice'
 
 interface AgentPanelProps {
   open: boolean
@@ -66,6 +67,69 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const fileInputRef = useRef<HTMLInputElement>(null)
   // SPEC-M10 C2 — the active system-prompt version, streamed on the start event
   const [promptVersion, setPromptVersion] = useState<string | null>(null)
+  // SPEC-M24 — voice entry: mic session state (browser SpeechRecognition, en-IN/ta-IN)
+  const [listening, setListening] = useState(false)
+  const [voiceLang, setVoiceLang] = useState(DEFAULT_VOICE_LANG)
+  const voiceSessionRef = useRef<VoiceSession | null>(null)
+  const voiceBaseRef = useRef('') // the pre-voice textarea tail base; interim = base + live text
+  const voiceSupported = typeof window !== 'undefined' && getSpeechRecognition() !== null
+
+  // Restore the persisted language on mount (client-only — SSR-safe default).
+  useEffect(() => {
+    const saved = window.localStorage.getItem(VOICE_LANG_STORAGE_KEY)
+    if (saved && VOICE_LANGS.some((l) => l.code === saved)) setVoiceLang(saved)
+  }, [])
+
+  // Stop any live session when the panel closes (no orphaned mics).
+  useEffect(() => {
+    if (!open && listening) {
+      voiceSessionRef.current?.stop()
+      voiceSessionRef.current = null
+      setListening(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const toggleVoice = useCallback(() => {
+    if (listening) {
+      voiceSessionRef.current?.stop() // onend clears the state
+      return
+    }
+    const session = createVoiceSession(voiceLang, {
+      onInterim: (text) => setInput(voiceBaseRef.current ? `${voiceBaseRef.current} ${text}` : text),
+      onFinal: (text) => {
+        const base = voiceBaseRef.current ? `${voiceBaseRef.current} ${text}` : text
+        voiceBaseRef.current = base
+        setInput(base)
+      },
+      onEnd: (reason) => {
+        voiceSessionRef.current = null
+        setListening(false)
+        if (reason && reason !== 'ended') {
+          const why = reason === 'not-allowed' || reason === 'service-not-allowed'
+            ? 'microphone permission denied'
+            : `voice stopped (${reason})`
+          toast.error(`Voice: ${why}`)
+        }
+      },
+    })
+    if (!session) {
+      toast.error('Speech recognition not supported in this browser')
+      return
+    }
+    voiceBaseRef.current = input
+    voiceSessionRef.current = session
+    session.start()
+    setListening(true)
+  }, [listening, voiceLang, input])
+
+  const cycleVoiceLang = useCallback(() => {
+    setVoiceLang((prev) => {
+      const next = nextVoiceLang(prev)
+      window.localStorage.setItem(VOICE_LANG_STORAGE_KEY, next)
+      return next
+    })
+  }, [])
 
   // Seed the input when the panel opens with a prompt (SPEC-M1 §6). Never auto-sends.
   useEffect(() => {
@@ -554,6 +618,37 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                   if (f) uploadFile(f)
                 }}
               />
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                disabled={!voiceSupported || streaming}
+                onClick={toggleVoice}
+                title={
+                  !voiceSupported
+                    ? 'Speech recognition not supported in this browser'
+                    : listening
+                      ? `Stop dictation (${voiceLang})`
+                      : `Dictate into the prompt (${voiceLang}) — review before sending`
+                }
+                className={listening ? 'text-red-600 border-red-300 bg-red-50' : undefined}
+              >
+                {listening
+                  ? <MicOff className="h-3.5 w-3.5 mr-1 animate-pulse" />
+                  : <Mic className="h-3.5 w-3.5 mr-1" />}
+                {listening ? 'Stop' : 'Voice'}
+              </Button>
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={cycleVoiceLang}
+                  disabled={listening}
+                  title={`Voice language: ${VOICE_LANGS.find((l) => l.code === voiceLang)?.title ?? voiceLang} — click to switch`}
+                  className="h-7 px-2 text-[10px] font-semibold rounded-md border border-slate-300 text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                >
+                  {VOICE_LANGS.find((l) => l.code === voiceLang)?.label ?? 'EN'}
+                </button>
+              )}
               <Button
                 size="sm"
                 variant="outline"

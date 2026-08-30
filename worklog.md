@@ -1206,3 +1206,23 @@ Stage Summary:
 - Gap D #11 CLOSED. The second six-task run is COMPLETE: M16 dashboards (P2 queue done) + branch hygiene + M20 attendance + M21 waste receipt + M22 keypad mode + M23 mock e-invoice.
 - Run totals: 909→968 vitest; tools 222→226; models 77→78; menu 130→132; routes 163→165; context_check 516→545/545; six specs frozen (M16/M20/M21/M22/M23 + the hygiene chore); every milestone committed, tagged (m16/m20/m21/m22/m23) and PUSHED with the session PAT.
 - Next candidates for the next session: voice entry V (STT decision), pcs-despatch line-grid keypad, IRN cancellation, print QR image, P3 residuals (multi-company #1, barcode #2, holiday surfacing H).
+
+---
+Task ID: 34 (third six-task run, task 1)
+Agent: main (Super Z)
+Task: M24 — Voice entry (gap-audit §7-V; the STT decision from STATE next-actions #28: browser SpeechRecognition API vs server STT → RESOLVED browser-first, zero dependency).
+
+Work Log:
+- Session opened on the FIFTH parallel-session race: user-supplied PAT + "Continue"; local f1db359 (m18c) vs remote 49e3556 which already carried BOTH prior six-task runs (M19 A–D, M13, M14, M15, M16, hygiene, M20, M21, M22, M23 — 16 commits ahead). Remote adopted per the m11-convergence precedent; local preserved on branch m18c-alt; remote's a5565b5 already contained the m18c content (the M19-A session had converged the same race).
+- Baseline re-verified AFTER adoption: prisma generate REQUIRED (the node_modules client predated the 13 new remote models — 14 vitest failures incl. master-parity 'delegate exists' + tsc scripts/ noise, all cleared by regenerate; db push already in sync). context_check 545/545 (after regenerating eval-routing-report.json — gitignored artifact, same as Task 18), vitest 968/968, eval --static PASS, tsc src/ 0.
+- PAT embedded in the remote URL per the standing push-after-every-commit instruction; scrub at session end.
+- SPEC-M24 frozen BEFORE code: browser API only, en-IN (Tanglish Latin) default + ta-IN (Tamil script) toggle, never auto-send, graceful unsupported state, OUT: server STT/TTS confirm/offline.
+- NEW src/lib/agent/voice.ts (pure module): VOICE_LANGS + nextVoiceLang cycle + getSpeechRecognition probe (both spellings, non-function values ignored, SSR-safe) + createVoiceSession (continuous+interim+lang; onresult routes final-vs-interim; finish() detaches ALL handlers after first end so late events are structurally impossible; onerror→onEnd(reason); start/stop flags; throwing rec.start() → onEnd('start-failed')).
+- agent-panel.tsx: Mic button beside Attach (MicOff+pulse+Stop when listening), lang chip (cycle, localStorage fo.voiceLang, disabled while listening), voiceBaseRef pattern (interim = base + live text; final appends to base), onEnd toast honest (not-allowed → 'microphone permission denied'), panel-close stops orphaned mics, unsupported = disabled + hidden chip.
+- tests/unit/voice.test.ts NEW 14. Two test-authoring lessons: (1) parent INSTANCE field start=vi.fn() shadows subclass prototype methods — overrides must be fields; (2) end-once is best asserted via the null-detach (calling a null handler throws in the test, proving the point structurally).
+- Gates: vitest 982/982 (968+14) · tsc src/ 0 · eval --static PASS · context_check 545→548/548 NO DRIFT (+3 file pins) · route_smoke_m22 regression 19/19 (shared panel surface) · LIVE browser: Voice button + title, lang chip EN⇄த round-trip w/ localStorage, mic-less click degrades to idle (not stuck), zero console errors, screenshot download/m24-voice-panel.png.
+
+Stage Summary:
+- Voice entry shipped: the agent panel accepts dictated Tamil/Tanglish/English input through the browser's SpeechRecognition API — zero new dependencies, zero schema/menu/route/tool changes, ADR-001 untouched (input channel only).
+- The STT decision is closed (documented in SPEC-M24 + STATE): browser API first; server STT stays out until a real deployment demands it.
+- Third six-task run in progress: M25 pcs-despatch line-grid keypad → M26 IRN cancellation → M27 print QR → M28 holiday surfacing → M29 jump-bar G residual.
