@@ -1115,3 +1115,16 @@ Stage Summary:
 - M16 COMPLETE — the SPEC-M9 §9 P2 queue is now FULLY done (M13 digest, M14 perf/SSE, M15 audit, M16 dashboards).
 - Role-aware SSR dashboards with persisted per-role tile layouts; zero schema, zero tools, menu 130 / routes 163 unchanged (rework, not breadth).
 - Remaining in this run: branch hygiene (m9-wave-a-alt delete) → attendance → waste receipt → keypad mode → e-invoice mock.
+
+---
+Task ID: 29
+Agent: main (Super Z)
+Task: Second six-task run, task 2 of 6 — branch hygiene: delete the absorbed alt branches (STATE #22/#24 sanctioned).
+
+Work Log:
+- Verified BEFORE deleting: m9-wave-a-alt's SSE surface is live on main (M14 /live — live-snapshot.ts + /api/live-tracker + live-stream-tracker.tsx in the working tree, context_check-pinned); p0-reflex-pack-alt's reflex work shipped on main as SPEC-M17 (tag m17-reflex carries src/components/erp/register-rows.tsx + the F-key/Enter contract).
+- Deleted local + origin: m9-wave-a-alt (was dde0797), p0-reflex-pack-alt (was 07603f6). SHAs logged here for recovery (`git branch <name> <sha>`).
+- origin/agent/order-program-flow left untouched (not in the hygiene sanction; no absorption evidence).
+
+Stage Summary:
+- Branch list is now just main (+ origin/agent/order-program-flow remote-only). Alt implementation lines are recoverable by SHA for 30+ days via reflog.
