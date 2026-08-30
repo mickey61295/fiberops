@@ -1322,3 +1322,21 @@ Stage Summary:
 - THIRD SIX-TASK RUN COMPLETE: M24 voice (V) + M25 line-grid keypad (K follow-up) + M26 IRN cancellation + M27 print QR (jsQR-verified) + M28 holiday surfacing (H) + M29 jump bar (G). Run totals: 968→1016 vitest, 545→560 checks, tools 227, six specs frozen, all committed+tagged+pushed.
 - The gap-audit §7 playbook (R/C/P/D/E/K/V/G/H/T/F) is now FULLY shipped.
 - Committed+tagged m29, pushed.
+
+---
+Task ID: 40 (session close-out)
+Agent: main (Super Z)
+Task: Third six-task run close-out — final gates, PAT scrub, remote verification.
+
+Work Log:
+- Final gates: 1016/1016 vitest · context_check 560/560 NO DRIFT · eval --static PASS · tsc src/ 0 · remote main = 6fe07e4 = local HEAD · tags m24–m29 all pushed.
+- PAT scrubbed from .git/config (back to the PAT-free https form); ls-remote confirms reachability + the final SHA.
+- The only uncommitted file is db/custom.db (test-fixture churn — the dev DB, deliberately not committed per repo practice; the smoke suites clean their own rows and the residue checks all passed).
+- Preservation branches on origin: m18c-alt (the fifth-race local), m9-wave-a-alt + p0-reflex-pack-alt (historical, previously deleted remote-side by Task 29's hygiene — local copies only now; harmless).
+
+Stage Summary:
+- THIRD SIX-TASK RUN COMPLETE AND PUSHED: M24 voice entry · M25 line-grid keypad · M26 IRN cancellation · M27 print QR · M28 holiday surfacing · M29 jump bar.
+- Run totals: 968→1016 vitest (+48) · tools 226→227 · context_check 545→560 · 6 specs frozen (SPEC-M24…M29) · 6 route smokes NEW (m24 regression + m25 16/16 + m26 17/17 + m27 14/14 + m28 12/12 + m29 13/13) · every milestone committed, tagged, pushed; every surface LIVE browser-verified.
+- The gap-audit §7 muscle-memory playbook (R rate · C counter-book · P paper · D digest · E excel · K keypad · V voice · G jump · H holidays · T terminology · F keyboard) is now FULLY shipped.
+- SECURITY: the user's PAT was pasted in chat AGAIN (third time) — flagged at session start; scrubbed from the repo config at close; the user should REVOKE it at https://github.com/settings/tokens regardless.
+- Next candidates (STATE next-actions #34): gap-audit §8 hygiene debts (29 legacyForms aliases) · SPEC-M9 §9 P3 residuals (multi-company, barcode) · working-day planner arithmetic (M28 OUT) · voice TTS confirm loop · or a fresh user-directed lane.
