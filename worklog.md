@@ -1416,3 +1416,21 @@ Stage Summary:
 - The M27 verification discipline repeats: independent-encoder parity caught two real bugs in the first hour (46-entry table drift + the missing TO_C collapse rule).
 - Push still pending (no PAT this session); committed+tagged m33 locally.
 - Fourth six-task run in progress: M34 terms master → M35 digest holidays.
+---
+Task ID: 45 (fourth six-task run, task 5)
+Agent: main (Super Z)
+Task: M34 — terms master feeding invoice print (gap-audit A3 frmTerms: "Terms & conditions master (print blocks)" → AppOption-backed, feeding print).
+
+Work Log:
+- SPEC-M34 frozen BEFORE code: printTerms helper + invoice wiring + options-page mention; ZERO new tools (create/update/list_app_option already exist — G5 satisfied); OUT: other families (po/dc — one-line adoptions), per-buyer terms, rich formatting.
+- print/fetchers.ts: NEW printTerms(family) — AppOption `print.terms.<family>`, newline split, trim, blanks dropped, NO cache (admin edits must reflect on the next print); DEFAULT_TERMS_FALLBACK constant (the M8 hardcoded line); invoice fetcher swaps owned lines vs fallback (fresh installs never term-less).
+- /admin/options help text mentions print.terms.invoice + frmTerms lineage.
+- AGENT-DOOR LESSONS (documented in the test): update_app_option is plan-then-commit (write lands at commit()); the master-service treats EMPTY values as "field not provided" — clearing to fallback = deleting the row.
+- Tests: print-terms.test NEW 11 (helper ×5; invoice WITHOUT→fallback / WITH→owned-replaces-fallback; agent-door plan→commit→flip round-trip; source pins ×3) → 1102 vitest.
+- Gates: tsc src/ 0 · 1102 vitest · eval --static PASS 15/15 · context_check 570→572/572 NO DRIFT · NEW route_smoke_m34 12/12 (owned terms ×3 render + fallback correctly absent; delete option → fallback returns; options page mentions; zero residue) · LIVE browser-verified (3 terms lines render, fallback absent; FULL-PAGE screenshot m34-invoice-terms.png VLM-confirmed).
+- LIVE-check lessons (recorded in SPEC §5): zombie chrome daemons break the flow (about:blank + ERR_CONNECTION_REFUSED) — kill all agent-browser processes first; login wait must require a REAL localhost URL (about:blank ≠ success); --full screenshots for below-the-fold blocks.
+
+Stage Summary:
+- The frmTerms master is live: the invoice print's terms block is an owned, editable AppOption (admin UI + agent doors), with the M8 fallback as the honest default.
+- Push still pending (no PAT this session); committed+tagged m34 locally.
+- Fourth six-task run: one task left — M35 holidays digest adoption.

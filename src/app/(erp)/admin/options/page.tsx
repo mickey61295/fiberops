@@ -32,9 +32,10 @@ export default async function OptionsPage() {
         <h1 className="mt-1 text-xl font-bold tracking-tight">Options &amp; Settings</h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Key-value app options. The app reads <span className="font-mono text-xs">print.companyName / print.address /
-          print.gstin</span> (every report + doc print header) and{' '}
-          <span className="font-mono text-xs">default.godownCode</span> (picker seed). Other keys are stored for the
-          modules that will consume them.
+          print.gstin</span> (every report + doc print header),{' '}
+          <span className="font-mono text-xs">print.terms.invoice</span> (invoice print terms block — one line per
+          row, the frmTerms master) and <span className="font-mono text-xs">default.godownCode</span> (picker seed).
+          Other keys are stored for the modules that will consume them.
         </p>
       </div>
 

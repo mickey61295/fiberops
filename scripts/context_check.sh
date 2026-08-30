@@ -496,7 +496,9 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/print-barcode.test.ts \
          tests/fixtures/code128-reference.json \
          scripts/gen_code128_fixture.py \
-         docs/CONTEXT/specs/SPEC-M33.md; do
+         docs/CONTEXT/specs/SPEC-M33.md \
+         tests/unit/print-terms.test.ts \
+         docs/CONTEXT/specs/SPEC-M34.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

@@ -100,7 +100,11 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
         .join(' | ')}`,
     )
   }
-  notes.push('Goods once sold will not be taken back. Subject to Tirupur jurisdiction.')
+  // SPEC-M34 — the frmTerms master: owned terms lines replace the
+  // hardcoded fallback; absent option → the fallback (fresh installs
+  // are never term-less)
+  const terms = await printTerms('invoice')
+  notes.push(...(terms.length > 0 ? terms : [DEFAULT_TERMS_FALLBACK]))
 
   return {
     docType: 'invoice',
@@ -173,6 +177,28 @@ export async function getCompanyName(): Promise<string> {
     cachedCompanyName = 'FiberOps'
   }
   return cachedCompanyName
+}
+
+/**
+ * SPEC-M34 — the frmTerms master, print edition: AppOption
+ * `print.terms.<family>` → the terms block's lines (split on newlines,
+ * trimmed, empties dropped). NO cache — the admin edits terms and
+ * reprints; a stale terms block is a lie. Absent/empty → [] (the
+ * caller keeps its fallback line — a fresh install is never term-less).
+ */
+const DEFAULT_TERMS_FALLBACK = 'Goods once sold will not be taken back. Subject to Tirupur jurisdiction.'
+
+export async function printTerms(family: string): Promise<string[]> {
+  try {
+    const row = await db.appOption.findUnique({ where: { key: `print.terms.${family}` } })
+    if (!row) return []
+    return row.value
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+  } catch {
+    return []
+  }
 }
 
 // ── po: PURCHASE ORDER with resolved item-code lines ──────────────────────
