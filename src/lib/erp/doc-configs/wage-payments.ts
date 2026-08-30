@@ -23,10 +23,14 @@ export const wagePaymentsConfig: DocConfig = {
     { name: 'partyCode', label: 'Employee (party)', type: 'picker', picker: 'party', required: true, colSpan: 1, pickerFilter: { field: 'partyType', value: 'employee' } },
     { name: 'amount', label: 'Amount (₹)', type: 'number', required: true, colSpan: 1 },
     { name: 'direction', label: 'Direction', type: 'readonly', colSpan: 1 },
+    // HFX-06 (Phase-6B Batch 0) — rtgs | neft join the mode select (the schema
+    // comment's contract: cash | bank | cheque | rtgs | neft | upi).
     { name: 'mode', label: 'Mode', type: 'select', colSpan: 1, options: [
       { value: 'cash', label: 'Cash' },
       { value: 'bank', label: 'Bank' },
       { value: 'cheque', label: 'Cheque' },
+      { value: 'rtgs', label: 'RTGS' },
+      { value: 'neft', label: 'NEFT' },
       { value: 'upi', label: 'UPI' },
     ] },
     { name: 'payDate', label: 'Pay Date', type: 'date', colSpan: 1 },

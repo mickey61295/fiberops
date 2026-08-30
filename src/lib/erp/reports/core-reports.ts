@@ -135,13 +135,14 @@ export async function queryOperationSummary(q: RegisterQuery): Promise<RegisterR
       acc.entries = (acc.entries as number) + 1
       acc.qty = (acc.qty as number) + e.qty
       acc.amount = (acc.amount as number) + e.amount
-      acc.wages = (acc.wages as number) + e.shiftWages
+      acc.wages = (acc.wages as number) + e.amount // HFX-12 — the piece-rate wage actually posted (shiftWages has no writer)
       acc.rework = (acc.rework as number) + (e.rework ? e.qty : 0)
     } else {
       agg.set(e.deptId, {
         id: e.deptId,
         dept: e.department?.code ?? '—',
-        entries: 1, qty: e.qty, amount: e.amount, wages: e.shiftWages, rework: e.rework ? e.qty : 0,
+        entries: 1, qty: e.qty, amount: e.amount, wages: e.amount, // HFX-12 — wage = amount (shiftWages is a dead column)
+        rework: e.rework ? e.qty : 0,
       })
     }
   }

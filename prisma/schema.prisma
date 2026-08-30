@@ -45,7 +45,7 @@ model Party {
   id             String          @id @default(cuid())
   code           String          @unique
   name           String
-  partyType      String          @default("supplier") // supplier | customer | both
+  partyType      String          @default("supplier") // supplier | customer | both | employee (wage payouts — HFX-07)
   gstin          String?
   pan            String?
   address        String?
@@ -672,7 +672,7 @@ model JobworkOrder {
   receivedDate   DateTime?
   totalQty       Float     @default(0)
   totalValue     Float     @default(0)
-  status         String    @default("sent") // sent | received | billed
+  status         String    @default("sent") // sent | received (billed returns with JWL-06 — HFX-09)
   itc04Line      String?
   orderId        String?
   createdAt      DateTime  @default(now())
@@ -785,7 +785,7 @@ model Payment {
   payDate   DateTime @default(now())
   finYear   String
   amount    Float    @default(0)
-  mode      String   @default("bank") // cash | bank | cheque | rtgs | upi
+  mode      String   @default("bank") // cash | bank | cheque | rtgs | neft | upi
   reference String? // cheque/UTR no
   notes     String?
   createdAt DateTime @default(now())

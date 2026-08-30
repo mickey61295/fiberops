@@ -8,6 +8,7 @@
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
 import { buildItemCodeMaps } from './resolve'
+import { valueBucket } from '@/lib/erp/valuation'
 
 /** The verbatim get_stock query — shared fetch, register groups on top. */
 export async function fetchCurrentStock(opts: { itemType?: string; godown?: string }) {
@@ -41,7 +42,9 @@ export async function queryStockRegister(q: RegisterQuery): Promise<RegisterResu
   const groups = new Map<string, RegisterRow & { _value: number }>()
   for (const s of stocks) {
     const qty = s.kgs + s.mtrs + s.pcs
-    const value = qty * s.rate
+    // HFX-11 (Phase-6B Batch 0) — shared per-uom valuation (valuation.ts);
+    // qty stays the DISPLAY total, value never mixes uoms before × rate.
+    const value = valueBucket(s)
     let key: string
     let row: RegisterRow & { _value: number }
     if (variant === 'style') {

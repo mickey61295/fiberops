@@ -8,7 +8,8 @@
  *  - close_order: despatch Σ ≥ 95% of totalPcs AND an invoice exists
  *  - cancel_program: ledger net-zero for the program item (or force)
  *  - complete_program: balance ≤ 0 (or force) — settles status only
- *  - complete_purchase_order: received qty > 0 → status completed
+ *  - complete_purchase_order: received qty > 0 → status received (HFX-10 —
+ *    the PO_STATUS enum has no 'completed'; 'received' is the terminal value)
  *  - planOrderAmend: the update_order inline logic extracted (§7-C-5)
  */
 import { db } from '@/lib/db'
@@ -141,18 +142,21 @@ export async function planPoLifecycle(args: PoLifecycleInput): Promise<DocPlanRe
     const { planCancelPo } = await import('./cancel')
     return planCancelPo({ poNo: args.poNo, reason: args.reason })
   }
-  // complete
-  if (po.status === 'completed') return { ok: false, error: `PO ${po.poNo} is already completed` }
+  // complete — HFX-10 (Phase-6B Batch 0): the terminal value is 'received'
+  // (PO_STATUS = open | partial | received | cancelled — there IS no
+  // 'completed'). The old code wrote 'completed' — a value outside the enum,
+  // invisible to every status filter. Transitions produce only enum values.
+  if (po.status === 'received') return { ok: false, error: `PO ${po.poNo} is already fully received (completed)` }
   const received = po.grns.reduce((s, g) => s + g.totalQty, 0)
   if (received <= 0) return { ok: false, error: `PO ${po.poNo} has no receipts — receive a GRN against it first` }
   return {
     ok: true,
     text: `Proposed COMPLETE of PO ${po.poNo} (received ${received} qty).`,
-    summary: `Complete PO ${po.poNo} | received ${received}/${po.totalQty} qty | status ${po.status} → completed`,
-    updates: [{ table: 'purchaseOrder', id: po.id, data: { status: 'completed' } }],
+    summary: `Complete PO ${po.poNo} | received ${received}/${po.totalQty} qty | status ${po.status} → received`,
+    updates: [{ table: 'purchaseOrder', id: po.id, data: { status: 'received' } }],
     sideEffects: ['PO settles in party balances'],
     async commit() {
-      await db.purchaseOrder.update({ where: { id: po.id }, data: { status: 'completed' } })
+      await db.purchaseOrder.update({ where: { id: po.id }, data: { status: 'received' } })
       return { id: po.id, poNo: po.poNo }
     },
   }

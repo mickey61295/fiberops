@@ -23,7 +23,11 @@ export const partyConfig: MasterConfig = {
         { value: 'supplier', label: 'Supplier' },
         { value: 'customer', label: 'Customer' },
         { value: 'both', label: 'Both' },
-      ], description: 'supplier | customer | both' },
+        // HFX-07 (Phase-6B Batch 0) — the wage-payment picker filters to
+        // partyType='employee' (doc-configs/wage-payments.ts ERRATUM 7); the
+        // master could never PRODUCE one, so the picker was permanently empty.
+        { value: 'employee', label: 'Employee (wage payouts)' },
+      ], description: 'supplier | customer | both | employee (wage payouts)' },
     { name: 'gstin', label: 'GSTIN', type: 'text', description: 'GST identification number (15 chars)' },
     { name: 'pan', label: 'PAN', type: 'text' },
     { name: 'address', label: 'Address', type: 'textarea' },

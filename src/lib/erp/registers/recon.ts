@@ -53,12 +53,16 @@ export async function poRecon(poId: string): Promise<ReconResult | null> {
   }
 }
 
-/** Invoice ↔ Payments — billed = billAmount · collected = Σ Payment.amount where invoiceId (PLAIN FK) · balance. */
+/** Invoice ↔ Payments — billed = billAmount · collected = Σ Payment.amount where invoiceId (PLAIN FK) · balance.
+ *  HFX-04 (Phase-6B Batch 0): only direction:'in' payments settle a sales
+ *  invoice — an out-payment tagged with an invoiceNo (refund/adjustment) must
+ *  not REDUCE AR. The rows below still list every tagged payment (with its
+ *  direction) for transparency. */
 export async function invoiceRecon(invoiceId: string): Promise<ReconResult | null> {
   const inv = await db.salesInvoice.findUnique({ where: { id: invoiceId } })
   if (!inv) return null
   const payments = await db.payment.findMany({ where: { invoiceId }, orderBy: { payDate: 'desc' } })
-  const collected = payments.reduce((s, p) => s + p.amount, 0)
+  const collected = payments.filter((p) => p.direction === 'in').reduce((s, p) => s + p.amount, 0)
   const balance = inv.billAmount - collected
   return {
     title: 'Invoice ↔ Payments',

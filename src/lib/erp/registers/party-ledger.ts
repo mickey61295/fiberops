@@ -27,8 +27,11 @@ export interface PartyLedgerSummary {
 export async function getPartyLedgerSummary(partyId: string): Promise<PartyLedgerSummary | null> {
   const party = await db.party.findUnique({ where: { id: partyId } })
   if (!party) return null
+  // HFX-03 (Phase-6B Batch 0) — cancelled invoices are NOT billed: the
+  // outstanding-summary/bills-register convention (`status: { not: 'cancelled' }`)
+  // so all three money screens agree after a cancel.
   const [invoices, journals, debitNotes, payments] = await Promise.all([
-    db.salesInvoice.findMany({ where: { partyId } }),
+    db.salesInvoice.findMany({ where: { partyId, status: { not: 'cancelled' } } }),
     db.journal.findMany({ where: { partyId } }),
     db.debitNote.findMany({ where: { partyId } }),
     db.payment.findMany({ where: { partyId } }),
@@ -70,8 +73,9 @@ export async function queryPartyLedger(q: RegisterQuery): Promise<RegisterResult
   const partyIds = parties.map((p) => p.id)
   if (partyIds.length === 0) return { rows: [], summary: 'No parties match.', count: 0 }
 
+  // HFX-03 — cancelled invoices excluded here too (see getPartyLedgerSummary).
   const [invoices, journals, debitNotes, payments] = await Promise.all([
-    db.salesInvoice.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, billAmount: true } }),
+    db.salesInvoice.findMany({ where: { partyId: { in: partyIds }, status: { not: 'cancelled' } }, select: { partyId: true, billAmount: true } }),
     db.journal.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
     db.debitNote.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
     db.payment.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true, direction: true } }),

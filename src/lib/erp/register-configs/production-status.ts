@@ -19,7 +19,8 @@ export const productionStatusConfig: RegisterConfig = {
     { name: 'reworkQty', label: 'Rework', align: 'right', format: 'int' },
     { name: 'jobworkQty', label: 'Jobwork', align: 'right', format: 'qty' },
     { name: 'amount', label: 'Amount', align: 'right', format: 'inr' },
-    { name: 'shiftWages', label: 'Shift wages', align: 'right', format: 'inr' },
+    // HFX-12 — label tells the truth: this is the piece-rate wage posted (amount).
+    { name: 'shiftWages', label: 'Wages', align: 'right', format: 'inr' },
   ],
   agentTools: ['get_production_status'],
   askPrompt: 'Show me production status per order and department',

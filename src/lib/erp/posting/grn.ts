@@ -31,6 +31,23 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
   if (!godown) return { ok: false, error: `Godown ${args.godownCode} not found` }
   let dept: any = null
   if (args.deptCode) dept = await db.department.findUnique({ where: { code: args.deptCode } })
+  // HFX-01 (Phase-6B Batch 0) — GRN guard, fail loudly instead of corrupting:
+  // (a) multi-line POs: this service receives ONLY po.lines[0] — a receipt
+  //     against a >1-line PO would silently ignore the other lines (and their
+  //     quantities/rates). Real multi-line GRNs arrive with PRC-01; until then
+  //     refuse with the limitation named.
+  // (b) terminal status: cancelled/completed POs accept no receipts (quote
+  //     the status so the operator sees WHY). 'received' stays receivable —
+  //     legacy allows over-delivery against a fully-received PO.
+  if (po.lines.length > 1) {
+    return {
+      ok: false,
+      error: `PO ${args.poNo} has ${po.lines.length} lines — multi-line receipts arrive with PRC-01; receive against single-line POs for now`,
+    }
+  }
+  if (po.status === 'cancelled' || po.status === 'completed') {
+    return { ok: false, error: `PO ${args.poNo} is ${po.status} — receipts only post against open/partial/received POs` }
+  }
   const line = po.lines[0]
   if (!line) return { ok: false, error: `PO has no lines` }
   const actualQty = args.receivedQty

@@ -1,9 +1,17 @@
 /**
  * Budget vs Actual register service — SPEC-M4 §5 row 15 (FrmBudgetAndActualComp).
  * Per order — budgeted = Σ CostSheet.totalCost; actual = Σ POLine.qty×rate +
- * Σ ProductionEntry.amount + Σ shiftWages; variance = budgeted − actual.
- * Same math the get_budget_vs_actual tool froze (M3 contract) — the tool now
- * delegates here. Rows drill into the Order Hub (W2).
+ * Σ ProductionEntry.amount (the piece-rate wage = production cost); variance =
+ * budgeted − actual. Same math the get_budget_vs_actual tool froze (M3
+ * contract) — the tool now delegates here. Rows drill into the Order Hub (W2).
+ *
+ * HFX-12 (Phase-6B Batch 0) — the shiftWages FIELD now reads `amount` (the
+ * piece-rate wage actually posted; the column itself has NO writer). The
+ * wage already rides inside prodCost (amount IS the production cost), so the
+ * `+ shiftWages` addend is DROPPED from `actual` — re-adding it would
+ * double-count the wage once it stopped being a dead column. Identical
+ * numbers on live data (shiftWages was always 0); L-06 reintroduces a real
+ * shift-wage addend when it resolves the column.
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -36,11 +44,13 @@ export async function getOrderBudgetActual(orderId: string): Promise<OrderBudget
   ])
   const poValue = poLines.reduce((s, p) => s + p.qty * p.rate, 0)
   const prodCost = prodEntries.reduce((s, e) => s + e.amount, 0)
-  const shiftWages = prodEntries.reduce((s, e) => s + e.shiftWages, 0)
+  // HFX-12 — the piece-rate wage actually posted (shiftWages column is dead:
+  // no writer). Informational field: the wage rides inside prodCost above.
+  const shiftWages = prodEntries.reduce((s, e) => s + e.amount, 0)
   const explicitBudget = budgets.reduce((s, b) => s + b.amount, 0)
   const costBudget = costs.reduce((s, c) => s + c.totalCost, 0)
   const budgeted = explicitBudget > 0 ? explicitBudget : costBudget
-  const actual = poValue + prodCost + shiftWages
+  const actual = poValue + prodCost
   return {
     orderId: order.id,
     orderNo: order.orderNo,
@@ -105,8 +115,9 @@ export async function queryBudgetVsActual(q: RegisterQuery): Promise<RegisterRes
     const budgeted = explicit > 0 ? explicit : costBudget
     const poValue = o.poLines.reduce((s, p) => s + p.qty * p.rate, 0)
     const prodCost = o.productionEntries.reduce((s, e) => s + e.amount, 0)
-    const shiftWages = o.productionEntries.reduce((s, e) => s + e.shiftWages, 0)
-    const actual = poValue + prodCost + shiftWages
+    // HFX-12 — same as getOrderBudgetActual: wage field reads amount, the
+    // addend is gone (no double-count).
+    const actual = poValue + prodCost
     return {
       id: o.id,
       href: `/orders/${o.id}`,

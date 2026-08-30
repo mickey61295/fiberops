@@ -524,7 +524,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_parties',
-    description: 'List parties (suppliers/customers). Optional filter by partyType (supplier|customer|both).',
+    description: 'List parties (suppliers/customers/employees). Optional filter by partyType (supplier|customer|both|employee).',
     domain: 'masters',
     isWrite: false,
     schema: z.object({ partyType: z.string().optional() }),
@@ -1906,7 +1906,7 @@ function masterUpdateTool(slug: string, description: string): AgentTool {
 }
 
 const masterCreateTools: AgentTool[] = [
-  masterCreateTool('party', 'Create a party master (customer / supplier / both). code is optional — auto-assigned PRT-#### if omitted or taken. Required: name, partyType (supplier|customer|both). Optional: gstin, pan, address, city, state, phone, email, openingBalance.'),
+  masterCreateTool('party', 'Create a party master (customer / supplier / both / employee). code is optional — auto-assigned PRT-#### if omitted or taken. Required: name, partyType (supplier|customer|both|employee — employee-type parties receive wage payouts). Optional: gstin, pan, address, city, state, phone, email, openingBalance.'),
   masterCreateTool('buyer', 'Create a buyer master (the customer department / brand). code is optional — auto-assigned B-#### if omitted or taken. Required: name. Optional: dept, merchandiser.'),
   masterCreateTool('style', 'Create a style master. styleNo is optional — auto-assigned STY-#### if omitted or taken. Required: description. Optional: buyerCode, category (woven|knit), sam, hsn.'),
   masterCreateTool('yarn', 'Create a yarn master. code is optional — auto-assigned Y-#### if omitted or taken. Required: count, uomCode. Optional: blend, rate.'),
@@ -2852,7 +2852,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'record_payment',
-    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out). voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). Required: partyCode, amount, direction. Optional: invoiceNo (marks the invoice paid when fully collected), orderNo, mode (cash|bank|cheque|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
+    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out). voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). Required: partyCode, amount, direction. Optional: invoiceNo (marks the invoice paid when fully collected), orderNo, mode (cash|bank|cheque|rtgs|neft|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
     'accounting',
     PAYMENT_SCHEMA,
     planPayment,

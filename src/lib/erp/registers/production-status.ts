@@ -1,8 +1,13 @@
 /**
  * Production Status register service — SPEC-M4 §5 row 10 (FrmProductionStatusReg
  * family). Per order × department — Σ qty, rework flag split (Σ qty where
- * rework), Σ amount + shiftWages; jobwork column = Σ JobworkOrder.totalQty for
+ * rework), Σ amount + wages; jobwork column = Σ JobworkOrder.totalQty for
  * the order (plain FK — id-map, PITFALLS #21). Rows drill into the Order Hub.
+ *
+ * HFX-12 (Phase-6B Batch 0) — the `shiftWages` field reads Σ amount (the
+ * piece-rate wage actually posted): the shiftWages column has NO writer
+ * (grep-verified), so the column was structurally ₹0. L-06 resolves the
+ * column (writer or drop).
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -33,7 +38,7 @@ export async function queryProductionStatus(q: RegisterQuery): Promise<RegisterR
     db.productionEntry.groupBy({
       by: ['orderId', 'deptId'],
       where: entryWhere,
-      _sum: { qty: true, amount: true, shiftWages: true },
+      _sum: { qty: true, amount: true }, // HFX-12 — shiftWages dropped: dead column, no writer
       _count: { _all: true },
       orderBy: [{ orderId: 'asc' }],
       take: q.limit,
@@ -84,7 +89,7 @@ export async function queryProductionStatus(q: RegisterQuery): Promise<RegisterR
       reworkQty: reworkMap.get(`${g.orderId}:${g.deptId}`) ?? 0,
       jobworkQty: jobworkByOrder.get(g.orderId) ?? 0,
       amount: g._sum.amount ?? 0,
-      shiftWages: g._sum.shiftWages ?? 0,
+      shiftWages: g._sum.amount ?? 0, // HFX-12 — the wage actually posted (field name frozen: tool json)
     }
   })
 

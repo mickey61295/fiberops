@@ -6,8 +6,9 @@
  * register-services suite (same services — never forked).
  *
  * Math asserted (SPEC-M6 §7-A):
- *  - daily-pnl: per dept/day produced = Σ amount, wages = Σ shiftWages,
- *    margin = produced − wages; expenses ride the totals band (ERRATUM §13-1)
+ *  - daily-pnl (HFX-12): produced = qty × order contract rate, wages = Σ amount
+ *    (the piece-rate wage posted), margin = produced − wages; expenses ride the
+ *    totals band (ERRATUM §13-1)
  *  - outstanding-summary: AR = billed − settled payments, aging bucket by
  *    invoiceDate; AP = GRN value − payments out
  *  - gst-summary: rate × month taxable/cgst/sgst/igst rollup
@@ -35,9 +36,10 @@ const EXP = `RPT-EXP-${TS}`
 
 // fixed fixture numbers
 const PROD_QTY = 40 // 25 + 15
-const PROD_AMT = 400 // 250 + 150
-const SHIFT_WAGES = 60 // 40 + 20
-const MARGIN = PROD_AMT - SHIFT_WAGES
+const PROD_AMT = 400 // 250 + 150 (Σ amount = the piece-rate wage posted — HFX-12)
+const CONTRACT_RATE = 200 // order totalValue 20000 / totalPcs 100
+const PRODUCED_VALUE = PROD_QTY * CONTRACT_RATE // HFX-12: revenue-side valuation
+const MARGIN = PRODUCED_VALUE - PROD_AMT // contract-vs-piece-rate spread
 const EXPENSE_AMT = 75
 const BILL_AMOUNT = 5000
 const RECEIVED_AMT = 2000
@@ -155,13 +157,13 @@ describe('report services math (SPEC-M6 §7-A)', () => {
   })
 
   // ---- daily-pnl (§7-A rule 4) ----
-  it('daily-pnl: produced 400 − wages 60 = margin 340 per dept-day; expenses ride the totals band', async () => {
+  it('daily-pnl (HFX-12): produced 8000 (40 × contract 200) − wages 400 (Σ amount) = margin 7600; expenses ride the totals band', async () => {
     const res = await REPORT_SERVICES['daily-unit-pnl']({ from: new Date('2024-02-01'), to: new Date('2024-02-28'), limit: 50, page: 1 })
     const row = res.rows.find((r) => r.dept === DEPT)
     expect(row).toBeTruthy()
     expect(row!.qty).toBe(PROD_QTY)
-    expect(row!.produced).toBe(PROD_AMT)
-    expect(row!.wages).toBe(SHIFT_WAGES)
+    expect(row!.produced).toBe(PRODUCED_VALUE)
+    expect(row!.wages).toBe(PROD_AMT) // the piece-rate wage actually posted
     expect(row!.margin).toBe(MARGIN)
     expect(res.totals?.find((t) => t.label === 'Expenses (period)')?.value).toBe(EXPENSE_AMT)
     expect(res.totals?.find((t) => t.label === 'Net Margin')?.value).toBe(MARGIN - EXPENSE_AMT)
@@ -248,7 +250,7 @@ describe('report services math (SPEC-M6 §7-A)', () => {
     })
     const json = (out as any).json
     expect(json.report).toBe('daily-unit-pnl')
-    expect(json.rows.some((r: any) => r.dept === DEPT && r.produced === PROD_AMT)).toBe(true)
+    expect(json.rows.some((r: any) => r.dept === DEPT && r.produced === PRODUCED_VALUE)).toBe(true)
     // unknown slug → helpful error listing packs (never a throw)
     const bad = await tool.execute({ slug: 'nope' })
     expect((bad as any).text).toContain('Unknown report')

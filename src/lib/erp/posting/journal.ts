@@ -30,7 +30,11 @@ export async function planJournal(args: JournalInput): Promise<DocPlanResult> {
     text: `Proposed ${args.voucherType} voucher ${resolvedVoucherNo} — Dr ${args.debitAccount} / Cr ${args.creditAccount} ₹${args.amount}.`,
     summary: `Post ${args.voucherType} voucher ${resolvedVoucherNo} | Dr ${args.debitAccount} | Cr ${args.creditAccount} | ₹${args.amount} | party ${party?.name || '-'} | narration: ${args.narration || '-'}`,
     creates: [{ table: 'journal', data: { voucherNo: resolvedVoucherNo, voucherType: args.voucherType, partyId: party?.id, date: args.date ? new Date(args.date) : new Date(), finYear, debitAccount: args.debitAccount, creditAccount: args.creditAccount, amount: args.amount, narration: args.narration } }],
-    sideEffects: ['Party ledger updated', 'Cash/bank balance updated'],
+    // HFX-08 (Phase-6B Batch 0) — sideEffects honest: only TRUE claims. The
+    // journal write itself creates the voucher; a party-linked voucher shows
+    // in the party ledger (totalJournal). NOTHING updates a cash/bank balance
+    // (no GL exists) — the old "Cash/bank balance updated" claim was false.
+    sideEffects: party ? ['Party ledger reflects this voucher'] : [],
     async commit() {
       const j = await db.journal.create({ data: { voucherNo: resolvedVoucherNo, voucherType: args.voucherType, partyId: party?.id, date: args.date ? new Date(args.date) : new Date(), finYear, debitAccount: args.debitAccount, creditAccount: args.creditAccount, amount: args.amount, narration: args.narration } })
       return { id: j.id, voucherNo: j.voucherNo }

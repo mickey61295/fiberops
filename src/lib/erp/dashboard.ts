@@ -8,6 +8,7 @@
 // same as flag:* rows — SPEC-M16 §2 keeps it PER-ROLE, the spec's letter).
 
 import { db } from '@/lib/db'
+import { valueBucket } from '@/lib/erp/valuation'
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
 
 // ── Tile registry (SPEC-M16 §3.1) ──────────────────────────────────────────
@@ -219,7 +220,9 @@ export async function getDashboardSnapshot(role: string): Promise<DashboardSnaps
     samples_pending: String(samplesPending),
     pending_pos: String(pendingPos),
     grns_today: String(grnsToday),
-    stock_value: inrL(totalStock.reduce((s, st) => s + (st.kgs + st.mtrs + st.pcs) * st.rate, 0)),
+    // HFX-11 (Phase-6B Batch 0) — the shared per-uom valuation (valuation.ts);
+    // the old inline (kgs + mtrs + pcs) * rate mixed physical quantities.
+    stock_value: inrL(totalStock.reduce((s, st) => s + valueBucket(st), 0)),
     low_stock: String(lowBuckets),
     cut_open: String(cutOpen),
     today_pcs: todayProd.reduce((s, e) => s + e.qty, 0).toLocaleString('en-IN'),

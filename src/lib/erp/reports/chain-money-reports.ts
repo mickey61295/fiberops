@@ -196,9 +196,11 @@ export async function queryOutstandingSummary(q: RegisterQuery): Promise<Registe
     db.gRN.findMany({ where: grnWhere, include: { party: true }, take: 5000 }),
   ])
 
-  // per-invoice settled amounts (payments with invoiceId)
+  // per-invoice settled amounts — HFX-04 (Phase-6B Batch 0): ONLY
+  // direction:'in' payments settle a sales invoice. An out-payment tagged with
+  // an invoiceNo (refund / adjustment) must not reduce AR.
   const settledByInvoice = new Map<string, number>()
-  for (const p of payments) if (p.invoiceId) settledByInvoice.set(p.invoiceId, (settledByInvoice.get(p.invoiceId) ?? 0) + p.amount)
+  for (const p of payments) if (p.invoiceId && p.direction === 'in') settledByInvoice.set(p.invoiceId, (settledByInvoice.get(p.invoiceId) ?? 0) + p.amount)
 
   type Acc = RegisterRow & { _type: string }
   const agg = new Map<string, Acc>()
@@ -226,9 +228,28 @@ export async function queryOutstandingSummary(q: RegisterQuery): Promise<Registe
     else acc.b3 = (acc.b3 as number) + outstanding
   }
 
-  // AR: party-level receipts with no invoiceId credit the party
+  // AR: party-level receipts with no invoiceId credit the party — HFX-05
+  // (Phase-6B Batch 0): the partyReceipts map is now CONSUMED. A buyer paying
+  // on-account reduces their AR outstanding (oldest aging bucket first — the
+  // standard FIFO application order for aging reports; receipts beyond the
+  // outstanding sit as an advance on the party ledger, not in aging).
   const partyReceipts = new Map<string, number>()
   for (const p of payments) if (p.direction === 'in' && !p.invoiceId) partyReceipts.set(p.partyId, (partyReceipts.get(p.partyId) ?? 0) + p.amount)
+  for (const [partyId, receiptTotal] of partyReceipts) {
+    const acc = agg.get(`ar:${partyId}`)
+    if (!acc || receiptTotal <= 0) continue
+    const outstanding = acc.outstanding as number
+    acc.settled = (acc.settled as number) + Math.min(receiptTotal, Math.max(0, outstanding))
+    let remaining = receiptTotal
+    for (const bucket of ['b3', 'b2', 'b1', 'b0'] as const) {
+      if (remaining <= 0) break
+      const inBucket = acc[bucket] as number
+      const take = Math.min(inBucket, remaining)
+      acc[bucket] = inBucket - take
+      remaining -= take
+    }
+    acc.outstanding = Math.max(0, outstanding - receiptTotal)
+  }
 
   // AP side: GRN value − payments out (party-level)
   const paidOut = new Map<string, number>()
@@ -324,38 +345,69 @@ export async function queryGstSummary(q: RegisterQuery): Promise<RegisterResult>
 
 // ---------------------------------------------------------------------------
 // 13. Daily Unit P&L — per dept × day production economics (§7-A rule 4).
-// produced value = Σ ProductionEntry.amount; wages = Σ shiftWages;
-// margin = produced − wages. Expenses are PERIOD-level (no dept column —
-// ERRATUM §13-1): they ride the totals band, not the per-dept rows.
+// HFX-12 (Phase-6B Batch 0) — the wage columns finally carry the piece-rate
+// wage ACTUALLY POSTED (Σ ProductionEntry.amount — qty × the operator's
+// piece rate). The old reader summed `shiftWages`, a column NO door ever
+// writes (grep-verified: read-side only), so Wages was structurally ₹0 and
+// Margin ≡ produced. Produced value now values the day's output at the
+// ORDER's contract rate (totalValue × fxRate / totalPcs — the revenue side),
+// falling back to the piece-rate cost basis when the order carries no value;
+// Margin = produced − wages is the contract-vs-piece-rate spread (non-zero
+// for any day with production). L-06 later resolves the shiftWages column
+// itself (writer or drop).
+// Expenses are PERIOD-level (no dept column — ERRATUM §13-1): they ride the
+// totals band, not the per-dept rows.
 // ---------------------------------------------------------------------------
 export async function queryDailyPnl(q: RegisterQuery): Promise<RegisterResult> {
   const pWhere: any = { ...dateWhere(q, 'prodDate') }
   if (q.order) pWhere.order = { orderNo: q.order }
   const [entries, expenses] = await Promise.all([
-    db.productionEntry.findMany({ where: pWhere, include: { department: true }, take: 10000 }),
+    db.productionEntry.findMany({
+      where: pWhere,
+      include: {
+        department: true,
+        order: { select: { totalPcs: true, totalValue: true, currency: true, fxRate: true } },
+      },
+      take: 10000,
+    }),
     db.expense.findMany({ where: { ...dateWhere(q, 'expDate') }, take: 10000 }),
   ])
+
+  /** Order contract rate (₹/pc, INR-adjusted) — null when the order carries
+   *  no valueable contract (totalValue 0 / totalPcs 0) → caller falls back to
+   *  the piece-rate cost basis for that entry. */
+  const contractRateOf = (o: { totalPcs: number; totalValue: number; currency: string; fxRate: number } | null): number | null => {
+    if (!o || !o.totalPcs || o.totalValue <= 0) return null
+    const inrValue = o.currency === 'INR' ? o.totalValue : o.totalValue * (o.fxRate || 1)
+    return inrValue / o.totalPcs
+  }
 
   const day = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
   const agg = new Map<string, RegisterRow>()
   for (const e of entries) {
     const key = `${e.deptId}:${day(e.prodDate)}`
     const sortKey = e.prodDate.getTime()
+    // HFX-12 — produced: the entry's qty at the ORDER's contract rate
+    // (revenue-side valuation), piece-rate amount as cost-basis fallback;
+    // wages: the piece-rate wage actually posted (amount).
+    const rate = contractRateOf((e as any).order ?? null)
+    const producedValue = rate !== null ? e.qty * rate : e.amount
+    const wageValue = e.amount
     const acc = agg.get(key)
     if (acc) {
       acc.qty = (acc.qty as number) + e.qty
-      acc.produced = (acc.produced as number) + e.amount
-      acc.wages = (acc.wages as number) + e.shiftWages
-      acc.margin = (acc.margin as number) + e.amount - e.shiftWages
+      acc.produced = (acc.produced as number) + producedValue
+      acc.wages = (acc.wages as number) + wageValue
+      acc.margin = (acc.margin as number) + producedValue - wageValue
     } else {
       agg.set(key, {
         id: key,
         dept: e.department?.code ?? '—',
         date: e.prodDate,
         qty: e.qty,
-        produced: e.amount,
-        wages: e.shiftWages,
-        margin: e.amount - e.shiftWages,
+        produced: producedValue,
+        wages: wageValue,
+        margin: producedValue - wageValue,
         _sort: sortKey,
       })
     }

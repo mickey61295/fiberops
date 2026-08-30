@@ -95,10 +95,11 @@ describe('M6 Wave C lifecycle (SPEC-M6 §12-3)', () => {
     const c2 = await planPoLifecycle({ poNo: PO, action: 'cancel' })
     expect(c2.ok).toBe(false)
     expect(c2.error).toContain('received')
-    // complete succeeds (agent door)
+    // complete succeeds (agent door) — HFX-10: the terminal value is
+    // 'received' (PO_STATUS has no 'completed'; the old write was enum drift)
     await commitTool('complete_purchase_order', { poNo: PO, action: 'complete' })
     const done = await db.purchaseOrder.findUnique({ where: { id: poId } })
-    expect(done!.status).toBe('completed')
+    expect(done!.status).toBe('received')
   })
 
   it('update_order delegates to planOrderAmend (extraction keeps the contract)', async () => {

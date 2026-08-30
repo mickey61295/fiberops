@@ -86,7 +86,9 @@ export type CutStatus = (typeof CUT_STATUS)[number]
 export const BUNDLE_STATUS = ['in_cutting', 'issued_to_sewing', 'sewn', 'packed'] as const
 export type BundleStatus = (typeof BUNDLE_STATUS)[number]
 
-export const JOBWORK_STATUS = ['sent', 'received', 'billed'] as const
+// HFX-09 (Phase-6B Batch 0) — 'billed' retired until JWL-06 writes it: the
+// enum lists only states the system can actually reach.
+export const JOBWORK_STATUS = ['sent', 'received'] as const
 export type JobworkStatus = (typeof JOBWORK_STATUS)[number]
 
 export const VOUCHER_TYPES = ['receipt', 'payment', 'contra', 'journal'] as const

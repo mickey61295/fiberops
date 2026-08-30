@@ -13,7 +13,8 @@ export const jobworkRegisterConfig: RegisterConfig = {
       options: [
         { value: 'sent', label: 'Sent (at party)' },
         { value: 'received', label: 'Received' },
-        { value: 'billed', label: 'Billed' },
+        // HFX-09 (Phase-6B Batch 0) — 'billed' removed: no writer produces it
+        // (JWL-06 will) — a filter must never select a state nothing reaches.
       ],
     },
     { key: 'party', label: 'Jobworker', type: 'party', placeholder: 'code or name' },

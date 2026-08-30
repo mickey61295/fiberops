@@ -500,7 +500,14 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/unit/print-terms.test.ts \
          docs/CONTEXT/specs/SPEC-M34.md \
          tests/unit/digest-holidays.test.ts \
-         docs/CONTEXT/specs/SPEC-M35.md; do
+         docs/CONTEXT/specs/SPEC-M35.md \
+         docs/CONTEXT/specs/SPEC-M36.md \
+         src/lib/erp/valuation.ts \
+         src/lib/agent/narration.ts \
+         tests/pipeline/hfx-batch0.test.ts \
+         tests/setup/pin-test-db.ts \
+         tests/setup/global-setup.ts \
+         scripts/route_smoke_batch0.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

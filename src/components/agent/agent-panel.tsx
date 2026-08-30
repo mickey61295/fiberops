@@ -8,8 +8,15 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+// HFX-15 (Phase-6B Batch 0) — assistant text renders as Markdown (+ GFM for
+// the pipe tables the ingestion prompt asks the model to emit). The old
+// raw-text render printed literal ##/**/| — owner issue 1, root layer 2.
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+// HFX-16 — per-step narration segments (pure helpers, unit-tested)
+import { appendDelta, mergeNarration, type NarrationSegments } from '@/lib/agent/narration'
 import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, VOICE_SPEAK_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, getSpeechSynthesis, planSpeechText, speak, stopSpeaking, type VoiceSession } from '@/lib/agent/voice'
 
 interface AgentPanelProps {
@@ -62,6 +69,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const [pendingApprovals, setPendingApprovals] = useState<Record<string, PendingApproval>>({})
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({})
   const abortRef = useRef<AbortController | null>(null)
+  // HFX-18 (Phase-6B Batch 0) — transport errors surface INLINE (chip + Retry),
+  // not as toasts (the Toaster is unmounted until PRD P0-1) and not silently.
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const lastPromptRef = useRef<string | null>(null) // what Retry re-sends
   const [attachedFile, setAttachedFile] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -151,11 +162,17 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     if (open && seedPrompt) setInput(seedPrompt)
   }, [open, seedPrompt])
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages — HFX-17 (Phase-6B Batch 0):
+  // the scrollable element is the Radix Viewport (ui/scroll-area.tsx), NOT
+  // the inner content div this ref marks. The old code set scrollTop on the
+  // content div — a no-op — so long streams never followed. Walk up to the
+  // Viewport and scroll THAT; fall back to the div if the tree changes.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
+    const el = scrollRef.current
+    if (!el) return
+    const viewport = el.closest('[data-slot="scroll-area-viewport"]') as HTMLElement | null
+    const target = viewport ?? el
+    target.scrollTop = target.scrollHeight
   }, [messages, streaming])
 
   const toggleExpand = useCallback((id: string) => {
@@ -168,6 +185,8 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     // If a document is attached, tell the agent which file to work on.
     const text = attachedFile ? `[Attached document: ${attachedFile}]\n${rawText || 'Ingest this document into the ERP.'}` : rawText
     if (!text) return
+    setStreamError(null) // HFX-18 — a fresh send clears the last inline error
+    lastPromptRef.current = text // HFX-18 — Retry re-sends exactly this
 
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
@@ -211,14 +230,28 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
         return
       }
 
+      // HFX-18 (Phase-6B Batch 0) — every non-OK response surfaces INLINE
+      // with a Retry button. The old code only checked 401: a 500/429 was
+      // silently swallowed (and toasts are invisible — the Toaster stays
+      // unmounted until PRD P0-1).
+      if (!res.ok) {
+        setStreamError(`Agent unavailable (HTTP ${res.status}${res.status === 429 ? ' — rate limited' : ''}). Retry in a moment.`)
+        return
+      }
+
       if (!res.body) {
-        toast.error('No response stream')
+        setStreamError('No response stream from the agent. Retry in a moment.')
         return
       }
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let currentTextBuffer = ''
+      // HFX-16 (Phase-6B Batch 0) — narration segments keyed by the transport's
+      // text id (`text-${step}`): every step's narration PERSISTS across tool
+      // calls (the old single replace-buffer was wiped on tool-call-start, so
+      // "Let me check stock…" vanished when the post-tool text arrived — in
+      // the UI and in the history sent next turn).
+      const segments: NarrationSegments = new Map()
 
       while (true) {
         const { value, done } = await reader.read()
@@ -245,19 +278,19 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               break
             }
             case 'text-delta': {
-              currentTextBuffer += payload.delta || ''
+              appendDelta(segments, payload.id, payload.delta || '')
+              const merged = mergeNarration(segments)
               setMessages((prev) => {
                 const next = [...prev]
                 const idx = next.findIndex((m) => m.id === assistantMsgId)
                 if (idx >= 0) {
-                  next[idx] = { ...next[idx], text: currentTextBuffer }
+                  next[idx] = { ...next[idx], text: merged }
                 }
                 return next
               })
               break
             }
             case 'tool-call-start': {
-              currentTextBuffer = '' // reset for next text segment
               setMessages((prev) => {
                 const next = [...prev]
                 const idx = next.findIndex((m) => m.id === assistantMsgId)
@@ -321,7 +354,9 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               break
             }
             case 'error': {
-              toast.error('Agent error: ' + (payload.error || 'unknown'))
+              // HFX-18 — mid-stream errors surface INLINE too (toasts are
+              // invisible until the Toaster mounts — PRD P0-1).
+              setStreamError('Agent error: ' + (payload.error || 'unknown'))
               break
             }
           }
@@ -329,7 +364,8 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        toast.error(err?.message || 'Network error')
+        // HFX-18 — network failures surface inline with Retry (not a toast).
+        setStreamError(err?.message || 'Network error — check the connection and retry.')
       }
     } finally {
       setStreaming(false)
@@ -428,9 +464,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               </Badge>
             )}
           </SheetTitle>
-          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4" />
-          </Button>
+          {/* HFX-19 (Phase-6B Batch 0) — exactly ONE close affordance: the
+              SheetPrimitive.Close X that ui/sheet.tsx renders for every sheet
+              (top-4 right-4). The panel's own duplicate X button is GONE —
+              two stacked close buttons shipped since M10. */}
         </SheetHeader>
 
         <ScrollArea className="flex-1 min-h-0">
@@ -465,7 +502,15 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                 ) : (
                   <div className="space-y-2 w-full">
                     {m.text && (
-                      <div className="text-sm text-slate-800 whitespace-pre-wrap">{m.text}</div>
+                      // HFX-15 — Markdown + GFM render (headings, bold, pipe
+                      // tables, links, code blocks) styled to the panel theme;
+                      // raw ##/**/| never reaches the screen as literal glyphs.
+                      <div
+                        data-testid="assistant-text"
+                        className="text-sm leading-relaxed text-slate-800 [&_a]:text-emerald-700 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_blockquote]:text-slate-600 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_hr]:border-slate-200 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-slate-100 [&_pre]:p-2 [&_pre]:text-[12px] [&_strong]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:text-[12px] [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
+                      >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                      </div>
                     )}
                     {m.toolCalls.map((tc, i) => {
                       const isExpanded = expandedResults[`${m.id}-${i}`]
@@ -596,6 +641,38 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             )}
           </div>
         </ScrollArea>
+
+        {/* HFX-18 — transport/agent errors surface INLINE with Retry. Toasts
+            are invisible (Toaster unmounted until PRD P0-1) and silent
+            failures taught the owner to distrust the panel. */}
+        {streamError && (
+          <div
+            data-testid="agent-stream-error"
+            className="mx-3 my-2 flex items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700"
+          >
+            <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="flex-1">{streamError}</span>
+            <button
+              type="button"
+              onClick={() => {
+                const p = lastPromptRef.current
+                setStreamError(null)
+                if (p) sendPrompt(p)
+              }}
+              className="flex items-center gap-1 rounded border border-red-300 bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-100"
+            >
+              <RotateCcw className="h-3 w-3" /> Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => setStreamError(null)}
+              className="text-red-500 hover:text-red-700"
+              aria-label="Dismiss error"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         <form
           onSubmit={(e) => {

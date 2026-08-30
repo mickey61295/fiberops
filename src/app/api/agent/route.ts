@@ -246,39 +246,59 @@ export async function POST(req: Request) {
           step++
           if (!send({ type: 'step-start', step })) break // client gone — stop burning LLM steps
 
+          // HFX-14 (Phase-6B Batch 0) — REAL streaming. The old call was
+          // stream:false + a fake 4-char regex chunker whose dot-class NEVER
+          // matched newline — every \n in every assistant message was deleted
+          // in transport (owner issue 1, root layer 1).
+          // Now: stream:true, content deltas pass through VERBATIM as they
+          // arrive, and tool_call fragments are stitched by index across
+          // chunks (id / function.name / function.arguments arrive split).
           const completion = await client.chat.completions.create({
             model: 'glm-4.6',
             messages: messages as any,
             tools: tools as any,
             tool_choice: 'auto',
             temperature: 0.2,
-            stream: false,
+            stream: true,
           })
 
-          const choice = completion.choices?.[0]
-          if (!choice) {
-            send({ type: 'error', error: 'No completion choice' })
-            break
-          }
-          const msg = choice.message as any
-
-          // 1. Stream any text content
-          if (msg.content) {
-            send({
-              type: 'text-start',
-              id: `text-${step}`,
-              step,
-            })
-            // Emit in chunks for nicer UX
-            const chunks = msg.content.match(/.{1,4}/g) || [msg.content]
-            for (const chunk of chunks) {
-              send({
-                type: 'text-delta',
-                id: `text-${step}`,
-                delta: chunk,
-              })
+          let textContent = ''
+          let textStarted = false
+          const toolCallAcc = new Map<
+            number,
+            { id: string; index: number; type: 'function'; function: { name: string; arguments: string } }
+          >()
+          for await (const chunk of completion) {
+            const delta = (chunk as any).choices?.[0]?.delta
+            if (!delta) continue
+            if (delta.content) {
+              if (!textStarted) {
+                send({ type: 'text-start', id: `text-${step}`, step })
+                textStarted = true
+              }
+              // newline-faithful passthrough — no re-chunking
+              send({ type: 'text-delta', id: `text-${step}`, delta: delta.content })
+              textContent += delta.content
             }
-            send({ type: 'text-end', id: `text-${step}` })
+            for (const tc of delta.tool_calls || []) {
+              const acc =
+                toolCallAcc.get(tc.index) ??
+                { id: '', index: tc.index, type: 'function' as const, function: { name: '', arguments: '' } }
+              if (tc.id) acc.id = tc.id
+              if (tc.function?.name) acc.function.name += tc.function.name
+              if (tc.function?.arguments) acc.function.arguments += tc.function.arguments
+              toolCallAcc.set(tc.index, acc)
+            }
+          }
+          if (textStarted) send({ type: 'text-end', id: `text-${step}` })
+
+          const msg = {
+            content: textContent || null,
+            tool_calls: [...toolCallAcc.values()].filter((t) => t.function.name),
+          } as any
+
+          // 1. History: text content (streamed above)
+          if (msg.content) {
             messages.push({ role: 'assistant', content: msg.content })
           }
 

@@ -26,10 +26,14 @@ export const paymentConfig: DocConfig = {
     ] },
     { name: 'invoiceNo', label: 'Invoice No (settles when fully paid)', type: 'text', colSpan: 1 },
     { name: 'orderNo', label: 'Order No', type: 'text', colSpan: 1 },
+    // HFX-06 (Phase-6B Batch 0) — rtgs | neft join the mode select (the schema
+    // comment's contract: cash | bank | cheque | rtgs | neft | upi).
     { name: 'mode', label: 'Mode', type: 'select', colSpan: 1, options: [
       { value: 'cash', label: 'Cash' },
       { value: 'bank', label: 'Bank' },
       { value: 'cheque', label: 'Cheque' },
+      { value: 'rtgs', label: 'RTGS' },
+      { value: 'neft', label: 'NEFT' },
       { value: 'upi', label: 'UPI' },
     ] },
     { name: 'reference', label: 'Reference (UTR / cheque no)', type: 'text', colSpan: 2 },

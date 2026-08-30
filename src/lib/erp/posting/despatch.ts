@@ -13,6 +13,26 @@ import type { DespatchInput } from '../schemas/despatch'
 export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { buyer: true } })
   if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
+  // HFX-02 (Phase-6B Batch 0) — resolve line colour/size NAMES to ids BEFORE
+  // planning (the packing-list id-map precedent, ERRATUM 4 picker convention):
+  // the schema accepts colourName/sizeName, the PcsDespatchLine columns are
+  // colourId/sizeId, and the old commit silently DROPPED them (despatch.ts:59
+  // created lines with styleNo/qty/rate only) — every DC showed colourless,
+  // sizeless lines in the view + courier/LAD print.
+  const colourIds = new Map<string, string>()
+  const sizeIds = new Map<string, string>()
+  for (const l of args.lines || []) {
+    if (l.colourName?.trim() && !colourIds.has(l.colourName.trim())) {
+      const c = await db.colour.findUnique({ where: { name: l.colourName.trim() } })
+      if (!c) return { ok: false, error: `Colour ${l.colourName} not found` }
+      colourIds.set(l.colourName.trim(), c.id)
+    }
+    if (l.sizeName?.trim() && !sizeIds.has(l.sizeName.trim())) {
+      const s = await db.size.findUnique({ where: { name: l.sizeName.trim() } })
+      if (!s) return { ok: false, error: `Size ${l.sizeName} not found` }
+      sizeIds.set(l.sizeName.trim(), s.id)
+    }
+  }
   // SPEC-M6 §7-B — variant rules: courier REQUIRES courierName; loading uses
   // the LAD-#### number space and status 'loading' (DC- space untouched).
   const mode = args.mode ?? 'despatch'
@@ -35,13 +55,20 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
     return `${numberPrefix}${String(n).padStart(4, '0')}`
   })()
   const lines = args.lines || []
+  const lineRows = lines.map((l) => ({
+    styleNo: l.styleNo,
+    qty: l.qty,
+    rate: l.rate || 0,
+    colourId: l.colourName?.trim() ? colourIds.get(l.colourName.trim()) ?? null : null,
+    sizeId: l.sizeName?.trim() ? sizeIds.get(l.sizeName.trim()) ?? null : null,
+  }))
   return {
     ok: true,
     text: `Proposed despatch DC ${resolvedDcNo} for ${order.orderNo} — ${args.totalPcs} pcs.`,
     summary: `Create despatch DC ${resolvedDcNo} | order ${order.orderNo} | buyer ${order.buyer?.name || '-'} | ${args.totalPcs} pcs | vehicle ${args.vehicleNo || '-'} | courier ${args.courierName || '-'}`,
     creates: [
       { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus } },
-      ...lines.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 } })),
+      ...lineRows.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0, colourId: l.colourId, sizeId: l.sizeId } })),
       ...(args.returnable === false ? [{ table: 'approval', data: { entity: 'non_return_dc', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
     sideEffects: [
@@ -56,7 +83,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
             dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
             despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
             finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus,
-            lines: { create: lines.map((l) => ({ styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0 })) },
+            lines: { create: lineRows.map(({ styleNo, qty, rate, colourId, sizeId }) => ({ styleNo, qty, rate, colourId, sizeId })) },
           },
         })
         // Industry chain: despatched pcs leave G2 (Finished Goods) — sales_delivery.
