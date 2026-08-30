@@ -448,7 +448,12 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/erp/register-configs/audit-log.ts \
          'src/app/(erp)/admin/audit/page.tsx' \
          'src/app/(erp)/admin/audit/csv/route.ts' \
-         tests/unit/audit.test.ts scripts/route_smoke_m15.sh; do
+         tests/unit/audit.test.ts scripts/route_smoke_m15.sh \
+         src/lib/erp/dashboard.ts \
+         'src/app/(erp)/dashboard/actions.ts' \
+         src/components/erp/dashboard-v2.tsx \
+         tests/unit/dashboard.test.ts scripts/route_smoke_m16.sh \
+         docs/CONTEXT/specs/SPEC-M16.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

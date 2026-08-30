@@ -1095,3 +1095,23 @@ Stage Summary:
 - The m9-wave-a-alt branch is fully absorbed (its SSE surface is live at /live) — safe to delete or keep as history.
 - NOT pushed: remote URL is PAT-free (security protocol); 7 commits ahead of origin/main — needs a fresh PAT from the user to push.
 - Next candidates: M16 role dashboards · gap-audit P3 lane (keypad/voice/attendance/waste/e-invoice) · hygiene (m9-wave-a-alt branch cleanup).
+
+---
+Task ID: 28
+Agent: main (Super Z)
+Task: Second six-task run, task 1 of 6 — M16 Dashboard 2.0 (SPEC-M9 §9 P2-4, the last P2 item). User opened the session by supplying a fresh GitHub PAT (PITFALLS #8 protocol): configured the remote, pushed the 5 pending commits (M13/M14/M15/worklog/checkpoint) of the previous run, then proceeded.
+
+Work Log:
+- Bootstrap: context_check 516/516 NO DRIFT, eval --static PASS, worklog tail (Task 27) confirmed next = M16 + P3 lane.
+- SPEC-M16 frozen BEFORE code: 16-tile registry, 7 role profiles (merchandiser=order pipeline / accountant=cash / storekeeper=materials / production_mgr=shopfloor / cutting_mgr=cutting / hr=people / admin=superset), AppOption dashboard:<role>:tiles persistence, chain-funnel + 30-day production + cash charts; recharts over "ECharts" (vendored lib — deviation logged §3.4).
+- src/lib/erp/dashboard.ts: getDashboardSnapshot(role) ONE server call — chain funnel reuses queryOrderStatus() wholesale (open_orders + inhand_pcs tiles ride the same result); productionTrend/cashTrend = 30-day gap-filled windowed aggregates computed ONLY when the role shows them (empty payload otherwise — provable role picks).
+- (erp)/dashboard/actions.ts saveDashboardTiles: session-guarded, OWN-role-only; UI pref, NOT an audit door (documented deviation — and do NOT write the runCommit token in non-door files; context_check grep caught exactly that, reworded).
+- (erp)/page.tsx → SSR server component; dashboard-v2.tsx client: gradient tiles w/ SPEC-M4 §8.3 deep-links, Customize mode (reorder/hide/add-back ANY registry tile/Save/Reset → router.refresh), 3 recharts cards; OLD dashboard.tsx deleted (view count stays 34).
+- Tests: dashboard.test.ts NEW 19 — registry invariants (7 roles, defaults ⊆ registry, persona pins), persistence (save order wins / invalid dropped / reset / corrupt-JSON→defaults), snapshot math (inclusion+shape vs shared dev db: funnel 9 flags w/ order≡open-orders count, 30-pt trends, fixture invoice/receipt into last point, saved-layout end-to-end), action auth via cookie-mock (no-session reject, wrong-role reject, own-role save + reset).
+- route_smoke_m16.sh 29/29 + m16_smoke_fixture.ts (setup|persist|cleanup): admin superset (8 tiles + all 3 charts + customize), merchandiser pipeline (inhand/samples present, cash chart + employees tile ABSENT), accountant cash (cash chart present, chain + today_pcs ABSENT), AppOption-pinned layout drives SSR (only the pinned tile renders).
+- Gates: tsc src/ 0 · 928 vitest (909+19) · eval --static PASS · context_check 516→522/522 NO DRIFT · route_smoke_m16 29/29.
+
+Stage Summary:
+- M16 COMPLETE — the SPEC-M9 §9 P2 queue is now FULLY done (M13 digest, M14 perf/SSE, M15 audit, M16 dashboards).
+- Role-aware SSR dashboards with persisted per-role tile layouts; zero schema, zero tools, menu 130 / routes 163 unchanged (rework, not breadth).
+- Remaining in this run: branch hygiene (m9-wave-a-alt delete) → attendance → waste receipt → keypad mode → e-invoice mock.
