@@ -1500,3 +1500,18 @@ Work Log:
 
 Stage Summary:
 - The loomERP study is DONE and committed; repo fully pushed. Next decision point: P0 polish queue (toaster/markdown/admin-hub/profile/approvals) vs starting the P1 loomERP-inspired feature queue.
+---
+Task ID: 50 (loomerp phase, task 3)
+Agent: main (Super Z)
+Task: Deep analysis + functional/technical spike + full PRD for the 10 feature areas the owner prioritized (loomERP parked for good; features specced COMPLETELY for our app, not copied).
+
+Work Log:
+- Loaded docx skill (SKILL.md + routes/create.md + references/common-rules.md + design-system.md R1 recipe/GO-1 palette + toc.md) BEFORE any content production.
+- Technical spike (Explore agent, 12 targeted questions, all answered from code): numbering = ~30 hardcoded scan-for-gap sites + VESTIGIAL central SEQUENCES registry (numbering.ts) — the consolidation seam for FR-B5; audit = after-image-only payloads, no diff viewer; NO lockout/attempt-tracking/rate-limit anywhere; register/doc/master config-vs-runtime wall located (custom-field injection points identified); finYear hardcode inventoried (15 sites; activeFinYear() helper exists UNUSED); chain-state observes 9/15 stages; CutBundle.status written once, never advanced; dormant PCS pipeline + posting-engine apply() = dead code; LabTest.values JSON precedent for EAV; print fetcher→PrintDoc boundary = the template seam; webhook unsigned, no retry/log; flags 'numbering' category reserved+unused.
+- PRD written (docs/PRD/PHASE-6.md, 8522 words): 10 modules (A auth suite, B admin platform, C personalization, D planning+IE, E maintenance/OEE, F quality AQL/DHU/4-point, G GST GSTR-1/2+e-way+TDS, H traceability+print templates, I notifications+signed webhooks, J PWA mobile) · 69 numbered FRs with acceptance criteria · per-module technical design (models/routes/tools/flags, grounded in spike facts) · tests/risks · roadmap 19 batches M36-M149 · minimal 5-batch path · 6 open decisions for owner.
+- Key product decisions baked in: single-company owner-invite model (NO public signup — loomERP's SaaS pattern consciously adapted), cookie sessions kept + tokenVersion revocation (no JWT/Redis), Role CRUD + 17x7 matrix enforced at agent-tool dispatch wrapper, GSP-seam-but-manual-file GST payloads, PWA-first mobile, dashboard-builder deferred.
+- docx deliverable generated (scripts/gen_prd_docx.js): markdown→docx renderer, R1 cover w/ GO-1 palette (the PRD palette), 3 sections (cover 0-margin / TOC roman / body arabic restart-1), 65 TOC entries via add_toc_placeholders.py, footer instrText patched (ROMAN/arabic) via scripts/patch_prd_docx_footers.py, empty pgNumType stripped. postcheck: 0 errors, 8/9 (line-spacing warning = intentional table compactness). LibreOffice render: 37 pages; VLM visual check of cover/TOC/body: no defects.
+- Deliverables: download/FiberPro-Phase6-PRD.docx (formal) + docs/PRD/PHASE-6.md (repo source of truth).
+
+Stage Summary:
+- Phase-6 program is now specified end-to-end and owner-reviewable. Next: owner answers the 6 open decisions (§16), then Batch 1 (M36-M41 P0 defect queue) starts — the PRD's minimal path is executable immediately since it needs no new models.
