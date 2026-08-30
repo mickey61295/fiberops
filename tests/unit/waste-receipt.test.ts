@@ -100,7 +100,7 @@ describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
   })
 
   it('registry grew 224 → 226 (receive_waste)', () => {
-    expect(allTools.length).toBe(226)
+    expect(allTools.length).toBe(227)
   })
 
   it('the base service + its tool stay untouched (variant contract)', () => {

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
-import { mockIrnFor, mockAckNoFor, mockEwbNoFor, planGenerateIrn } from '@/lib/erp/einvoice'
+import { mockIrnFor, mockAckNoFor, mockEwbNoFor, planGenerateIrn, planCancelIrn, IRN_CANCEL_WINDOW_MS } from '@/lib/erp/einvoice'
 import { getTool, allTools } from '@/lib/agent/tools'
 import { fetchInvoicePrint } from '@/lib/erp/print/fetchers'
 
@@ -130,11 +130,106 @@ describe('SPEC-M23 §2 — planGenerateIrn (guards + thresholds + commit)', () =
     expect(keysS).not.toContain('e-Way Bill No')
   })
 
-  it('the agent tool is registered (write, accounting) — registry 225 → 226', async () => {
+  it('the agent tool is registered (write, accounting) — registry 226 → 227 (M26 adds cancel)', async () => {
     const tool = getTool('generate_einvoice_irn')
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)
     expect(tool!.domain).toBe('accounting')
-    expect(allTools.length).toBe(226)
+    expect(allTools.length).toBe(227)
+  })
+})
+
+describe('SPEC-M26 — the IRN cancellation workflow', () => {
+  const CANCEL_INV = `M26-INV-${Date.now()}`
+  let cancelInvId = ''
+  let cancelPartyId = ''
+
+  beforeAll(async () => {
+    const party = await db.party.create({ data: { code: `M26-P-${Date.now()}`, name: 'M26 Cancel Party', partyType: 'supplier' } })
+    cancelPartyId = party.id
+    const inv = await db.salesInvoice.create({
+      data: {
+        invoiceNo: CANCEL_INV, partyId: party.id, finYear: '26-27',
+        billAmount: 80000, status: 'issued', invoiceDate: new Date(),
+      },
+    })
+    cancelInvId = inv.id
+  })
+
+  afterAll(async () => {
+    await db.salesInvoice.deleteMany({ where: { id: cancelInvId } }).catch(() => {})
+    await db.party.deleteMany({ where: { id: cancelPartyId } }).catch(() => {})
+  })
+
+  it('guards: unknown invoice / no live IRN / window expired', async () => {
+    const unknown = await planCancelIrn({ invoiceNo: 'NOPE-404', reason: 'typo' })
+    expect(unknown.ok).toBe(false)
+    if (!unknown.ok) expect(unknown.error).toContain('not found')
+
+    const none = await planCancelIrn({ invoiceNo: CANCEL_INV, reason: 'typo' })
+    expect(none.ok).toBe(false)
+    if (!none.ok) expect(none.error).toContain('no live IRN')
+
+    // stamp, then age the stamp beyond the 24h window
+    const gen = await planGenerateIrn({ invoiceNo: CANCEL_INV })
+    expect(gen.ok).toBe(true)
+    if (gen.ok) await gen.commit()
+    await db.salesInvoice.update({
+      where: { id: cancelInvId },
+      data: { irnGeneratedAt: new Date(Date.now() - IRN_CANCEL_WINDOW_MS - 3600_000) },
+    })
+    const expired = await planCancelIrn({ invoiceNo: CANCEL_INV, reason: 'typo' })
+    expect(expired.ok).toBe(false)
+    if (!expired.ok) expect(expired.error).toContain('24h')
+  })
+
+  it('the happy path: cancel clears the trio, stamps the history slot (pre-M26 fallback works)', async () => {
+    // reset the stamp to NOW via the updatedAt fallback path: clear generatedAt so
+    // the pre-M26 approximation (updatedAt) applies — updatedAt was just touched
+    await db.salesInvoice.update({ where: { id: cancelInvId }, data: { irnGeneratedAt: null } })
+    const res = await planCancelIrn({ invoiceNo: CANCEL_INV, reason: 'wrong_entry' })
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      const r = await res.commit()
+      expect(r.irnCancelledIrn).toMatch(/^[0-9a-f]{64}$/)
+    }
+    const inv = await db.salesInvoice.findUnique({ where: { id: cancelInvId } })
+    expect(inv?.irn).toBeNull()
+    expect(inv?.irnAckNo).toBeNull()
+    expect(inv?.ewbNo).toBeNull()
+    expect(inv?.irnCancelledAt).toBeInstanceOf(Date)
+    expect(inv?.irnCancelledIrn).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('regeneration after cancellation succeeds (the M23 promise closed) — same deterministic IRN', async () => {
+    const again = await planCancelIrn({ invoiceNo: CANCEL_INV, reason: 'typo' })
+    expect(again.ok).toBe(false) // no live IRN anymore — already cancelled
+    const regen = await planGenerateIrn({ invoiceNo: CANCEL_INV })
+    expect(regen.ok).toBe(true)
+    if (regen.ok) {
+      const r = await regen.commit()
+      expect(r.irn).toMatch(/^[0-9a-f]{64}$/)
+      // deterministic tuple ⇒ same invoice yields the SAME IRN as the first stamp
+      const inv = await db.salesInvoice.findUnique({ where: { id: cancelInvId } })
+      expect(inv?.irn).toBe(inv?.irnCancelledIrn)
+      // the fresh generation re-stamps the window anchor
+      expect(inv?.irnGeneratedAt).toBeInstanceOf(Date)
+    }
+  })
+
+  it('generation stamps irnGeneratedAt (the window anchor)', async () => {
+    const inv = await db.salesInvoice.findUnique({ where: { id: cancelInvId } })
+    expect(inv?.irnGeneratedAt).toBeInstanceOf(Date)
+    // within the window now: cancellation is allowed again
+    const res = await planCancelIrn({ invoiceNo: CANCEL_INV, reason: 'order_cancelled' })
+    expect(res.ok).toBe(true)
+    if (res.ok) await res.commit()
+  })
+
+  it('the cancel agent tool is registered (write, accounting) — 227 total', async () => {
+    const tool = getTool('cancel_einvoice_irn')
+    expect(tool).toBeTruthy()
+    expect(tool!.isWrite).toBe(true)
+    expect(tool!.domain).toBe('accounting')
   })
 })

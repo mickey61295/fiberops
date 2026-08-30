@@ -79,11 +79,11 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice)" "226" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn)" "227" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
-check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance + M21 waste + M23 e-invoice)" "54"    "$DOCTOOLS"
+check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance + M21 waste + M23 e-invoice + M26 cancel-irn)" "55"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance)" "78"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker +M22 keypad-mode)" "35" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
@@ -149,7 +149,7 @@ check "m14 perf gate test file" "1" "$(ls tests/perf/registers-perf.test.ts 2>/d
 check "m14 createdAt indexes (16 feed families + StockLedger + M15 AuditLog + M20 Attendance)" "19" "$(grep -c '@@index(\[createdAt\])' prisma/schema.prisma)"
 check "m14 StockLedger docDate index" "1" "$(grep -c '@@index(\[docDate\])' prisma/schema.prisma)"
 check "m15 audit engine (audit.ts runCommit+writeAudit)" "2" "$(grep -cE 'export (async )?function (runCommit|writeAudit)' src/lib/erp/audit.ts)"
-check "commit doors routing through runCommit (M15 ×13 + M23 e-invoice form door)" "14" "$(grep -rl 'runCommit' src/app src/lib/erp/doc-actions.ts src/lib/erp/cancel-action.ts 2>/dev/null | grep -v audit.ts | wc -l)"
+check "commit doors routing through runCommit (M15 ×13 + M23 e-invoice door; M26 cancel rides the same file)" "14" "$(grep -rl 'runCommit' src/app src/lib/erp/doc-actions.ts src/lib/erp/cancel-action.ts 2>/dev/null | grep -v audit.ts | wc -l)"
 check "m15 audit viewer files (service + config + page + csv)" "4" "$(ls src/lib/erp/registers/audit-log.ts src/lib/erp/register-configs/audit-log.ts 'src/app/(erp)/admin/audit/page.tsx' 'src/app/(erp)/admin/audit/csv/route.ts' 2>/dev/null | wc -l)"
 check "m12 playwright config (dedicated :3100 + isolated e2e.db)" "1" "$(ls playwright.config.ts 2>/dev/null | wc -l)"
 check "m12 golden-path spec files (8)" "8" "$(ls tests/e2e/*.spec.ts 2>/dev/null | wc -l)"
@@ -476,7 +476,8 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          src/lib/agent/voice.ts \
          tests/unit/voice.test.ts \
          docs/CONTEXT/specs/SPEC-M24.md \
-         docs/CONTEXT/specs/SPEC-M25.md scripts/route_smoke_m25.sh; do
+         docs/CONTEXT/specs/SPEC-M25.md scripts/route_smoke_m25.sh \
+         docs/CONTEXT/specs/SPEC-M26.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

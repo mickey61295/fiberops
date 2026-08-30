@@ -13,7 +13,7 @@ import { computeChainState, CHAIN_ORDER_INCLUDE } from '@/lib/erp/chain'
 import { ReconCard } from '@/components/erp/recon-card'
 import { invoiceRecon } from '@/lib/erp/registers/recon'
 import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5
-import { planGenerateIrn } from '@/lib/erp/einvoice' // SPEC-M23 — mock e-invoice
+import { planGenerateIrn, planCancelIrn, CANCEL_REASONS } from '@/lib/erp/einvoice' // SPEC-M23/M26 — mock e-invoice + the cancellation workflow
 import { runCommit } from '@/lib/erp/audit'
 import { getSessionUser } from '@/lib/auth/current-user'
 import { revalidatePath } from 'next/cache'
@@ -34,6 +34,27 @@ async function generateIrnAction(formData: FormData) {
     actorName: user?.email ?? 'system',
     actorSource: user ? 'form' : 'system',
     slug: 'einvoice-irn',
+  })
+  revalidatePath(`/accounts/invoice/${invoiceNo}`)
+  revalidatePath('/accounts/invoice')
+}
+
+/** SPEC-M26 — the CANCEL form door (the 15th runCommit door): the same
+ *  planCancelIrn the cancel_einvoice_irn tool calls. Submit = immediate;
+ *  the reason select IS the confirmation step (two-step lives on the
+ *  agent door's plan card). */
+async function cancelIrnAction(formData: FormData) {
+  'use server'
+  const invoiceNo = String(formData.get('invoiceNo') || '')
+  const reason = String(formData.get('reason') || '')
+  if (!CANCEL_REASONS.includes(reason as (typeof CANCEL_REASONS)[number])) return
+  const plan = await planCancelIrn({ invoiceNo, reason: reason as (typeof CANCEL_REASONS)[number] })
+  if (!plan.ok) return // the button only renders on the eligible path
+  const user = await getSessionUser().catch(() => null)
+  await runCommit(plan, {
+    actorName: user?.email ?? 'system',
+    actorSource: user ? 'form' : 'system',
+    slug: 'einvoice-irn-cancel',
   })
   revalidatePath(`/accounts/invoice/${invoiceNo}`)
   revalidatePath('/accounts/invoice')
@@ -101,8 +122,9 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
             </>
           )}
         </div>
-        {/* SPEC-M23 — the mock e-invoice handshake: stamped values, or the
-            Generate door on eligible (issued, not-yet-stamped) invoices */}
+        {/* SPEC-M23/M26 — the mock e-invoice handshake: stamped values + the
+            24h Cancel door, or the Generate door on eligible invoices, or
+            the cancelled-IRN history line */}
         <div className="mt-3 border-t border-slate-100 pt-2 text-xs text-slate-600" data-testid="einvoice-block">
           {inv.irn ? (
             <div className="space-y-1">
@@ -110,19 +132,54 @@ export default async function InvoiceViewPage({ params }: { params: Promise<{ id
               {inv.irnAckNo && <div><span className="font-semibold">IRN Ack No:</span> <span className="font-mono">{inv.irnAckNo}</span></div>}
               {inv.ewbNo && <div><span className="font-semibold">e-Way Bill No (mock):</span> <span className="font-mono">{inv.ewbNo}</span></div>}
               {!inv.ewbNo && <div className="text-slate-400">No e-Way Bill — consignment ≤ ₹50,000</div>}
+              {/* SPEC-M26 — the cancellation door: within 24h of generation */}
+              {(() => {
+                const genAt = inv.irnGeneratedAt ?? inv.updatedAt ?? inv.createdAt
+                const within = Date.now() - new Date(genAt).getTime() <= 24 * 60 * 60 * 1000
+                if (!within) return <div className="text-slate-400">Cancellation window (24h) has closed for this IRN</div>
+                return (
+                  <form action={cancelIrnAction} className="flex items-center gap-2 pt-1" data-testid="cancel-irn-form">
+                    <input type="hidden" name="invoiceNo" value={inv.invoiceNo} />
+                    <select
+                      name="reason"
+                      defaultValue="typo"
+                      className="rounded-md border border-slate-300 px-2 py-1.5 text-xs"
+                      aria-label="IRN cancellation reason"
+                    >
+                      {CANCEL_REASONS.map((r) => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                    </select>
+                    <button
+                      type="submit"
+                      className="rounded-md bg-slate-600 hover:bg-slate-500 px-3 py-1.5 text-white font-semibold"
+                      data-testid="cancel-irn-button"
+                    >
+                      Cancel IRN
+                    </button>
+                    <span className="text-slate-400">24h window · SPEC-M26</span>
+                  </form>
+                )
+              })()}
             </div>
           ) : inv.status === 'issued' ? (
-            <form action={generateIrnAction} className="flex items-center gap-2">
-              <input type="hidden" name="invoiceNo" value={inv.invoiceNo} />
-              <button
-                type="submit"
-                className="rounded-md bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-white font-semibold"
-                data-testid="generate-irn-button"
-              >
-                Generate IRN (mock e-invoice)
-              </button>
-              <span className="text-slate-400">offline deterministic mock — SPEC-M23</span>
-            </form>
+            <div className="space-y-2">
+              {inv.irnCancelledIrn && inv.irnCancelledAt && (
+                <div className="text-amber-700" data-testid="irn-cancelled-history">
+                  Previous IRN cancelled {new Date(inv.irnCancelledAt).toISOString().slice(0, 10)}:{' '}
+                  <span className="font-mono break-all">{inv.irnCancelledIrn}</span>
+                </div>
+              )}
+              <form action={generateIrnAction} className="flex items-center gap-2">
+                <input type="hidden" name="invoiceNo" value={inv.invoiceNo} />
+                <button
+                  type="submit"
+                  className="rounded-md bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-white font-semibold"
+                  data-testid="generate-irn-button"
+                >
+                  {inv.irnCancelledIrn ? 'Generate IRN again (mock)' : 'Generate IRN (mock e-invoice)'}
+                </button>
+                <span className="text-slate-400">offline deterministic mock — SPEC-M23</span>
+              </form>
+            </div>
           ) : (
             <div className="text-slate-400">e-invoice (mock) needs an issued invoice</div>
           )}

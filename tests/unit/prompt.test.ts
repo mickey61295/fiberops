@@ -77,7 +77,7 @@ describe('SPEC-M10 — the versioned agent system prompt', () => {
 
 describe('SPEC-M10 §2-C3 — tool description floor', () => {
   it('every registered tool description is concrete (≥ 40 chars)', () => {
-    expect(allTools.length).toBe(226) // count pin (M19-C: 189 + 33 completion-master tools)
+    expect(allTools.length).toBe(227) // count pin (M19-C: 189 + 33 completion-master tools)
     const short = allTools.filter((t) => t.description.length < 40)
     expect(short.map((t) => `${t.name} (${t.description.length})`)).toEqual([])
   })

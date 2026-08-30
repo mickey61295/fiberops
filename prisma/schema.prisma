@@ -581,8 +581,12 @@ model SalesInvoice {
   irn          String? // e-invoice IRN (SPEC-M23 mock handshake)
   irnAckNo     String? // SPEC-M23 — mock IRN acknowledgement no (10 digits)
   ewbNo        String? // SPEC-M23 — mock e-Way Bill no (12 digits, only >₹50k consignments)
+  irnGeneratedAt  DateTime? // SPEC-M26 — when the live IRN was stamped (the 24h cancel window anchor)
+  irnCancelledAt  DateTime? // SPEC-M26 — when the live IRN was cancelled
+  irnCancelledIrn String? // SPEC-M26 — the cancelled IRN preserved (history, one slot)
   status       String   @default("draft") // draft | issued | paid | cancelled
   createdAt    DateTime @default(now())
+  updatedAt    DateTime? @updatedAt // SPEC-M26 — the pre-M26 IRN-stamp fallback (stamp = last update; nullable — 170 existing rows)
   @@index([createdAt])
 }
 

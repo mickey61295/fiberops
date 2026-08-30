@@ -81,7 +81,7 @@ import { PROGRAM_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/program-allotment'
 import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
 import { WASTE_RECEIPT_SCHEMA } from '@/lib/erp/schemas/stock-adj'
-import { EINVOICE_SCHEMA } from '@/lib/erp/schemas/einvoice'
+import { EINVOICE_SCHEMA, EINVOICE_CANCEL_SCHEMA } from '@/lib/erp/schemas/einvoice'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -125,7 +125,7 @@ import { planProgramAllotment } from '@/lib/erp/posting/program-allotment'
 import { planProductionBill } from '@/lib/erp/posting/production-bill'
 import { planAttendance } from '@/lib/erp/posting/attendance'
 import { planWasteReceipt } from '@/lib/erp/posting/stock-adj'
-import { planGenerateIrn } from '@/lib/erp/einvoice'
+import { planGenerateIrn, planCancelIrn } from '@/lib/erp/einvoice'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -1771,6 +1771,13 @@ const docTools: AgentTool[] = [
     'accounting',
     EINVOICE_SCHEMA,
     planGenerateIrn,
+  ),
+  docTool(
+    'cancel_einvoice_irn',
+    'Cancel the live MOCK IRN of a sales invoice (SPEC-M26 — the real workflow: within 24h of generation, with a reason). Required: invoiceNo, reason (typo | wrong_entry | order_cancelled | delivery_cancelled | others). Commit clears the IRN/Ack/e-Way rows, preserves the cancelled IRN as a history line on the view, and the invoice can generate a fresh IRN again.',
+    'accounting',
+    EINVOICE_CANCEL_SCHEMA,
+    planCancelIrn,
   ),
   docTool(
     'receive_waste',

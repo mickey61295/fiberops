@@ -1245,3 +1245,23 @@ Stage Summary:
 - The keypad surface now covers a line-grid family: shop-floor despatch operators get the full-screen big-target DC entry with the one-line-at-a-time editor, over the SAME ADR-001 door (audit identical).
 - Committed+tagged m25, pushed.
 - Next: M26 IRN cancellation workflow (the M23 OUT item).
+
+---
+Task ID: 36 (third six-task run, task 3)
+Agent: main (Super Z)
+Task: M26 — IRN cancellation workflow (the SPEC-M23 documented OUT item: "regeneration = the cancellation workflow, out of scope").
+
+Work Log:
+- SPEC-M26 frozen BEFORE code: the real govt rules (24h window, reason enum), history slot preservation, regen-after-cancel, two doors.
+- Schema: SalesInvoice +irnGeneratedAt/+irnCancelledAt/+irnCancelledIrn (nullable) + updatedAt DateTime? @updatedAt — the REQUIRED-column attempt failed on 170 existing rows (db push error) → nullable + Prisma auto-stamp; fallback chain irnGeneratedAt ?? updatedAt ?? createdAt.
+- einvoice.ts: IRN_CANCEL_WINDOW_MS + CANCEL_REASONS + planCancelIrn (guards + ONE-update commit); planGenerateIrn AMENDED to stamp irnGeneratedAt (plan + commit).
+- Tools: cancel_einvoice_irn docTool (226→227; pins ×8 test files + context_check).
+- Form door: cancelIrnAction — a new ACTION in the M23 door file (grep contract counts FILES: doors stay 14, honest — the spec §5 record amended); reason select = the confirm; view history line + regen button + closed-window notice; print stays live-IRN-only.
+- Tests +5 (guards incl. backdated-anchor window expiry; happy path incl. pre-M26 null-anchor fallback; regen determinism — the regen IRN EQUALS the cancelled one; anchor stamped; tool registered) → 992 vitest.
+- Gates: tsc src/ 0 · 992 vitest · eval --static PASS · context_check 550→551/551 NO DRIFT · route_smoke_m26 NEW 17/17 · LIVE browser: reason combobox (default typo) → select 'order cancelled' → Cancel IRN → history line + regen button, zero console errors, screenshot download/m26-irn-cancel.png.
+
+Stage Summary:
+- The e-invoice mock now has the full lifecycle: generate → cancel (24h, reason, history) → regenerate. The M23 promise is closed.
+- Honest correction: the "15th commit door" claim in the spec draft was wrong (same file) — grep contract counts files; documented.
+- Committed+tagged m26, pushed.
+- Next: M27 print QR image.
