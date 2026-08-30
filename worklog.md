@@ -1226,3 +1226,22 @@ Stage Summary:
 - Voice entry shipped: the agent panel accepts dictated Tamil/Tanglish/English input through the browser's SpeechRecognition API — zero new dependencies, zero schema/menu/route/tool changes, ADR-001 untouched (input channel only).
 - The STT decision is closed (documented in SPEC-M24 + STATE): browser API first; server STT stays out until a real deployment demands it.
 - Third six-task run in progress: M25 pcs-despatch line-grid keypad → M26 IRN cancellation → M27 print QR → M28 holiday surfacing → M29 jump-bar G residual.
+
+---
+Task ID: 35 (third six-task run, task 2)
+Agent: main (Super Z)
+Task: M25 — the line-grid keypad on pcs despatch (the SPEC-M22 §1 deferred follow-up: "needs a one-line-at-a-time big line editor — the line keypad").
+
+Work Log:
+- SPEC-M25 frozen BEFORE code: keypadLinesFor (required-only line projection), the big line editor (draft + ADD/✕ + ≥1-line guard), line pickers on the shared master_search feed, { header, lines } payloads through both doors, KEYPAD_LINES_MAX=20, OUT: other line families + barcode + line-edit-after-add.
+- keypad.ts: keypadLinesFor + KEYPAD_LINES_MAX + despatch in KEYPAD_SURFACES.
+- keypad-mode.tsx: optional lineFields prop; draft/lines state; required-complete + line-limit guards on ADD; line label style · colour · size · qty; picker feeds keyed 'line:<name>' (header/line feeds never collide); nextEntry resets lines+draft; plan AND commit carry { header, values-lines }.
+- /pieces/despatch: ?mode=keypad branch + ⌨ toggle.
+- Tests +5 incl. the SERVICE-LEVEL two-line commitDocAction round-trip (DC lands w/ 2 line rows + pcs ledger out-row; children-first cleanup; zero residue). Fixture facts learned: Order.totalPcs (no qty), StockLedger needs finYear + has no uomId, commitDocAction returns doc.dcNo for despatch.
+- M22's header-only surfaces test AMENDED honestly (despatch = the line-grid exception, pinned).
+- Gates: vitest 987/987 (982+5; one first-run flake of the documented master-parity date-collision class — green isolated + on re-run) · tsc src/ 0 · eval --static PASS · context_check 548→550/550 NO DRIFT · route_smoke_m25 NEW 16/16 · LIVE browser: guard error renders on SAVE-without-lines, ADD LINE lands 'S-1001 · 5', remove 1→0, zero console errors, screenshot download/m25-despatch-keypad.png.
+
+Stage Summary:
+- The keypad surface now covers a line-grid family: shop-floor despatch operators get the full-screen big-target DC entry with the one-line-at-a-time editor, over the SAME ADR-001 door (audit identical).
+- Committed+tagged m25, pushed.
+- Next: M26 IRN cancellation workflow (the M23 OUT item).

@@ -4,12 +4,15 @@
  * Form door → planPcsDespatch — the same service as create_pcs_despatch
  * (ADR-001). PcsDespatch carries NO order/buyer relations (reconstructed
  * schema) — orderNo/buyer resolve through a separate order lookup.
- * ?order=SO-… prefills orderNo.
+ * ?order=SO-… prefills orderNo. ?mode=keypad = the SPEC-M25 line-grid
+ * keypad (the big line editor — the M22 follow-up surface).
  */
 import { db } from '@/lib/db'
 import { despatchConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb, RecentDocsTable } from '@/components/erp/recent-docs'
+import { KeypadMode } from '@/components/erp/keypad-mode'
+import { keypadFieldsFor, keypadLinesFor } from '@/lib/erp/keypad'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +22,18 @@ export default async function PcsDespatchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const sp = await searchParams
+  // SPEC-M25 — the line-grid keypad surface (big line editor, ADD/✕)
+  if (sp.mode === 'keypad') {
+    return (
+      <KeypadMode
+        slug="despatch"
+        title="Pcs Despatch"
+        fields={keypadFieldsFor(despatchConfig)}
+        lineFields={keypadLinesFor(despatchConfig)}
+        exitHref="/pieces/despatch"
+      />
+    )
+  }
   const order = typeof sp.order === 'string' ? sp.order : undefined
   const recent = await db.pcsDespatch.findMany({
     orderBy: { despatchDate: 'desc' },
@@ -44,6 +59,10 @@ export default async function PcsDespatchPage({
   return (
     <div className="space-y-5">
       <DocBreadcrumb href="/" label="Home" title="Pcs DC (new)" />
+      {/* SPEC-M25 — the operator door into the line-grid keypad (QR-able URL) */}
+      <div className="flex justify-end">
+        <a href="/pieces/despatch?mode=keypad" className="text-xs text-emerald-700 underline" data-testid="keypad-toggle">⌨ Keypad mode</a>
+      </div>
       <DocScreen
         config={toScreenConfig(despatchConfig)}
         mode="new"

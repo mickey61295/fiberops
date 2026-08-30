@@ -475,7 +475,8 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M23.md \
          src/lib/agent/voice.ts \
          tests/unit/voice.test.ts \
-         docs/CONTEXT/specs/SPEC-M24.md; do
+         docs/CONTEXT/specs/SPEC-M24.md \
+         docs/CONTEXT/specs/SPEC-M25.md scripts/route_smoke_m25.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

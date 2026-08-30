@@ -39,13 +39,33 @@ export function keypadFieldsFor(config: DocConfig): KeypadField[] {
 
 /** The shipped keypad surfaces (slug → operator title + route). The wiring
  *  contract: each route's page branches on ?mode=keypad and renders
- *  KeypadMode with these fields. Header-only families only — line-grid
- *  families wait for the big line editor (SPEC-M22 §1). */
+ *  KeypadMode with these fields. Header-only families + the M25 line-grid
+ *  despatch surface (lineFields via keypadLinesFor). */
 export const KEYPAD_SURFACES: Record<string, { route: string; title: string }> = {
   production: { route: '/production/entry', title: 'Production Tally' },
   cut: { route: '/cutting/job-order', title: 'Cut Order' },
   'waste-receipt': { route: '/inventory/waste-receipt', title: 'Waste Receipt' },
+  despatch: { route: '/pieces/despatch', title: 'Pcs Despatch' },
 }
+
+/** SPEC-M25 — the line projection (the header discipline verbatim):
+ * required-only, readonly/optional stay on the full DocScreen. */
+export function keypadLinesFor(config: DocConfig): KeypadField[] {
+  return (config.lineFields ?? [])
+    .filter((f) => f.type !== 'readonly')
+    .filter((f) => f.required)
+    .map((f) => ({
+      name: f.name,
+      label: f.label,
+      type: (f.type === 'picker' ? 'picker' : f.type) as KeypadField['type'],
+      options: f.options,
+      picker: f.picker,
+      pickerValueField: f.pickerValueField,
+    }))
+}
+
+/** SPEC-M25 — one operator DC is short; the full DocScreen handles bigger. */
+export const KEYPAD_LINES_MAX = 20
 
 /** Dates default to today (the M17 reflex convention), ISO local (en-CA). */
 export function keypadDefaultFor(field: KeypadField): string {
