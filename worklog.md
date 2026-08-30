@@ -1610,3 +1610,20 @@ Stage Summary:
 - Verdict: documents exist for every step but truth leaks at the seams between them; 13 live one-liner correctness bugs + 4 P0 data-corruption flows + 2 ops P0s (backup, timezone). None covered by Phase-6 A-J except the FR-G2 dependency.
 - Recommendations: Batch 0 hotfix (13 one-liners, ½ batch), B1 jobwork loop repair, B2 money integrity (PaymentAllocation + SupplierBill + wire threeWayMatch), B3 ops foundation (backup/TZ/idempotency), B4 stock take + valuation unification (WAC, fix 3-valuation contradiction + take:5000 truncation); then Module K (costing, dive 1), L (payroll), M (final accounts/CoA), invoice-lines-before-G.
 - Deliverable: docs/ANALYSIS/2026-08-30-deep-dive-2-remaining-gaps.md. No code changed (read-only audit).
+
+---
+Task ID: 53
+Agent: main (Super Z) + 2 parallel Explore agents (panel UX, agent brain)
+Task: Owner reported chatbot issues: (1) text not formatted properly, (2) not conversation-action-friendly, (3) wants screen-aware prompt suggestions. QoL study + consolidation of all findings from dives 1-3.
+
+Work Log:
+- Deployed 2 explorers: (A) agent panel as chat product (agent-panel.tsx, provider, SSE route, approve route, ask-agent-button, command palette, keypad, voice, e2e); (B) agent brain (prompt.ts full, tools.ts ergonomics, parse-with-coercion, route context assembly, menu-registry/view-routes/jump substrate).
+- Independently re-verified all P0/P1 claims: route.ts:273 /.{1,4}/g + stream:false (fake streaming); agent-panel.tsx:467 raw text render (react-markdown installed, 0 imports); :247-260 text-buffer overwrite on tool-call-start; :155/437 scrollRef on content div not Radix Viewport (auto-scroll no-op); :208 only 401 checked, no res.ok; tools.ts:1631 docTool returns {text:error} no error field -> panel badges failed writes 'ok'; approve/route.ts:24-38 re-executes plan (TOCTOU) + updateMany marks ALL user turns approved + no arg validation; tools.ts:530+ list tools unbounded (no q/take, 8K slice); route.ts:231-239 zero dynamic context (no date/user/screen); prompt.ts:118-120 hardcoded FY/godowns; menu-registry 76 agentPrompt entries + findItemByRoute (substrate ready, unwired); sheet.tsx:75 + panel :431 duplicate close buttons.
+- Reconciled explorer contradictions: prompt.ts:83 'summary table' is ingestion-scoped only (general formatting contract absent); rights-bypass at tool dispatch is PRD FR-B3-planned (recorded as sharpened evidence, not new).
+- Wrote dive 3: docs/ANALYSIS/2026-08-31-agent-chatbot-qol-study.md — 3 owner issues root-caused (formatting = 4 stacked layers incl. missing remark-gfm; conversation-unfriendliness = outcome-blindness P0 + client-only plans + TOCTOU + discarded post-commit results + ok-badged failures; screen-awareness = 90% built substrate, zero wiring).
+- Wrote consolidated register: docs/ANALYSIS/2026-08-31-consolidated-gap-register.md — all 3 dives unified: 5 summary statements, 6 cross-cutting themes (loop closure, honest claims, orphaned substrate, context blindness, trust infrastructure, read-model poverty), unified P0 table (11 rows w/ PRD status), PRD coverage map (7 amendment proposals), 8-batch roadmap (0 hotfix, 1 ops, 2 chat QoL, 3-6 loop closures, 7 PRD A-J, 8 depth modules K/L/M).
+
+Stage Summary:
+- Dive 3 verdict: owner issue 1 = 4 stacked render defects (2 known PRD-P0 + remark-gfm missing + no prompt formatting contract); issue 2 = the model never learns approve/reject/commit outcomes while the prompt demands it — single highest-leverage fix is ~20 lines of synthetic outcome events; issue 3 = yes, and cheapest win in the dive (76 authored agentPrompts + findItemByRoute + one ctx POST field; also fixes context-blindness).
+- Consolidation: ~110 findings total across 3 dives; 11 P0s; PRD A-J covers platform but misses loop-closure bugs, agent QoL beyond P0 queue, payroll, final accounts, stock take, backup/TZ, invoice-lines-before-G.
+- Deliverables: 2 new analysis docs (committed); no code changed.
