@@ -48,6 +48,11 @@ export interface PrintDoc {
   signatures?: [string, string]
   /** Terms / footnotes under the sheet */
   notes?: string[]
+  /** SPEC-M27 — inline QR SVG (the invoice family: encodes the live mock IRN;
+   *  absent when there is no live IRN — a cancelled IRN never prints). */
+  qr?: string
+  /** Label under the QR, e.g. 'Scan to verify (mock IRN)'. */
+  qrLabel?: string
 }
 
 /** Registry entry: a docType's fetcher (resolves by db id OR doc no). */

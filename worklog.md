@@ -1265,3 +1265,22 @@ Stage Summary:
 - Honest correction: the "15th commit door" claim in the spec draft was wrong (same file) — grep contract counts files; documented.
 - Committed+tagged m26, pushed.
 - Next: M27 print QR image.
+
+---
+Task ID: 37 (third six-task run, task 4)
+Agent: main (Super Z)
+Task: M27 — print QR image (STATE next-actions #28 open item: "QR image on the invoice print (needs a QR lib decision)").
+
+Work Log:
+- The QR lib DECISION (open #4): vendored single-file MIT encoder (the qrcode-generator algorithm, attributed) — production stays zero-dependency; jsqr@1.4.0 added as a DEV-only dep purely for cross-verification. Rejected: npm prod dep / server-side PNG / client canvas (reasons in SPEC-M27 §1).
+- NEW src/lib/erp/print/qr.ts: byte mode, EC M, v1–10 auto (IRN → v5 37×37), RS per the standard block table, alignment v≥2, BCH format (XOR 0x5412) + version info (v≥7), 8-mask penalty auto-pick; qrMatrix + qrSvg (inline SVG, 4-module quiet zone, crispEdges).
+- THE GATE EARNED ITS KEEP: jsQR round-trips exposed a data-dependent failure pattern (len 10 fail / len 14 pass at v1). Forced-mask probing isolated it to masks 1/3/4/6 — the BCH remainder loop condition was `bitLength > deg(G)` instead of `>=` (off-by-one → 1-bit-wrong format info for boundary masks). Fixed in formatBits AND versionBits; 18-length × v1–v6 probe = 100% decode.
+- Print wiring: PrintDoc +qr/+qrLabel (additive); invoice fetcher qrSvg(inv.irn, 96) + 'Scan to verify (mock IRN)' ONLY on a live IRN (M26 cancel rule holds — smoke-proven); PrintSheet renders beside the meta grid (data-testid=invoice-qr).
+- Tests: print-qr.test NEW 8 (3 jsQR round-trips + determinism + matrix/SVG shape + source pins) → 1000 vitest.
+- Gates: tsc src/ 0 · 1000 vitest · eval --static PASS · context_check 551→554/554 NO DRIFT (+3 file pins; print lib 7→8) · route_smoke_m27 NEW 14/14 · LIVE browser: QR renders on a stamped invoice print, zero console errors, screenshot download/m27-invoice-qr.png.
+
+Stage Summary:
+- The invoice print now carries a scannable QR of the live mock IRN — the e-invoice print ritual complete (IRN rows + QR + bank strip + HSN).
+- The QR encoder is verified by an INDEPENDENT decoder (jsQR) — the discipline that caught the BCH bug in its first hour. jsqr stays dev-only.
+- Committed+tagged m27, pushed.
+- Next: M28 holiday calendar surfacing (§7-H).

@@ -97,6 +97,13 @@ export async function PrintSheet({ doc, size = 'regular', autoPrint = true }: { 
             ))}
           </div>
         ) : null}
+        {/* SPEC-M27 — the QR beside the meta rows (invoice family, live IRN only) */}
+        {doc.qr ? (
+          <div className="mt-2 flex flex-col items-center gap-1" data-testid="invoice-qr">
+            <div dangerouslySetInnerHTML={{ __html: doc.qr }} />
+            <div className="text-[9px] text-slate-500">{doc.qrLabel ?? 'Scan to verify'}</div>
+          </div>
+        ) : null}
       </div>
 
       {/* line table */}

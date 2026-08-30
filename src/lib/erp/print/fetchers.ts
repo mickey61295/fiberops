@@ -10,6 +10,7 @@
 import { db } from '@/lib/db'
 import type { PrintDoc, PrintParty } from './types'
 import { amountInWords } from './amount-words'
+import { qrSvg } from './qr' // SPEC-M27 — the mock-IRN QR
 
 export const d = (dt: Date | null | undefined) => (dt ? new Date(dt).toISOString().slice(0, 10) : '—')
 export const inr = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN')}`
@@ -116,6 +117,8 @@ export async function fetchInvoicePrint(idOrNo: string): Promise<PrintDoc | null
       ...(inv.irnAckNo ? [['IRN Ack No', inv.irnAckNo] as [string, string]] : []),
       ...(inv.ewbNo ? [['e-Way Bill No', inv.ewbNo] as [string, string]] : []),
     ],
+    // SPEC-M27 — the QR encodes the live IRN (mock; a cancelled IRN never prints)
+    ...(inv.irn ? { qr: qrSvg(inv.irn, 96), qrLabel: 'Scan to verify (mock IRN)' } : {}),
     lines: hasBody
       ? {
           columns: [
