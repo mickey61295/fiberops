@@ -1434,3 +1434,21 @@ Stage Summary:
 - The frmTerms master is live: the invoice print's terms block is an owned, editable AppOption (admin UI + agent doors), with the M8 fallback as the honest default.
 - Push still pending (no PAT this session); committed+tagged m34 locally.
 - Fourth six-task run: one task left — M35 holidays digest adoption.
+---
+Task ID: 46 (fourth six-task run, task 6 — FINAL)
+Agent: main (Super Z)
+Task: M35 — holidays digest adoption (the M28 OUT promise: "digest adoption" — the GovtHoliday planning reads feed the daily digest).
+
+Work Log:
+- SPEC-M35 frozen BEFORE code: shutdowns section (14d window via the M28 getUpcomingHolidays read, silent when empty) + the page card + NEW get_daily_digest tool; OUT: per-order risk lines, weekday breakdown, window flag, WhatsApp channel.
+- DISCOVERY: get_daily_digest NEVER EXISTED in the current tree — the Phase-4.5 promise ("one chat prompt returns the owner-grade digest") was lost in the rollback era; the digest was service + page + cron only. M35 restores it.
+- digest.ts: DigestShutdownRow + DIGEST_SHUTDOWN_WINDOW_DAYS=14 (exported) + getUpcomingHolidays inside the existing Promise.all + sections.shutdowns + the text block (TODAY vs d-away + the planning line; SILENT when empty).
+- Digest page: the amber shutdowns card (CalendarClock, days chips, TODAY variant, /masters/govt-holiday deep-link) above the gate section; hidden when empty.
+- get_daily_digest tool (229→230, read/reports; pins ×10 files + context_check; SYSTEM_PROMPT reports line): briefing text + section counts + shutdown rows.
+- Tests: digest-holidays.test NEW 10 (in-window + text block; 30d excluded; quiet → no text block; block-after-gate; TODAY; tool ×2; source pins ×3) → 1112 vitest.
+- Gates: tsc src/ 0 · 1112 vitest · eval --static PASS 15/15 · context_check 572→574/574 NO DRIFT · NEW route_smoke_m35 12/12 (SSR lesson: React interpolates <!-- --> comment nodes — strip before grepping interpolated captions) · LIVE browser-verified (amber card w/ Deepavali '6d away' + calendar link + text block; FULL-PAGE screenshot m35-digest-holidays.png, VLM-confirmed all four sections; zero console errors).
+
+Stage Summary:
+- The daily briefing now speaks shutdowns: the owner hears about Pongal/Deepavali in the morning digest, sees the amber card on the digest screen, and can ask the agent "what needs my attention today?" (get_daily_digest — the Phase-4.5 promise finally honored).
+- FOURTH SIX-TASK RUN COMPLETE: M30 legacy-alias hygiene + M31 working-day arithmetic + M32 voice TTS + M33 barcode bundle flow + M34 terms master + M35 digest holidays. Run totals: 1036→1112 vitest (+76), tools 228→230, context_check 565→574, six specs frozen, six route smokes NEW, every surface LIVE browser-verified.
+- Push still pending (no PAT this session); committed+tagged m35 locally.

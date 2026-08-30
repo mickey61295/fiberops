@@ -1527,6 +1527,30 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    // SPEC-M35 — the Phase-4.5 promise restored: one chat prompt returns
+    // the owner-grade daily briefing (the SAME buildDigest the page + the
+    // cron webhook carry — one shape everywhere).
+    name: 'get_daily_digest',
+    description: 'Get the daily owner briefing: pending approvals with age, low-stock alerts, today\u2019s gate movements, and upcoming shutdowns (holidays within 14 days — plan despatch & production around them). Use for "what needs my attention today?" or a morning briefing.',
+    domain: 'reports',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const { buildDigest } = await import('@/lib/erp/notifications/digest')
+      const digest = await buildDigest()
+      return {
+        text: digest.text,
+        json: {
+          generatedAt: digest.generatedAt,
+          approvals: digest.sections.approvals.rows.length,
+          lowStock: digest.sections.lowStock.rows.length,
+          gateMovements: digest.sections.gate.rows.length,
+          shutdowns: digest.sections.shutdowns.rows,
+        },
+      }
+    },
+  },
+  {
     // SPEC-M6 §4 rule (c) — the ONE report door: runs the SAME service the
     // /reports/[slug] runner calls (one query layer, two doors).
     name: 'render_report',

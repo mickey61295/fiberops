@@ -211,12 +211,12 @@ describe('SPEC-M31 §2 — the db wrappers (fixtures from the M28 block)', () =>
 })
 
 describe('SPEC-M31 §2 — the agent tool (get_working_days)', () => {
-  it('is registered as a read tool in the masters domain (registry 228 → 229)', () => {
+  it('is registered as a read tool in the masters domain (registry 229 → 230)', () => {
     const t = allTools.find((x: any) => x.name === 'get_working_days')
     expect(t).toBeDefined()
     expect((t as any).isWrite).toBe(false)
     expect((t as any).domain).toBe('masters')
-    expect(allTools.length).toBe(229)
+    expect(allTools.length).toBe(230)
   })
 
   it('window mode returns the breakdown against live fixtures', async () => {

@@ -207,12 +207,12 @@ describe('SPEC-M33 — bundle label fetchers (the sticker sheet)', () => {
     expect(typeof PRINT_DOCS['bundle-label']).toBe('function')
   })
 
-  it('get_bundle tool registered (read, cutting) — 228 → 229 after M31', async () => {
+  it('get_bundle tool registered (read, cutting) — 229 → 230 after M31', async () => {
     const tool = allTools.find((t) => t.name === 'get_bundle')
     expect(tool).toBeDefined()
     expect(tool!.domain).toBe('cutting')
     expect(tool!.isWrite).toBe(false)
-    expect(allTools.length).toBe(229)
+    expect(allTools.length).toBe(230)
     // resolves a real bundle by bundleNo (the scan reflex)
     const res = await tool!.execute({ bundle: `${CUT_NO}/B1` })
     expect(res.text).toContain(`${CUT_NO}/B1`)

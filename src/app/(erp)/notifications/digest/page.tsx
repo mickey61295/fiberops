@@ -1,11 +1,13 @@
 /**
  * /notifications/digest — the daily digest screen (SPEC-M9 §9 M13): pending
- * approvals with age, low-stock alerts, today's gate movements — the same
- * data /api/cron/digest serves. Channel status comes from the notification.*
- * flags; sending is gated by them (the Send-now button just asks the API).
+ * approvals with age, low-stock alerts, today's gate movements, and —
+ * SPEC-M35 — upcoming shutdowns (the M28 holiday read, 14-day window) — the
+ * same data /api/cron/digest serves. Channel status comes from the
+ * notification.* flags; sending is gated by them (the Send-now button just
+ * asks the API).
  */
 import Link from 'next/link'
-import { AlertTriangle, Bell, Clock, Truck } from 'lucide-react'
+import { AlertTriangle, Bell, CalendarClock, Clock, Truck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
 import { buildDigest } from '@/lib/erp/notifications/digest'
@@ -110,6 +112,33 @@ export default async function Page() {
           )}
         </div>
       </section>
+
+      {/* SPEC-M35 — upcoming shutdowns (silent when empty, the M28 discipline) */}
+      {digest.sections.shutdowns.rows.length > 0 && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50/60 shadow-sm" data-digest-shutdowns>
+          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
+            <CalendarClock className="h-4 w-4 text-amber-600" />
+            <h2 className="text-[13px] font-semibold text-amber-800">Upcoming shutdowns</h2>
+            <Badge variant="secondary">{digest.sections.shutdowns.rows.length}</Badge>
+            <span className="text-[11px] text-amber-700/70">next {digest.sections.shutdowns.windowDays} days</span>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {digest.sections.shutdowns.rows.map((s) => (
+              <div key={s.date} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+                <span className="font-medium text-amber-900">{s.name}</span>
+                <span className="flex items-center gap-2 text-amber-700">
+                  <span className="font-mono text-[13px]">{s.date}</span>
+                  <Badge variant={s.daysUntil === 0 ? 'default' : 'outline'}>{s.daysUntil === 0 ? 'TODAY' : `${s.daysUntil}d away`}</Badge>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t border-amber-100 px-4 py-2 text-[11px] text-amber-700/80">
+            Plan despatch &amp; production around shutdowns —{' '}
+            <Link href="/masters/govt-holiday" className="underline hover:text-amber-900">full calendar</Link>
+          </div>
+        </section>
+      )}
 
       {/* gate movements */}
       <section className="rounded-lg border bg-white shadow-sm">

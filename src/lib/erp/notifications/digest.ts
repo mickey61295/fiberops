@@ -1,14 +1,16 @@
 /**
- * Daily notifications digest — SPEC-M9 §9 M13. Builds the three sections
+ * Daily notifications digest — SPEC-M9 §9 M13. Builds the sections
  * from live data (read-only; the same rows the approval inbox / stock views
  * show): pending approvals with age, low-stock alerts (pcs buckets under the
  * notification.low_stock_pcs threshold + NEGATIVE material balances, always
- * worth a shout), and today's gate movement log. Flags gate SENDING
+ * worth a shout), today's gate movement log, and — SPEC-M35 — upcoming
+ * shutdowns (the M28 holiday read, 14-day window). Flags gate SENDING
  * (notification.digest_enabled + webhook_url); this module only builds and,
  * when armed, POSTs — no external dependency beyond fetch.
  */
 import { db } from '@/lib/db'
 import { getFlag } from '@/lib/erp/flags'
+import { getUpcomingHolidays } from '@/lib/erp/holidays'
 
 export interface DigestApprovalRow {
   entity: string
@@ -36,12 +38,24 @@ export interface DigestGateRow {
   gateDateTime: string
 }
 
+/** SPEC-M35 — upcoming shutdowns (the M28 holiday read, 14-day window). */
+export interface DigestShutdownRow {
+  date: string
+  name: string
+  daysUntil: number
+}
+
+/** SPEC-M35 — the shutdowns briefing window (days). */
+export const DIGEST_SHUTDOWN_WINDOW_DAYS = 14
+
 export interface Digest {
   generatedAt: string
   sections: {
     approvals: { rows: DigestApprovalRow[] }
     lowStock: { thresholdPcs: number; rows: DigestLowStockRow[] }
     gate: { rows: DigestGateRow[] }
+    /** SPEC-M35 — upcoming shutdowns; silent when empty (M28 discipline). */
+    shutdowns: { windowDays: number; rows: DigestShutdownRow[] }
   }
   text: string
 }
@@ -62,7 +76,7 @@ const ENTITY_LABELS: Record<string, string> = {
 export async function buildDigest(now = new Date()): Promise<Digest> {
   const thresholdPcs = Number(await getFlag('notification.low_stock_pcs')) || 0
 
-  const [approvals, stock, gate] = await Promise.all([
+  const [approvals, stock, gate, holidays] = await Promise.all([
     db.approval.findMany({
       where: { status: 'pending' },
       orderBy: { createdAt: 'asc' },
@@ -74,6 +88,8 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
       orderBy: { gateDateTime: 'desc' },
       take: 50,
     }),
+    // SPEC-M35 — the M28 read, reused verbatim (14-day briefing window)
+    getUpcomingHolidays({ from: now, days: DIGEST_SHUTDOWN_WINDOW_DAYS }),
   ])
 
   // resolve item codes for stock rows (PITFALLS #21 id-maps; pcs → styleNo)
@@ -133,6 +149,13 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     gateDateTime: g.gateDateTime.toISOString(),
   }))
 
+  // SPEC-M35 — upcoming shutdowns (silent when none in window)
+  const shutdownRows: DigestShutdownRow[] = holidays.map((h) => ({
+    date: h.date.toISOString().slice(0, 10),
+    name: h.name,
+    daysUntil: h.daysUntil,
+  }))
+
   const lines: string[] = []
   lines.push(`FiberOps daily digest — ${now.toISOString().slice(0, 10)}`)
   lines.push('')
@@ -152,6 +175,14 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
   for (const g of gateRows.slice(0, 5)) {
     lines.push(`  · ${g.gateType.toUpperCase()} ${g.entryNo}${g.vehicleNo ? ` (${g.vehicleNo})` : ''}${g.refDocNo ? ` ref ${g.refDocNo}` : ''}${g.party ? ` — ${g.party}` : ''}`)
   }
+  // SPEC-M35 — the shutdowns block appears ONLY when something shuts down
+  if (shutdownRows.length > 0) {
+    lines.push('')
+    lines.push(`Upcoming shutdowns (${DIGEST_SHUTDOWN_WINDOW_DAYS}d): ${shutdownRows.length}`)
+    for (const s of shutdownRows) {
+      lines.push(`  · ${s.name} (${s.date}${s.daysUntil === 0 ? ', TODAY' : `, ${s.daysUntil}d away`}) — plan despatch & production around it`)
+    }
+  }
 
   return {
     generatedAt: now.toISOString(),
@@ -159,6 +190,7 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
       approvals: { rows: approvalRows },
       lowStock: { thresholdPcs, rows: lowStock },
       gate: { rows: gateRows },
+      shutdowns: { windowDays: DIGEST_SHUTDOWN_WINDOW_DAYS, rows: shutdownRows },
     },
     text: lines.join('\n'),
   }
