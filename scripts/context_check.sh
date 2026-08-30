@@ -79,12 +79,12 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33)" "222" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2)" "224" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
-check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3)" "51"    "$DOCTOOLS"
-check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog)" "77"      "$MODELS"
+check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance)" "52"    "$DOCTOOLS"
+check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance)" "78"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker)" "34" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
@@ -93,15 +93,15 @@ check "master config tests"        "8"       "$CFGTESTS"
 check "master parity test blocks"   "7"       "$PARITYTESTS"  # loop-generated: 126 tests at runtime (41 masters)
 check "doc parity tests (+ M6-D)"    "21"      "$DOCPARITYTESTS"
 check "register config tests (M4 fleet + M5-A/B; runtime via per-config loop)" "27"      "$REGCFGTESTS"
-check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit)" "130"     "$MENUITEMS"
-check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live + M15 audit)" "163"    "$LIVEROUTES"
+check "menu items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M20 attendance)" "131"     "$MENUITEMS"
+check "live routes (M6 113/113 + M9 /tracker + M11 /admin/settings + M19 ×13 + tally + M13 digest + M14 /live + M15 audit + M20 /hr/attendance)" "164"    "$LIVEROUTES"
 check "report configs (SPEC-M6 §4: 28 frozen)" "28"      "$REPORTCFGS"
 check "report service files (12 new aggregates — current-stock bound in M6-C)" "2"       "$REPORTSVCFILES"
-check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock + audit-log)" "24"       "$REGCFGS"
-check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×10 + audit)" "34"       "$REGSVCFILES"
+check "register config files (M4 + M5 + M6-C + M19 material-stock + wave-b + closing-stock + audit-log + M20 attendance)" "25"       "$REGCFGS"
+check "register service files (M4 + order-status + recon + M5 + M6-C ×2 + M19 ×10 + audit + M20 attendance)" "35"       "$REGSVCFILES"
 check "master configs (24 M2 + shift + 5 ADR-016 + 11 M19-C)" "41"      "$MASTERCFGS"
-check "shared zod schema files (+ M6-D dispatch/transfer variants)" "39"      "$SCHEMAFILES"
-check "posting service files"      "35"      "$POSTINGSVCS"
+check "shared zod schema files (+ M6-D dispatch/transfer variants + M20 attendance)" "40"      "$SCHEMAFILES"
+check "posting service files (+ M20 attendance)"      "36"      "$POSTINGSVCS"
 check "chain stages"               "15"      "$CHAINSTAGES"
 check "doc config files (SPEC-M3 19 + M5-A 5 + M5-B 13 + M5-D 10 + M6-B 1 + M6-D 2)" "40"       "$DOCCFGS"
 check "MAX_STEPS"                  "12"      "$MAXSTEPS"
@@ -146,7 +146,7 @@ check "m13 flags registry count (28 LLD-07 + 4 notification)" "32" "$(grep -c ' 
 check "m13 digest files (service + cron route + screen + send button)" "4" "$(ls src/lib/erp/notifications/digest.ts src/app/api/cron/digest/route.ts 'src/app/(erp)/notifications/digest/page.tsx' 'src/app/(erp)/notifications/digest/send-button.tsx' 2>/dev/null | wc -l)"
 check "m14 SSE files (live-snapshot + snapshot route + stream route + live page + client)" "5" "$(ls src/lib/erp/live-snapshot.ts src/app/api/live-tracker/route.ts src/app/api/live-tracker/stream/route.ts 'src/app/(erp)/live/page.tsx' src/components/erp/live-stream-tracker.tsx 2>/dev/null | wc -l)"
 check "m14 perf gate test file" "1" "$(ls tests/perf/registers-perf.test.ts 2>/dev/null | wc -l)"
-check "m14 createdAt indexes (16 feed families + StockLedger + M15 AuditLog)" "18" "$(grep -c '@@index(\[createdAt\])' prisma/schema.prisma)"
+check "m14 createdAt indexes (16 feed families + StockLedger + M15 AuditLog + M20 Attendance)" "19" "$(grep -c '@@index(\[createdAt\])' prisma/schema.prisma)"
 check "m14 StockLedger docDate index" "1" "$(grep -c '@@index(\[docDate\])' prisma/schema.prisma)"
 check "m15 audit engine (audit.ts runCommit+writeAudit)" "2" "$(grep -cE 'export (async )?function (runCommit|writeAudit)' src/lib/erp/audit.ts)"
 check "m15 commit doors routing through runCommit" "13" "$(grep -rl 'runCommit' src/app src/lib/erp/doc-actions.ts src/lib/erp/cancel-action.ts 2>/dev/null | grep -v audit.ts | wc -l)"
@@ -453,7 +453,15 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          'src/app/(erp)/dashboard/actions.ts' \
          src/components/erp/dashboard-v2.tsx \
          tests/unit/dashboard.test.ts scripts/route_smoke_m16.sh \
-         docs/CONTEXT/specs/SPEC-M16.md; do
+         docs/CONTEXT/specs/SPEC-M16.md \
+         src/lib/erp/schemas/attendance.ts \
+         src/lib/erp/posting/attendance.ts \
+         src/lib/erp/registers/attendance.ts \
+         src/lib/erp/register-configs/attendance.ts \
+         'src/app/(erp)/hr/attendance/page.tsx' \
+         'src/app/(erp)/hr/attendance/csv/route.ts' \
+         tests/unit/attendance.test.ts scripts/route_smoke_m20.sh \
+         docs/CONTEXT/specs/SPEC-M20.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

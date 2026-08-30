@@ -22,6 +22,7 @@ import { queryLots } from '@/lib/erp/registers/lots'
 import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
+import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
 import { queryJobwork } from '@/lib/erp/registers/jobwork'
@@ -78,6 +79,7 @@ import { ROLL_SPLIT_SCHEMA } from '@/lib/erp/schemas/roll-split'
 import { CONTRACT_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/contract-allotment'
 import { PROGRAM_ALLOTMENT_SCHEMA } from '@/lib/erp/schemas/program-allotment'
 import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
+import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
 import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
@@ -119,6 +121,7 @@ import { planRollSplit } from '@/lib/erp/posting/roll-split'
 import { planContractAllotment } from '@/lib/erp/posting/contract-allotment'
 import { planProgramAllotment } from '@/lib/erp/posting/program-allotment'
 import { planProductionBill } from '@/lib/erp/posting/production-bill'
+import { planAttendance } from '@/lib/erp/posting/attendance'
 import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
@@ -888,6 +891,37 @@ const readTools: AgentTool[] = [
         json: res.rows.map((r) => ({
           operator: r.operator, orderNo: r.orderNo, dept: r.dept,
           qty: r.qty, rate: r.rate, amount: r.amount,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_attendance',
+    description: "Attendance day-book (one row per employee per day; default window = TODAY). Returns date, employee code/name, dept, shift, status (present|absent|half|leave), in/out times, hours + the four status totals. Optional: from, to (ISO dates), status, q (employee code/name or dept code). Post or correct a day with post_attendance.",
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      from: z.string().optional().describe('ISO date (default today)'),
+      to: z.string().optional().describe('ISO date'),
+      status: z.string().optional().describe('present | absent | half | leave'),
+      q: z.string().optional().describe('Employee code/name or dept code'),
+    }),
+    async execute(args) {
+      // Delegates to the shared register service (SPEC-M20 §5) — the same
+      // read path the /hr/attendance screen uses.
+      const res = await queryAttendance({
+        limit: 200, page: 1,
+        from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        status: args.status, q: args.q,
+      })
+      const totals = (res.totals ?? []).map((t) => `${t.value} ${String(t.label).toLowerCase()}`).join(', ')
+      return {
+        text: `${res.count} rows · ${totals}`,
+        json: res.rows.map((r) => ({
+          date: r.attDate ? new Date(r.attDate as any).toISOString().slice(0, 10) : null,
+          code: r.code, employee: r.employee, dept: r.dept, shift: r.shift,
+          status: r.status, in: r.inTime, out: r.outTime, hours: r.hours,
         })),
       }
     },
@@ -1726,6 +1760,13 @@ const docTools: AgentTool[] = [
     'accounting',
     PRODUCTION_BILL_SCHEMA,
     planProductionBill,
+  ),
+  docTool(
+    'post_attendance',
+    'Post or CORRECT a day of attendance (batch, upsert — one row per employee per day; re-posting fixes, never duplicates). Required: entries [{employeeCode, status? (present|absent|half|leave, default present)}]. Optional: attDate (default today), per-entry shiftCode, inTime/outTime "HH:MM" (hours auto-derived), notes. Read it back with list_attendance.',
+    'hr',
+    ATTENDANCE_SCHEMA,
+    planAttendance,
   ),
 ]
 

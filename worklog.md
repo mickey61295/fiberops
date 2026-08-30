@@ -1128,3 +1128,23 @@ Work Log:
 
 Stage Summary:
 - Branch list is now just main (+ origin/agent/order-program-flow remote-only). Alt implementation lines are recoverable by SHA for 30+ days via reflog.
+
+---
+Task ID: 30
+Agent: main (Super Z)
+Task: Second six-task run, task 3 of 6 — M20 Attendance (SPEC-M20, gap-audit Gap D closure: the HR view's "Post Attendance via Agent" button had NO backing tool/model/register).
+
+Work Log:
+- SPEC-M20 frozen BEFORE code (upsert-per-employee/day contract, default-window-today register, agent-door-only posting).
+- Schema 77→78: Attendance (@@unique employeeId+attDate, status present|absent|half|leave, inTime/outTime, hours, createdAt+attDate indexes; relations additive on Employee+Shift — first attempt wrongly landed the relation on Department, prisma validate caught it, fixed before push).
+- posting/attendance.ts: batch plan (validation: unknown employees listed, status set, HH:MM, out>in; hours = out−in else shift.hours; creates vs updates split honestly) + ONE $transaction upsert commit.
+- Tools 222→224: post_attendance (docTool write) + list_attendance (read delegate over the shared register service). Fixed a self-inflicted placeholder tool before it ever ran.
+- registers/attendance.ts (default window TODAY, 4 status totals, q over employee/dept) + config (read-tool chip) + /hr/attendance page + CSV + menu item (hr, RG, phase M20; Phase union extended) → menu 131 / routes 164.
+- Tests: attendance.test NEW 9; pins updated (tools ×6, regcfg 35 + slug order attendance<audit-log + ROUTE_BY_SLUG, menu ×4, models/routes/schemas/posting/docTools/createdAt in context_check).
+- TRAP worth remembering: describe-level afterAll deleted the fixtures before the NEXT describe could read them — moved to file-scope hooks.
+- Gates: tsc src/ 0 · 942 vitest · eval --static PASS · context_check 522→531/531 NO DRIFT · route_smoke_m20 18/18 (absent-filter both directions, q=dept, CSV, chip, both tools in registry).
+
+Stage Summary:
+- Gap D attendance closure shipped: model + write tool + read tool + day-book register + menu + honest HR button.
+- Tools 224, models 78, menu 131/164 routes, 942 vitest, context_check 531/531.
+- Next in the run: M21 waste receipt → M22 keypad mode → M23 e-invoice mock.

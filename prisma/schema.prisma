@@ -213,6 +213,7 @@ model Employee {
   dailyWage         Float             @default(0)
   active            Boolean           @default(true)
   productionEntries ProductionEntry[]
+  attendance        Attendance[] // SPEC-M20 (Gap D) — daily attendance rows
 }
 
 model Yarn {
@@ -962,6 +963,31 @@ model Shift {
   toTime    String // "14:00"
   hours     Float    @default(8)
   createdAt DateTime @default(now())
+  attendance Attendance[] // SPEC-M20
+}
+
+// ============== ATTENDANCE (SPEC-M20, gap-audit Gap D) ==============
+// ONE row per employee per day (@@unique) — re-posting a day CORRECTS it
+// (upsert), never duplicates. Piece-rate payroll implicitly needs this;
+// posting is agent-door-only (post_attendance), the register is the read
+// surface. hours derived from in/out when both given, else the shift's.
+model Attendance {
+  id         String    @id @default(cuid())
+  attDate    DateTime
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  shiftId    String?
+  shift      Shift?    @relation(fields: [shiftId], references: [id])
+  status     String    @default("present") // present | absent | half | leave
+  inTime     String? // "HH:MM"
+  outTime    String? // "HH:MM"
+  hours      Float?
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  @@unique([employeeId, attDate])
+  @@index([createdAt])
+  @@index([attDate])
 }
 
 // ============== M6 WAVE B — ADR-016 NEW MODELS (SPEC-M6 §5 + ERRATUM #1) ==============

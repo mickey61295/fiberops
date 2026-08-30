@@ -13,7 +13,7 @@
  */
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20'
 
 export interface MenuGroup {
   id: string
@@ -217,6 +217,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/notifications/digest', // Daily Digest (M13) — daily-digest (approvals + low stock + gate, webhook channels)
   // M15 (SPEC-M9 §9) — engine-level audit trail
   '/admin/audit', // Audit Log (M15) — audit-log (admin viewer over the runCommit trail)
+  // M20 (gap-audit P3, Gap D) — attendance
+  '/hr/attendance', // Attendance (M20) — attendance (day-book; posted via post_attendance agent tool)
 ])
 
 // ---------------------------------------------------------------------------
@@ -273,7 +275,7 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (130 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit) — SPEC-M1 §5.2
+// ITEMS (131 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit + M20 attendance) — SPEC-M1 §5.2
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -1070,6 +1072,14 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmPaymentReg_Wages'],
     agentTools: ['pay_wages'], pendingTools: [],
     agentPrompt: 'Pay wages to operator party EMP-0001',
+  },
+  {
+    id: 'attendance', label: 'Attendance', groupId: 'hr', route: '/hr/attendance', arch: 'RG', phase: 'M20',
+    description: 'Daily attendance day-book (present/absent/half/leave) — posted via the agent.',
+    legacyForms: ['frmAttandance'],
+    agentTools: ['list_attendance'], pendingTools: ['post_attendance'],
+    agentPrompt: 'Show me today\u2019s attendance',
+    notes: 'SPEC-M20 Gap D closure — the HR view\u2019s Post-Attendance-via-Agent button has its backing tool; register default window = today',
   },
 
   // ---- quality (5) ----

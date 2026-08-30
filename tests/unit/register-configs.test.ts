@@ -18,6 +18,7 @@ import { getTool, allTools } from '../../src/lib/agent/tools'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 const ROUTE_BY_SLUG: Record<string, string> = {
+  'attendance': '/hr/attendance',
   'stock-ledger': '/inventory/ledger',
   'order-register': '/orders/register',
   'daily-in-out': '/registers/daily-in-out',
@@ -55,9 +56,9 @@ const ROUTE_BY_SLUG: Record<string, string> = {
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit: exactly the 34 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit: exactly the 35 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
-      'acc-stock', 'approval-audit', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out',
+      'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out',
       'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register',
       'line-issue-register', 'lot-tracking', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
@@ -252,7 +253,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(222) // 189 + M19-C ×33
+    expect(allTools.length).toBe(224) // 189 + M19-C ×33
   })
 })
 

@@ -54,7 +54,7 @@ describe('M9 Live Tracker (SPEC-M9 §7)', () => {
     })
     gateInId = ge.id
     const gp = await db.gateEntry.create({
-      data: { entryNo: GP_NO, gateType: 'out', vehicleNo: 'TN39-C-2222', purpose: 'finished goods outward' },
+      data: { entryNo: GP_NO, gateType: 'out', vehicleNo: 'TN39-C-2242', purpose: 'finished goods outward' },
     })
     gateOutId = gp.id
     const approval = await db.approval.create({
@@ -189,7 +189,7 @@ describe('M9 Live Tracker (SPEC-M9 §7)', () => {
   })
 
   it('get_live_activity tool: registered read tool over the same service (189 pin)', async () => {
-    expect(allTools.length).toBe(222)
+    expect(allTools.length).toBe(224)
     const tool = getTool('get_live_activity')
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(false)
