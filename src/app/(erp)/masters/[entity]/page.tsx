@@ -11,12 +11,21 @@ import { MasterTable } from '@/components/archetypes/master-table'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MasterEntityPage({ params }: { params: Promise<{ entity: string }> }) {
+export default async function MasterEntityPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ entity: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { entity } = await params
   const config = getMasterConfig(entity)
   if (!config) notFound()
 
   const rows = await listMasters(config)
+  // SPEC-M29 — ?q= lands the initial search (the palette's party door)
+  const sp = searchParams ? await searchParams : {}
+  const initialSearch = typeof sp.q === 'string' ? sp.q : ''
 
   return (
     <div className="space-y-4">
@@ -30,7 +39,7 @@ export default async function MasterEntityPage({ params }: { params: Promise<{ e
           {config.createTool} · {config.updateTool} · {config.listTool}
         </span>
       </div>
-      <MasterTable config={config} rows={rows} />
+      <MasterTable config={config} rows={rows} initialSearch={initialSearch} />
     </div>
   )
 }

@@ -1301,3 +1301,24 @@ Stage Summary:
 - The Tirupur Pongal/Deepavali planning reflex is live: holidays surface exactly where promises are made (the Order Hub) and where the business is watched (the MIS).
 - Committed+tagged m28, pushed.
 - Next: M29 jump-bar G residual (the last task of the third six-task run).
+
+---
+Task ID: 39 (third six-task run, task 6 — FINAL)
+Agent: main (Super Z)
+Task: M29 — the jump bar's G residual (gap-audit §7-G: doc numbers + legacy form names + master records — the three input kinds M18's palette didn't cover).
+
+Work Log:
+- SPEC-M29 frozen BEFORE code: the 12-family resolver, the API resource, the palette feeds + legacyForms, masters ?q=; OUT: more slugs/fuzzy/29-broken-aliases/line-jumps.
+- NEW src/lib/erp/jump.ts: JUMP_FAMILIES ×12 + resolveJump (exact→startsWith→contains, cap 8, real-id hrefs). tsc caught the gRN model casing (Grn → db.gRN).
+- /api/erp: the jump resource (session-guarded, 400 missing q) beside master_search.
+- CommandPalette: 200ms dual-debounce fetch (jump + party master_search) on q≥2; Documents group above Actions + Parties group linking /masters/party?q=; legacyForms joined into menu item values; placeholder teaches the syntax.
+- masters/[entity]: searchParams.q → MasterTable initialSearch (new optional prop).
+- Tests +9 (resolver ×4 incl. the route-pattern audit + view-base whitelist; api pin; palette pins ×3; masters pins) → 1016 vitest.
+- Gates: tsc src/ 0 · 1016 vitest · eval --static PASS · context_check 557→560/560 NO DRIFT · route_smoke_m29 NEW 13/13 · LIVE browser END-TO-END: ⌘K → 'LIVE29-SO-…' → Documents option → Enter → /orders/<real-id> Order Hub; 'frmPcsDel' → Pcs DC screen; zero console errors, screenshot download/m29-jump-bar.png.
+- Smoke lesson: client-component source strings (resource=jump, legacyForms) do NOT appear in SSR HTML — the unit source-pins cover them; the smoke checks the mounted shell and the LIVE check proves the runtime.
+
+Stage Summary:
+- The jump bar is now the full §7-G surface: menu items + doc numbers (bare or prefixed, 12 families) + party records + legacy form-name mnemonics. The 15-year operator's reflexes have a home.
+- THIRD SIX-TASK RUN COMPLETE: M24 voice (V) + M25 line-grid keypad (K follow-up) + M26 IRN cancellation + M27 print QR (jsQR-verified) + M28 holiday surfacing (H) + M29 jump bar (G). Run totals: 968→1016 vitest, 545→560 checks, tools 227, six specs frozen, all committed+tagged+pushed.
+- The gap-audit §7 playbook (R/C/P/D/E/K/V/G/H/T/F) is now FULLY shipped.
+- Committed+tagged m29, pushed.

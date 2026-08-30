@@ -23,10 +23,19 @@ import type { MasterConfig, MasterRow } from '@/lib/erp/master-configs/types'
 
 type EditState = { mode: 'new' } | { mode: 'edit'; row: MasterRow } | null
 
-export function MasterTable({ config, rows }: { config: MasterConfig; rows: MasterRow[] }) {
+export function MasterTable({
+  config,
+  rows,
+  initialSearch = '',
+}: {
+  config: MasterConfig
+  rows: MasterRow[]
+  /** SPEC-M29 — the palette's ?q= door lands here as the initial search */
+  initialSearch?: string
+}) {
   const router = useRouter()
   const { openAgent } = useAgent()
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [editing, setEditing] = useState<EditState>(null)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])

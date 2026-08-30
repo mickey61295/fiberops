@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
+import { resolveJump } from '@/lib/erp/jump' // SPEC-M29 — the doc-number jump resolver
 import { getMasterConfig } from '@/lib/erp/master-configs'
 import { listMasters } from '@/lib/erp/posting/master-service'
 import { approvalRefHref } from '@/lib/erp/approval-kinds'
@@ -44,6 +45,14 @@ export async function GET(req: Request) {
           return { value, label: title && title !== value ? `${value} — ${title}` : value }
         })
         return Response.json({ options })
+      }
+      // SPEC-M29 §7-G — the doc-number jump resolver (type '1042' or
+      // 'SO-1042' → the doc view). Session-guarded like every read here.
+      case 'jump': {
+        const q = (url.searchParams.get('q') || '').trim()
+        if (!q) return Response.json({ error: 'Missing q' }, { status: 400 })
+        const results = await resolveJump(q)
+        return Response.json({ results })
       }
       case 'dashboard': {
         const [openOrders, pendingPos, totalStock, todayProduction, pendingApprovals, openInvoices, recentOrders, recentPos, recentCuts, recentInvoices] = await Promise.all([
