@@ -1593,3 +1593,20 @@ Work Log:
 Stage Summary:
 - Answer: skeleton yes (deliberate port), depth no in 3 places — cost projection is a snapshot not a calculator, program lost the knitting physics (GSM/LL orphaned columns), balance waterfall 80% dormant.
 - None of these gaps are in the Phase-6 PRD (A-J) — recommendations proposed as Module K + program-flow extensions (~3-4 batches to close every gap row).
+
+---
+Task ID: 52
+Agent: main (Super Z) + 4 parallel Explore agents
+Task: Owner asked "What other gaps are there? Do another deep dive" — cover everything Task 50-c (production/quality/planning) and Task 51 (order/program/costing) did not.
+
+Work Log:
+- Built exclusion list from PHASE-6 PRD A-J, GAP-ANALYSIS-FIBERPRO (08-29, partially stale), task 50-c and 51 findings, and shipped-since items (masters completion, attendance M20, waste receipt, tally export, e-invoice mock, M17/M18/M19 fixes).
+- Deployed 4 parallel explorers: accounts/money chain; HR & payroll; procurement+jobwork+dispatch; inventory integrity + data lifecycle/ops. One rate-limit retry on the third.
+- Independently re-verified the 19 highest-severity claims against source (all confirmed verbatim): grn.ts:34 po.lines[0]; grn.ts:26-35 no PO-status guard; jobwork.ts:56 totalQty overwrite; jobwork.ts:39-43 JW- doc-only + false sideEffects; payment.ts:27 settle-only-if-full; payment.ts:20/33 direction-blind invoiceId; despatch.ts:59 colour/size dropped; party-ledger.ts:31/38/41 cancelled+journal-blind formula; shiftWages read-only (zero writers); zero stocktake hits; zero backup hits; vitest.config.ts no DB pin (prod DB); SalesInvoice header-only (no lines/currency/dueDate); toISOString date defaults; dashboard.ts:222 uom-mixing; journal free-string accounts; recon.ts:60 direction-blind; 'billed' never written; PO 'completed' enum drift.
+- Findings doc written: docs/ANALYSIS/2026-08-30-deep-dive-2-remaining-gaps.md — 66 findings, 6 P0s, core frame "the commercial chain does not close its loops" (6 seams: GRN↔PO first-line-only, JW out↔in split-brain, wage earned↔paid zeroed, invoice↔payment no allocation, DC colour/size loss, ledger↔physical no stock take) + ops blind spot (no backup, UTC-vs-IST day boundary, vitest on prod DB).
+- PRD contradiction flagged: FR-G2 per-rate B2B items unbuildable against header-only SalesInvoice — invoice lines needed BEFORE Module G.
+
+Stage Summary:
+- Verdict: documents exist for every step but truth leaks at the seams between them; 13 live one-liner correctness bugs + 4 P0 data-corruption flows + 2 ops P0s (backup, timezone). None covered by Phase-6 A-J except the FR-G2 dependency.
+- Recommendations: Batch 0 hotfix (13 one-liners, ½ batch), B1 jobwork loop repair, B2 money integrity (PaymentAllocation + SupplierBill + wire threeWayMatch), B3 ops foundation (backup/TZ/idempotency), B4 stock take + valuation unification (WAC, fix 3-valuation contradiction + take:5000 truncation); then Module K (costing, dive 1), L (payroll), M (final accounts/CoA), invoice-lines-before-G.
+- Deliverable: docs/ANALYSIS/2026-08-30-deep-dive-2-remaining-gaps.md. No code changed (read-only audit).
