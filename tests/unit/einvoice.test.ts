@@ -135,7 +135,7 @@ describe('SPEC-M23 §2 — planGenerateIrn (guards + thresholds + commit)', () =
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)
     expect(tool!.domain).toBe('accounting')
-    expect(allTools.length).toBe(227)
+    expect(allTools.length).toBe(228)
   })
 })
 
@@ -226,7 +226,7 @@ describe('SPEC-M26 — the IRN cancellation workflow', () => {
     if (res.ok) await res.commit()
   })
 
-  it('the cancel agent tool is registered (write, accounting) — 227 total', async () => {
+  it('the cancel agent tool is registered (write, accounting) — 228 total after M31', async () => {
     const tool = getTool('cancel_einvoice_irn')
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)

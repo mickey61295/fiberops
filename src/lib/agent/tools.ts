@@ -2008,6 +2008,52 @@ const masterNewListTools: AgentTool[] = [
     },
   },
   {
+    // SPEC-M31 — the working-day planner arithmetic, reachable via chat:
+    // "how many working days until the 15th?" / "finish date for 20 lead days?"
+    name: 'get_working_days',
+    description:
+      'Working-day arithmetic over the holiday calendar (Sundays off by default, GovtHolidays skipped). Pass a from/to window for the working-day breakdown, or leadDays for the planned finish date. Example: from 2026-09-01 to 2026-09-30 → working days count; leadDays 20 → the finish date if work starts today.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({
+      from: z.string().optional().describe('window start YYYY-MM-DD (default today)'),
+      to: z.string().optional().describe('window end YYYY-MM-DD (required for the breakdown)'),
+      leadDays: z.number().int().positive().optional().describe('working days needed → returns the finish date'),
+      sundayWorking: z.boolean().optional().describe('set true when the unit runs Sundays (default false)'),
+    }),
+    async execute(args: any) {
+      const { workingDaysUntil, planFinishDate, getUpcomingHolidays } = await import('@/lib/erp/holidays')
+      const sundayWorking = args?.sundayWorking === true
+      if (args?.leadDays && args?.leadDays > 0) {
+        const finish = await planFinishDate({
+          from: args?.from ? new Date(args.from) : undefined,
+          leadDays: args.leadDays,
+          sundayWorking,
+        })
+        return {
+          text: finish
+            ? `${args.leadDays} working day${args.leadDays > 1 ? 's' : ''} finish on ${finish.toISOString().slice(0, 10)}${sundayWorking ? ' (Sundays working)' : ''}`
+            : `no finish date within the scan window for ${args.leadDays} working days`,
+          json: { leadDays: args.leadDays, finishDate: finish?.toISOString().slice(0, 10) ?? null, sundayWorking },
+        }
+      }
+      if (!args?.to) {
+        return { text: 'Pass either a to date (window breakdown) or leadDays (finish date).', json: { error: 'missing-args' } }
+      }
+      const from = args?.from ? new Date(args.from) : new Date()
+      const breakdown = await workingDaysUntil(new Date(args.to), { from, sundayWorking })
+      if (!breakdown) {
+        return { text: 'The to date is in the past — nothing to plan.', json: { error: 'past-window' } }
+      }
+      const skipped = await getUpcomingHolidays({ from, days: 90 })
+      const names = skipped.slice(0, 5).map((h: any) => `${h.name} (${h.date.toISOString().slice(0, 10)})`)
+      return {
+        text: `${breakdown.workingDays} working days (${breakdown.sundays} Sundays, ${breakdown.holidays} holidays skipped)${sundayWorking ? ' — Sundays working' : ''}${names.length ? `; shutdowns: ${names.join(', ')}` : ''}`,
+        json: { from: from.toISOString().slice(0, 10), to: args.to, ...breakdown, sundayWorking },
+      }
+    },
+  },
+  {
     // SPEC-M5 §7-D-32 — the shift master's list door (every master's listTool
     // must exist as a read tool — master-configs contract test).
     name: 'list_shifts',

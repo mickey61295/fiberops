@@ -20,7 +20,7 @@ import { DocPrintLink } from '@/components/erp/doc-print-button'
 import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
-import { holidaysBeforeDelivery } from '@/lib/erp/holidays' // SPEC-M28 — the shutdown warning
+import { holidaysBeforeDelivery, workingDaysUntil } from '@/lib/erp/holidays' // SPEC-M28 warning + SPEC-M31 runway
 
 export const dynamic = 'force-dynamic'
 
@@ -154,6 +154,16 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
     ? await holidaysBeforeDelivery(order.deliveryDate)
     : []
 
+  // SPEC-M31 — the working-day runway: the honest count of workable days
+  // before the promise (Sundays + GovtHolidays skipped). Only when the
+  // promise is still future and the order is live.
+  const runway = ['open', 'in_progress'].includes(order.status)
+    ? await workingDaysUntil(order.deliveryDate)
+    : null
+  const totalRunwayDays = runway && order.deliveryDate
+    ? Math.max(0, Math.round((new Date(new Date(order.deliveryDate).setHours(0, 0, 0, 0)).getTime() - new Date(new Date().setHours(0, 0, 0, 0)).getTime()) / 86_400_000)) + 1
+    : 0
+
   return (
     <div className="space-y-4">
       {/* Breadcrumb */}
@@ -177,6 +187,11 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             </span>
           ))}
           {' '}— plan despatch &amp; production around it.
+          {runway && (
+            <span className="block mt-1 text-amber-800">
+              Only {runway.workingDays} of {totalRunwayDays} days before delivery are working days.
+            </span>
+          )}
         </div>
       )}
 
@@ -194,6 +209,18 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
           <div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">Delivery</div>
             <div className="text-sm">{d(order.deliveryDate)}</div>
+            {/* SPEC-M31 — the working-day runway (future promises on live orders only) */}
+            {runway && runway.workingDays > 0 && (
+              <div className="text-[11px] text-slate-500" data-testid="working-days">
+                {runway.workingDays} working days
+                {runway.sundays + runway.holidays > 0 && (
+                  <span className="text-slate-400">
+                    {' '}({runway.sundays} Sun{runway.sundays === 1 ? '' : 's'}
+                    {runway.holidays > 0 && `, ${runway.holidays} shutdown${runway.holidays === 1 ? '' : 's'}`})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">Qty / Value</div>

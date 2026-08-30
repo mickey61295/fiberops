@@ -503,6 +503,8 @@ async function main() {
   }).catch(() => {})
 
   // ── Govt Holidays ──
+  // M31 hygiene: the seed must be idempotent here — the naive create ran 3×
+  // and triplicated every holiday (the M31 Order-Hub runway surfaced it).
   const holidays = [
     { date: new Date('2026-08-15'), name: 'Independence Day' },
     { date: new Date('2026-10-02'), name: 'Gandhi Jayanti' },
@@ -510,7 +512,8 @@ async function main() {
     { date: new Date('2027-01-26'), name: 'Republic Day' },
   ]
   for (const h of holidays) {
-    await db.govtHoliday.create({ data: h }).catch(() => {})
+    const existing = await db.govtHoliday.findFirst({ where: { date: h.date, name: h.name } })
+    if (!existing) await db.govtHoliday.create({ data: h }).catch(() => {})
   }
 
   console.log('✅ Seed complete')

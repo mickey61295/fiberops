@@ -1360,3 +1360,21 @@ Stage Summary:
 - Parity measurement is no longer fuzzy: every legacyForms ref is classified, the denominator is honest, and the jump bar understands BOTH spellings. Future unclassified refs fail the invariant test.
 - gap-audit §8 is CLOSED (all four debts: aliases, ITEMS count, report bindings split, /reports header verified current).
 - Fourth six-task run in progress: M31 working-day planner arithmetic → M32 voice TTS → M33 barcode → M34 terms master → M35 holidays digest.
+---
+Task ID: 42 (fourth six-task run, task 2)
+Agent: main (Super Z)
+Task: M31 — working-day planner arithmetic (the M28 OUT promise: WF_PlanFinishDateArrival's Sunday+holiday skipping).
+
+Work Log:
+- SPEC-M31 frozen BEFORE code: pure cores (breakdown + addWorkingDays) + db wrappers + ONE agent tool (get_working_days — "how many working days until the 15th?" must be chat-reachable) + the Order Hub runway. OUT: program-date surfaces (no hard dates in schema), AppOption sundayWorking flag promotion, digest adoption (M35).
+- holidays.ts: getHolidaysBetween shared read (deduped the two M28 findMany copies); PURE workingDayBreakdown (inclusive window; holiday-on-Sunday classifies ONCE via the Set; sundayWorking option); PURE addWorkingDays (Nth working day AT-OR-AFTER from; maxScan 400 → honest null); workingDaysUntil + planFinishDate wrappers.
+- Order Hub: Delivery-tile runway (data-testid=working-days, live orders with future promises) + the amber-strip 'Only N of M days' line.
+- tools.ts: get_working_days (masters domain, read; window OR leadDays modes; sundayWorking param).
+- Tests +21 (holidays.test). TEST-MATH LESSON: 5 first-draft expectations forgot Saturday WORKS (the 6-day Tirupur week) and assumed today wasn't Sunday — the implementation was right; expectations fixed. Tool pins 227→228 ×8 files + context_check claim.
+- HYGIENE FOUND: the runway surfaced TRIPLE GovtHoliday rows (seed's holiday block wasn't idempotent — naive create ran 3×). Fixed: seed.ts findFirst-guard; scripts/dedupe_holidays.ts swept 6 dupes (5 rows remain). The pure breakdown was ALWAYS correct (Set dedup); only the M28 warning display tripled.
+- Gates: tsc src/ 0 · 1057 vitest (1036+21) · eval --static PASS · context_check 563→564/564 NO DRIFT · LIVE: SO-1001 runway '39 working days (7 Suns, 1 shutdown)' + 'Only 39 of 47 days before delivery are working days' + the deduped single Gandhi Jayanti warning; zero console errors; screenshot download/m31-working-days.png.
+
+Stage Summary:
+- The delivery promise now speaks working days: the Order Hub runway tells the merchandiser how many days are actually workable, the chat answers planning arithmetic, and planFinishDate is the WF_PlanFinishDateArrival lineage reborn.
+- The seed is now holiday-idempotent (a data bug the M31 surface caught in its first hour — the pattern repeats: new surfaces find old data sins).
+- Fourth six-task run in progress: M32 voice TTS → M33 barcode → M34 terms master → M35 digest.

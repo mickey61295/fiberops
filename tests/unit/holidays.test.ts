@@ -86,3 +86,167 @@ describe('SPEC-M28 §2 — the surfaces (source pins)', () => {
     expect(mis).toContain('/masters/govt-holiday') // the calendar deep-link
   })
 })
+
+// ===========================================================================
+// SPEC-M31 — the working-day planner arithmetic (pure cores + wrappers + tool)
+// ===========================================================================
+import {
+  workingDayBreakdown,
+  addWorkingDays,
+  workingDaysUntil,
+  planFinishDate,
+} from '@/lib/erp/holidays'
+import { allTools } from '@/lib/agent/tools'
+
+describe('SPEC-M31 §2 — workingDayBreakdown (PURE, injected holidays)', () => {
+  // A known anchor: 2026-09-07 is a Monday (verified: 2026-09-06 is Sunday)
+  const mon = new Date('2026-09-07T00:00:00')
+  const tue = new Date('2026-09-08T00:00:00')
+  const wed = new Date('2026-09-09T00:00:00')
+  const thu = new Date('2026-09-10T00:00:00')
+  const fri = new Date('2026-09-11T00:00:00')
+  const sat = new Date('2026-09-12T00:00:00')
+  const sun = new Date('2026-09-13T00:00:00')
+
+  it('Mon–Sun window: 6 working + 1 Sunday (Saturday works in Tirupur)', () => {
+    const b = workingDayBreakdown(mon, sun, [])
+    expect(b).toEqual({ workingDays: 6, sundays: 1, holidays: 0 })
+  })
+
+  it('a weekday holiday drops a working day', () => {
+    const b = workingDayBreakdown(mon, sun, [wed])
+    expect(b).toEqual({ workingDays: 5, sundays: 1, holidays: 1 })
+  })
+
+  it('sundayWorking flips the Sunday to working', () => {
+    const b = workingDayBreakdown(mon, sun, [], { sundayWorking: true })
+    expect(b).toEqual({ workingDays: 7, sundays: 0, holidays: 0 })
+  })
+
+  it('a holiday ON a Sunday counts ONCE (as a holiday, never both)', () => {
+    const b = workingDayBreakdown(mon, sun, [sun])
+    expect(b).toEqual({ workingDays: 6, sundays: 0, holidays: 1 })
+  })
+
+  it('inclusive both ends: a single working day counts itself', () => {
+    expect(workingDayBreakdown(tue, tue, [])).toEqual({ workingDays: 1, sundays: 0, holidays: 0 })
+    expect(workingDayBreakdown(sun, sun, [])).toEqual({ workingDays: 0, sundays: 1, holidays: 0 })
+  })
+
+  it('a past window (to < from) is empty, not negative', () => {
+    expect(workingDayBreakdown(sat, mon, [])).toEqual({ workingDays: 0, sundays: 0, holidays: 0 })
+  })
+})
+
+describe('SPEC-M31 §2 — addWorkingDays (PURE)', () => {
+  const mon = new Date('2026-09-07T00:00:00') // Monday
+  const tue = new Date('2026-09-08T00:00:00')
+  const wed = new Date('2026-09-09T00:00:00')
+  const sun = new Date('2026-09-13T00:00:00') // the Sunday after
+
+  it('n=1 identity on a working day — "when do you finish if you need 1 day?"', () => {
+    expect(addWorkingDays(mon, 1, [])?.toISOString().slice(0, 10)).toBe('2026-09-07')
+  })
+
+  it('skips a Sunday: 7 working days from Monday lands on the NEXT Monday (Sat works)', () => {
+    expect(addWorkingDays(mon, 7, [])?.toISOString().slice(0, 10)).toBe('2026-09-14')
+    // 6 working days = Mon..Sat (the 6-day Tirupur week — Saturday works)
+    expect(addWorkingDays(mon, 6, [])?.toISOString().slice(0, 10)).toBe('2026-09-12')
+  })
+
+  it('skips a holiday: Tuesday+2 with Wednesday a holiday lands on Thursday', () => {
+    expect(addWorkingDays(tue, 2, [wed])?.toISOString().slice(0, 10)).toBe('2026-09-10')
+  })
+
+  it('sundayWorking counts the Sunday: 7 days from Monday reaches Sunday', () => {
+    expect(addWorkingDays(mon, 7, [], { sundayWorking: true })?.toISOString().slice(0, 10)).toBe('2026-09-13')
+    // without the flag, 7 working days skips Sunday → next Monday
+    expect(addWorkingDays(mon, 7, [])?.toISOString().slice(0, 10)).toBe('2026-09-14')
+  })
+
+  it('a holiday ON a Sunday skips once (not twice): Mon+7 lands the same day either way', () => {
+    // Sunday as a plain Sunday, or as a HOLIDAY — the skip is identical
+    const asSunday = addWorkingDays(mon, 7, [])
+    const asHoliday = addWorkingDays(mon, 7, [sun])
+    expect(asHoliday?.toISOString().slice(0, 10)).toBe('2026-09-14')
+    expect(asHoliday?.toISOString().slice(0, 10)).toBe(asSunday?.toISOString().slice(0, 10))
+  })
+
+  it('n < 1 → null; the maxScan guard trips honestly on an all-holiday calendar', () => {
+    expect(addWorkingDays(mon, 0, [])).toBeNull()
+    // every day of a 30-day span is a holiday → 5 working days can never accrue
+    const allHolidays = Array.from({ length: 30 }, (_, i) => new Date(2026, 8, 7 + i))
+    expect(addWorkingDays(mon, 5, allHolidays, { maxScan: 20 })).toBeNull()
+  })
+})
+
+describe('SPEC-M31 §2 — the db wrappers (fixtures from the M28 block)', () => {
+  it('workingDaysUntil counts the fixture holiday + Sundays in the window', async () => {
+    // fixture: a holiday exactly 6 days out (see FIXTURES above)
+    const b = await workingDaysUntil(at(10)) // [today, today+10] — 11 days inclusive
+    expect(b).not.toBeNull()
+    const totalDays = 11
+    expect(b!.workingDays + b!.sundays + b!.holidays).toBe(totalDays)
+    expect(b!.holidays).toBeGreaterThanOrEqual(1) // the 6d-out fixture
+  })
+
+  it('null/past delivery → null (nothing to plan)', async () => {
+    expect(await workingDaysUntil(null)).toBeNull()
+    expect(await workingDaysUntil(undefined)).toBeNull()
+    expect(await workingDaysUntil(at(-5))).toBeNull()
+  })
+
+  it('planFinishDate: 1 working day from a known Monday is that Monday', async () => {
+    const d = await planFinishDate({ from: new Date('2026-09-07T00:00:00'), leadDays: 1 })
+    expect(d?.toISOString().slice(0, 10)).toBe('2026-09-07')
+  })
+
+  it('planFinishDate crosses the fixture holiday: 7 working days never lands on it', async () => {
+    const d = await planFinishDate({ leadDays: 7 })
+    expect(d).not.toBeNull()
+    // the finish date is never the fixture holiday date
+    expect(d!.toISOString().slice(0, 10)).not.toBe(at(6).toISOString().slice(0, 10))
+    expect(d!.getDay()).not.toBe(0) // never a Sunday (default sundayWorking=false)
+  })
+})
+
+describe('SPEC-M31 §2 — the agent tool (get_working_days)', () => {
+  it('is registered as a read tool in the masters domain (registry 227 → 228)', () => {
+    const t = allTools.find((x: any) => x.name === 'get_working_days')
+    expect(t).toBeDefined()
+    expect((t as any).isWrite).toBe(false)
+    expect((t as any).domain).toBe('masters')
+    expect(allTools.length).toBe(228)
+  })
+
+  it('window mode returns the breakdown against live fixtures', async () => {
+    const t = allTools.find((x: any) => x.name === 'get_working_days') as any
+    const to = new Date(Date.now() + 10 * dayMs).toISOString().slice(0, 10)
+    const out = await t.execute({ to })
+    expect(out.text).toContain('working days')
+    expect(out.json.workingDays + out.json.sundays + out.json.holidays).toBe(11)
+  })
+
+  it('leadDays mode returns a finish date that is never a Sunday', async () => {
+    const t = allTools.find((x: any) => x.name === 'get_working_days') as any
+    const out = await t.execute({ leadDays: 7 })
+    expect(out.json.finishDate).toBeTruthy()
+    expect(new Date(out.json.finishDate).getDay()).not.toBe(0)
+  })
+
+  it('missing args → the honest usage message', async () => {
+    const t = allTools.find((x: any) => x.name === 'get_working_days') as any
+    const out = await t.execute({})
+    expect(out.json.error).toBe('missing-args')
+  })
+})
+
+describe('SPEC-M31 §2 — the Order Hub runway (source pins)', () => {
+  it('the Delivery tile carries the working-days runway + the amber strip line', () => {
+    const hub = readFileSync(join(__dirname, '../../src/app/(erp)/orders/[id]/page.tsx'), 'utf8')
+    expect(hub).toContain('workingDaysUntil')
+    expect(hub).toContain('data-testid="working-days"')
+    expect(hub).toContain('working days')
+    expect(hub).toContain('Only {runway.workingDays} of {totalRunwayDays} days')
+  })
+})

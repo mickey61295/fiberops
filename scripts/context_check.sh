@@ -79,7 +79,7 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn)" "227" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn + M31 working-days)" "228" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
@@ -489,7 +489,8 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M29.md \
          src/lib/erp/legacy-aliases.ts \
          tests/unit/legacy-aliases.test.ts \
-         docs/CONTEXT/specs/SPEC-M30.md; do
+         docs/CONTEXT/specs/SPEC-M30.md \
+         docs/CONTEXT/specs/SPEC-M31.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 
