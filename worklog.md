@@ -1483,3 +1483,20 @@ Work Log:
 Stage Summary:
 - The "partially finished" feeling is now a precise, evidence-backed list; the four owner complaints all verified with root causes (two are one-line fixes).
 - Next: owner supplies PAT → push 12 commits+tags AND clone loomERP for the gap comparison (code-only, no AI, no docs); then the P0 polish queue (toaster, regex, markdown, /admin hub, approval buttons).
+---
+Task ID: 49 (loomerp phase, task 2)
+Agent: main (Super Z)
+Task: loomERP deep analysis — PAT persisted, push unblocked, clone, code-only feature gap analysis vs fiberops (owner constraints: skip ALL AI code there, ignore their docs, adopt nothing, findings only).
+
+Work Log:
+- PAT: persisted to ~/.git-credentials (git credential store, chmod 600, OUTSIDE the repo — never committed; per owner request "can't keep adding it every message"). Previous scrub discipline retired in favor of persistent store.
+- PUSH: 13 commits + all tags pushed to origin/main — repo fully synced (0 ahead). One pre-existing remote tag variant (m9-wave-a) rejected harmlessly.
+- CLONE: loomERP-placeholder@AI_updates cloned to .analysis/loomERP (250MB, gitignored). Stack: Express+Mongoose+Redis+BullMQ / React19+Vite SPA / Expo mobile / MCP plugin-web.
+- ANALYSIS (3 parallel Explore agents + own verification of every headline number): 261 pages/350 routes, 258 non-AI models, 198 route files ~1,415 endpoints, ~150 services, ~55-72 print docTypes, 86 census registers, 80 masters pages, 50 mobile screens. AI code (ai/, mcp/, po-engine/, ai-*, *-extraction) fully skipped; all .md docs ignored.
+- KEY GAPS ON OUR SIDE (full list in the doc): complete auth suite (signup/verify/forgot/reset/invites/onboarding/profile/idle-logout/lockout/JWT rotation), 25-screen admin platform (roles CRUD 14x7 matrix, audit w/ diff viewer, number series, FY close w/ pre-checks, transaction controls, inventory locks, print-template admin), personalization platform (saved filters, column customizer, screen layouts, custom fields, dashboard builder, global search, drafts, bulk actions), planning+IE (TNA/WBS/projection/line-loading/schedule calculator/capacity alerts/SAM time studies/skill matrix), maintenance+OEE, quality depth (AQL/DHU/4-point), garment-level traceability+scan staging, multi-channel notifications, GST depth (GSTR filing client, e-way bill NIC client, TDS, forex), procurement extras (quotations+comparison, indents, shortages), accessories sub-domain, document control, ~55 admin-managed print templates+history, 86 census registers, Expo mobile app (~40 screens), webhooks w/ HMAC, multi-tenancy.
+- THEIR WEAK SPOTS (validates 'beyond repair' + what NOT to adopt): realtime mostly unwired (only alerts emitted; TV display listens to events nobody sends), mobile offline sync a stub, ERP connector no engine, no bank reco/2FA/live forex, heuristic planning math, 258-model sprawl.
+- OUR UNIQUE STRENGTHS: the working agent (230 tools, plan-approve-commit, voice), one-engine doc/register/report system, digest+working-day planner, single-process deploy, 1112-test gate discipline.
+- Findings doc: docs/ANALYSIS/2026-08-30-loomERP-gap-analysis.md (gap list + adoption priorities P1/P2 + not-recommended list + 4-complaints closure).
+
+Stage Summary:
+- The loomERP study is DONE and committed; repo fully pushed. Next decision point: P0 polish queue (toaster/markdown/admin-hub/profile/approvals) vs starting the P1 loomERP-inspired feature queue.
