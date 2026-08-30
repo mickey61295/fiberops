@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff, RotateCcw } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff, RotateCcw, Copy, Eye, Printer, Square } from 'lucide-react'
 import { toast } from 'sonner'
 // HFX-15 (Phase-6B Batch 0) — assistant text renders as Markdown (+ GFM for
 // the pipe tables the ingestion prompt asks the model to emit). The old
@@ -17,6 +17,12 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 // HFX-16 — per-step narration segments (pure helpers, unit-tested)
 import { appendDelta, mergeNarration, type NarrationSegments } from '@/lib/agent/narration'
+// CHAT-05 (Phase-6B Batch 2) — plan contents table for approval cards
+import { planDisplay } from '@/lib/agent/plan-display'
+// CHAT-12 — humanized tool labels (chips read like actions, not identifiers)
+import { toolLabel, toolTitle } from '@/lib/agent/tool-labels'
+// CHAT-03 — screen-aware suggestions from the menu registry
+import { findItemByRoute } from '@/lib/erp/menu-registry'
 import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, VOICE_SPEAK_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, getSpeechSynthesis, planSpeechText, speak, stopSpeaking, type VoiceSession } from '@/lib/agent/voice'
 
 interface AgentPanelProps {
@@ -32,7 +38,7 @@ interface ToolCall {
   toolName: string
   args: any
   output?: any
-  status: 'calling' | 'result' | 'error'
+  status: 'calling' | 'result' | 'error' | 'stopped'
   isWrite?: boolean
 }
 
@@ -41,6 +47,12 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
   toolCalls: ToolCall[]
+  /** CHAT-01 — synthetic outcome events ([Plan … APPROVED/REJECTED …]):
+   * user-role so they ride the history to the model next turn, but styled
+   * as system chips so the UI never lies about who spoke. */
+  isEvent?: boolean
+  /** CHAT-07 — post-commit CTA (View/Print) on the outcome event card. */
+  cta?: { viewUrl?: string; printUrl?: string }
 }
 
 interface PendingApproval {
@@ -49,23 +61,76 @@ interface PendingApproval {
   args: any
   plan: any
   messageId: string
+  /** CHAT-06 — the AgentTurn row the plan lives in: Approve posts this id,
+   * the route executes the STORED plan and drift-guards it. */
+  turnId?: string | null
   // OPS-04 — minted when the card is created (NOT per click): the approve
   // route replays the stored commit result for a repeated key, so a
   // double-clicked Approve posts exactly once.
   idempotencyKey: string
 }
 
+// CHAT-03 — the fallback prompts when the current screen has no authored
+// agentPrompt. Formats match the REAL code shapes (B-#### buyers, STY-####
+// styles — the old B001/S-1001 examples taught the model wrong formats).
 const SUGGESTED_PROMPTS = [
   'List all open purchase orders',
   'Show me the stock position in the Main godown',
-  'Create a sales order for buyer B001, style S-1001, 5000 pcs at ₹350/pc (Red/M=1000, Red/L=1000, Blue/M=1500, Blue/L=1500), delivery 2026-10-15',
+  'Create a sales order for buyer B-0001, style STY-1001, 5000 pcs at ₹350/pc (Red/M=1000, Red/L=1000, Blue/M=1500, Blue/L=1500), delivery 2026-10-15',
   'Show me production status for SO-1001',
   'Get dashboard KPIs',
   'List the documents I uploaded, then ingest the purchase order into the ERP',
 ]
 
+// CHAT-04 — follow-up chips per tool domain: after a read answer, 2–3 of
+// these seed the composer. Keys are the tool names the current screen's
+// agentTools lists (menu-registry); unmapped tools fall back to the screen's
+// own suggestions.
+const TOOL_FOLLOWUPS: Record<string, string> = {
+  get_dashboard_kpis: 'Show me the live factory activity',
+  get_live_activity: 'What needs my attention today?',
+  suggest_next_step: "What's the next step for my latest order?",
+  get_order_status: 'Show me the full production track for this order',
+  get_daily_in_out: "Show me yesterday's stock in and out",
+  get_stock: 'Show the stock ledger for the Main godown',
+  get_stock_ledger: 'What is the current stock value by godown?',
+  list_orders: 'Summarize my open orders',
+  list_purchase_orders: 'Which POs are still pending receipt?',
+  get_party_ledger: 'Show me the bills register for this party',
+  list_invoices: 'Which invoices are still unpaid?',
+  get_daily_digest: 'What needs my attention today?',
+  get_program_status: 'Show me line status for all production lines',
+  get_line_status: 'Show me today\u2019s production entries',
+  get_pending_approvals: 'Show me the approval audit trail',
+  get_budget_vs_actual: 'Which orders are running over budget?',
+  get_cost_sheet: 'Show me budget vs actual for this order',
+}
+
+/** CHAT-06 — typed approval phrases resolve the pending plan, never the model
+ * (the old flow re-ran the tool and minted a DUPLICATE plan to approve). */
+const APPROVE_PHRASE = /^\s*(ok|okay|yes|yeah|yep|approve(d)?|approve it|approve the plan|go ahead|confirm|do it|proceed|rejected?|reject it|reject the plan|no|cancel it)[.!\s]*$/i
+
+function isApprovalPhrase(text: string): 'approve' | 'reject' | null {
+  const m = text.trim().toLowerCase().match(APPROVE_PHRASE)
+  if (!m) return null
+  const w = m[1]
+  if (w.startsWith('reject') || w === 'no' || w === 'cancel it') return 'reject'
+  return 'approve'
+}
+
 export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: AgentPanelProps) {
   const router = useRouter()
+  // CHAT-03 — screen-aware suggestions: the panel knows WHICH screen the
+  // operator came from; the menu registry's 76 authored agentPrompts finally
+  // become consumable (they sat unwired since M2).
+  const pathname = usePathname() || '/'
+  const screenItem = findItemByRoute(pathname)
+    // [id] routes (e.g. /orders/SO-1001) resolve through the parent item
+    ?? findItemByRoute(pathname.slice(0, pathname.lastIndexOf('/')))
+    ?? undefined
+  const screenPrompts: string[] = screenItem?.agentPrompt
+    ? [screenItem.agentPrompt]
+    : SUGGESTED_PROMPTS.slice(0, 3)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -80,6 +145,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const [attachedFile, setAttachedFile] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // CHAT-12 — composer autofocus the moment the panel opens (the old panel
+  // demanded a click before typing; every other chat app focuses on open).
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  // CHAT-12 — per-message copy affordance (state: which message just copied)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   // SPEC-M10 C2 — the active system-prompt version, streamed on the start event
   const [promptVersion, setPromptVersion] = useState<string | null>(null)
   // SPEC-M24 — voice entry: mic session state (browser SpeechRecognition, en-IN/ta-IN)
@@ -166,6 +236,25 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     if (open && seedPrompt) setInput(seedPrompt)
   }, [open, seedPrompt])
 
+  // CHAT-12 — autofocus the composer on open (and after the seed lands).
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => composerRef.current?.focus(), 50)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  // CHAT-01 — append a synthetic OUTCOME EVENT as a user-role message: it
+  // renders as a system chip AND rides the history sent on the next turn, so
+  // the model finally sees what happened to its plan (prompt §4.2d/§6 become
+  // satisfiable — the single highest-leverage change for owner issue 2).
+  const appendEvent = useCallback((text: string, cta?: { viewUrl?: string; printUrl?: string }) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, role: 'user', text, toolCalls: [], isEvent: true, cta },
+    ])
+  }, [])
+
   // Auto-scroll to bottom on new messages — HFX-17 (Phase-6B Batch 0):
   // the scrollable element is the Radix Viewport (ui/scroll-area.tsx), NOT
   // the inner content div this ref marks. The old code set scrollTop on the
@@ -183,9 +272,103 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     setExpandedResults((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
 
+  // CHAT-01/06/07 — approve posts { turnId } (the route executes the STORED
+  // plan, drift-guarded), and the outcome lands as a synthetic conversation
+  // EVENT so the model learns what happened; the event card carries the
+  // post-commit CTA row (View / Print) derived from the committed docNo.
+  const approve = useCallback(async (toolCallId: string) => {
+    const pending = pendingApprovals[toolCallId]
+    if (!pending) return
+    try {
+      const res = await fetch('/api/agent/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolName: pending.toolName,
+          args: pending.args,
+          idempotencyKey: pending.idempotencyKey,
+          turnId: pending.turnId ?? undefined, // CHAT-06 — execute the STORED plan
+        }),
+      })
+      if (res.status === 401) {
+        toast.error('Session expired — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
+      const data = await res.json()
+      if (data.success) {
+        toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)
+        if (voiceSpeakRef.current) speak('Committed.') // SPEC-M32 — the spoken ack
+        setPendingApprovals((prev) => {
+          const next = { ...prev }
+          delete next[toolCallId]
+          return next
+        })
+        // CHAT-01 — the outcome event the model sees next turn (and the
+        // operator sees now): plan name + APPROVED + the committed doc number.
+        const docNo = data.docNo ? ` Committed: ${data.docNo}.` : ' Committed.'
+        appendEvent(`[Plan ${pending.toolName} APPROVED.${docNo}]`, data.cta)
+        onCommitted()
+      } else if (data.drifted) {
+        // CHAT-06 — the plan CHANGED since it was shown (e.g. its auto-number
+        // was taken). Nothing committed: show the fresh plan for re-approval.
+        toast.error(data.error || 'The plan changed — review the new plan.')
+        setPendingApprovals((prev) => ({
+          ...prev,
+          [toolCallId]: { ...pending, plan: data.plan, idempotencyKey: crypto.randomUUID() },
+        }))
+        appendEvent(`[Plan ${pending.toolName} NOT committed — the plan changed since it was shown. A fresh plan is ready for review.]`)
+      } else {
+        toast.error('Approval failed: ' + (data.error || ''))
+        appendEvent(`[Plan ${pending.toolName} APPROVAL FAILED: ${data.error || 'unknown error'} — nothing was committed.]`)
+      }
+    } catch (e: any) {
+      toast.error(e.message)
+      appendEvent(`[Plan ${pending.toolName} APPROVAL FAILED: ${e?.message || 'network error'} — nothing was committed.]`)
+    }
+  }, [pendingApprovals, appendEvent, onCommitted])
+
+  // CHAT-01 — rejections are events too: the model must learn the plan was
+  // declined so it stops claiming success (prompt §4.2d honesty).
+  const reject = useCallback((toolCallId: string) => {
+    const pending = pendingApprovals[toolCallId]
+    setPendingApprovals((prev) => {
+      const next = { ...prev }
+      delete next[toolCallId]
+      return next
+    })
+    if (voiceSpeakRef.current) speak('Rejected.') // SPEC-M32 — the spoken ack
+    toast.info('Plan rejected')
+    if (pending) appendEvent(`[Plan ${pending.toolName} REJECTED by the user. Nothing was committed.]`)
+  }, [pendingApprovals, appendEvent])
+
   const sendPrompt = useCallback(async (promptText?: string) => {
     const rawText = (promptText ?? input).trim()
     if ((!rawText && !attachedFile) || streaming) return
+
+    // CHAT-06 — typed "approve it" / "ok" / "reject it" while a plan is
+    // pending resolves THAT plan directly. The old flow sent the phrase to
+    // the model, which re-ran the tool and minted a DUPLICATE plan to
+    // approve — the classic conversation-unfriendliness (owner issue 2).
+    if (!attachedFile) {
+      const intent = isApprovalPhrase(rawText)
+      if (intent) {
+        const ids = Object.keys(pendingApprovals)
+        if (ids.length > 0) {
+          // resolve the MOST RECENT pending plan (later keys = later cards)
+          const target = pendingApprovals[ids[ids.length - 1]]
+          setInput('')
+          appendEvent(`[User: ${rawText}]`)
+          if (intent === 'approve') {
+            await approve(target.toolCallId)
+          } else {
+            reject(target.toolCallId)
+          }
+          return
+        }
+      }
+    }
+
     // If a document is attached, tell the agent which file to work on.
     const text = attachedFile ? `[Attached document: ${attachedFile}]\n${rawText || 'Ingest this document into the ERP.'}` : rawText
     if (!text) return
@@ -218,10 +401,16 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.role,
-            content: m.text,
-          })),
+          messages: [...messages, userMsg]
+            .filter((m) => !m.isEvent || m.role === 'user') // events ride along as user-role turns
+            .map((m) => ({
+              role: m.role,
+              content: m.text,
+            })),
+          // CHAT-02 — the screen the operator is on (menu title + docNo are
+          // resolved server-side; the [CONTEXT] line replaces the prompt's
+          // stale hardcoded FY/godowns and makes screen-scoped answers work).
+          screen: { pathname },
         }),
         signal: controller.signal,
       })
@@ -281,6 +470,17 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               setPromptVersion(payload.promptVersion || null)
               break
             }
+            // CHAT-12 — the protocol's bookkeeping events are now explicitly
+            // CONSUMED (documented no-ops): step-start/step-end bracket steps,
+            // text-start/text-end bracket narration (segments are keyed by
+            // their ids), finish closes the stream. They carry no UI state the
+            // panel needs — but they are NOT dead code to the transport.
+            case 'step-start':
+            case 'step-end':
+            case 'text-start':
+            case 'text-end':
+            case 'finish':
+              break
             case 'text-delta': {
               appendDelta(segments, payload.id, payload.delta || '')
               const merged = mergeNarration(segments)
@@ -340,6 +540,8 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               // SPEC-M32 — the TTS confirm loop: when the operator enabled the
               // speaker, the review card READS ITS PLAN ALOUD (the legacy
               // read-back reborn — eyes-busy/hands-busy shop floor).
+              // CHAT-06 — the turnId rides along: Approve posts { turnId } and
+              // the route executes the STORED plan (drift-guarded).
               if (output?.isWrite && output?.plan && output?.hasCommitFn) {
                 setPendingApprovals((prev) => ({
                   ...prev,
@@ -349,6 +551,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                     args,
                     plan: output.plan,
                     messageId: assistantMsgId,
+                    turnId: payload.turnId ?? null,
                     idempotencyKey: crypto.randomUUID(),
                   },
                 }))
@@ -376,11 +579,17 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       setStreaming(false)
       abortRef.current = null
     }
-  }, [input, messages, streaming, attachedFile])
+  }, [input, messages, streaming, attachedFile, pendingApprovals, pathname, approve, reject])
 
   const stop = () => {
     abortRef.current?.abort()
     setStreaming(false)
+    // CHAT-12 — aborted tool chips flip to a visible "stopped" state: the
+    // old panel left them spinning "calling" forever after Stop.
+    setMessages((prev) => prev.map((m) => ({
+      ...m,
+      toolCalls: m.toolCalls.map((tc) => (tc.status === 'calling' ? { ...tc, status: 'stopped' as const } : tc)),
+    })))
   }
 
   const uploadFile = async (file: File) => {
@@ -409,48 +618,6 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
-  }
-
-  const approve = async (toolCallId: string) => {
-    const pending = pendingApprovals[toolCallId]
-    if (!pending) return
-    try {
-      const res = await fetch('/api/agent/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: pending.toolName, args: pending.args, idempotencyKey: pending.idempotencyKey }),
-      })
-      if (res.status === 401) {
-        toast.error('Session expired — redirecting to login')
-        window.location.href = '/login'
-        return
-      }
-      const data = await res.json()
-      if (data.success) {
-        toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)
-        if (voiceSpeakRef.current) speak('Committed.') // SPEC-M32 — the spoken ack
-        setPendingApprovals((prev) => {
-          const next = { ...prev }
-          delete next[toolCallId]
-          return next
-        })
-        onCommitted()
-      } else {
-        toast.error('Approval failed: ' + (data.error || ''))
-      }
-    } catch (e: any) {
-      toast.error(e.message)
-    }
-  }
-
-  const reject = (toolCallId: string) => {
-    setPendingApprovals((prev) => {
-      const next = { ...prev }
-      delete next[toolCallId]
-      return next
-    })
-    if (voiceSpeakRef.current) speak('Rejected.') // SPEC-M32 — the spoken ack
-    toast.info('Plan rejected')
   }
 
   return (
@@ -484,10 +651,25 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                   <p className="text-xs">I can read &amp; write data across all modules — orders, procurement, inventory, cutting, production, accounting, costing, HR, and approvals. Write actions show you a plan first; you approve before anything commits.</p>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Try these</div>
-                  {SUGGESTED_PROMPTS.map((p, i) => (
+                  {/* CHAT-03 — screen-aware suggestions: the authored
+                      agentPrompt for the screen the operator is ON (76 were
+                      written, zero were wired); on doc routes ([id]) the
+                      parent item's prompt scopes to that doc family. */}
+                  <div className="text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                    {screenItem ? `From ${screenItem.label}` : 'Try these'}
+                  </div>
+                  {screenPrompts.map((p, i) => (
                     <button
                       key={i}
+                      onClick={() => sendPrompt(p)}
+                      className="w-full text-left text-xs px-3 py-2 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  {!screenItem && SUGGESTED_PROMPTS.slice(3).map((p, i) => (
+                    <button
+                      key={`x-${i}`}
                       onClick={() => sendPrompt(p)}
                       className="w-full text-left text-xs px-3 py-2 rounded-md bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
                     >
@@ -499,23 +681,92 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             )}
 
             {messages.map((m) => (
-              <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
+              <div key={m.id} className={m.role === 'user' && !m.isEvent ? 'flex justify-end' : ''}>
                 {m.role === 'user' ? (
-                  <div className="max-w-[80%] bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm whitespace-pre-wrap">
-                    {m.text}
-                  </div>
+                  m.isEvent ? (
+                    // CHAT-01 — synthetic outcome events render as SYSTEM chips
+                    // (slate — never the emerald user bubble: the UI never lies
+                    // about who spoke) with the CHAT-07 post-commit CTA row.
+                    <div
+                      data-testid="agent-outcome-event"
+                      className="w-full rounded-md border border-slate-300 bg-slate-100 px-3 py-2"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="h-5 w-5 rounded bg-slate-300 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Check className="h-3 w-3 text-slate-700" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-800 font-medium">{m.text}</div>
+                          {(m.cta?.viewUrl || m.cta?.printUrl) && (
+                            <div className="mt-2 flex gap-2 flex-wrap">
+                              {m.cta?.viewUrl && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                  onClick={() => {
+                                    onOpenChange(false)
+                                    router.push(m.cta!.viewUrl!)
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3 mr-1" /> View
+                                </Button>
+                              )}
+                              {m.cta?.printUrl && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs"
+                                  onClick={() => {
+                                    onOpenChange(false)
+                                    router.push(m.cta!.printUrl!)
+                                  }}
+                                >
+                                  <Printer className="h-3 w-3 mr-1" /> Print
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="max-w-[80%] bg-emerald-600 text-white rounded-lg px-3 py-2 text-sm whitespace-pre-wrap">
+                      {m.text}
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-2 w-full">
                     {m.text && (
-                      // HFX-15 — Markdown + GFM render (headings, bold, pipe
-                      // tables, links, code blocks) styled to the panel theme;
-                      // raw ##/**/| never reaches the screen as literal glyphs.
-                      <div
-                        data-testid="assistant-text"
-                        className="text-sm leading-relaxed text-slate-800 [&_a]:text-emerald-700 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_blockquote]:text-slate-600 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_hr]:border-slate-200 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-slate-100 [&_pre]:p-2 [&_pre]:text-[12px] [&_strong]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:text-[12px] [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
-                      >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                      </div>
+                      <>
+                        {/* HFX-15 — Markdown + GFM render (headings, bold, pipe
+                            tables, links, code blocks) styled to the panel theme;
+                            raw markdown glyphs never reach the screen as literals. */}
+                        <div
+                          data-testid="assistant-text"
+                          className="text-sm leading-relaxed text-slate-800 [&_a]:text-emerald-700 [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-slate-300 [&_blockquote]:pl-3 [&_blockquote]:text-slate-600 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12px] [&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_hr]:border-slate-200 [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-slate-100 [&_pre]:p-2 [&_pre]:text-[12px] [&_strong]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_table]:text-[12px] [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold [&_ul]:list-disc [&_ul]:pl-5"
+                        >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                        </div>
+                        {/* CHAT-12 — copy-message button (the operator asked for
+                            it mid-M36 verification; one click, brief check ack) */}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            aria-label="Copy message"
+                            title="Copy message"
+                            data-testid="copy-message"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(m.text).then(() => {
+                                setCopiedId(m.id)
+                                setTimeout(() => setCopiedId(null), 1500)
+                              }).catch(() => {})
+                            }}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {copiedId === m.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        </div>
+                      </>
                     )}
                     {m.toolCalls.map((tc, i) => {
                       const isExpanded = expandedResults[`${m.id}-${i}`]
@@ -523,15 +774,23 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                       const isPending = !!pendingApprovals[tc.toolCallId]
                       const isError = tc.status === 'error' || result?.error
                       return (
-                        <Card key={tc.toolCallId} className={`p-3 border ${isError ? 'border-red-300 bg-red-50' : isPending ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+                        // CHAT-12 — composite key: providers reuse tool-call ids
+                        // across steps (seen live), which broke React's identity
+                        // contract ("two children with the same key").
+                        <Card key={`${tc.toolCallId}-${i}`} className={`p-3 border ${isError ? 'border-red-300 bg-red-50' : isPending ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
                           <div className="flex items-start gap-2">
                             <div className="h-6 w-6 rounded-md bg-slate-200 flex items-center justify-center flex-shrink-0">
                               <Wrench className="h-3.5 w-3.5 text-slate-700" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-mono font-semibold text-slate-900">{tc.toolName}</span>
+                                {/* CHAT-12 — humanized label: chips read like
+                                    actions; the raw snake_case name stays in the
+                                    title/args for source truth. */}
+                                <span className="text-xs font-semibold text-slate-900" title={toolTitle(tc.toolName)}>{toolLabel(tc.toolName)}</span>
+                                <span className="text-[10px] font-mono text-slate-400">{tc.toolName}</span>
                                 {tc.status === 'calling' && <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300"><Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />calling</Badge>}
+                                {tc.status === 'stopped' && <Badge variant="outline" className="text-[10px] text-slate-600 border-slate-300"><Square className="h-2.5 w-2.5 mr-1" />stopped</Badge>}
                                 {tc.status === 'result' && !isError && !isPending && <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-300">ok</Badge>}
                                 {isError && <Badge variant="outline" className="text-[10px] text-red-700 border-red-300"><AlertCircle className="h-2.5 w-2.5 mr-1" />error</Badge>}
                                 {isPending && <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">pending approval</Badge>}
@@ -601,16 +860,46 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                                 <div className="mt-2 p-2 bg-white rounded border border-amber-300">
                                   <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-1">Plan awaiting approval</div>
                                   <div className="text-xs text-slate-800 mb-1.5">{result.plan.summary}</div>
-                                  {result.plan.creates?.length > 0 && (
-                                    <div className="text-[10px] text-slate-600 mb-1">
-                                      <span className="font-semibold">Creates:</span> {result.plan.creates.length} record(s)
-                                    </div>
-                                  )}
-                                  {result.plan.updates?.length > 0 && (
-                                    <div className="text-[10px] text-slate-600 mb-1">
-                                      <span className="font-semibold">Updates:</span> {result.plan.updates.length} record(s)
-                                    </div>
-                                  )}
+                                  {/* CHAT-05 — the plan's CONTENTS, not its row
+                                      count: header fields as a field/value table
+                                      (₹ en-IN money, dates, booleans) + the line
+                                      grid rollup. Approving a ₹4-lakh order now
+                                      shows the line items, not "Creates: 3 record(s)". */}
+                                  {(() => {
+                                    const disp = planDisplay({
+                                      creates: result.plan.creates,
+                                      updates: result.plan.updates,
+                                    })
+                                    return (
+                                      <div data-testid="plan-contents" className="mb-2 rounded border border-slate-200 overflow-hidden">
+                                        <div className="bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600 uppercase tracking-wide">{disp.label}</div>
+                                        <table className="w-full text-[11px]">
+                                          <tbody>
+                                            {disp.rows.map((r, idx) => (
+                                              <tr key={idx} className="border-t border-slate-100">
+                                                <td className="px-2 py-1 text-slate-500 w-2/5 align-top">{r.field}</td>
+                                                <td className="px-2 py-1 text-slate-900 font-medium">{r.value}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                        {disp.lines.length > 0 && (
+                                          <div className="border-t border-slate-100 px-2 py-1">
+                                            <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-0.5">Lines ({(result.plan.creates?.length ?? 1) - 1})</div>
+                                            <ul className="text-[11px] text-slate-700 space-y-0.5">
+                                              {disp.lines.map((l, idx) => <li key={idx}>· {l}</li>)}
+                                              {disp.moreLines > 0 && <li className="text-slate-500">… +{disp.moreLines} more</li>}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {disp.updates.length > 0 && (
+                                          <div className="border-t border-slate-100 px-2 py-1 text-[11px] text-slate-600">
+                                            Updates: {disp.updates.join(', ')}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })()}
                                   {result.plan.sideEffects?.length > 0 && (
                                     <div className="text-[10px] text-slate-600 mb-2">
                                       <span className="font-semibold">Side effects:</span>
@@ -644,6 +933,35 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                 <Loader2 className="h-3 w-3 animate-spin" /> working…
               </div>
             )}
+
+            {/* CHAT-04 — post-answer follow-up chips: after a read-only answer
+                (and with nothing pending), 2–3 chips derived from the current
+                screen's agentTools domain seed the composer on click. */}
+            {!streaming && messages.length > 0 && Object.keys(pendingApprovals).length === 0 && (() => {
+              const last = messages[messages.length - 1]
+              if (!last || last.role !== 'assistant' || last.toolCalls.length === 0) return null
+              const allReads = last.toolCalls.every((tc) => !tc.isWrite)
+              if (!allReads) return null
+              const chips = (screenItem?.agentTools ?? [])
+                .map((t) => TOOL_FOLLOWUPS[t])
+                .filter((x): x is string => !!x)
+                .slice(0, 3)
+              if (chips.length === 0) return null
+              return (
+                <div className="flex flex-wrap gap-1.5" data-testid="followup-chips">
+                  {chips.map((c, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setInput(c)}
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         </ScrollArea>
 
@@ -697,6 +1015,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             </div>
           )}
           <Textarea
+            ref={composerRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask the agent — e.g. 'Create a yarn PO for SUP001, 500 kg of 30s cotton at ₹180/kg, delivery 2026-09-05'"

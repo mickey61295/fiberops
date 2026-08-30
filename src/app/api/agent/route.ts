@@ -3,6 +3,9 @@ import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT } from '@/lib/agent/prompt'
+// CHAT-02 (Phase-6B Batch 2) — the dynamic context line: today IST, user,
+// activeFinYear(), active screen + docNo, godown roster.
+import { buildDynamicContext } from '@/lib/agent/context'
 import { db } from '@/lib/db'
 import { requireApiSession } from '@/lib/auth/api-guard'
 
@@ -41,6 +44,33 @@ const MAX_STEPS = 12
 
 function encodeEvent(ev: TurnEvent): string {
   return `data: ${JSON.stringify(ev)}\n\n`
+}
+
+/** CHAT-10 (Phase-6B Batch 2) — a tool result the model can still PARSE.
+ * The old `JSON.stringify(...).slice(0, 8000)` amputated long row arrays
+ * mid-array (invalid JSON tail) and silently dropped every row past the
+ * byte budget. Here rows are trimmed one-by-one (arrays only) until the
+ * payload fits, and a `truncated: true` marker + row count is stamped on
+ * the payload so the model KNOWS it is looking at a partial list. */
+function boundedToolContent(output: Record<string, unknown>, limit: number): string {
+  let payload = JSON.stringify(output)
+  if (payload.length <= limit) return payload
+  const trimmed: Record<string, unknown> = { ...output, truncated: true }
+  const json = output.json
+  if (Array.isArray(json)) {
+    // drop rows from the END until it fits (or nothing is left)
+    let keep = json.length
+    while (keep > 0) {
+      keep--
+      trimmed.json = json.slice(0, keep)
+      trimmed.rowsShown = keep
+      payload = JSON.stringify(trimmed)
+      if (payload.length <= limit) return payload
+    }
+  }
+  // non-array or still too large: fall back to the byte slice (last resort —
+  // at least the marker is present in the head of the payload)
+  return JSON.stringify(trimmed).slice(0, limit)
 }
 
 async function loadZaiConfig(): Promise<any | null> {
@@ -228,8 +258,20 @@ export async function POST(req: Request) {
         })
 
         const tools = buildToolSpecs()
+        // CHAT-02 (Phase-6B Batch 2, SPEC-M38 §1) — the brain used to get
+        // SYSTEM_PROMPT + verbatim history and NOTHING else: no date, no user,
+        // no FY, no screen (route.ts:231-239 was context-blind while the prompt
+        // demanded next-step awareness). One dynamic line now rides after the
+        // system prompt; it replaces the hard-coded '26-27' + G1–G3 prose the
+        // prompt used to carry (CHAT-11).
+        const dynamicLine = await buildDynamicContext(body.screen, {
+          name: guard.user.name,
+          email: guard.user.email,
+          role: (guard.user as any).role,
+        })
         const messages: ChatMessage[] = [
           { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: dynamicLine },
           ...incoming
             .filter((m) => m.role === 'user' || m.role === 'assistant')
             .map((m) => ({
@@ -242,6 +284,7 @@ export async function POST(req: Request) {
         send({ type: 'start', promptVersion: PROMPT_VERSION })
 
         // Manual agent loop
+        let exhaustedSteps = false // CHAT-12 — visible MAX_STEPS exhaustion
         while (step < MAX_STEPS) {
           step++
           if (!send({ type: 'step-start', step })) break // client gone — stop burning LLM steps
@@ -309,6 +352,9 @@ export async function POST(req: Request) {
             send({ type: 'step-end', step, finishReason: 'stop' })
             break
           }
+          // CHAT-12 — the loop is about to exit on the step budget with the
+          // model STILL asking for tools: surface it, never truncate silently.
+          if (step >= MAX_STEPS) exhaustedSteps = true
 
           // Append the assistant message with tool_calls to history
           messages.push({
@@ -333,6 +379,10 @@ export async function POST(req: Request) {
             })
 
             let result: any
+            // CHAT-06 — the AgentTurn row id rides the tool-call-end event so
+            // the panel's Approve posts { turnId }: the route then executes the
+            // STORED plan (never a re-planned mutant).
+            let turnId: string | null = null
             if (!t) {
               result = { error: `Unknown tool: ${toolName}` }
             } else {
@@ -349,8 +399,8 @@ export async function POST(req: Request) {
                 try {
                   result = await t.execute(parsed.value, actor)
                   // Persist audit log — SPEC-M7 Wave B: userId = the logged-in
-                  // user (was hardcoded 'admin')
-                  await db.agentTurn
+                  // user (was hardcoded 'admin'). CHAT-06: capture the row id.
+                  const turnRow = await db.agentTurn
                     .create({
                       data: {
                         prompt: userText,
@@ -369,7 +419,8 @@ export async function POST(req: Request) {
                         promptVersion: PROMPT_VERSION, // SPEC-M10 C2 — version every turn
                       },
                     })
-                    .catch(() => {})
+                    .catch(() => null)
+                  turnId = turnRow?.id ?? null
                 } catch (err: any) {
                   result = { error: err.message || String(err) }
                 }
@@ -392,16 +443,21 @@ export async function POST(req: Request) {
               toolName,
               args,
               output: toolOutput,
+              turnId, // CHAT-06 — approve-by-id
             })
 
             // 4. Send tool result back to the model in OpenAI format.
             // extract_document results carry whole documents — allow much
             // larger payloads than regular tool results.
+            // CHAT-10 — the 8K slice used to amputate the JSON silently (rows
+            // dropped mid-array → an unparseable tail the model still tried to
+            // read). Now rows are TRIMMED and the payload is marked truncated
+            // before any byte-slicing happens.
             const resultLimit = toolName === 'extract_document' ? 80000 : 8000
             messages.push({
               role: 'tool',
               tool_call_id: tc.id,
-              content: JSON.stringify(toolOutput).slice(0, resultLimit),
+              content: boundedToolContent(toolOutput, resultLimit),
             })
           }
 
@@ -412,6 +468,15 @@ export async function POST(req: Request) {
           })
         }
 
+        // CHAT-12 — MAX_STEPS exhaustion is VISIBLE (the old loop fell
+        // through to finish and the panel showed a normal end after a silent
+        // truncation mid-tool-chain).
+        if (exhaustedSteps) {
+          send({
+            type: 'error',
+            error: `Step budget exhausted (${MAX_STEPS} steps) — the task stopped mid-way. Ask me to continue with the remaining part.`,
+          })
+        }
         send({ type: 'finish' })
       } catch (err: any) {
         console.error('[/api/agent] error:', err)

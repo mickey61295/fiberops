@@ -8,14 +8,26 @@ import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { OrderInput } from '../schemas/order'
 import { dateOrIstToday } from '@/lib/erp/dates'
+// CHAT-09 (Phase-6B Batch 2) — fuzzy lookup rescue at the order seams: the
+// old exact code/name match failed "lpp sa"/"lpp" dead; now case-insensitive
+// resolution + "Did you mean" candidates so the model self-corrects.
+import { resolveByNameOrCode, topCandidates, didYouMean } from '@/lib/erp/lookup'
 
 export async function planOrder(args: OrderInput): Promise<DocPlanResult> {
   // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
+  // — case-insensitively, with contains fallback (CHAT-09)
   const buyer = (await db.buyer.findUnique({ where: { code: args.buyerCode } }))
-    || (await db.buyer.findFirst({ where: { name: args.buyerCode } }))
-  if (!buyer) return { ok: false, error: `Buyer ${args.buyerCode} not found (tried code and name). Use list_buyers first.` }
-  const style = await db.style.findUnique({ where: { styleNo: args.styleNo } })
-  if (!style) return { ok: false, error: `Style ${args.styleNo} not found. Use list_styles first.` }
+    || (await resolveByNameOrCode<any>(db.buyer, args.buyerCode))
+  if (!buyer) {
+    const candidates = await topCandidates(db.buyer, args.buyerCode)
+    return { ok: false, error: didYouMean('Buyer', args.buyerCode, candidates) + ' Use list_buyers first.' }
+  }
+  const style = (await db.style.findUnique({ where: { styleNo: args.styleNo } }))
+    || (await resolveByNameOrCode<any>(db.style, args.styleNo, { codeField: 'styleNo', nameField: 'description' }))
+  if (!style) {
+    const candidates = await topCandidates(db.style, args.styleNo, { codeField: 'styleNo', nameField: 'description' })
+    return { ok: false, error: didYouMean('Style', args.styleNo, candidates) + ' Use list_styles first.' }
+  }
 
   const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
   const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)

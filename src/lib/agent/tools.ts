@@ -132,6 +132,10 @@ import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/post
 export type ToolResult = {
   text?: string
   json?: any
+  /** CHAT-08 (Phase-6B Batch 2) — failure marker: the panel badges on
+   * output.error and the model reads it from the tool result. A tool that
+   * fails MUST set this (a `{ text: error }` alone rendered as emerald 'ok'). */
+  error?: string
   // For write tools: proposed mutations; if present, the UI shows an approval card.
   plan?: {
     summary: string
@@ -179,25 +183,73 @@ async function listAll(model: string, where: any = {}) {
   }
 }
 
+/** CHAT-10 (Phase-6B Batch 2, SPEC-M38 §1) — bounded master-list query.
+ * The master list tools returned EVERY row unbounded (an 80-row list hit
+ * the 8K slice and lost its tail silently — alphabetically-late masters
+ * became unreachable). Now every list accepts `q` (code+name contains;
+ * SQLite LIKE is ASCII-case-insensitive) + `take` (default 20, cap 100),
+ * and the text line reports `total` + truncation so the model KNOWS the
+ * list is partial. json stays the rows array (M3-frozen shape). */
+async function boundedList(
+  model: any,
+  args: { q?: string; take?: number },
+  opts: { codeField?: string; nameField?: string; where?: any; orderBy?: any; include?: any } = {},
+) {
+  const codeField = opts.codeField ?? 'code'
+  const nameField = opts.nameField ?? 'name'
+  const take = Math.max(1, Math.min(100, Math.floor(args.take ?? 20)))
+  const where: any = { ...(opts.where ?? {}) }
+  if (args.q?.trim()) {
+    const t = args.q.trim()
+    where.OR = [
+      { [codeField]: { contains: t } },
+      { [nameField]: { contains: t } },
+    ]
+  }
+  const [rows, total] = await Promise.all([
+    model.findMany({ where, orderBy: opts.orderBy ?? { [codeField]: 'asc' }, take, ...(opts.include ? { include: opts.include } : {}) }),
+    model.count({ where }),
+  ])
+  const truncated = total > rows.length
+  return {
+    rows,
+    total,
+    truncated,
+    note: truncated ? ` (showing first ${rows.length} of ${total} — pass q to narrow, or take up to 100)` : '',
+  }
+}
+
 // ───────────── READ TOOLS ─────────────
 
 const readTools: AgentTool[] = [
   {
     name: 'list_orders',
-    description: 'List sales orders. Optional filter by status (open|in_progress|completed|cancelled) or buyerId.',
+    description: 'List sales orders. Optional filter by status (open|in_progress|completed|cancelled), buyerId (buyer name or code, contains) or buyer name.',
     domain: 'orders',
     isWrite: false,
     schema: z.object({
       status: z.string().optional().describe('Filter by status'),
-      buyerId: z.string().optional(),
+      buyerId: z.string().optional().describe('Filter by buyer — a buyer NAME or code (contains match), e.g. "LPP"'),
       limit: z.number().optional().default(50),
     }),
     async execute(args) {
       // Delegates to the shared register service (SPEC-M4 §5) — the same read
-      // path the /orders/register screen uses. json shape frozen (M3 contract);
-      // buyerId stays ignored exactly as before (verbatim behavior).
+      // path the /orders/register screen uses. json shape frozen (M3 contract).
+      // CHAT-12 (Phase-6B Batch 2) — buyerId is HONORED: resolved via the
+      // buyer master (name/code contains, case-insensitive) and applied as a
+      // buyer-scoped where-clause (it was accepted-and-ignored since M3).
+      const buyerFilter = args.buyerId?.trim()
+      let buyerWhere: string | undefined
+      if (buyerFilter) {
+        const buyers = await db.buyer.findMany({
+          where: { OR: [{ name: { contains: buyerFilter } }, { code: { contains: buyerFilter } }] },
+          select: { id: true },
+        })
+        buyerWhere = buyers.length ? buyers[0].id : '__none__'
+      }
       const res = await queryOrderRegister({
         status: args.status,
+        buyerId: buyerWhere,
         limit: args.limit ?? 50,
         page: 1,
       })
@@ -525,18 +577,22 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_parties',
-    description: 'List parties (suppliers/customers/employees). Optional filter by partyType (supplier|customer|both|employee).',
+    description: 'List parties (suppliers/customers/employees). Optional filter by partyType (supplier|customer|both|employee), q (code/name contains) and take (default 20, max 100). Reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({ partyType: z.string().optional() }),
+    schema: z.object({
+      partyType: z.string().optional(),
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
     async execute(args) {
-      const parties = await db.party.findMany({
+      // CHAT-10 — bounded + total/truncated (was: every party, unbounded)
+      const res = await boundedList(db.party, args, {
         where: args.partyType ? { partyType: args.partyType } : {},
-        orderBy: { name: 'asc' },
       })
       return {
-        text: `Found ${parties.length} parties.`,
-        json: parties.map((p) => ({
+        text: `Found ${res.total} parties${res.note}.`,
+        json: res.rows.map((p: any) => ({
           code: p.code, name: p.name, partyType: p.partyType, gstin: p.gstin, city: p.city, state: p.state,
         })),
       }
@@ -544,81 +600,116 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_buyers',
-    description: 'List buyer masters (code B-####, name, dept, merchandiser). Use to resolve a buyer name to its code before creating orders or samples.',
+    description: 'List buyer masters (code B-####, name, dept, merchandiser). Use to resolve a buyer name to its code before creating orders or samples. Optional q (code/name contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const buyers = await db.buyer.findMany()
-      return { text: `${buyers.length} buyers`, json: buyers }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: every buyer, unbounded)
+      const res = await boundedList(db.buyer, args)
+      return { text: `${res.total} buyers${res.note}`, json: res.rows }
     },
   },
   {
     name: 'list_styles',
-    description: 'List style masters (styleNo STY-####, description, buyer name, sam, hsn). Use to resolve a model number to its styleNo before creating orders or BOMs.',
+    description: 'List style masters (styleNo STY-####, description, buyer name, sam, hsn). Use to resolve a model number to its styleNo before creating orders or BOMs. Optional q (styleNo/description contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const styles = await db.style.findMany({ include: { buyer: true } })
-      return { text: `${styles.length} styles`, json: styles.map((s) => ({
-        styleNo: s.styleNo, description: s.description, buyer: s.buyer?.name, sam: s.sam, hsn: s.hsn,
-      })) }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by styleNo or description (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: every style, unbounded)
+      const res = await boundedList(db.style, args, {
+        codeField: 'styleNo',
+        nameField: 'description',
+        include: { buyer: true },
+      })
+      return {
+        text: `${res.total} styles${res.note}`,
+        json: res.rows.map((s: any) => ({
+          styleNo: s.styleNo, description: s.description, buyer: s.buyer?.name, sam: s.sam, hsn: s.hsn,
+        })),
+      }
     },
   },
   {
     name: 'list_fabrics',
-    description: 'List fabric masters (code F-####, construction, gsm, width, dia, rate). Use to resolve a fabric to its code before POs, dyeing programs or stock tools.',
+    description: 'List fabric masters (code F-####, construction, gsm, width, dia, rate). Use to resolve a fabric to its code before POs, dyeing programs or stock tools. Optional q (code/name contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const f = await listAll('fabric')
-      return { text: `${f.length} fabrics`, json: f }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: listAll, take 100 hard)
+      const res = await boundedList(db.fabric, args)
+      return { text: `${res.total} fabrics${res.note}`, json: res.rows }
     },
   },
   {
     name: 'list_yarns',
-    description: 'List yarn masters (code Y-####, count, blend, uom, rate). Use to resolve a yarn to its code before POs, knitting programs or stock tools.',
+    description: 'List yarn masters (code Y-####, count, blend, uom, rate). Use to resolve a yarn to its code before POs, knitting programs or stock tools. Optional q (code/name contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const y = await listAll('yarn')
-      return { text: `${y.length} yarns`, json: y }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: listAll, take 100 hard)
+      const res = await boundedList(db.yarn, args)
+      return { text: `${res.total} yarns${res.note}`, json: res.rows }
     },
   },
   {
     name: 'list_accessories',
-    description: 'List accessory masters (code A-####, name, category, uom, rate) — zippers, buttons, labels. Use to resolve an accessory before POs or BOMs.',
+    description: 'List accessory masters (code A-####, name, category, uom, rate) — zippers, buttons, labels. Use to resolve an accessory before POs or BOMs. Optional q (code/name contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const a = await listAll('accessory')
-      return { text: `${a.length} accessories`, json: a }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: listAll, take 100 hard)
+      const res = await boundedList(db.accessory, args)
+      return { text: `${res.total} accessories${res.note}`, json: res.rows }
     },
   },
   {
     name: 'list_godowns',
-    description: 'List godowns / warehouses (code G1/G2/G3…, name, location). Use to resolve a godown name to its code for stock, transfer and GRN tools.',
+    description: 'List godowns / warehouses (code G1/G2/G3…, name, location). Use to resolve a godown name to its code for stock, transfer and GRN tools. Optional q (code/name contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const g = await db.godown.findMany()
-      return { text: `${g.length} godowns`, json: g }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: every godown, unbounded)
+      const res = await boundedList(db.godown, args)
+      return { text: `${res.total} godowns${res.note}`, json: res.rows }
     },
   },
   {
     name: 'list_departments',
-    description: 'List departments / process stages (code D1-D6…, name, isProcess). Use to resolve a department name to its code before production entries.',
+    description: 'List departments / process stages (code D1-D6…, name, isProcess). Use to resolve a department name to its code before production entries. Optional q (code/name contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const d = await db.department.findMany({ orderBy: { orderSno: 'asc' } })
-      return { text: `${d.length} departments`, json: d }
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: every department, unbounded)
+      const res = await boundedList(db.department, args, { orderBy: { orderSno: 'asc' } })
+      return { text: `${res.total} departments${res.note}`, json: res.rows }
     },
   },
   {
@@ -695,15 +786,19 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_employees',
-    description: 'List employees (code EMP-####, name, department, role, piece rate). Use to resolve an operator before production entries or wage payouts.',
+    description: 'List employees (code EMP-####, name, department, role, piece rate). Use to resolve an operator before production entries or wage payouts. Optional q (code/name contains) + take (default 20, max 100); reports total + truncation.',
     domain: 'hr',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const emps = await db.employee.findMany({ include: { department: true } })
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (was: every employee, unbounded)
+      const res = await boundedList(db.employee, args, { include: { department: true } })
       return {
-        text: `${emps.length} employees`,
-        json: emps.map((e) => ({
+        text: `${res.total} employees${res.note}`,
+        json: res.rows.map((e: any) => ({
           code: e.code, name: e.name, dept: e.department?.name, role: e.role,
           pieceRate: e.pieceRate, dailyWage: e.dailyWage, active: e.active,
         })),
@@ -816,57 +911,84 @@ const readTools: AgentTool[] = [
 
   {
     name: 'list_uoms',
-    description: 'List all units of measure (KGS, MTR, PCS, BAG...). Use this before create_yarn / create_fabric / create_accessory to find the right uomCode.',
+    description: 'List all units of measure (KGS, MTR, PCS, BAG...). Use this before create_yarn / create_fabric / create_accessory to find the right uomCode. Optional q (code/name contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const uoms = await db.uOM.findMany({ orderBy: { code: 'asc' } })
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated
+      const res = await boundedList(db.uOM, args)
       return {
-        text: `${uoms.length} UOMs`,
-        json: uoms.map((u) => ({ code: u.code, name: u.name })),
+        text: `${res.total} UOMs${res.note}`,
+        json: res.rows.map((u: any) => ({ code: u.code, name: u.name })),
       }
     },
   },
   {
     name: 'list_colours',
-    description: 'List colour masters (code, name). Use to resolve a colour name before creating order lines or mapping buyer colour codes (e.g. 59X NAVY → Navy).',
+    description: 'List colour masters (code, name). Use to resolve a colour name before creating order lines or mapping buyer colour codes (e.g. 59X NAVY → Navy). Optional q (code/name contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const cols = await db.colour.findMany({ orderBy: { code: 'asc' } })
+    schema: z.object({
+      q: z.string().optional().describe('Filter by code or name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated
+      const res = await boundedList(db.colour, args)
       return {
-        text: `${cols.length} colours`,
-        json: cols.map((c) => ({ code: c.code, name: c.name })),
+        text: `${res.total} colours${res.note}`,
+        json: res.rows.map((c: any) => ({ code: c.code, name: c.name })),
       }
     },
   },
   {
     name: 'list_sizes',
-    description: 'List size masters (name, sort). Use to resolve size names before creating order lines, or batch-create a full scale via create_sizes.',
+    description: 'List size masters (name, sort). Use to resolve size names before creating order lines, or batch-create a full scale via create_sizes. Optional q (name contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const sz = await db.size.findMany({ orderBy: { sort: 'asc' } })
+    schema: z.object({
+      q: z.string().optional().describe('Filter by name (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (size's "code" IS its name)
+      const res = await boundedList(db.size, args, {
+        codeField: 'name',
+        nameField: 'name',
+        orderBy: { sort: 'asc' },
+      })
       return {
-        text: `${sz.length} sizes`,
-        json: sz.map((s) => ({ name: s.name, sort: s.sort })),
+        text: `${res.total} sizes${res.note}`,
+        json: res.rows.map((s: any) => ({ name: s.name, sort: s.sort })),
       }
     },
   },
   {
     name: 'list_dias',
-    description: 'List knitting machine dia masters (value, e.g. 30, 34). Use to resolve a dia before fabric creation or knitting setup.',
+    description: 'List knitting machine dia masters (value, e.g. 30, 34). Use to resolve a dia before fabric creation or knitting setup. Optional q (value contains) + take; reports total + truncation.',
     domain: 'masters',
     isWrite: false,
-    schema: z.object({}),
-    async execute() {
-      const ds = await db.dia.findMany()
+    schema: z.object({
+      q: z.string().optional().describe('Filter by value (contains)'),
+      take: z.number().optional().describe('Max rows (default 20, max 100)'),
+    }),
+    async execute(args) {
+      // CHAT-10 — bounded + total/truncated (dia has no code/name — value only)
+      const take = Math.max(1, Math.min(100, Math.floor(args.take ?? 20)))
+      const q = args.q?.trim()
+      const where = q ? { value: { contains: q } } : {}
+      const [rows, total] = await Promise.all([
+        db.dia.findMany({ where, orderBy: { value: 'asc' }, take }),
+        db.dia.count({ where }),
+      ])
+      const note = total > rows.length ? ` (showing first ${rows.length} of ${total} — pass q to narrow)` : ''
       return {
-        text: `${ds.length} dias`,
-        json: ds.map((d) => ({ value: d.value })),
+        text: `${total} dias${note}`,
+        json: rows.map((d) => ({ value: d.value })),
       }
     },
   },
@@ -1629,7 +1751,10 @@ function docTool(
     schema,
     async execute(args) {
       const result = await plan(args)
-      if (!result.ok) return { text: result.error }
+      // CHAT-08 (Phase-6B Batch 2) — failures carry the error FIELD too: the
+      // panel badges on output.error, and the model reads result.error — the
+      // old `{ text: error }` rendered a failed write as an emerald 'ok'.
+      if (!result.ok) return { text: result.error, error: result.error }
       return {
         text: result.text,
         plan: {
@@ -1868,7 +1993,8 @@ function masterCreateTool(slug: string, description: string): AgentTool {
     schema: buildMasterSchema(config, 'create'),
     async execute(args) {
       const plan = await planMasterCreate(config, args)
-      if (!plan.ok) return { text: plan.errors.join('; ') }
+      // CHAT-08 — error field on master-plan failures (truthful badges)
+      if (!plan.ok) return { text: plan.errors.join('; '), error: plan.errors.join('; ') }
       return {
         text: plan.summary,
         plan: {
@@ -1892,7 +2018,8 @@ function masterUpdateTool(slug: string, description: string): AgentTool {
     schema: buildMasterSchema(config, 'update'),
     async execute(args) {
       const plan = await planMasterUpdate(config, args)
-      if (!plan.ok) return { text: plan.errors.join('; ') }
+      // CHAT-08 — error field on master-update failures (truthful badges)
+      if (!plan.ok) return { text: plan.errors.join('; '), error: plan.errors.join('; ') }
       return {
         text: plan.summary,
         plan: {

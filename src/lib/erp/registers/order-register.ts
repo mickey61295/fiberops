@@ -10,6 +10,9 @@ import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
 export async function queryOrderRegister(q: RegisterQuery): Promise<RegisterResult> {
   const where: any = {}
   if (q.status) where.status = q.status
+  // CHAT-12 (Phase-6B Batch 2) — buyer scope (list_orders buyerId filter;
+  // '__none__' = a buyer filter that matched no buyer → no rows, honestly).
+  if (q.buyerId) where.buyerId = q.buyerId
   if (q.from || q.to) {
     where.orderDate = {}
     if (q.from) where.orderDate.gte = q.from

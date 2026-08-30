@@ -16,6 +16,9 @@ export interface RegisterQuery {
   status?: string
   variant?: string
   q?: string
+  /** CHAT-12 (Phase-6B Batch 2) — buyer id scope for the order register
+   * (the agent's list_orders buyerId filter resolves to this). */
+  buyerId?: string
   limit: number
   page: number
 }

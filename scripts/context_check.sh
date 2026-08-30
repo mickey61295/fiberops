@@ -513,7 +513,15 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/pipeline/ops-batch1.test.ts \
          scripts/backup_db.py \
          scripts/install_backup_cron.sh \
-         scripts/route_smoke_batch1.sh; do
+         scripts/route_smoke_batch1.sh \
+         docs/CONTEXT/specs/SPEC-M38.md \
+         src/lib/agent/context.ts \
+         src/lib/agent/plan-display.ts \
+         src/lib/agent/tool-labels.ts \
+         src/lib/erp/doc-cta.ts \
+         src/lib/erp/lookup.ts \
+         tests/pipeline/chat-batch2.test.ts \
+         scripts/route_smoke_batch2.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 
