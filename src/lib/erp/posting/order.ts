@@ -7,6 +7,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { OrderInput } from '../schemas/order'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planOrder(args: OrderInput): Promise<DocPlanResult> {
   // Accept either the buyer code (B-0001 / B001) or the buyer name ("LPP SA")
@@ -50,7 +51,7 @@ export async function planOrder(args: OrderInput): Promise<DocPlanResult> {
     text: `Proposed order ${resolvedOrderNo} for ${buyer.name}, style ${style.styleNo}, ${totalPcs} pcs, ₹${totalValue}.`,
     summary: `Create order ${resolvedOrderNo} for ${buyer.name} | style ${style.styleNo} | ${totalPcs} pcs | ₹${totalValue} | delivery ${args.deliveryDate}`,
     creates: [
-      { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
+      { table: 'order', data: { orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id, orderDate: dateOrIstToday(args.orderDate), deliveryDate: new Date(args.deliveryDate), finYear, totalPcs, totalValue, status: 'open', notes: args.notes } },
       ...linesData.map((l) => ({ table: 'orderLine', data: { ...l, styleId: style.id, orderId: '<pending>' } })),
     ],
     sideEffects: ['Stock reservation will be calculated when fabric is issued'],
@@ -58,7 +59,7 @@ export async function planOrder(args: OrderInput): Promise<DocPlanResult> {
       const created = await db.order.create({
         data: {
           orderNo: resolvedOrderNo, buyerId: buyer.id, styleId: style.id,
-          orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
+          orderDate: dateOrIstToday(args.orderDate),
           deliveryDate: new Date(args.deliveryDate),
           finYear, totalPcs, totalValue, status: 'open', notes: args.notes,
           lines: { create: linesData.map((l) => ({ ...l, styleId: style.id })) },

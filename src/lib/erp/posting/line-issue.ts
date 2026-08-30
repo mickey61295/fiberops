@@ -17,7 +17,7 @@ export async function planLineIssue(args: LineIssueInput): Promise<DocPlanResult
   const g1 = await db.godown.findUnique({ where: { code: 'G1' } })
   if (!g1) return { ok: false, error: 'Godown G1 (Main) not found — create it with create_godown' }
   const issueNo = await resolveDocNo('lineIssue', 'issueNo', 'LI-', args.issueNo)
-  const issueDate = args.issueDate ? new Date(args.issueDate) : new Date()
+  const issueDate = dateOrIstToday(args.issueDate)
 
   // Warn (never block) if G1 pcs would go negative — legacy Fiberpro behaviour.
   const bucket = await db.currentStock.findFirst({ where: { itemType: 'pcs', itemId: order.id, godownId: g1.id, lotId: null, colourId: null, sizeId: null, deptId: null, orderId: null } })
@@ -55,6 +55,7 @@ export async function planLineIssue(args: LineIssueInput): Promise<DocPlanResult
 // ───────── SPEC-M6 §7-D-1 (Wave D) — cutting-issue variant (§4 rule-2 wrapper) ─────────
 
 import { STAGE_DEPT } from '../legacy-enums'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 /** frmCuttingIssue — Cutting Issue (/cutting/issue). Issue fabric rolls to the
  *  cutting table: a LineIssue whose LINE belongs to the Cutting department

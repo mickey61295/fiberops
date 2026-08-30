@@ -84,7 +84,7 @@ check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance + M21 waste + M23 e-invoice + M26 cancel-irn)" "55"    "$DOCTOOLS"
-check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance)" "78"      "$MODELS"
+check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance + M37 IdempotencyKey)" "79"      "$MODELS"
 check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker +M22 keypad-mode)" "35" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
@@ -507,7 +507,13 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          tests/pipeline/hfx-batch0.test.ts \
          tests/setup/pin-test-db.ts \
          tests/setup/global-setup.ts \
-         scripts/route_smoke_batch0.sh; do
+         scripts/route_smoke_batch0.sh \
+         docs/CONTEXT/specs/SPEC-M37.md \
+         src/lib/erp/dates.ts \
+         tests/pipeline/ops-batch1.test.ts \
+         scripts/backup_db.py \
+         scripts/install_backup_cron.sh \
+         scripts/route_smoke_batch1.sh; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

@@ -9,7 +9,7 @@
 // one transaction. The inline adjust_stock tool stays as-is (legacy door).
 
 import { db } from '@/lib/db'
-import { postLedger } from './ledger'
+import { postLedger, docKeyViolation } from './ledger'
 import type { DocPlanResult } from './types'
 import type { StockAdjInput, WasteReceiptInput } from '../schemas/stock-adj'
 
@@ -37,7 +37,7 @@ export async function planStockAdjustment(args: StockAdjInput): Promise<DocPlanR
   const uom = UOM[args.itemType]
   const isAdd = args.action === 'add'
   const docNo = args.docNo?.trim() || (await nextAdjNo())
-  const docDate = args.adjDate ? new Date(args.adjDate) : new Date()
+  const docDate = dateOrIstToday(args.adjDate)
   const txnType = isAdd ? 'stock_adjustment_add' : 'stock_adjustment_less'
   const qtyIn = isAdd ? (uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty }) : {}
   const qtyOut = isAdd ? {} : (uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty })
@@ -47,18 +47,22 @@ export async function planStockAdjustment(args: StockAdjInput): Promise<DocPlanR
     text: `Proposed stock ${isAdd ? 'addition' : 'reduction'} of ${args.qty} ${uom} of ${args.itemCode} at ${args.godownCode}.`,
     summary: `${isAdd ? 'Add to' : 'Reduce from'} stock | ${args.itemType} ${args.itemCode} | ${args.qty} ${uom} | godown ${args.godownCode} | reason: ${args.reason}`,
     creates: [
-      { table: 'stockLedger', data: { txnType, itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo, docDate, inKgs: isAdd && uom === 'kgs' ? args.qty : 0, outKgs: !isAdd && uom === 'kgs' ? args.qty : 0, inPcs: isAdd && uom === 'pcs' ? args.qty : 0, outPcs: !isAdd && uom === 'pcs' ? args.qty : 0, rate: item.rate, notes: args.reason } },
+      { table: 'stockLedger', data: { txnType, itemType: args.itemType, itemId: item.id, godownId: godown.id, docNo, docKey: docNo, docDate, inKgs: isAdd && uom === 'kgs' ? args.qty : 0, outKgs: !isAdd && uom === 'kgs' ? args.qty : 0, inPcs: isAdd && uom === 'pcs' ? args.qty : 0, outPcs: !isAdd && uom === 'pcs' ? args.qty : 0, rate: item.rate, notes: args.reason } },
     ],
     sideEffects: [`${args.godownCode} current stock ${isAdd ? 'increases' : 'decreases'} by ${args.qty} ${uom}`],
     async commit() {
-      return await db.$transaction(async (tx) => {
-        const ledgerId = await postLedger(tx, {
-          txnType, itemType: args.itemType, itemId: item.id, godownId: godown.id,
-          docNo, docDate, rate: item.rate, notes: args.reason,
-          in: qtyIn, out: qtyOut,
+      try {
+        return await db.$transaction(async (tx) => {
+          const ledgerId = await postLedger(tx, {
+            txnType, itemType: args.itemType, itemId: item.id, godownId: godown.id,
+            docNo, docKey: docNo, docDate, rate: item.rate, notes: args.reason,
+            in: qtyIn, out: qtyOut,
+          })
+          return { id: ledgerId, docNo, txnType }
         })
-        return { id: ledgerId, docNo, txnType }
-      })
+      } catch (err) {
+        throw docKeyViolation(err, docNo) ?? err
+      }
     },
   }
 }
@@ -66,6 +70,7 @@ export async function planStockAdjustment(args: StockAdjInput): Promise<DocPlanR
 // ───────── SPEC-M6 §7-D-1 (Wave D) — opening-stock variant (§4 rule-2 wrapper) ─────────
 
 import type { OpeningStockInput } from '../schemas/stock-adj'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 /** OPN-#### from StockLedger docNos (docNo is NOT unique — count, don't resolveDocNo). */
 async function nextOpeningNo(): Promise<string> {

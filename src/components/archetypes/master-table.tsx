@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import { saveMasterAction } from '@/app/(erp)/masters/actions'
 import type { MasterConfig, MasterRow } from '@/lib/erp/master-configs/types'
+import { istDateStr } from '@/lib/erp/dates'
 
 type EditState = { mode: 'new' } | { mode: 'edit'; row: MasterRow } | null
 
@@ -72,7 +73,7 @@ export function MasterTable({
     const blob = new Blob([head + '\n' + body + '\n'], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `${config.slug}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `${config.slug}-${istDateStr()}.csv` // OPS-03 — IST date in filenames
     a.click()
     URL.revokeObjectURL(a.href)
   }

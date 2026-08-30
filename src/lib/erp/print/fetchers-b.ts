@@ -14,6 +14,7 @@ import type { PrintDoc, PrintParty, PrintLabelCard } from './types'
 import { amountInWords } from './amount-words'
 import { d, inr, qty, partyBlock, getCompanyName } from './fetchers'
 import { code128Svg } from './barcode'
+import { istToday } from '@/lib/erp/dates'
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const co = () => getCompanyName()
@@ -354,7 +355,7 @@ export async function fetchBundleLabelPrint(idOrNo: string): Promise<PrintDoc | 
     docType: 'bundle-label',
     title: 'BUNDLE LABEL',
     docNo: bundle.bundleNo,
-    docDate: cut ? d(cut.cutDate) : new Date().toISOString().slice(0, 10),
+    docDate: cut ? d(cut.cutDate) : istToday(), // OPS-03 — IST business day
     meta: [
       ['Order', orderNo],
       ['Cut Order', cut?.cutNo ?? '—'],

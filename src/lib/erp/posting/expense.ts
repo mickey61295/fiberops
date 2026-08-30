@@ -8,6 +8,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { ExpenseInput } from '../schemas/expense'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 const CATEGORIES = ['fixed', 'stylewise', 'general', 'transport', 'other']
 const STATUSES = ['recorded', 'settled']
@@ -63,7 +64,7 @@ export async function planExpense(args: ExpenseInput): Promise<DocPlanResult> {
       const e = await db.expense.create({
         data: {
           expNo: resolvedNo,
-          expDate: args.expDate ? new Date(args.expDate) : new Date(),
+          expDate: dateOrIstToday(args.expDate),
           finYear, category: args.category, orderId, partyId,
           amount: args.amount, narration: args.narration, status,
         },

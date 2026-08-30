@@ -7,7 +7,7 @@
  * asks the API).
  */
 import Link from 'next/link'
-import { AlertTriangle, Bell, CalendarClock, Clock, Truck } from 'lucide-react'
+import { AlertTriangle, Bell, CalendarClock, Clock, Database, HardDrive, Truck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AskAgentButton } from '@/components/erp/ask-agent-button'
 import { buildDigest } from '@/lib/erp/notifications/digest'
@@ -139,6 +139,39 @@ export default async function Page() {
           </div>
         </section>
       )}
+
+      {/* OPS-01 — ops & data growth: the trust infrastructure reports itself */}
+      {digest.sections.ops.rows[0] && (() => {
+        const o = digest.sections.ops.rows[0]
+        const stale = o.lastBackupName === null || (o.lastBackupAgeHours ?? 0) > 26
+        return (
+          <section className="rounded-lg border bg-white shadow-sm" data-digest-ops>
+            <div className="flex items-center gap-2 border-b bg-slate-50/80 px-4 py-2.5">
+              <Database className="h-4 w-4 text-slate-600" />
+              <h2 className="text-[13px] font-semibold text-slate-700">Ops &amp; data growth</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 text-sm">
+              <span className="flex items-center gap-1.5 text-slate-600">
+                <HardDrive className="h-3.5 w-3.5 text-slate-400" />
+                DB <span className="font-semibold tabular-nums">{o.dbSizeMb.toFixed(1)} MB</span>
+              </span>
+              <span className="text-slate-600">
+                StockLedger <span className="font-semibold tabular-nums">{o.rows.stockLedger.toLocaleString('en-IN')}</span>
+                <span className="text-slate-400"> · AuditLog <span className="tabular-nums">{o.rows.auditLog.toLocaleString('en-IN')}</span></span>
+                <span className="text-slate-400"> · AgentTurn <span className="tabular-nums">{o.rows.agentTurn.toLocaleString('en-IN')}</span></span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="text-slate-600">Backup:</span>
+                {o.lastBackupName ? (
+                  <Badge variant={stale ? 'destructive' : 'default'}>{o.lastBackupName} · {o.lastBackupAgeHours === 0 ? '<1' : o.lastBackupAgeHours}h old</Badge>
+                ) : (
+                  <Badge variant="destructive">NONE — run scripts/backup_db.py</Badge>
+                )}
+              </span>
+            </div>
+          </section>
+        )
+      })()}
 
       {/* gate movements */}
       <section className="rounded-lg border bg-white shadow-sm">

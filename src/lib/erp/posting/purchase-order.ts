@@ -5,6 +5,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { PurchaseOrderInput } from '../schemas/purchase-order'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planPurchaseOrder(args: PurchaseOrderInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
@@ -44,7 +45,7 @@ export async function planPurchaseOrder(args: PurchaseOrderInput): Promise<DocPl
     text: `Proposed PO ${resolvedPoNo} (${args.poType}) to ${party.name}, ${totalQty} units, ₹${totalValue}.`,
     summary: `Create PO ${resolvedPoNo} | ${args.poType} | ${party.name} | ${totalQty} units | ₹${totalValue} | delivery ${args.deliveryDate}`,
     creates: [
-      { table: 'purchaseOrder', data: { poNo: resolvedPoNo, poType: args.poType, partyId: party.id, orderDate: args.orderDate ? new Date(args.orderDate) : new Date(), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
+      { table: 'purchaseOrder', data: { poNo: resolvedPoNo, poType: args.poType, partyId: party.id, orderDate: dateOrIstToday(args.orderDate), deliveryDate: new Date(args.deliveryDate), finYear, totalQty, totalValue, status: 'open', notes: args.notes } },
       ...linesResolved.map((l) => ({ table: 'poLine', data: { ...l, poId: '<pending>' } })),
     ],
     sideEffects: ['Auto-submits for approval workflow; status=open until approved'],
@@ -52,7 +53,7 @@ export async function planPurchaseOrder(args: PurchaseOrderInput): Promise<DocPl
       const created = await db.purchaseOrder.create({
         data: {
           poNo: resolvedPoNo, poType: args.poType, partyId: party.id,
-          orderDate: args.orderDate ? new Date(args.orderDate) : new Date(),
+          orderDate: dateOrIstToday(args.orderDate),
           deliveryDate: new Date(args.deliveryDate),
           finYear, totalQty, totalValue, status: 'open', notes: args.notes,
           // FIX (found by tests/pipeline/doc-parity.test.ts, M3 Wave A): the

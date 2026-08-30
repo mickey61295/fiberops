@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { InvoiceInput } from '../schemas/invoice'
 import type { CommercialInvoiceInput } from '../schemas/commercial-invoice'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 /** Shared INV-#### allocator (M5 §4 rule 2: one number space per family). */
 async function nextInvoiceNo(desired?: string): Promise<string> {
@@ -57,14 +58,14 @@ export async function planInvoice(args: InvoiceInput): Promise<DocPlanResult> {
     text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
     summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
     creates: [
-      { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+      { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: dateOrIstToday(args.invoiceDate), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
     ],
     sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
     async commit() {
       const inv = await db.salesInvoice.create({
         data: {
           invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
-          invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
+          invoiceDate: dateOrIstToday(args.invoiceDate),
           finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
           cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
         },
@@ -102,7 +103,7 @@ export async function planExportInvoice(args: CommercialInvoiceInput): Promise<D
 
   const data = {
     invoiceNo: resolvedInvoiceNo, invoiceType: 'export', orderId: order.id, partyId: party.id,
-    invoiceDate: args.invoiceDate ? new Date(args.invoiceDate) : new Date(),
+    invoiceDate: dateOrIstToday(args.invoiceDate),
     finYear, billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
     cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount,
     ern, status: 'issued',

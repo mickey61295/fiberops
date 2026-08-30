@@ -4,22 +4,42 @@ import { getTool } from '@/lib/agent/tools'
 import { requireApiSession } from '@/lib/auth/api-guard'
 import { runCommit } from '@/lib/erp/audit'
 
-// Approval endpoint - client posts { toolName, args } and we execute commit()
+// Approval endpoint - client posts { toolName, args, idempotencyKey } and we
+// execute commit()
 // SPEC-M7 Wave B — guarded + the session user is the APPROVAL ACTOR:
 //   - execute() receives the actor so approval commits stamp
 //     Approval.approvedBy = the human's email (was hardcoded 'agent')
 //   - AgentTurn rows for this user get approvedBy/approvedAt
 // SPEC-M9 §9 M15 — the AGENT DOOR audit choke point: every approved tool
 // commit routes through runCommit (the engine-level audit executor).
+// OPS-04 (Phase-6B Batch 1) — the idempotency token is minted client-side per
+// PENDING APPROVAL card (not per click): a double-clicked Approve replays the
+// stored result instead of re-posting the plan — previously the re-execution
+// double-committed whenever both requests passed validation before either
+// wrote (the live ADJ/GT duplicate docNo class).
 export async function POST(req: Request) {
   const guard = await requireApiSession()
   if (guard.error) return guard.error
   const actor = { userId: guard.user.id, email: guard.user.email, name: guard.user.name }
   try {
-    const { toolName, args } = await req.json()
+    const { toolName, args, idempotencyKey } = await req.json()
     const t = getTool(toolName)
     if (!t) return Response.json({ error: 'Unknown tool' }, { status: 400 })
     if (!t.isWrite) return Response.json({ error: 'Tool is read-only' }, { status: 400 })
+
+    // Replay check FIRST — a double-click must not even re-plan.
+    if (typeof idempotencyKey === 'string' && idempotencyKey.trim()) {
+      const prior = await db.idempotencyKey.findUnique({ where: { key: idempotencyKey.trim() } })
+      if (prior?.status === 'done' && prior.resultJson != null) {
+        if (prior.actorName !== actor.email) {
+          return Response.json({ error: 'Idempotency key belongs to another session' }, { status: 409 })
+        }
+        return Response.json({ success: true, committed: JSON.parse(prior.resultJson), replayed: true })
+      }
+      if (prior?.status === 'pending') {
+        return Response.json({ error: 'A commit with this key is already in progress — retry in a moment' }, { status: 409 })
+      }
+    }
 
     // Re-execute to get the plan + commit fn
     const result = await t.execute(args, actor)
@@ -27,7 +47,7 @@ export async function POST(req: Request) {
 
     const committed = await runCommit(
       { ok: true, commit: result.commit, summary: result.plan?.summary ?? toolName, creates: result.plan?.creates, updates: result.plan?.updates },
-      { actorName: actor.email, actorSource: 'agent' },
+      { actorName: actor.email, actorSource: 'agent', idempotencyKey },
     )
 
     // Update latest agent turn for this user to mark approved (scoped to the

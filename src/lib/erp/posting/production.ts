@@ -12,6 +12,7 @@ import { postLedger } from './ledger'
 import type { DocPlanResult } from './types'
 import type { ProductionEntryInput, ReworkInput } from '../schemas/production'
 import type { FinishedGoodsInput, OperationEntryInput, ScanBundleInput } from '../schemas/production-variants'
+import { dateOrIstToday, istToday } from '@/lib/erp/dates'
 
 export async function planProductionEntry(args: ProductionEntryInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
@@ -61,7 +62,7 @@ export async function planReworkEntry(args: ReworkInput): Promise<DocPlanResult>
   if (!dept) return { ok: false, error: `Dept ${args.deptCode} not found` }
   const operator = args.operatorCode ? await db.employee.findUnique({ where: { code: args.operatorCode } }) : null
   if (args.operatorCode && !operator) return { ok: false, error: `Operator ${args.operatorCode} not found` }
-  const prodDate = args.prodDate ? new Date(args.prodDate) : new Date()
+  const prodDate = dateOrIstToday(args.prodDate)
   const rate = args.rate || 0
   const amount = args.qty * rate
 
@@ -134,7 +135,7 @@ export async function planScanBundle(args: ScanBundleInput): Promise<DocPlanResu
   return planProductionEntry({
     orderNo: order.orderNo,
     deptCode: args.deptCode?.trim() || 'D4',
-    prodDate: args.prodDate || new Date().toISOString().slice(0, 10),
+    prodDate: args.prodDate || istToday(),
     bundleNo: bundle.bundleNo,
     operatorCode: args.operatorCode,
     qty,

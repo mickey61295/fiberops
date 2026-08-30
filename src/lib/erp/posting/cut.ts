@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { postLedger } from './ledger'
 import type { DocPlanResult } from './types'
 import type { CutOrderInput } from '../schemas/cut'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planCutOrder(args: CutOrderInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
@@ -29,12 +30,12 @@ export async function planCutOrder(args: CutOrderInput): Promise<DocPlanResult> 
     ok: true,
     text: `Proposed cut order ${resolvedCutNo} for ${args.orderNo}, ${args.fabricIssued} kgs → ${args.totalPcs} pcs.`,
     summary: `Create cut order ${resolvedCutNo} | order ${args.orderNo} | fabric ${args.fabricIssued} kgs | ${args.totalPcs} pcs | efficiency ${args.efficiency || 'n/a'}%`,
-    creates: [{ table: 'cutOrder', data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
+    creates: [{ table: 'cutOrder', data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: dateOrIstToday(args.cutDate), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' } }],
     sideEffects: ['Auto-generates cut bundles with barcodes if efficiency provided'],
     async commit() {
       return await db.$transaction(async (tx) => {
         const cut = await tx.cutOrder.create({
-          data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: args.cutDate ? new Date(args.cutDate) : new Date(), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
+          data: { cutNo: resolvedCutNo, orderId: order.id, cutDate: dateOrIstToday(args.cutDate), fabricIssued: args.fabricIssued, totalPcs: args.totalPcs, markerLength: args.markerLength, noOfPlies: args.noOfPlies, efficiency: args.efficiency, status: 'planned' },
         })
         // Auto-generate bundles
         const bundles = Math.ceil(args.totalPcs / 100)
@@ -54,7 +55,7 @@ export async function planCutOrder(args: CutOrderInput): Promise<DocPlanResult> 
           await postLedger(tx, {
             txnType: 'ready_to_cut_in', itemType: 'pcs', itemId: order.id,
             godownId: g1.id, deptId: null, orderId: order.id,
-            docNo: resolvedCutNo, docDate: args.cutDate ? new Date(args.cutDate) : new Date(),
+            docNo: resolvedCutNo, docDate: dateOrIstToday(args.cutDate),
             in: { pcs: args.totalPcs },
             notes: `Cut order ${resolvedCutNo} output`,
           })

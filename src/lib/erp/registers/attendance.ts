@@ -6,17 +6,19 @@
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
+import { istTodayDate, endOfUtcDay } from '@/lib/erp/dates'
 
 export async function queryAttendance(q: RegisterQuery): Promise<RegisterResult> {
   const where: any = {}
   // default: today (the ritual surface); explicit from/to widen it
+  // OPS-03 — "today" is the IST business day (00:00–05:29 IST belongs to the
+  // NEW factory day); explicit to-filter ceiling is the UTC day end.
   if (q.from || q.to) {
     where.attDate = {}
     if (q.from) where.attDate.gte = new Date(q.from)
-    if (q.to) where.attDate.lte = new Date(new Date(q.to).setHours(23, 59, 59, 999))
+    if (q.to) where.attDate.lte = endOfUtcDay(new Date(q.to))
   } else {
-    const now = new Date()
-    where.attDate = { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) }
+    where.attDate = { gte: istTodayDate() }
   }
   if (q.status) where.status = q.status
   if (q.q) {

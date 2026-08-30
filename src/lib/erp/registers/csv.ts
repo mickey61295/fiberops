@@ -10,6 +10,7 @@ import { getRegisterConfig } from '@/lib/erp/register-configs'
 import { REGISTER_SERVICES } from './index'
 import { flattenSearchParams, parseRegisterQuery } from './resolve'
 import type { RegisterResult } from './types'
+import { istDateStr } from '@/lib/erp/dates'
 
 export function buildCsvResponse(config: RegisterConfig, result: RegisterResult): Response {
   const esc = (v: unknown) => {
@@ -24,7 +25,7 @@ export function buildCsvResponse(config: RegisterConfig, result: RegisterResult)
   return new Response(csv, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="${config.slug}-${new Date().toISOString().slice(0, 10)}.csv"`,
+      'content-disposition': `attachment; filename="${config.slug}-${istDateStr()}.csv"`,
     },
   })
 }

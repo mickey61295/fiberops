@@ -10,6 +10,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { ProductionBillInput } from '../schemas/production-bill'
+import { dateOrIstToday, istTodayDate } from '@/lib/erp/dates'
 
 export async function planProductionBill(args: ProductionBillInput): Promise<DocPlanResult> {
   const where: any = {}
@@ -28,7 +29,7 @@ export async function planProductionBill(args: ProductionBillInput): Promise<Doc
     operatorName = op.name
   }
 
-  const to = args.to ? new Date(args.to) : new Date()
+  const to = dateOrIstToday(args.to)
   const from = args.from ? new Date(args.from) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000)
   where.prodDate = { gte: from, lte: to }
 
@@ -69,7 +70,7 @@ export async function planProductionBill(args: ProductionBillInput): Promise<Doc
       const j = await db.journal.create({
         data: {
           voucherNo: resolvedVoucherNo, voucherType: 'journal',
-          date: new Date(), finYear: '26-27',
+          date: istTodayDate(), finYear: '26-27',
           debitAccount: 'Production Wages', creditAccount: 'Wage Payable',
           amount, narration,
         },

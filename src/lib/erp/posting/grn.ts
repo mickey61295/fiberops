@@ -21,6 +21,7 @@ import type { DocPlanResult } from './types'
 import type { GrnInput } from '../schemas/grn'
 import type { JobworkPcsReturnInput } from '../schemas/grn-variants'
 import type { MultiProcessGrnInput, DcReturnInput } from '../schemas/grn-variants'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
   const po = await db.purchaseOrder.findUnique({
@@ -73,9 +74,9 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
     text: `Proposed GRN ${resolvedGrnNo} against ${args.poNo}, ${actualQty} units, ₹${totalValue}.`,
     summary: `Receive GRN ${resolvedGrnNo} against ${args.poNo} | ${actualQty} ${line.uomId || 'units'} | ₹${totalValue} | into ${godown.code}`,
     creates: [
-      { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
+      { table: 'grn', data: { grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId, godownId: godown.id, deptId: dept?.id, grnDate: dateOrIstToday(args.grnDate), finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue } },
       { table: 'grnLine', data: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
-      { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: args.grnDate ? new Date(args.grnDate) : new Date(), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
+      { table: 'stockLedger', data: { txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo, docDate: dateOrIstToday(args.grnDate), finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, inPcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate, partyId: po.partyId, refId: '<pending>' } },
       { table: 'currentStock', data: { itemType: line.itemType, itemId: line.itemId, godownId: godown.id, deptId: dept?.id, kgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0, pcs: line.itemType === 'accessory' ? actualQty : 0, rate: line.rate } },
       ...(args.reprocess ? [{ table: 'approval', data: { entity: 'reprocess', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
@@ -94,7 +95,7 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
         const grn = await tx.gRN.create({
           data: {
             grnNo: resolvedGrnNo, grnType: 'purchase', poId: po.id, partyId: po.partyId,
-            godownId: godown.id, deptId: dept?.id, grnDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+            godownId: godown.id, deptId: dept?.id, grnDate: dateOrIstToday(args.grnDate),
             finYear, partyDcRef: args.partyDcRef, totalQty: actualQty, totalValue,
             lines: { create: { itemType: line.itemType, itemId: line.itemId, qty: actualQty, rate: line.rate, amount: totalValue } },
           },
@@ -103,7 +104,7 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
           data: {
             txnType: 'purchase_grn', itemType: line.itemType, itemId: line.itemId,
             godownId: godown.id, deptId: dept?.id, docNo: resolvedGrnNo,
-            docDate: args.grnDate ? new Date(args.grnDate) : new Date(),
+            docDate: dateOrIstToday(args.grnDate),
             finYear, inKgs: line.itemType === 'fabric' || line.itemType === 'yarn' ? actualQty : 0,
             inPcs: line.itemType === 'accessory' ? actualQty : 0,
             rate: line.rate, partyId: po.partyId, refId: grn.id,
@@ -185,7 +186,7 @@ export async function planJobworkPcsReturn(args: JobworkPcsReturnInput): Promise
   const godown = await db.godown.findUnique({ where: { code: godownCode } })
   if (!godown) return { ok: false, error: `Godown ${godownCode} not found` }
   const retNo = await resolveDocNo('gRN', 'grnNo', 'GRN-', args.retNo)
-  const retDate = args.retDate ? new Date(args.retDate) : new Date()
+  const retDate = dateOrIstToday(args.retDate)
   const notes = args.reason?.trim() || 'Return to jobwork for rework'
 
   return {
@@ -251,7 +252,7 @@ export async function planMultiProcessGrn(args: MultiProcessGrnInput): Promise<D
   }
 
   const grnNo = await resolveDocNo('gRN', 'grnNo', 'MP-', args.grnNo)
-  const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
+  const grnDate = dateOrIstToday(args.grnDate)
   const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
   const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)
   const notes = args.notes?.trim() || `Multi-process return to ${party.name}`
@@ -319,7 +320,7 @@ export async function planDcReturn(args: DcReturnInput): Promise<DocPlanResult> 
   }
 
   const grnNo = await resolveDocNo('gRN', 'grnNo', 'RTN-', args.grnNo)
-  const grnDate = args.grnDate ? new Date(args.grnDate) : new Date()
+  const grnDate = dateOrIstToday(args.grnDate)
   const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
   const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)
   const dcRef = args.dcNo.trim()

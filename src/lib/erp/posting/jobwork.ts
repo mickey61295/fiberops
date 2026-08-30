@@ -10,6 +10,7 @@ import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { JobworkOutInput, JobworkInInput } from '../schemas/jobwork'
 import type { MaterialDcInput } from '../schemas/dispatch-variants'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planJobworkOut(args: JobworkOutInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.jobworkerCode } })
@@ -36,10 +37,10 @@ export async function planJobworkOut(args: JobworkOutInput): Promise<DocPlanResu
     ok: true,
     text: `Proposed jobwork DC ${resolvedDcNo} → ${party.name} (${args.processType}), ${args.totalQty} units, ₹${totalValue}.`,
     summary: `Create jobwork DC ${resolvedDcNo} | ${party.name} | ${args.processType} | ${args.totalQty} units | ₹${totalValue} | expected in ${args.expectedInDate || '-'}`,
-    creates: [{ table: 'jobworkOrder', data: { dcNo: resolvedDcNo, jobworkerId: party.id, processType: args.processType, totalQty: args.totalQty, totalValue, orderId: order?.id, expectedInDate: args.expectedInDate ? new Date(args.expectedInDate) : null, outDate: args.outDate ? new Date(args.outDate) : new Date(), status: 'sent' } }],
+    creates: [{ table: 'jobworkOrder', data: { dcNo: resolvedDcNo, jobworkerId: party.id, processType: args.processType, totalQty: args.totalQty, totalValue, orderId: order?.id, expectedInDate: args.expectedInDate ? new Date(args.expectedInDate) : null, outDate: dateOrIstToday(args.outDate), status: 'sent' } }],
     sideEffects: ['Material leaves main godown', 'Pending receipt at jobworker', 'ITC-04 line generated'],
     async commit() {
-      const j = await db.jobworkOrder.create({ data: { dcNo: resolvedDcNo, jobworkerId: party.id, processType: args.processType, totalQty: args.totalQty, totalValue, orderId: order?.id, expectedInDate: args.expectedInDate ? new Date(args.expectedInDate) : null, outDate: args.outDate ? new Date(args.outDate) : new Date(), status: 'sent' } })
+      const j = await db.jobworkOrder.create({ data: { dcNo: resolvedDcNo, jobworkerId: party.id, processType: args.processType, totalQty: args.totalQty, totalValue, orderId: order?.id, expectedInDate: args.expectedInDate ? new Date(args.expectedInDate) : null, outDate: dateOrIstToday(args.outDate), status: 'sent' } })
       return { id: j.id, dcNo: j.dcNo }
     },
   }
@@ -53,10 +54,10 @@ export async function planJobworkIn(args: JobworkInInput): Promise<DocPlanResult
     ok: true,
     text: `Proposed receipt of jobwork ${args.dcNo} — ${args.receivedQty || jw.totalQty} units.`,
     summary: `Receive jobwork DC ${args.dcNo} | qty ${args.receivedQty || jw.totalQty} | date ${args.receivedDate || 'today'}`,
-    updates: [{ table: 'jobworkOrder', id: jw.id, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } }],
+    updates: [{ table: 'jobworkOrder', id: jw.id, data: { status: 'received', receivedDate: dateOrIstToday(args.receivedDate), totalQty: args.receivedQty ?? jw.totalQty } }],
     sideEffects: ['Material back in main godown', 'Jobwork cost booked'],
     async commit() {
-      await db.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'received', receivedDate: args.receivedDate ? new Date(args.receivedDate) : new Date(), totalQty: args.receivedQty ?? jw.totalQty } })
+      await db.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'received', receivedDate: dateOrIstToday(args.receivedDate), totalQty: args.receivedQty ?? jw.totalQty } })
       return { id: jw.id, dcNo: jw.dcNo }
     },
   }
@@ -101,7 +102,7 @@ export async function planMaterialDc(args: MaterialDcInput): Promise<DocPlanResu
 
   const isMulti = (args.lines?.length ?? 0) > 0
   const dcNo = await resolveDocNo('jobworkOrder', 'dcNo', isMulti ? 'PDC-' : 'MDC-', args.dcNo)
-  const dcDate = args.dcDate ? new Date(args.dcDate) : new Date()
+  const dcDate = dateOrIstToday(args.dcDate)
   const processType = args.processType?.trim() || 'general'
   const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
   const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)

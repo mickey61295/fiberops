@@ -62,7 +62,11 @@ export async function bumpStock(tx: any, k: StockKey, delta: { pcs?: number; kgs
   return created.id
 }
 
-/** Write one StockLedger movement row + bump CurrentStock, inside a transaction. */
+/** Write one StockLedger movement row + bump CurrentStock, inside a transaction.
+ * OPS-05 — `docKey` is the doc-level uniqueness anchor: set it on exactly ONE
+ * row per document (the out leg of transfer pairs, the single row of
+ * ADJ/OPN/WST). Leave it undefined for multi-line docs (GRN/cut/despatch lines
+ * legitimately share a docNo). */
 export async function postLedger(tx: any, m: {
   txnType: string
   itemType: string
@@ -71,6 +75,7 @@ export async function postLedger(tx: any, m: {
   deptId?: string | null
   orderId?: string | null
   docNo?: string
+  docKey?: string
   docDate?: Date
   partyId?: string | null
   in?: { pcs?: number; kgs?: number; mtrs?: number; bags?: number }
@@ -88,6 +93,7 @@ export async function postLedger(tx: any, m: {
       deptId: m.deptId ?? null,
       orderId: m.orderId ?? null,
       docNo: m.docNo ?? null,
+      docKey: m.docKey ?? null,
       docDate: m.docDate ?? new Date(),
       finYear,
       partyId: m.partyId ?? null,
@@ -113,6 +119,18 @@ export async function postLedger(tx: any, m: {
     })
   }
   return row.id
+}
+
+/** OPS-05 — translate a docKey unique violation (P2002) into an actionable
+ * error naming the document number; null when the error is something else.
+ * A racing plan that minted the same ADJ-/GT-/… number loses its transaction
+ * here and fails LOUDLY instead of silently double-posting. */
+export function docKeyViolation(err: unknown, docNo: string): Error | null {
+  const e = err as { code?: string; meta?: { target?: unknown } }
+  if (e?.code !== 'P2002') return null
+  const target = Array.isArray(e.meta?.target) ? (e.meta.target as string[]).join(',') : String(e.meta?.target ?? '')
+  if (!target.includes('docKey')) return null
+  return new Error(`Document number ${docNo} was just taken by another user — retry to get the next number`)
 }
 
 // re-export for service files that need db directly (no logic lives here)

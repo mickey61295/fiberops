@@ -8,6 +8,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { LabTestInput } from '../schemas/lab-test'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 const ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory', pcs: 'style', style: 'style' }
 const ID_FIELDS: Record<string, string> = { yarn: 'code', fabric: 'code', accessory: 'code', pcs: 'styleNo', style: 'styleNo' }
@@ -66,7 +67,7 @@ export async function planLabTest(args: LabTestInput): Promise<DocPlanResult> {
         data: {
           testNo: resolvedNo, itemType: args.itemType, itemId: item.id, lotId, orderId,
           testType: args.testType, result,
-          testedOn: args.testedOn ? new Date(args.testedOn) : new Date(),
+          testedOn: dateOrIstToday(args.testedOn),
           testedBy: args.testedBy, values: args.values, remarks: args.remarks,
         },
       })

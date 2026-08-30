@@ -10,14 +10,17 @@ import { db } from '@/lib/db'
 import { planAttendance } from '@/lib/erp/posting/attendance'
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { getTool, allTools } from '@/lib/agent/tools'
+import { istToday } from '@/lib/erp/dates'
 
 const TS = Date.now()
 const DEPT = `M20-D-${TS}`
 const E1 = `M20-E1-${TS}`
 const E2 = `M20-E2-${TS}`
 const SHIFT = `M20-SH-${TS}`
-const DAY = new Date()
-const DAY_KEY = `${DAY.getFullYear()}-${String(DAY.getMonth() + 1).padStart(2, '0')}-${String(DAY.getDate()).padStart(2, '0')}`
+// OPS-03 — the register's default window is the IST business day (a 00:30 IST
+// posting on the 1st belongs to the 1st, not to the previous UTC date), so the
+// fixture day must be istToday(), not the server-local (UTC) calendar date.
+const DAY_KEY = istToday()
 
 let deptId = '', e1Id = '', e2Id = '', shiftId = ''
 

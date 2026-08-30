@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { AttendanceInput } from '../schemas/attendance'
 import { validTime } from '../schemas/attendance'
+import { dateOrIstToday, istDayStart } from '@/lib/erp/dates'
 
 const STATUSES = ['present', 'absent', 'half', 'leave']
 
@@ -21,9 +22,12 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
   if (!args.entries.length) {
     return { ok: false, error: 'At least one attendance entry is required' }
   }
-  const attDate = args.attDate ? new Date(args.attDate) : new Date()
+  const attDate = dateOrIstToday(args.attDate)
   if (isNaN(attDate.getTime())) return { ok: false, error: `Invalid attDate '${args.attDate}'` }
-  const dayStart = new Date(attDate.getFullYear(), attDate.getMonth(), attDate.getDate())
+  // OPS-03 — the attendance DAY is the IST calendar day of attDate, stored at
+  // UTC midnight (the app-wide date-column convention). Was server-local
+  // `new Date(y, m, d)`, which off-by-oned the 00:00–05:29 IST window.
+  const dayStart = istDayStart(attDate)
 
   // validate entries first (statuses, times, out > in)
   for (const [i, e] of args.entries.entries()) {

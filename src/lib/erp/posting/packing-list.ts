@@ -8,6 +8,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { PackingListInput } from '../schemas/packing-list'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planPackingList(args: PackingListInput): Promise<DocPlanResult> {
   const finYear = args.finYear?.trim() || '26-27'
@@ -84,7 +85,7 @@ export async function planPackingList(args: PackingListInput): Promise<DocPlanRe
       const p = await db.packingList.create({
         data: {
           packNo: resolvedNo, despatchId, orderId, buyerId,
-          packDate: args.packDate ? new Date(args.packDate) : new Date(),
+          packDate: dateOrIstToday(args.packDate),
           finYear, totalCartons, totalPcs, netKgs, grossKgs: args.grossKgs ?? 0,
           status, notes: args.notes,
           lines: {

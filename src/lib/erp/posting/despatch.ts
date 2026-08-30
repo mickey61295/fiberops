@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { postLedger } from './ledger'
 import type { DocPlanResult } from './types'
 import type { DespatchInput } from '../schemas/despatch'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, include: { buyer: true } })
@@ -67,7 +68,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
     text: `Proposed despatch DC ${resolvedDcNo} for ${order.orderNo} — ${args.totalPcs} pcs.`,
     summary: `Create despatch DC ${resolvedDcNo} | order ${order.orderNo} | buyer ${order.buyer?.name || '-'} | ${args.totalPcs} pcs | vehicle ${args.vehicleNo || '-'} | courier ${args.courierName || '-'}`,
     creates: [
-      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus } },
+      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: dateOrIstToday(args.despatchDate), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus } },
       ...lineRows.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0, colourId: l.colourId, sizeId: l.sizeId } })),
       ...(args.returnable === false ? [{ table: 'approval', data: { entity: 'non_return_dc', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
@@ -81,7 +82,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
         const d = await tx.pcsDespatch.create({
           data: {
             dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
-            despatchDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+            despatchDate: dateOrIstToday(args.despatchDate),
             finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus,
             lines: { create: lineRows.map(({ styleNo, qty, rate, colourId, sizeId }) => ({ styleNo, qty, rate, colourId, sizeId })) },
           },
@@ -92,7 +93,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
           await postLedger(tx, {
             txnType: 'sales_delivery', itemType: 'pcs', itemId: order.id,
             godownId: g2.id, deptId: null, orderId: order.id,
-            docNo: resolvedDcNo, docDate: args.despatchDate ? new Date(args.despatchDate) : new Date(),
+            docNo: resolvedDcNo, docDate: dateOrIstToday(args.despatchDate),
             out: { pcs: args.totalPcs },
             notes: `Despatch DC ${resolvedDcNo} → ${order.buyer?.name || 'buyer'}`,
           })

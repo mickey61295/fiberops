@@ -72,3 +72,10 @@ tests/e2e/.e2e-state.json
 tests/e2e/.results/
 playwright-report/
 .analysis/
+
+# OPS-01 — nightly VACUUM INTO snapshots (SPEC-M37)
+db/backups/
+
+# OPS-02 — WAL runtime sidecars (checkpoint before committing custom.db; recovery path = OPS-01 snapshots)
+db/custom.db-shm
+db/custom.db-wal

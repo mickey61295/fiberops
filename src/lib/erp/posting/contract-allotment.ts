@@ -9,6 +9,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { ContractAllotmentInput } from '../schemas/contract-allotment'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 const PROCESSES = ['washing', 'dyeing', 'printing', 'embroidery']
 
@@ -52,7 +53,7 @@ export async function planContractAllotment(args: ContractAllotmentInput): Promi
         data: {
           dcNo: resolvedNo, jobworkerId: party.id, processType: args.processType,
           totalQty: args.totalQty, totalValue, orderId,
-          outDate: args.allotDate ? new Date(args.allotDate) : new Date(),
+          outDate: dateOrIstToday(args.allotDate),
           expectedInDate: args.expectedInDate ? new Date(args.expectedInDate) : null,
           status: 'allotted',
         },

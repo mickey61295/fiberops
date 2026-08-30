@@ -84,6 +84,9 @@ export function DocScreen({
   // SPEC-M17 §2-A/§2-B keyboard contract plumbing
   const linesBodyRef = useRef<HTMLTableSectionElement>(null)
   const pendingNewRowFocus = useRef(false)
+  // OPS-04 — idempotency token for the CURRENT reviewed plan (minted in save(),
+  // consumed once by commit(); a stale token cannot leak across plans).
+  const planKeyRef = useRef<string | null>(null)
 
   const hasLineEditor = !!config.lineFields?.length
   const qtyField = config.lineFields?.find((f) => f.name === 'qty')
@@ -268,6 +271,10 @@ export function DocScreen({
       const res = await planDocAction(config.slug, { header, lines })
       if (res.ok) {
         setPlan(res.plan)
+        // OPS-04 — the idempotency token is minted per REVIEWED PLAN (not per
+        // click): a double-clicked Commit replays the stored result on the
+        // server instead of re-posting the same document.
+        planKeyRef.current = crypto.randomUUID()
         setPhase('review')
       } else {
         setErrors(res.errors)
@@ -284,7 +291,7 @@ export function DocScreen({
     setBusy(true)
     setErrors([])
     try {
-      const res = await commitDocAction(config.slug, { header, lines })
+      const res = await commitDocAction(config.slug, { header, lines }, planKeyRef.current ?? undefined)
       if (res.ok) {
         setCommitted(res.doc ?? {})
         setPhase('done')

@@ -5,6 +5,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { DebitNoteInput } from '../schemas/debit-note'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planDebitNote(args: DebitNoteInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
@@ -26,10 +27,10 @@ export async function planDebitNote(args: DebitNoteInput): Promise<DocPlanResult
     ok: true,
     text: `Proposed debit note ${resolvedNoteNo} — ₹${args.amount} against ${party.name}.`,
     summary: `Raise debit note ${resolvedNoteNo} | ${args.noteType} | ${party.name} | ₹${args.amount} | reason: ${args.reason || '-'}`,
-    creates: [{ table: 'debitNote', data: { noteNo: resolvedNoteNo, noteType: args.noteType, partyId: party.id, date: args.date ? new Date(args.date) : new Date(), finYear, amount: args.amount, reason: args.reason, status: 'raised' } }],
+    creates: [{ table: 'debitNote', data: { noteNo: resolvedNoteNo, noteType: args.noteType, partyId: party.id, date: dateOrIstToday(args.date), finYear, amount: args.amount, reason: args.reason, status: 'raised' } }],
     sideEffects: ['Party AR increases by ₹' + args.amount],
     async commit() {
-      const d = await db.debitNote.create({ data: { noteNo: resolvedNoteNo, noteType: args.noteType, partyId: party.id, date: args.date ? new Date(args.date) : new Date(), finYear, amount: args.amount, reason: args.reason, status: 'raised' } })
+      const d = await db.debitNote.create({ data: { noteNo: resolvedNoteNo, noteType: args.noteType, partyId: party.id, date: dateOrIstToday(args.date), finYear, amount: args.amount, reason: args.reason, status: 'raised' } })
       return { id: d.id, noteNo: d.noteNo }
     },
   }

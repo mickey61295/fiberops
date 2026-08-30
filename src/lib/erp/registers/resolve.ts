@@ -7,6 +7,7 @@
 import type { RegisterConfig, RegisterFilter } from '@/lib/erp/register-configs/types'
 import type { RegisterQuery } from './types'
 import { db } from '@/lib/db'
+import { endOfUtcDay } from '@/lib/erp/dates'
 
 /** Flatten Next's searchParams (string | string[] | undefined) → first value. */
 export function flattenSearchParams(
@@ -25,8 +26,10 @@ const dateOrUndefined = (s: string | undefined, endOfDay = false): Date | undefi
   if (!s) return undefined
   const d = new Date(s)
   if (isNaN(d.getTime())) return undefined
-  if (endOfDay) d.setHours(23, 59, 59, 999)
-  return d
+  // OPS-03 — end-of-day ceiling in explicit UTC (the storage convention for
+  // date-only columns); was server-local setHours(23,59,59,999), which changes
+  // meaning if the process TZ ever moves.
+  return endOfDay ? endOfUtcDay(d) : d
 }
 
 const intOr = (s: string | undefined, fallback: number, min: number, max: number): number => {

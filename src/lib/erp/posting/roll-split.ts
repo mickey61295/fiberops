@@ -11,6 +11,8 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { RollSplitInput } from '../schemas/roll-split'
+import { docKeyViolation } from './ledger'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 /** RSP-#### from StockLedger docNos (docNo is NOT unique — count, don't resolveDocNo). */
 async function nextRspNo(): Promise<string> {
@@ -78,7 +80,7 @@ export async function planRollSplit(args: RollSplitInput): Promise<DocPlanResult
   })()
 
   const docNo = await nextRspNo()
-  const docDate = args.splitDate ? new Date(args.splitDate) : new Date()
+  const docDate = dateOrIstToday(args.splitDate)
   const notes = args.notes ?? `Roll split from ${lot.lotNo}`
 
   return {
@@ -87,7 +89,7 @@ export async function planRollSplit(args: RollSplitInput): Promise<DocPlanResult
     summary: `Split roll ${docNo} | lot ${lot.lotNo} → ${newLotNo} | ${args.mtrs} mtrs | fabric ${args.itemCode} | godown ${args.godownCode}`,
     creates: [
       { table: 'lot', data: { lotNo: newLotNo, partyId: lot.partyId } },
-      { table: 'stockLedger', data: { txnType: 'transfer_out', itemType: 'fabric', itemId: fabric.id, lotId: lot.id, godownId: godown.id, docNo, docDate, outMtrs: args.mtrs, notes } },
+      { table: 'stockLedger', data: { txnType: 'transfer_out', itemType: 'fabric', itemId: fabric.id, lotId: lot.id, godownId: godown.id, docNo, docKey: docNo, docDate, outMtrs: args.mtrs, notes } },
       { table: 'stockLedger', data: { txnType: 'transfer_in', itemType: 'fabric', itemId: fabric.id, lotId: '<pending>', godownId: godown.id, docNo, docDate, inMtrs: args.mtrs, notes } },
     ],
     sideEffects: [
@@ -95,29 +97,33 @@ export async function planRollSplit(args: RollSplitInput): Promise<DocPlanResult
       'Lot Tracking register (W2) shows the new roll immediately',
     ],
     async commit() {
-      return await db.$transaction(async (tx) => {
-        const newLot = await tx.lot.create({ data: { lotNo: newLotNo, partyId: lot.partyId } })
-        await tx.stockLedger.create({
-          data: {
-            txnType: 'transfer_out', itemType: 'fabric', itemId: fabric.id, lotId: lot.id,
-            godownId: godown.id, docNo, docDate, finYear: '26-27',
-            outMtrs: args.mtrs, notes,
-          },
+      try {
+        return await db.$transaction(async (tx) => {
+          const newLot = await tx.lot.create({ data: { lotNo: newLotNo, partyId: lot.partyId } })
+          await tx.stockLedger.create({
+            data: {
+              txnType: 'transfer_out', itemType: 'fabric', itemId: fabric.id, lotId: lot.id,
+              godownId: godown.id, docNo, docKey: docNo, docDate, finYear: '26-27',
+              outMtrs: args.mtrs, notes,
+            },
+          })
+          await tx.stockLedger.create({
+            data: {
+              txnType: 'transfer_in', itemType: 'fabric', itemId: fabric.id, lotId: newLot.id,
+              godownId: godown.id, docNo, docDate, finYear: '26-27',
+              inMtrs: args.mtrs, notes,
+            },
+          })
+          await decrementBucket(tx, fabric.id, godown.id, lot.id, args.mtrs)
+          // IN leg: the new roll gets its own lot-keyed bucket
+          await tx.currentStock.create({
+            data: { itemType: 'fabric', itemId: fabric.id, godownId: godown.id, lotId: newLot.id, mtrs: args.mtrs, rate: fabric.rate ?? 0 },
+          })
+          return { id: newLot.id, docNo, newLotNo, sourceLotNo: lot.lotNo, mtrs: args.mtrs }
         })
-        await tx.stockLedger.create({
-          data: {
-            txnType: 'transfer_in', itemType: 'fabric', itemId: fabric.id, lotId: newLot.id,
-            godownId: godown.id, docNo, docDate, finYear: '26-27',
-            inMtrs: args.mtrs, notes,
-          },
-        })
-        await decrementBucket(tx, fabric.id, godown.id, lot.id, args.mtrs)
-        // IN leg: the new roll gets its own lot-keyed bucket
-        await tx.currentStock.create({
-          data: { itemType: 'fabric', itemId: fabric.id, godownId: godown.id, lotId: newLot.id, mtrs: args.mtrs, rate: fabric.rate ?? 0 },
-        })
-        return { id: newLot.id, docNo, newLotNo, sourceLotNo: lot.lotNo, mtrs: args.mtrs }
-      })
+      } catch (err) {
+        throw docKeyViolation(err, docNo) ?? err
+      }
     },
   }
 }

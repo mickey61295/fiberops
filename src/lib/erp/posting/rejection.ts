@@ -8,6 +8,7 @@ import { postLedger } from './ledger'
 import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { RejectionInput } from '../schemas/rejection'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planRejection(args: RejectionInput): Promise<DocPlanResult> {
   const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
@@ -15,7 +16,7 @@ export async function planRejection(args: RejectionInput): Promise<DocPlanResult
   const dept = args.deptCode ? await db.department.findUnique({ where: { code: args.deptCode } }) : null
   if (args.deptCode && !dept) return { ok: false, error: `Department ${args.deptCode} not found` }
   const rejNo = await resolveDocNo('rejectionEntry', 'rejNo', 'REJ-', args.rejNo)
-  const rejDate = args.rejDate ? new Date(args.rejDate) : new Date()
+  const rejDate = dateOrIstToday(args.rejDate)
   const action = args.action || 'scrap'
   const rejType = args.rejType || 'stitch_fault'
   const movesStock = action === 'scrap' || action === 'return_to_party'

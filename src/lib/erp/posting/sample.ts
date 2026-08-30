@@ -6,6 +6,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { SampleInput } from '../schemas/sample'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 const SAMPLE_TYPES = ['proto', 'photo', 'counter', 'salesman', 'production']
 const SAMPLE_STATUSES = ['submitted', 'approved', 'rejected', 'closed']
@@ -56,7 +57,7 @@ export async function planSample(args: SampleInput): Promise<DocPlanResult> {
       const s = await db.sample.create({
         data: {
           sampleNo: resolvedNo, buyerId, styleId, sampleType: args.sampleType,
-          qty: args.qty ?? 0, sampledOn: args.sampledOn ? new Date(args.sampledOn) : new Date(),
+          qty: args.qty ?? 0, sampledOn: dateOrIstToday(args.sampledOn),
           status, enquiryRef: args.enquiryRef, remarks: args.remarks,
         },
       })

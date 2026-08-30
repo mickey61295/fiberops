@@ -12,6 +12,7 @@ import { resolveDocNo } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PaymentInput } from '../schemas/payment'
 import type { WagePaymentInput } from '../schemas/payment-variants'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
@@ -22,7 +23,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
   if (args.orderNo && !order) return { ok: false, error: `Order ${args.orderNo} not found` }
   const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
-  const payDate = args.payDate ? new Date(args.payDate) : new Date()
+  const payDate = dateOrIstToday(args.payDate)
   const mode = args.mode || 'bank'
   const settlesInvoice = invoice && direction === 'in' && args.amount >= invoice.billAmount - 0.01
 

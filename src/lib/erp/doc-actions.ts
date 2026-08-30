@@ -133,18 +133,25 @@ export async function planDocAction(slug: string, payload: DocFormPayload): Prom
   return { ok: true, plan: view as DocPlanView }
 }
 
-export async function commitDocAction(slug: string, payload: DocFormPayload): Promise<DocCommitResult> {
+export async function commitDocAction(
+  slug: string,
+  payload: DocFormPayload,
+  idempotencyKey?: string,
+): Promise<DocCommitResult> {
   const r = await runPlan(slug, payload)
   if (!r.ok) return r
   try {
     // SPEC-M9 §9 M15 — the FORM DOOR audit choke point: runCommit executes the
     // plan's commit (still the ONLY write path) and records the AuditLog row.
     // Outside a request scope (vitest) the actor degrades to 'system'.
+    // OPS-04 — idempotencyKey (minted client-side per reviewed plan, passed
+    // through by DocScreen) makes the form double-submit post exactly once.
     const user = await getSessionUser().catch(() => null)
     const doc = await runCommit(r.plan, {
       actorName: user?.email ?? 'system',
       actorSource: user ? 'form' : 'system',
       slug,
+      idempotencyKey,
     })
     // revalidate the screens that list this doc family (SLUG_REVALIDATE map —
     // Wave C: every screen is force-dynamic, so this is a Router-Cache hint).

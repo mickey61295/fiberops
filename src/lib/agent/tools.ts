@@ -28,6 +28,7 @@ import { queryProductionStatus } from '@/lib/erp/registers/production-status'
 import { queryJobwork } from '@/lib/erp/registers/jobwork'
 import { queryBillsRegister } from '@/lib/erp/registers/bills'
 import { querySupplierBills } from '@/lib/erp/registers/supplier-bills'
+import { istToday } from '@/lib/erp/dates'
 import { getPartyLedgerSummary } from '@/lib/erp/registers/party-ledger'
 import { getOrderBudgetActual } from '@/lib/erp/registers/budget'
 import { queryApprovalAudit } from '@/lib/erp/registers/approval-audit'
@@ -1215,7 +1216,7 @@ const readTools: AgentTool[] = [
 
       let nextStep: typeof CHAIN[number] = CHAIN[2]
       let skeleton: Record<string, any> = {}
-      const today = new Date().toISOString().slice(0, 10)
+      const today = istToday() // OPS-03 — the IST business day, not the UTC one
       const inv = order.salesInvoices?.[0] // hoisted: nextFormUrl (§9.5) + payment skeleton share it
 
       if (!has.bom) {

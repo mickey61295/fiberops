@@ -49,6 +49,10 @@ interface PendingApproval {
   args: any
   plan: any
   messageId: string
+  // OPS-04 — minted when the card is created (NOT per click): the approve
+  // route replays the stored commit result for a repeated key, so a
+  // double-clicked Approve posts exactly once.
+  idempotencyKey: string
 }
 
 const SUGGESTED_PROMPTS = [
@@ -345,6 +349,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                     args,
                     plan: output.plan,
                     messageId: assistantMsgId,
+                    idempotencyKey: crypto.randomUUID(),
                   },
                 }))
                 if (voiceSpeakRef.current) {
@@ -413,7 +418,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       const res = await fetch('/api/agent/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: pending.toolName, args: pending.args }),
+        body: JSON.stringify({ toolName: pending.toolName, args: pending.args, idempotencyKey: pending.idempotencyKey }),
       })
       if (res.status === 401) {
         toast.error('Session expired — redirecting to login')

@@ -10,6 +10,7 @@
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
 import type { LineTransferInput } from '../schemas/line-transfer'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planLineTransfer(args: LineTransferInput): Promise<DocPlanResult> {
   if (args.fromLineCode === args.toLineCode) {
@@ -34,7 +35,7 @@ export async function planLineTransfer(args: LineTransferInput): Promise<DocPlan
     while (used.has(`LT-${String(n).padStart(4, '0')}`)) n++
     ref = `LT-${String(n).padStart(4, '0')}`
   }
-  const transferDate = args.transferDate ? new Date(args.transferDate) : new Date()
+  const transferDate = dateOrIstToday(args.transferDate)
   const note = args.notes?.trim() || ''
 
   return {

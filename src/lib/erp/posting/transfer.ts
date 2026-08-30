@@ -9,7 +9,7 @@
 // unit acknowledges it at /dispatch/unit-transfer-ack (acknowledge_unit_transfer).
 
 import { db } from '@/lib/db'
-import { postLedger } from './ledger'
+import { postLedger, docKeyViolation } from './ledger'
 import type { DocPlanResult } from './types'
 import type { TransferInput } from '../schemas/transfer'
 
@@ -38,7 +38,7 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
 
   const uom = UOM[args.itemType]
   const docNo = args.docNo?.trim() || (await nextTransferNo())
-  const docDate = args.transferDate ? new Date(args.transferDate) : new Date()
+  const docDate = dateOrIstToday(args.transferDate)
   const notes = args.notes ?? `Transfer ${args.itemCode} ${args.qty} ${uom} ${fromGodown.code} → ${toGodown.code}`
 
   return {
@@ -46,7 +46,7 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
     text: `Proposed transfer of ${args.qty} ${uom} of ${args.itemCode}: ${fromGodown.code} → ${toGodown.code}.`,
     summary: `Godown transfer ${docNo} | ${args.itemType} ${args.itemCode} | ${args.qty} ${uom} | ${fromGodown.code} → ${toGodown.code}`,
     creates: [
-      { table: 'stockLedger', data: { txnType: 'godown_transfer_out', itemType: args.itemType, itemId: item.id, godownId: fromGodown.id, docNo, docDate, outKgs: uom === 'kgs' ? args.qty : 0, outPcs: uom === 'pcs' ? args.qty : 0, rate: item.rate, notes } },
+      { table: 'stockLedger', data: { txnType: 'godown_transfer_out', itemType: args.itemType, itemId: item.id, godownId: fromGodown.id, docNo, docKey: docNo, docDate, outKgs: uom === 'kgs' ? args.qty : 0, outPcs: uom === 'pcs' ? args.qty : 0, rate: item.rate, notes } },
       { table: 'stockLedger', data: { txnType: 'godown_transfer_in', itemType: args.itemType, itemId: item.id, godownId: toGodown.id, docNo, docDate, inKgs: uom === 'kgs' ? args.qty : 0, inPcs: uom === 'pcs' ? args.qty : 0, rate: item.rate, notes } },
       ...(args.requiresAck ? [{ table: 'approval', data: { entity: 'godown_transfer', entityId: docNo, step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
@@ -57,25 +57,29 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
       ...(args.requiresAck ? [`Pending unit-transfer approval ${docNo} appears in /dispatch/unit-transfer-ack`] : []),
     ],
     async commit() {
-      return await db.$transaction(async (tx) => {
-        const outId = await postLedger(tx, {
-          txnType: 'godown_transfer_out', itemType: args.itemType, itemId: item.id,
-          godownId: fromGodown.id, docNo, docDate, rate: item.rate, notes,
-          out: uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty },
-        })
-        const inId = await postLedger(tx, {
-          txnType: 'godown_transfer_in', itemType: args.itemType, itemId: item.id,
-          godownId: toGodown.id, docNo, docDate, rate: item.rate, notes,
-          in: uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty },
-        })
-        // SPEC-M5 §6 Wave C — leave the pending ack row in the SAME transaction.
-        if (args.requiresAck) {
-          await tx.approval.create({
-            data: { entity: 'godown_transfer', entityId: docNo, step: 1, requestedBy: 'agent', status: 'pending' },
+      try {
+        return await db.$transaction(async (tx) => {
+          const outId = await postLedger(tx, {
+            txnType: 'godown_transfer_out', itemType: args.itemType, itemId: item.id,
+            godownId: fromGodown.id, docNo, docKey: docNo, docDate, rate: item.rate, notes,
+            out: uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty },
           })
-        }
-        return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code, ...(args.requiresAck ? { requiresAck: true } : {}) }
-      })
+          const inId = await postLedger(tx, {
+            txnType: 'godown_transfer_in', itemType: args.itemType, itemId: item.id,
+            godownId: toGodown.id, docNo, docDate, rate: item.rate, notes,
+            in: uom === 'kgs' ? { kgs: args.qty } : { pcs: args.qty },
+          })
+          // SPEC-M5 §6 Wave C — leave the pending ack row in the SAME transaction.
+          if (args.requiresAck) {
+            await tx.approval.create({
+              data: { entity: 'godown_transfer', entityId: docNo, step: 1, requestedBy: 'agent', status: 'pending' },
+            })
+          }
+          return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code, ...(args.requiresAck ? { requiresAck: true } : {}) }
+        })
+      } catch (err) {
+        throw docKeyViolation(err, docNo) ?? err
+      }
     },
   }
 }
@@ -85,6 +89,7 @@ export async function planTransfer(args: TransferInput): Promise<DocPlanResult> 
 import type { PcsTransferInput, ReadyToCutInput } from '../schemas/transfer-variants'
 import { bumpStock } from './ledger'
 import { STAGE_DEPT } from '../legacy-enums'
+import { dateOrIstToday } from '@/lib/erp/dates'
 
 /** PT-#### from StockLedger docNos (docNo is NOT unique — count, don't resolveDocNo). */
 async function nextPcsTransferNo(): Promise<string> {
@@ -111,7 +116,7 @@ export async function planPcsTransfer(args: PcsTransferInput): Promise<DocPlanRe
   if (args.qty <= 0) return { ok: false, error: 'qty must be a positive number' }
 
   const docNo = args.docNo?.trim() || (await nextPcsTransferNo())
-  const docDate = args.transferDate ? new Date(args.transferDate) : new Date()
+  const docDate = dateOrIstToday(args.transferDate)
   const notes = args.notes ?? `Pcs transfer ${order.orderNo} ${args.qty} pcs ${fromGodown.code} → ${toGodown.code}`
 
   return {
@@ -119,7 +124,7 @@ export async function planPcsTransfer(args: PcsTransferInput): Promise<DocPlanRe
     text: `Proposed pcs transfer of ${args.qty} pcs of ${order.orderNo}: ${fromGodown.code} → ${toGodown.code}.`,
     summary: `Pcs transfer ${docNo} | order ${order.orderNo} | ${args.qty} pcs | ${fromGodown.code} → ${toGodown.code}`,
     creates: [
-      { table: 'stockLedger', data: { txnType: 'godown_transfer_out', itemType: 'pcs', itemId: order.id, godownId: fromGodown.id, orderId: order.id, docNo, docDate, outPcs: args.qty, notes } },
+      { table: 'stockLedger', data: { txnType: 'godown_transfer_out', itemType: 'pcs', itemId: order.id, godownId: fromGodown.id, orderId: order.id, docNo, docKey: docNo, docDate, outPcs: args.qty, notes } },
       { table: 'stockLedger', data: { txnType: 'godown_transfer_in', itemType: 'pcs', itemId: order.id, godownId: toGodown.id, orderId: order.id, docNo, docDate, inPcs: args.qty, notes } },
     ],
     sideEffects: [
@@ -128,19 +133,23 @@ export async function planPcsTransfer(args: PcsTransferInput): Promise<DocPlanRe
       'Total pcs across godowns is unchanged (net zero)',
     ],
     async commit() {
-      return await db.$transaction(async (tx) => {
-        const outId = await postLedger(tx, {
-          txnType: 'godown_transfer_out', itemType: 'pcs', itemId: order.id,
-          godownId: fromGodown.id, orderId: order.id, docNo, docDate,
-          out: { pcs: args.qty }, notes,
+      try {
+        return await db.$transaction(async (tx) => {
+          const outId = await postLedger(tx, {
+            txnType: 'godown_transfer_out', itemType: 'pcs', itemId: order.id,
+            godownId: fromGodown.id, orderId: order.id, docNo, docKey: docNo, docDate,
+            out: { pcs: args.qty }, notes,
+          })
+          const inId = await postLedger(tx, {
+            txnType: 'godown_transfer_in', itemType: 'pcs', itemId: order.id,
+            godownId: toGodown.id, orderId: order.id, docNo, docDate,
+            in: { pcs: args.qty }, notes,
+          })
+          return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code }
         })
-        const inId = await postLedger(tx, {
-          txnType: 'godown_transfer_in', itemType: 'pcs', itemId: order.id,
-          godownId: toGodown.id, orderId: order.id, docNo, docDate,
-          in: { pcs: args.qty }, notes,
-        })
-        return { id: inId, outLedgerId: outId, docNo, fromGodown: fromGodown.code, toGodown: toGodown.code }
-      })
+      } catch (err) {
+        throw docKeyViolation(err, docNo) ?? err
+      }
     },
   }
 }
@@ -182,7 +191,7 @@ export async function planReadyToCut(args: ReadyToCutInput): Promise<DocPlanResu
   }
 
   const docNo = args.docNo?.trim() || (await nextReadyToCutNo())
-  const docDate = args.transferDate ? new Date(args.transferDate) : new Date()
+  const docDate = dateOrIstToday(args.transferDate)
   const notes = args.notes ?? `Ready to cut ${args.qty} kgs of ${args.itemCode}${order ? ` (${order.orderNo})` : ''}`
 
   return {
@@ -190,7 +199,7 @@ export async function planReadyToCut(args: ReadyToCutInput): Promise<DocPlanResu
     text: `Proposed ready-to-cut ${docNo}: ${args.qty} kgs of ${args.itemCode} into the ${cutDept.name} pool.`,
     summary: `Ready to cut ${docNo} | ${itemType} ${args.itemCode} | ${args.qty} kgs | ${fromGodown.code} store → ${cutDept.code} pool${order ? ` | order ${order.orderNo}` : ''}`,
     creates: [
-      { table: 'stockLedger', data: { txnType: 'ready_to_cut_out', itemType, itemId: item.id, godownId: fromGodown.id, orderId: order?.id ?? null, docNo, docDate, outKgs: args.qty, rate: item.rate, notes } },
+      { table: 'stockLedger', data: { txnType: 'ready_to_cut_out', itemType, itemId: item.id, godownId: fromGodown.id, orderId: order?.id ?? null, docNo, docKey: docNo, docDate, outKgs: args.qty, rate: item.rate, notes } },
       { table: 'stockLedger', data: { txnType: 'ready_to_cut_in', itemType, itemId: item.id, godownId: fromGodown.id, deptId: cutDept.id, orderId: order?.id ?? null, docNo, docDate, inKgs: args.qty, rate: item.rate, notes } },
     ],
     sideEffects: [
@@ -199,29 +208,33 @@ export async function planReadyToCut(args: ReadyToCutInput): Promise<DocPlanResu
       `Total ${fromGodown.code} stock is unchanged (the move is between dept views)`,
     ],
     async commit() {
-      return await db.$transaction(async (tx) => {
-        // OUT leg — the null-dept store pool (postLedger: ADR-004 bucket rule)
-        const outId = await postLedger(tx, {
-          txnType: 'ready_to_cut_out', itemType, itemId: item.id,
-          godownId: fromGodown.id, orderId: order?.id ?? null, docNo, docDate,
-          out: { kgs: args.qty }, rate: item.rate, notes,
+      try {
+        return await db.$transaction(async (tx) => {
+          // OUT leg — the null-dept store pool (postLedger: ADR-004 bucket rule)
+          const outId = await postLedger(tx, {
+            txnType: 'ready_to_cut_out', itemType, itemId: item.id,
+            godownId: fromGodown.id, orderId: order?.id ?? null, docNo, docKey: docNo, docDate,
+            out: { kgs: args.qty }, rate: item.rate, notes,
+          })
+          // IN leg — ledger row carries deptId D3; the bucket is dept-keyed
+          // (bumpStock directly: postLedger would force a null-dept bucket)
+          const inRow = await tx.stockLedger.create({
+            data: {
+              txnType: 'ready_to_cut_in', itemType, itemId: item.id,
+              godownId: fromGodown.id, deptId: cutDept.id, orderId: order?.id ?? null,
+              docNo, docDate, finYear: '26-27',
+              inKgs: args.qty, rate: item.rate, notes,
+            },
+          })
+          await bumpStock(tx, {
+            itemType, itemId: item.id, godownId: fromGodown.id,
+            deptId: cutDept.id, orderId: null,
+          }, { kgs: args.qty })
+          return { id: inRow.id, outLedgerId: outId, docNo, dept: cutDept.code }
         })
-        // IN leg — ledger row carries deptId D3; the bucket is dept-keyed
-        // (bumpStock directly: postLedger would force a null-dept bucket)
-        const inRow = await tx.stockLedger.create({
-          data: {
-            txnType: 'ready_to_cut_in', itemType, itemId: item.id,
-            godownId: fromGodown.id, deptId: cutDept.id, orderId: order?.id ?? null,
-            docNo, docDate, finYear: '26-27',
-            inKgs: args.qty, rate: item.rate, notes,
-          },
-        })
-        await bumpStock(tx, {
-          itemType, itemId: item.id, godownId: fromGodown.id,
-          deptId: cutDept.id, orderId: null,
-        }, { kgs: args.qty })
-        return { id: inRow.id, outLedgerId: outId, docNo, dept: cutDept.code }
-      })
+      } catch (err) {
+        throw docKeyViolation(err, docNo) ?? err
+      }
     },
   }
 }

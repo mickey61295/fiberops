@@ -11,6 +11,10 @@
 import { db } from '@/lib/db'
 import { getFlag } from '@/lib/erp/flags'
 import { getUpcomingHolidays } from '@/lib/erp/holidays'
+import { istDayStartInstant, istDateStr } from '@/lib/erp/dates'
+import { statSync, readdirSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 export interface DigestApprovalRow {
   entity: string
@@ -45,6 +49,17 @@ export interface DigestShutdownRow {
   daysUntil: number
 }
 
+/** OPS-01 (Phase-6B Batch 1) — ops & data-growth metrics: the digest is the
+ * daily health surface, so it now reports the trust infrastructure itself —
+ * DB size, backup freshness, and the growth of the archival tables. */
+export interface DigestOpsRow {
+  dbSizeMb: number
+  rows: { stockLedger: number; auditLog: number; agentTurn: number }
+  lastBackupName: string | null
+  lastBackupAgeHours: number | null
+  backupDir: string
+}
+
 /** SPEC-M35 — the shutdowns briefing window (days). */
 export const DIGEST_SHUTDOWN_WINDOW_DAYS = 14
 
@@ -56,6 +71,8 @@ export interface Digest {
     gate: { rows: DigestGateRow[] }
     /** SPEC-M35 — upcoming shutdowns; silent when empty (M28 discipline). */
     shutdowns: { windowDays: number; rows: DigestShutdownRow[] }
+    /** OPS-01 — ops & data growth (never crashes the digest). */
+    ops: { rows: DigestOpsRow[] }
   }
   text: string
 }
@@ -84,7 +101,10 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     }),
     db.currentStock.findMany({ take: 5000 }),
     db.gateEntry.findMany({
-      where: { gateDateTime: { gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) } },
+      // OPS-03 — "today" gate movements = the IST business day. gateDateTime
+      // is an event TIMESTAMP, so the window starts at the IST-midnight
+      // INSTANT (18:30Z prev day), not UTC midnight.
+      where: { gateDateTime: { gte: istDayStartInstant(now) } },
       orderBy: { gateDateTime: 'desc' },
       take: 50,
     }),
@@ -156,8 +176,11 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     daysUntil: h.daysUntil,
   }))
 
+  // OPS-01 — ops & growth metrics (best-effort: never fail the digest for them)
+  const opsRow = await buildOpsRow(now)
+
   const lines: string[] = []
-  lines.push(`FiberOps daily digest — ${now.toISOString().slice(0, 10)}`)
+  lines.push(`FiberOps daily digest — ${istDateStr(now)}`)
   lines.push('')
   lines.push(`Pending approvals: ${approvalRows.length}`)
   for (const a of approvalRows.slice(0, 10)) {
@@ -184,6 +207,17 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     }
   }
 
+  // OPS-01 — the ops block: DB size, backup freshness, archival growth
+  if (opsRow) {
+    lines.push('')
+    lines.push(`Ops & data growth: DB ${opsRow.dbSizeMb.toFixed(1)} MB · StockLedger ${opsRow.rows.stockLedger} · AuditLog ${opsRow.rows.auditLog} · AgentTurn ${opsRow.rows.agentTurn}`)
+    lines.push(
+      opsRow.lastBackupName
+        ? `  Backup: ${opsRow.lastBackupName} (${opsRow.lastBackupAgeHours === 0 ? '<1' : opsRow.lastBackupAgeHours}h old)`
+        : `  Backup: NONE in ${opsRow.backupDir} — run scripts/backup_db.py`,
+    )
+  }
+
   return {
     generatedAt: now.toISOString(),
     sections: {
@@ -191,8 +225,53 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
       lowStock: { thresholdPcs, rows: lowStock },
       gate: { rows: gateRows },
       shutdowns: { windowDays: DIGEST_SHUTDOWN_WINDOW_DAYS, rows: shutdownRows },
+      ops: { rows: opsRow ? [opsRow] : [] },
     },
     text: lines.join('\n'),
+  }
+}
+
+/** OPS-01 — collect the ops/growth row. Defensive: any failure returns null
+ * (the digest's business sections must never depend on the filesystem). */
+async function buildOpsRow(now: Date): Promise<DigestOpsRow | null> {
+  try {
+    const [stockLedger, auditLog, agentTurn] = await Promise.all([
+      db.stockLedger.count(),
+      db.auditLog.count(),
+      db.agentTurn.count(),
+    ])
+    const dbUrl = process.env.DATABASE_URL ?? ''
+    const dbFile = dbUrl.startsWith('file:')
+      ? fileURLToPath(new URL(dbUrl.slice('file:'.length).startsWith('/') ? `file://${dbUrl.slice('file:'.length)}` : `file://${process.cwd()}/${dbUrl.slice('file:'.length)}`))
+      : join(process.cwd(), 'db/custom.db')
+    const backupDir = join(dirname(dbFile), 'backups')
+    let dbSizeMb = 0
+    try {
+      dbSizeMb = statSync(dbFile).size / (1024 * 1024)
+    } catch {
+      /* size stays 0 — the digest still reports rows/backup */
+    }
+    let lastBackupName: string | null = null
+    let lastBackupAgeHours: number | null = null
+    try {
+      const snaps = readdirSync(backupDir).filter((f) => f.endsWith('.db')).sort()
+      const newest = snaps[snaps.length - 1]
+      if (newest) {
+        lastBackupName = newest
+        lastBackupAgeHours = Math.max(0, Math.floor((now.getTime() - statSync(join(backupDir, newest)).mtimeMs) / 3600000))
+      }
+    } catch {
+      /* no backup dir yet — the digest says so */
+    }
+    return {
+      dbSizeMb,
+      rows: { stockLedger, auditLog, agentTurn },
+      lastBackupName,
+      lastBackupAgeHours,
+      backupDir,
+    }
+  } catch {
+    return null
   }
 }
 

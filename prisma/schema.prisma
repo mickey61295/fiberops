@@ -400,6 +400,14 @@ model StockLedger {
   deptId    String?
   orderId   String?
   docNo     String?
+  // OPS-05 (Phase-6B Batch 1) — doc-level uniqueness anchor for the ledger-only
+  // docNo families (ADJ/OPN/WST single-row docs; GT/PT/RTC/RSP out/in pairs).
+  // Set to the docNo on exactly ONE row per document (the out leg of pairs);
+  // NULL everywhere else — multi-line docs (GRN lines, cut, despatch) legitimately
+  // repeat a docNo across rows, so docNo itself can never be unique. A concurrent
+  // plan that mints the same number fails the unique index inside the commit
+  // transaction instead of silently double-posting.
+  docKey     String?  @unique
   docDate   DateTime @default(now())
   finYear   String
   inBags    Float    @default(0)
@@ -421,6 +429,23 @@ model StockLedger {
   @@index([docDate])
 }
 
+
+// ============== OPS (Phase-6B Batch 1) ==============
+// OPS-04 — commit idempotency. The key row is INSERTED (unique = the lock)
+// BEFORE the plan's commit runs; replays and concurrent double-clicks resolve
+// against the stored result instead of re-posting. status 'pending' marks an
+// in-flight commit; the row is DELETED when the commit fails so a retry can
+// attempt again.
+model IdempotencyKey {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  door        String // form | agent
+  actorName   String
+  slug        String?
+  status      String   @default("pending") // pending | done | failed
+  resultJson  String?
+  createdAt   DateTime @default(now())
+}
 
 model CurrentStock {
   id         String      @id @default(cuid())
