@@ -480,7 +480,10 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M26.md \
          src/lib/erp/print/qr.ts \
          tests/unit/print-qr.test.ts \
-         docs/CONTEXT/specs/SPEC-M27.md; do
+         docs/CONTEXT/specs/SPEC-M27.md \
+         src/lib/erp/holidays.ts \
+         tests/unit/holidays.test.ts \
+         docs/CONTEXT/specs/SPEC-M28.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

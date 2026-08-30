@@ -20,6 +20,7 @@ import { DocPrintLink } from '@/components/erp/doc-print-button'
 import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
+import { holidaysBeforeDelivery } from '@/lib/erp/holidays' // SPEC-M28 — the shutdown warning
 
 export const dynamic = 'force-dynamic'
 
@@ -147,6 +148,12 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
   const costLink = stageHref(CHAIN[13], { orderNo: order.orderNo })
   const paymentLink = stageHref(CHAIN[14], { orderNo: order.orderNo })
 
+  // SPEC-M28 §7-H — the delivery-promise shutdown warning (only when a
+  // holiday actually threatens the window; silent otherwise)
+  const holidayRisks = ['open', 'in_progress'].includes(order.status)
+    ? await holidaysBeforeDelivery(order.deliveryDate)
+    : []
+
   return (
     <div className="space-y-4">
       {/* Breadcrumb */}
@@ -158,6 +165,20 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
         <h1 className="text-base font-semibold font-mono">{order.orderNo}</h1>
         <span className="text-xs text-slate-400">Order Hub · get_order</span>
       </div>
+
+      {/* SPEC-M28 — shutdown warning: a holiday inside the delivery window */}
+      {holidayRisks.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-900" data-testid="holiday-warning">
+          <span className="font-semibold">Shutdown before delivery:</span>{' '}
+          {holidayRisks.map((h, i) => (
+            <span key={i}>
+              {i > 0 && ' · '}
+              {h.name} ({d(h.date)}{h.daysUntil === 0 ? ' — today' : `, ${h.daysUntil}d away`})
+            </span>
+          ))}
+          {' '}— plan despatch &amp; production around it.
+        </div>
+      )}
 
       {/* Header card */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">

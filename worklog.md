@@ -1284,3 +1284,20 @@ Stage Summary:
 - The QR encoder is verified by an INDEPENDENT decoder (jsQR) — the discipline that caught the BCH bug in its first hour. jsqr stays dev-only.
 - Committed+tagged m27, pushed.
 - Next: M28 holiday calendar surfacing (§7-H).
+
+---
+Task ID: 38 (third six-task run, task 5)
+Agent: main (Super Z)
+Task: M28 — holiday calendar surfacing (gap-audit §7-H: the GovtHoliday master existed since M2 with zero planning surfaces).
+
+Work Log:
+- SPEC-M28 frozen BEFORE code: the planning read service + two surfaces (Order Hub delivery risk + MIS shutdown card); OUT: working-day planner arithmetic, program dates, digest adoption.
+- NEW src/lib/erp/holidays.ts: getUpcomingHolidays (future-only, asc, midnight-normalized) + holidaysBeforeDelivery (the [today, delivery] risk window; null/past-safe). The rate-memory precedent — ERP-internal read, zero schema/tools.
+- Order Hub: amber 'Shutdown before delivery' strip on open/in_progress orders when a holiday threatens the window; silent otherwise. MIS: 'Upcoming shutdowns' card (4 holidays + calendar deep-link), hidden when empty.
+- Tests +7 (window math + exclusion + empty; delivery filter both directions; same-day normalization; source pins) → 1007 vitest.
+- Gates: tsc src/ 0 · 1007 vitest · eval --static PASS · context_check 554→557/557 NO DRIFT · route_smoke_m28 NEW 12/12 (risk order warns + safe order silent + MIS strip + 61d excluded + zero residue) · LIVE browser: the amber strip + the MIS card, zero console errors, screenshot download/m28-holiday-surfacing.png.
+
+Stage Summary:
+- The Tirupur Pongal/Deepavali planning reflex is live: holidays surface exactly where promises are made (the Order Hub) and where the business is watched (the MIS).
+- Committed+tagged m28, pushed.
+- Next: M29 jump-bar G residual (the last task of the third six-task run).

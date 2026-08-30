@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { AlertCircle, ArrowDownRight, ArrowUpRight, BarChart3, Boxes, ClipboardCheck, IndianRupee, Package, TrendingUp } from 'lucide-react'
 import { REPORT_SERVICES } from '@/lib/erp/reports'
+import { getUpcomingHolidays } from '@/lib/erp/holidays' // SPEC-M28 — the shutdown strip
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
 import type { RegisterQuery } from '@/lib/erp/registers/types'
 
@@ -55,6 +56,9 @@ export default async function MisDashboardPage() {
     REPORT_SERVICES['approval-audit'](q()),
   ])
 
+  // SPEC-M28 §7-H — upcoming shutdowns (Pongal/Deepavali planning reflex)
+  const holidays = await getUpcomingHolidays({ days: 45 })
+
   const stockValue = Number(currentStock.totals?.find((t) => t.label === 'Value')?.value ?? 0)
   const ar = Number(outstanding.totals?.find((t) => t.label === 'AR Outstanding')?.value ?? 0)
   const ap = Number(outstanding.totals?.find((t) => t.label === 'AP Outstanding')?.value ?? 0)
@@ -99,7 +103,28 @@ export default async function MisDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* 14-day production bar chart */}
+        {/* SPEC-M28 — upcoming shutdowns: the Tirupur planning reflex */}
+      {holidays.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4" data-testid="holiday-strip">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-amber-900">Upcoming shutdowns</div>
+            <Link href="/masters/govt-holiday" className="text-xs text-amber-700 hover:underline">holiday calendar →</Link>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {holidays.slice(0, 4).map((h, i) => (
+              <span key={i} className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs text-amber-900">
+                <span className="font-medium">{h.name}</span>{' '}
+                <span className="text-amber-600">
+                  {new Date(h.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                  {h.daysUntil === 0 ? ' · today' : ` · ${h.daysUntil}d`}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 14-day production bar chart */}
         <div className="rounded-lg border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
