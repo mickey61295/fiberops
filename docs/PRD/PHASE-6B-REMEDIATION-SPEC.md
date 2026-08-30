@@ -193,9 +193,9 @@ OPS-04/05 (idempotency + unique docNos before new posting paths).
 
 ## 7. Batch 4 — Money Integrity (seams 3+4; 1 batch)
 
-**Problem.** Partial payments never settle an invoice — settlement requires `amount >= billAmount
-- 0.01` and no allocation table exists (`payment.ts:27`); two receipts that together cover the
-bill never flip it. Supplier payments tagged `invoiceNo` resolve a *sales* invoice and reduce AR
+**Problem.** Partial payments never settle an invoice — settlement requires
+`amount >= billAmount - 0.01` and no allocation table exists (`payment.ts:27`); two receipts that
+together cover the bill never flip it. Supplier payments tagged `invoiceNo` resolve a *sales* invoice and reduce AR
 (`payment.ts:20,33` — direction-blind). There is no supplier-bill document at all — bill-pass
 captures `{grnNo, comments}` (tools.ts:2405) — so the invoice→bill→payment story is "GRN value
 minus undifferentiated payments-out". The entire tolerance engine (`threeWayMatch`,
