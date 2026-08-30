@@ -1168,3 +1168,22 @@ Stage Summary:
 - Waste Receipt shipped as a first-class doc family with both doors (form + agent) over ONE service — ADR-001 holds.
 - Tools 225, menu 132/165, 949 vitest, context_check 535/535.
 - Next in the run: M22 keypad-operator mode → M23 e-invoice/e-way mock IRN.
+
+---
+Task ID: 32
+Agent: main (Super Z)
+Task: Second six-task run, task 5 of 6 — M22 Keypad-Operator Mode (SPEC-M22, gap-audit §7-K: "stripped full-screen keypad UI with big targets — one operator, one action, zero chrome").
+
+Work Log:
+- SPEC-M22 frozen BEFORE code: mode over the FORM door (planDocAction/commitDocAction — ADR-001 + M15 audit identical for keypad commits), required-only projection, two-step save preserved in keypad form, header-only families first (pcs-despatch line grid deferred w/ rationale).
+- src/lib/erp/keypad.ts: keypadFieldsFor (pure: required-only, readonly + auto-number dropped, pickers carried) + KEYPAD_SURFACES ×3 + dates-default-today.
+- src/components/erp/keypad-mode.tsx: fixed inset-0 overlay (covers ALL chrome — no AppShell surgery), h-14 inputs, h-16 SAVE/CONFIRM, picker = big search + 12 option buttons off the shared master_search feed, fill→review→confirm→done.
+- Wired ?mode=keypad + ⌨ toggle on /production/entry, /cutting/job-order, /inventory/waste-receipt.
+- Tests: keypad-mode.test NEW 9 (projection matrix incl. opening-stock readonly precedent; wiring contract w/ page source pins; header-only assertion; ADR-001 source pin).
+- Gates: tsc src/ 0 · 958 vitest · eval --static PASS · context_check 535→540/540 NO DRIFT (views 35) · route_smoke_m22 19/19 incl. the commitDocAction round-trip with a keypad-shaped header-only payload.
+- Smoke lesson recorded: RSC payload strings (preloadStyle) fake naive text greps — pin rendered labels as >Label</label>.
+
+Stage Summary:
+- The operator reflex surface shipped: a line tablet scans a QR → /production/entry?mode=keypad → big targets → plan → CONFIRM → WST-/PE-docNo screen. Same services, same audit trail.
+- Zero menu/route/tool/schema churn (a mode, not a surface).
+- Next: M23 e-invoice/e-way mock IRN (the last code task of this run).

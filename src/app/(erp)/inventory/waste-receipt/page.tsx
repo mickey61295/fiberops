@@ -10,10 +10,21 @@ import { db } from '@/lib/db'
 import { wasteReceiptConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb, RecentDocsTable } from '@/components/erp/recent-docs'
+import { KeypadMode } from '@/components/erp/keypad-mode'
+import { keypadFieldsFor } from '@/lib/erp/keypad'
 
 export const dynamic = 'force-dynamic'
 
-export default async function WasteReceiptPage() {
+export default async function WasteReceiptPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const sp = await searchParams
+  // SPEC-M22 — keypad-operator surface (stripped full-screen, big targets)
+  if (sp.mode === 'keypad') {
+    return <KeypadMode slug="waste-receipt" title="Waste Receipt" fields={keypadFieldsFor(wasteReceiptConfig)} exitHref="/inventory/waste-receipt" />
+  }
   const recent = await db.stockLedger.findMany({
     where: { docNo: { startsWith: 'WST-' } },
     orderBy: { docDate: 'desc' },
@@ -47,6 +58,10 @@ export default async function WasteReceiptPage() {
   return (
     <div className="space-y-5">
       <DocBreadcrumb href="/inventory" label="Inventory" title="Waste Receipt (new)" />
+      <div className="flex justify-end">
+        <a href="/inventory/waste-receipt?mode=keypad" className="text-xs text-emerald-700 underline" data-testid="keypad-toggle">⌨ Keypad mode
+        </a>
+      </div>
       <DocScreen config={toScreenConfig(wasteReceiptConfig)} mode="new" />
       <RecentDocsTable
         title="Recent waste receipts"

@@ -85,7 +85,7 @@ check "factory create tools"       "41"      "$FACTORY_CREATE"
 check "factory update tools"       "41"      "$FACTORY_UPDATE"
 check "docTool delegates (+ M6-C lifecycle ×4 + M6-D ×3 + M20 attendance + M21 waste)" "53"    "$DOCTOOLS"
 check "prisma models (54 + ADR-015 ×7 + ADR-016 ×4 + ADR-019 ×11 + M15 AuditLog + M20 Attendance)" "78"      "$MODELS"
-check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker)" "34" "$VIEWS"
+check "erp view/shell components (+print-button +lifecycle-form +approval-queue +M8-A print trio +M9 live-tracker +M17 register-rows +M18 command-palette +M18-C doc-view-actions/change-password +M14 live-stream-tracker +M22 keypad-mode)" "35" "$VIEWS"
 check "archetype engines (+register-screen +report-screen)" "4"       "$ARCHETYPES"
 check "pipeline tests"             "15"      "$TESTS"
 check "menu registry tests (M5-D + M6-A/B/C/D + M7-C findGroupForPath + M9 + M11 blocks)" "29"      "$REGTESTS"
@@ -464,7 +464,11 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M20.md \
          'src/app/(erp)/inventory/waste-receipt/page.tsx' \
          tests/unit/waste-receipt.test.ts scripts/route_smoke_m21.sh \
-         docs/CONTEXT/specs/SPEC-M21.md; do
+         docs/CONTEXT/specs/SPEC-M21.md \
+         src/lib/erp/keypad.ts \
+         src/components/erp/keypad-mode.tsx \
+         tests/unit/keypad-mode.test.ts scripts/route_smoke_m22.sh \
+         docs/CONTEXT/specs/SPEC-M22.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

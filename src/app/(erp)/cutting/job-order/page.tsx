@@ -8,6 +8,8 @@ import { db } from '@/lib/db'
 import { cutConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb, RecentDocsTable } from '@/components/erp/recent-docs'
+import { KeypadMode } from '@/components/erp/keypad-mode'
+import { keypadFieldsFor } from '@/lib/erp/keypad'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +19,10 @@ export default async function CuttingJobOrderPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const sp = await searchParams
+  // SPEC-M22 — keypad-operator surface (stripped full-screen, big targets)
+  if (sp.mode === 'keypad') {
+    return <KeypadMode slug="cut" title="Cut Order" fields={keypadFieldsFor(cutConfig)} exitHref="/cutting/job-order" />
+  }
   const order = typeof sp.order === 'string' ? sp.order : undefined
   const recent = await db.cutOrder.findMany({
     orderBy: { createdAt: 'desc' },
@@ -39,6 +45,11 @@ export default async function CuttingJobOrderPage({
   return (
     <div className="space-y-5">
       <DocBreadcrumb href="/cutting" label="Cutting" title="Cutting Job Order (new)" />
+      {/* SPEC-M22 — the operator door into the keypad surface (URL is QR-able) */}
+      <div className="flex justify-end">
+        <a href="/cutting/job-order?mode=keypad" className="text-xs text-emerald-700 underline" data-testid="keypad-toggle">⌨ Keypad mode
+        </a>
+      </div>
       <DocScreen
         config={toScreenConfig(cutConfig)}
         mode="new"

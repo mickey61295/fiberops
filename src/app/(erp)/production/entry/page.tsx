@@ -8,6 +8,8 @@ import { db } from '@/lib/db'
 import { productionConfig, toScreenConfig } from '@/lib/erp/doc-configs'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb, RecentDocsTable } from '@/components/erp/recent-docs'
+import { KeypadMode } from '@/components/erp/keypad-mode'
+import { keypadFieldsFor } from '@/lib/erp/keypad'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +20,10 @@ export default async function ProductionEntryPage({
 }) {
   const sp = await searchParams
   const order = typeof sp.order === 'string' ? sp.order : undefined
+  // SPEC-M22 — keypad-operator surface (stripped full-screen, big targets)
+  if (sp.mode === 'keypad') {
+    return <KeypadMode slug="production" title="Production Tally" fields={keypadFieldsFor(productionConfig)} exitHref="/production/entry" />
+  }
   const recent = await db.productionEntry.findMany({
     where: { rework: false },
     orderBy: { prodDate: 'desc' },
@@ -40,6 +46,11 @@ export default async function ProductionEntryPage({
   return (
     <div className="space-y-5">
       <DocBreadcrumb href="/production" label="Production" title="Production Entry (new)" />
+      {/* SPEC-M22 — the operator door into the keypad surface (URL is QR-able) */}
+      <div className="flex justify-end">
+        <a href="/production/entry?mode=keypad" className="text-xs text-emerald-700 underline" data-testid="keypad-toggle">⌨ Keypad mode
+        </a>
+      </div>
       <DocScreen
         config={toScreenConfig(productionConfig)}
         mode="new"
