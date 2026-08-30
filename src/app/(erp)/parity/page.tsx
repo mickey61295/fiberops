@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { MENU_GROUPS, itemsByGroup, isLive, getHref, parityStats } from '@/lib/erp/menu-registry'
+import { countableLegacyForms, NON_FORM_LEGACY } from '@/lib/erp/legacy-aliases'
 
 const ARCH_LABELS: Record<string, string> = {
   DB: 'Dashboard', MT: 'Master', DS: 'Doc', RG: 'Register',
@@ -79,7 +80,23 @@ export default function ParityPage() {
                         </td>
                         <td className="px-2 py-2 text-slate-500">{ARCH_LABELS[item.arch] ?? item.arch}</td>
                         <td className="px-2 py-2 text-slate-500">{item.phase}</td>
-                        <td className="px-2 py-2 text-slate-500 tabular-nums">{item.legacyForms.length}</td>
+                        <td className="px-2 py-2 text-slate-500 tabular-nums">
+                          {/* M30: the honest count — renames/SQL objects canonicalize to
+                              their real form; non-form refs (report files, our own
+                              inventions) never counted. Title shows what was dropped. */}
+                          {(() => {
+                            const real = countableLegacyForms(item.legacyForms)
+                            const dropped = item.legacyForms.filter((f) => NON_FORM_LEGACY.has(f))
+                            return (
+                              <span title={dropped.length ? `not legacy forms: ${dropped.join(', ')}` : undefined}>
+                                {real.length}
+                                {dropped.length > 0 && (
+                                  <span className="text-slate-300"> (+{dropped.length})</span>
+                                )}
+                              </span>
+                            )
+                          })()}
+                        </td>
                         <td className="px-2 py-2">
                           {item.agentTools.length > 0 ? (
                             <span className="text-emerald-700 font-mono text-[10px]">

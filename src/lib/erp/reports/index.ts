@@ -1,9 +1,10 @@
 /**
  * Report service registry — SPEC-M6 §4. The ONE place report slug → query is
- * bound (the registers/index.ts twin). 28 entries: 15 BINDINGS to existing
+ * bound (the registers/index.ts twin). 28 entries: 16 BINDINGS to existing
  * register services (a report and its register share ONE service — never
- * fork a query) + 13 new aggregates. Tests assert the bijection against
- * report-configs (§12-1).
+ * fork a query) + 12 new aggregates. Tests assert the bijection against
+ * report-configs (§12-1). (M30: the 15/13 split in the old header was
+ * stale — gap-audit §8-3; 16+12 verified by grep.)
  */
 import type { RegisterQuery, RegisterResult } from '../registers/types'
 import { REGISTER_SERVICES } from '../registers'
@@ -34,7 +35,7 @@ const bind = (slug: string): ReportService => {
 }
 
 export const REPORT_SERVICES: Record<string, ReportService> = {
-  // ---- bindings (15): ONE service, two screens ----
+  // ---- bindings (16): ONE service, two screens ----
   'order-register': bind('order-register'),
   'inhand-orders': bind('inhand-orders'),
   'production-status': bind('production-status'),

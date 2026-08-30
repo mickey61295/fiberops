@@ -1340,3 +1340,23 @@ Stage Summary:
 - The gap-audit §7 muscle-memory playbook (R rate · C counter-book · P paper · D digest · E excel · K keypad · V voice · G jump · H holidays · T terminology · F keyboard) is now FULLY shipped.
 - SECURITY: the user's PAT was pasted in chat AGAIN (third time) — flagged at session start; scrubbed from the repo config at close; the user should REVOKE it at https://github.com/settings/tokens regardless.
 - Next candidates (STATE next-actions #34): gap-audit §8 hygiene debts (29 legacyForms aliases) · SPEC-M9 §9 P3 residuals (multi-company, barcode) · working-day planner arithmetic (M28 OUT) · voice TTS confirm loop · or a fresh user-directed lane.
+---
+Task ID: 41 (fourth six-task run, task 1)
+Agent: main (Super Z)
+Task: M30 — legacy-forms alias hygiene (gap-audit §8-1: the broken legacyForms strings; + §8-2/3/4 header comment drifts).
+
+Work Log:
+- Session opened on the SIXTH parallel-session artifact: local 4b5d3cd (user's db/custom.db binary commit, UUID message) on top of the Task-40 close-out; the upload-route gremlin struck a FOURTH time (uncommitted deletion — restored per PITFALLS #39 protocol: git status BEFORE add, ` D ` lines restored); bun.lock drift (the M27 jsqr devDep lock entry was never committed) repaired as its own chore commit.
+- Push capability GONE this session (the close-out scrubbed the PAT; none re-supplied in this session's message). Standing discipline continues LOCALLY: commit + tag per milestone; pushes pending credentials (remote verified reachable — ls-remote OK at 81a6a8b).
+- Baseline re-verified BEFORE work: context_check 560/560 (after regenerating download/eval-routing-report.json — the gitignored artifact, same as Task 34), vitest 1016/1016, tsc src/ 0, eval --static PASS.
+- SPEC-M30 frozen BEFORE code: the §8-1 audit re-run (scripts/audit_legacy_forms.py) found 35 broken refs (the gap-analysis "29" grew by six — M19 registers/M29-era items added refs). Three honest classes: 12 renames, 6 SQL-objects/report-files (alias to the form they served), 17 non-forms (report files/stored procs/views/phantom spellings/our own inventions — searchable, never counted). The closing-stock decision: NO alias to frmOpeningStock (dishonest coverage inflation).
+- NEW src/lib/erp/legacy-aliases.ts: LEGACY_FORM_ALIASES (18) + NON_FORM_LEGACY (17) + canonicalLegacyForm (single-hop) + countableLegacyForms (canonicalize→drop→dedup→sort — THE parity-count source) + searchableLegacyForms (raw+canonical).
+- Consumers: parityStats through countableLegacyForms (272 unique refs → 249 countable; coverage 100% — all live, honest denominator); parity page honest count + (+N dropped) hint + title; CommandPalette joins searchableLegacyForms.
+- Header drifts: menu-registry ITEMS 131→132 (comment-only; test already pinned 132); reports/index.ts 15/13→16/12 (header + inline + report-configs.test description; count pins untouched).
+- Tests: legacy-aliases.test NEW 20 — the COMPLETENESS INVARIANT (reads docs/form-taxonomy.json; any unclassified future ref fails), targets-verified, collision/single-hop/idempotence, countable/searchable semantics, 5 consumer source pins. Path lesson: join(__dirname,'../..') from tests/unit.
+- Gates: tsc src/ 0 · 1036 vitest (1016+20) · eval --static PASS · context_check 560→563/563 NO DRIFT · LIVE browser: parity '0 (+3)' honest counts, palette FrmOrderRegister→Order Register (impossible before), raw mnemonic still works, zero console errors, screenshot download/m30-parity-aliases.png.
+
+Stage Summary:
+- Parity measurement is no longer fuzzy: every legacyForms ref is classified, the denominator is honest, and the jump bar understands BOTH spellings. Future unclassified refs fail the invariant test.
+- gap-audit §8 is CLOSED (all four debts: aliases, ITEMS count, report bindings split, /reports header verified current).
+- Fourth six-task run in progress: M31 working-day planner arithmetic → M32 voice TTS → M33 barcode → M34 terms master → M35 holidays digest.

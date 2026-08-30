@@ -12,6 +12,8 @@
  *  - This file must stay importable from server, client AND vitest without app deps.
  */
 
+import { countableLegacyForms } from './legacy-aliases'
+
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
 export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21'
 
@@ -277,7 +279,9 @@ const MASTER_CREATE_TOOLS = [
 ]
 
 // ---------------------------------------------------------------------------
-// ITEMS (131 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit + M20 attendance) — SPEC-M1 §5.2
+// ITEMS (132 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit + M20 attendance + M21 waste-receipt) — SPEC-M1 §5.2
+// (the count is TEST-PINNED in menu-registry.test.ts — keep this comment in
+//  sync when a milestone adds an item; gap-audit §8-2 drift class)
 // ---------------------------------------------------------------------------
 export const MENU_ITEMS: MenuItem[] = [
   // ---- home (4) ----
@@ -1300,11 +1304,15 @@ export function parityStats(): {
   const liveItems = MENU_ITEMS.filter(isLive).length
   const liveGroups = MENU_GROUPS.filter((g) => LIVE_ROUTES.has(g.landingRoute)).length
   // Set-union so a form claimed by two items counts once (e.g. frmLotApproval).
+  // M30: refs run through countableLegacyForms — renames/SQL objects map to
+  // their real taxonomy form (dedup by canonical name), and non-form refs
+  // (report files, stored procs, our own new-UI inventions) are excluded
+  // from the coverage denominator entirely.
   const mapped = new Set<string>()
   const live = new Set<string>()
   for (const i of MENU_ITEMS) {
-    i.legacyForms.forEach((f) => mapped.add(f))
-    if (isLive(i)) i.legacyForms.forEach((f) => live.add(f))
+    countableLegacyForms(i.legacyForms).forEach((f) => mapped.add(f))
+    if (isLive(i)) countableLegacyForms(i.legacyForms).forEach((f) => live.add(f))
   }
   const coveragePct = mapped.size === 0 ? 0 : Math.round((live.size / mapped.size) * 1000) / 10
   return {

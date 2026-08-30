@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, FileText, Sparkles, Users } from 'lucide-react'
 import { useAgent } from '@/components/agent/agent-panel-provider'
 import { MENU_GROUPS, MENU_ITEMS, getHref, isLive } from '@/lib/erp/menu-registry'
+import { searchableLegacyForms } from '@/lib/erp/legacy-aliases'
 import {
   CommandDialog,
   CommandEmpty,
@@ -166,7 +167,10 @@ export function CommandPalette({ allowedGroupIds }: { allowedGroupIds?: string[]
             {g.items.map((i) => (
               <CommandItem
                 key={i.id}
-                value={`${i.label} ${i.id} ${g.label} ${(i as { legacyForms?: string[] }).legacyForms?.join(' ') ?? ''}`}
+                // M30: raw refs + canonical expansions — typing the REAL form
+                // name (FrmOrderRegister) finds the screen whose array carries
+                // the abbreviation (FrmOrderReg); non-forms stay searchable.
+                value={`${i.label} ${i.id} ${g.label} ${searchableLegacyForms((i as { legacyForms?: string[] }).legacyForms ?? []).join(' ')}`}
                 onSelect={() => go(getHref(i))}
               >
                 {i.label}

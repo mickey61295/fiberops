@@ -37,7 +37,7 @@ const NEW_SLUGS = [
 ]
 
 describe('report-configs — SPEC-M6 §4 contracts', () => {
-  it('exactly the 28 frozen reports (15 bound + 13 new); adding one is an ERRATA append', () => {
+  it('exactly the 28 frozen reports (16 bound + 12 new — M30 §8-3 header fix); adding one is an ERRATA append', () => {
     expect(REPORTS.length).toBe(28)
     expect([...BOUND_SLUGS, ...NEW_SLUGS].sort()).toEqual(REPORTS.map((r) => r.slug).sort())
   })
