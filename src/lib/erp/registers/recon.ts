@@ -87,18 +87,26 @@ export async function jobworkRecon(dcId: string): Promise<ReconResult | null> {
     orderBy: { outDate: 'desc' },
     take: 50,
   })
-  const atParty = siblings.filter((s) => s.status === 'sent').reduce((s, x) => s + x.totalQty, 0)
-  const returned = jw.status === 'sent' ? 0 : jw.totalQty
-  const balance = jw.totalQty - returned
+  // M39 (JWL-03) — cumulative math: receivedQty accumulates (never the old
+  // status-eyeball 'returned = sent unless sent'); at-party counts the still-
+  // open rows (sent + partial) by their open balances.
+  const open = (x: typeof jw) => x.status === 'sent' || x.status === 'partial'
+    ? x.totalQty - x.receivedQty - x.rejectedQty
+    : 0
+  const atParty = siblings.reduce((s, x) => s + open(x), 0)
+  const received = jw.receivedQty
+  const rejected = jw.rejectedQty
+  const returned = jw.returnedQty
+  const balance = jw.totalQty - received - rejected - returned
   return {
     title: 'Jobwork out ↔ in',
-    mathLine: `sent ${qty(jw.totalQty)} · status ${jw.status} (${jw.status === 'sent' ? 'at party' : 'returned'}) · at party (all DCs) ${qty(atParty)}`,
+    mathLine: `sent ${qty(jw.totalQty)} · received ${qty(received)}${rejected > 0 ? ` · rejected ${qty(rejected)}` : ''}${returned > 0 ? ` · returned ${qty(returned)}` : ''} · status ${jw.status} · at party (all DCs) ${qty(atParty)}`,
     balance,
-    balanceLabel: jw.status === 'sent' ? 'At party (this DC)' : 'Returned',
+    balanceLabel: open(jw) > 0 ? 'At party (this DC)' : jw.status === 'billed' ? 'Billed' : jw.status === 'accepted' ? 'Accepted (in G2)' : 'Closed',
     rowsTitle: "This jobworker's DCs",
     rows: siblings.map((s) => ({
       label: `${s.dcNo} · ${new Date(s.outDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })}`,
-      value: `${qty(s.totalQty)} · ${s.status}`,
+      value: `${qty(s.totalQty)} sent · ${qty(s.receivedQty)} rec · ${s.status}`,
       href: `/jobwork/order/${s.id}`,
     })),
   }

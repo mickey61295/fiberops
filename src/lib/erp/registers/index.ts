@@ -16,6 +16,7 @@ import { queryIoHistory } from './io-history'
 import { queryPcsStock } from './pcs-stock'
 import { queryProductionStatus } from './production-status'
 import { queryJobwork } from './jobwork'
+import { queryJobworkerStatement } from './jobworker-statement' // SPEC-M39 JWL-07
 import { queryBillsRegister } from './bills'
 import { querySupplierBills } from './supplier-bills'
 import { queryPartyLedger } from './party-ledger'
@@ -49,6 +50,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'pcs-stock': queryPcsStock,
   'production-status': queryProductionStatus,
   'jobwork-register': queryJobwork,
+  'jobworker-statement': queryJobworkerStatement, // SPEC-M39 JWL-07
   'bills-register': queryBillsRegister,
   'supplier-bills': querySupplierBills,
   'party-ledger': queryPartyLedger,

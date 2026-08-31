@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39'
 
 export interface MenuGroup {
   id: string
@@ -96,6 +96,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/pieces/stock', // Pcs Stock (M4 Wave B) — pcs-stock
   '/production/register', // Production Status Register (M4 Wave B) — production-status-register
   '/jobwork/register', // Job Order List / Balance (M4 Wave B) — job-order-list
+  '/jobwork/statement', // Jobworker Material Statement (M39 JWL-07) — jobworker-statement
   '/accounts/bills-register', // Bills Register (M4 Wave B) — bills-register
   '/accounts/supplier-bills', // Supplier Bill Register (M4 Wave B) — supplier-bill-register
   '/accounts/party-ledger', // Party Ledger (M4 Wave B) — party-ledger
@@ -864,6 +865,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['frmJobWorkPcsReturn'],
     agentTools: ['return_jobwork_pcs'], pendingTools: [],
     agentPrompt: 'I want to return pieces to a jobwork unit',
+  },
+  {
+    id: 'jobworker-statement', label: 'Jobworker Statement', groupId: 'jobwork', route: '/jobwork/statement', arch: 'RG', phase: 'M39',
+    description: 'Material at jobworkers: out / in / loss % / WIP + aging (per party × item).',
+    legacyForms: [],
+    agentTools: ['list_jobworker_statement'], pendingTools: [],
+    agentPrompt: 'How much material is lying at each jobworker?',
   },
 
   // ---- dispatch (8) ----

@@ -579,14 +579,17 @@ describe('form-door integration — Wave C chain ops (ADR-001 through the generi
     const jw1 = await db.jobworkOrder.findUnique({ where: { dcNo: jwNo } })
     expect(jw1?.status).toBe('sent')
 
+    // M39 (JWL-03): the receipt is CUMULATIVE — sent (totalQty) stays the
+    // immutable truth, receivedQty accumulates, a short receipt lands 'partial'
     const receipt = await commitDocAction('jobwork-in', {
       header: { dcNo: jwNo, receivedQty: '148', receivedDate: '2027-05-20' },
       lines: [],
     })
     expect(receipt.ok).toBe(true)
     const jw2 = await db.jobworkOrder.findUnique({ where: { dcNo: jwNo } })
-    expect(jw2?.status).toBe('received')
-    expect(jw2?.totalQty).toBe(148)
+    expect(jw2?.status).toBe('partial')
+    expect(jw2?.totalQty).toBe(150) // SENT — never overwritten (the M3 bug is dead)
+    expect(jw2?.receivedQty).toBe(148) // cumulative receipts
     expect(jw2?.receivedDate).toBeTruthy()
   })
 

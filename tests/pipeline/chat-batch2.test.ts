@@ -355,7 +355,7 @@ describe('CHAT-11 — prompt formatting contract', () => {
   })
 
   it('PROMPT_VERSION is bumped to m38', () => {
-    expect(PROMPT_VERSION).toBe('m38-2026-08-31')
+    expect(PROMPT_VERSION).toBe('m39-2026-08-31') // M39 JWL batch
   })
 })
 
@@ -403,8 +403,11 @@ describe('CHAT-12 — chat polish sweep', () => {
     expect(panel).toContain('{toolLabel(tc.toolName)}')
   })
 
-  it('tool count stays 230 (no new tools in this batch)', () => {
-    expect(allTools.length).toBe(230)
+  it('tool count is 232 (230 at M38 + M39 JWL: bill_jobwork + list_jobworker_statement)', () => {
+    expect(allTools.length).toBe(232)
+    const names = allTools.map((t) => t.name)
+    expect(names).toContain('bill_jobwork')
+    expect(names).toContain('list_jobworker_statement')
   })
 })
 

@@ -346,17 +346,28 @@ describe('M6 Wave D — manual-queue approval gates (SPEC-M6 §6/§12-3)', () =>
     expect(nope.text).toContain('not found')
   })
 
-  it('accept_jobwork_pcs: find-or-create on a received jobwork DC (the GAN queue)', async () => {
+  it('accept_jobwork_pcs: find-or-create on a received jobwork DC (the GAN queue; M39: lines-bearing DC — stock posts)', async () => {
     const party = await db.party.findUnique({ where: { code: PARTY } })
+    // M39 (JWL-05): the GAN gate posts stock per line — a header-only row has
+    // nothing to post, so the fixture carries a material line now
     const jw = await db.jobworkOrder.create({
-      data: { dcNo: `M6D-JW-${TS}`, jobworkerId: party!.id, processType: 'washing', totalQty: 10, status: 'received', receivedDate: new Date() },
+      data: {
+        dcNo: `M6D-JW-${TS}`, jobworkerId: party!.id, processType: 'washing', totalQty: 10, status: 'received', receivedDate: new Date(), receivedQty: 10,
+        lines: { create: [{ itemType: 'yarn', itemId: yarnId, itemCode: YARN, uom: 'kgs', qty: 10, rate: 10, receivedQty: 10 }] },
+      },
     })
     createdJwIds.push(jw.id)
     const out = await agentDoor('accept_jobwork_pcs', { dcNo: jw.dcNo })
     expect((out as any).status).toBe('approved')
     expect((out as any).ref).toBe(jw.dcNo)
+    expect((out as any).into).toBe('G2') // M39 — the real stock gate
     const ap = await db.approval.findFirst({ where: { entity: 'pcs_acceptance', entityId: jw.id } })
     expect(ap!.status).toBe('approved')
+    // JWL-05: the acceptance posted the received qty INTO G2
+    const g2Row = await db.stockLedger.findFirst({ where: { docNo: jw.dcNo, godownId: g2Id, txnType: 'process_receipt' } })
+    expect(g2Row?.inKgs).toBe(10)
+    const jwAfter = await db.jobworkOrder.findUnique({ where: { id: jw.id } })
+    expect(jwAfter?.status).toBe('accepted')
   })
 
   it('approve_lot: find-or-create on a dye-dept fabric GRN (the lot queue)', async () => {
@@ -387,7 +398,12 @@ describe('M6 Wave D — manual-queue approval gates (SPEC-M6 §6/§12-3)', () =>
     }
     if (createdJwIds.length) {
       await sw(db.approval.deleteMany({ where: { entityId: { in: createdJwIds } } }))
+      await sw(db.jobworkLine.deleteMany({ where: { jobworkOrderId: { in: createdJwIds } } }))
       await sw(db.jobworkOrder.deleteMany({ where: { id: { in: createdJwIds } } }))
+      // M39: the GAN legs (docNo = the JW dcNo) + the G2 bucket delta
+      // (the MDC-/PDC- ledger rows are covered by the prefixes sweep below)
+      await sw(db.stockLedger.deleteMany({ where: { docNo: `M6D-JW-${TS}` } }))
+      await sw(db.currentStock.deleteMany({ where: { itemId: yarnId, godownId: g2Id } }))
     }
     // the variant doc-number spaces used by this run
     const prefixes = ['OPN-', 'PT-', 'RTC-', 'MP-', 'MDC-', 'PDC-', 'RTN-', 'LI-']

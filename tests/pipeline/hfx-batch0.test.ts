@@ -8,6 +8,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { db } from '@/lib/db'
 import { planGrn } from '@/lib/erp/posting/grn'
 import { planPcsDespatch } from '@/lib/erp/posting/despatch'
@@ -244,11 +245,18 @@ describe('HFX Batch 0 — correctness one-liners', () => {
   })
 
   // ---- HFX-09: kill the 'billed' ghost ----
-  it('HFX-09: no filter can select the unwritten billed state', () => {
+  // M39 (JWL-06) RETIRES this hotfix: bill_jobwork now writes 'billed', so the
+  // filter option + enum state return — every filter option has a writer again.
+  it('HFX-09 (retired by JWL-06): billed is a REAL state — the filter selects it, the enum lists it, a writer exists', () => {
     const statusFilter = jobworkRegisterConfig.filters.find((f) => f.key === 'status')!
     const values = statusFilter.options!.map((o) => o.value)
-    expect(values).not.toContain('billed')
-    expect(JOBWORK_STATUS).not.toContain('billed') // the enum agrees
+    expect(values).toContain('billed') // written by bill_jobwork (JWL-06)
+    expect(JOBWORK_STATUS).toContain('billed') // the enum agrees
+    // and the writer is real: the posting module exports planJobworkBill
+    // (source-contract pin — the headless layer is covered in jwl-batch3)
+    const src = readFileSync(join(process.cwd(), 'src/lib/erp/posting/jobwork-bill.ts'), 'utf8')
+    expect(src).toContain("status: 'billed'")
+    expect(src).toContain('billedInvoiceNo')
   })
 
   // ---- HFX-10: PO status enum drift ----

@@ -1,9 +1,11 @@
 /**
  * Jobwork register service — SPEC-M4 §5 row 11 (FrmJobOrderList).
- * Per DC — totalQty (sent), status, receivedDate; per-party footer — at-party =
- * Σ sent-status rows. Jobworker + order resolved via id-maps (plain FKs,
+ * Per DC — totalQty (SENT, immutable), receivedQty (cumulative — JWL-03),
+ * status, receivedDate; at-party = sent − received − rejected (partial-aware,
+ * M39). Per-party footer. Jobworker + order resolved via id-maps (plain FKs,
  * PITFALLS #21). Rows drill into /jobwork/order/[id] (W2).
- * `list_jobworks` (agent tool) delegates here — json shape frozen.
+ * `list_jobworks` (agent tool) delegates here — json shape frozen (gained
+ * receivedQty + balance fields — additive).
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -36,25 +38,34 @@ export async function queryJobwork(q: RegisterQuery): Promise<RegisterResult> {
   const partyMap = new Map(parties.map((p) => [p.id, p]))
   const orderMap = new Map(orders.map((o) => [o.id, o]))
 
-  const rows: RegisterRow[] = jws.map((j) => ({
-    id: j.id,
-    href: `/jobwork/order/${j.id}`,
-    dcNo: j.dcNo,
-    jobworker: partyMap.get(j.jobworkerId)?.name ?? '—',
-    processType: j.processType,
-    orderNo: j.orderId ? orderMap.get(j.orderId)?.orderNo ?? null : null,
-    outDate: j.outDate,
-    expectedInDate: j.expectedInDate,
-    receivedDate: j.receivedDate,
-    totalQty: j.totalQty,
-    totalValue: j.totalValue,
-    status: j.status,
-  }))
+  const rows: RegisterRow[] = jws.map((j) => {
+    const receivedQty = Math.round(j.receivedQty * 100) / 100
+    const balance = Math.round((j.totalQty - j.receivedQty - j.rejectedQty) * 100) / 100
+    return {
+      id: j.id,
+      href: `/jobwork/order/${j.id}`,
+      dcNo: j.dcNo,
+      jobworker: partyMap.get(j.jobworkerId)?.name ?? '—',
+      processType: j.processType,
+      orderNo: j.orderId ? orderMap.get(j.orderId)?.orderNo ?? null : null,
+      outDate: j.outDate,
+      expectedInDate: j.expectedInDate,
+      receivedDate: j.receivedDate,
+      totalQty: j.totalQty,
+      receivedQty,
+      balance,
+      totalValue: j.totalValue,
+      status: j.status,
+    }
+  })
 
-  // at-party footer: Σ sent-status qty per jobworker (the page's rows)
+  // at-party footer: Σ (sent − received − rejected) per jobworker over the
+  // still-open rows (sent + partial — M39 JWL-03 makes partial a real state)
   const atParty = new Map<string, number>()
   for (const r of rows) {
-    if (r.status === 'sent') atParty.set(r.jobworker as string, (atParty.get(r.jobworker as string) ?? 0) + (r.totalQty as number))
+    if (r.status === 'sent' || r.status === 'partial') {
+      atParty.set(r.jobworker as string, (atParty.get(r.jobworker as string) ?? 0) + (r.balance as number))
+    }
   }
   const atPartyTotal = [...atParty.values()].reduce((s, v) => s + v, 0)
   const topParty = [...atParty.entries()].sort((a, b) => b[1] - a[1])[0]

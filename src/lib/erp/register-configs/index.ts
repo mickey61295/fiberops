@@ -14,6 +14,7 @@ import { ioHistoryConfig } from './io-history'
 import { pcsStockConfig } from './pcs-stock'
 import { productionStatusConfig } from './production-status'
 import { jobworkRegisterConfig } from './jobwork-register'
+import { jobworkerStatementConfig } from './jobworker-statement' // SPEC-M39 JWL-07
 import { billsRegisterConfig } from './bills-register'
 import { supplierBillsConfig } from './supplier-bills'
 import { partyLedgerConfig } from './party-ledger'
@@ -47,6 +48,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   pcsStockConfig,
   productionStatusConfig,
   jobworkRegisterConfig,
+  jobworkerStatementConfig, // SPEC-M39 (Phase-6B Batch 3) JWL-07
   billsRegisterConfig,
   supplierBillsConfig,
   partyLedgerConfig,

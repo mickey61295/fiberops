@@ -30,6 +30,7 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'pcs-stock': '/pieces/stock',
   'production-status': '/production/register',
   'jobwork-register': '/jobwork/register',
+  'jobworker-statement': '/jobwork/statement', // M39 JWL-07
   'bills-register': '/accounts/bills-register',
   'supplier-bills': '/accounts/supplier-bills',
   'party-ledger': '/accounts/party-ledger',
@@ -56,10 +57,10 @@ const ROUTE_BY_SLUG: Record<string, string> = {
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit: exactly the 35 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement: exactly the 36 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out',
-      'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register',
+      'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register', 'jobworker-statement',
       'line-issue-register', 'lot-tracking', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
       'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills', 'supplier-history', 'supplier-pending',
@@ -253,7 +254,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(230) // 189 + M19-C ×33
+    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement // 189 + M19-C ×33
   })
 })
 

@@ -26,6 +26,7 @@ import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
 import { queryJobwork } from '@/lib/erp/registers/jobwork'
+import { queryJobworkerStatement } from '@/lib/erp/registers/jobworker-statement' // SPEC-M39 JWL-07
 import { queryBillsRegister } from '@/lib/erp/registers/bills'
 import { querySupplierBills } from '@/lib/erp/registers/supplier-bills'
 import { istToday } from '@/lib/erp/dates'
@@ -34,6 +35,8 @@ import { getOrderBudgetActual } from '@/lib/erp/registers/budget'
 import { queryApprovalAudit } from '@/lib/erp/registers/approval-audit'
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
 import { findApprovalKind, approvalRefHref } from '@/lib/erp/approval-kinds'
+// SPEC-M39 (JWL-05) — accept_jobwork_pcs posts real stock legs on acceptance
+import { postLedger } from '@/lib/erp/posting/ledger'
 // SPEC-M9 — the live-activity read tool delegates to the SAME tracker service
 // behind /api/tracker (Contract rule #8: one service, two doors).
 import { getTrackerSnapshot } from '@/lib/erp/tracker'
@@ -48,7 +51,7 @@ import { BOM_SCHEMA } from '@/lib/erp/schemas/bom'
 import { PROGRAM_SCHEMA } from '@/lib/erp/schemas/program'
 import { PURCHASE_ORDER_SCHEMA } from '@/lib/erp/schemas/purchase-order'
 import { GRN_SCHEMA } from '@/lib/erp/schemas/grn'
-import { JOBWORK_OUT_SCHEMA, JOBWORK_IN_SCHEMA } from '@/lib/erp/schemas/jobwork'
+import { JOBWORK_OUT_SCHEMA, JOBWORK_IN_SCHEMA, JOBWORK_BILL_SCHEMA } from '@/lib/erp/schemas/jobwork'
 import { CUT_ORDER_SCHEMA } from '@/lib/erp/schemas/cut'
 import { LINE_ISSUE_SCHEMA } from '@/lib/erp/schemas/line-issue'
 import { PRODUCTION_ENTRY_SCHEMA, REWORK_SCHEMA } from '@/lib/erp/schemas/production'
@@ -89,7 +92,8 @@ import { planBom } from '@/lib/erp/posting/bom'
 import { planProgram } from '@/lib/erp/posting/program'
 import { planPurchaseOrder } from '@/lib/erp/posting/purchase-order'
 import { planGrn, planJobworkPcsReturn } from '@/lib/erp/posting/grn'
-import { planJobworkOut, planJobworkIn } from '@/lib/erp/posting/jobwork'
+import { planJobworkOut, planJobworkIn, planMaterialDc } from '@/lib/erp/posting/jobwork'
+import { planJobworkBill } from '@/lib/erp/posting/jobwork-bill' // SPEC-M39 JWL-06
 import { planCutOrder } from '@/lib/erp/posting/cut'
 import { planLineIssue } from '@/lib/erp/posting/line-issue'
 import { planProductionEntry, planReworkEntry, planFinishedGoods, planOperationEntry, planScanBundle } from '@/lib/erp/posting/production'
@@ -110,7 +114,6 @@ import { planTransfer } from '@/lib/erp/posting/transfer'
 // SPEC-M6 §7-D (Wave D) — process-tail variant services + schemas
 import { planOpeningStock } from '@/lib/erp/posting/stock-adj'
 import { planPcsTransfer, planReadyToCut } from '@/lib/erp/posting/transfer'
-import { planMaterialDc } from '@/lib/erp/posting/jobwork'
 import { MATERIAL_DC_SCHEMA } from '@/lib/erp/schemas/dispatch-variants'
 import { OPENING_STOCK_SCHEMA } from '@/lib/erp/schemas/stock-adj'
 import { PCS_TRANSFER_SCHEMA, READY_TO_CUT_SCHEMA } from '@/lib/erp/schemas/transfer-variants'
@@ -1182,22 +1185,47 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_jobworks',
-    description: 'List all jobwork DCs (material sent out to washing/dyeing/printing/embroidery). Filter by status with optional status arg.',
+    description: 'List jobwork DCs (material sent out to washing/dyeing/printing/embroidery) with sent vs received balances. Optional status filter: sent | partial | received | accepted | billed.',
     domain: 'production',
     isWrite: false,
     schema: z.object({
-      status: z.string().optional().describe('sent | received | billed'),
+      status: z.string().optional().describe('sent | partial | received | accepted | billed'),
     }),
     async execute(args) {
       // Delegates to the shared register service (SPEC-M4 §5 row 11) — the same
-      // read path the /jobwork/register screen uses. json shape frozen.
+      // read path the /jobwork/register screen uses. json shape frozen (gained
+      // receivedQty + balance — additive, M39 JWL-03).
       const res = await queryJobwork({ status: args.status, limit: 50, page: 1 })
       return {
         text: `${res.count} jobwork DCs`,
         json: res.rows.map((j) => ({
           dcNo: j.dcNo, jobworker: j.jobworker, processType: j.processType,
-          totalQty: j.totalQty, totalValue: j.totalValue, status: j.status,
+          totalQty: j.totalQty, receivedQty: j.receivedQty, balance: j.balance,
+          totalValue: j.totalValue, status: j.status, billedInvoiceNo: (j as any).billedInvoiceNo ?? undefined,
           orderNo: j.orderNo, outDate: j.outDate, expectedInDate: j.expectedInDate, receivedDate: j.receivedDate,
+        })),
+      }
+    },
+  },
+  {
+    name: 'list_jobworker_statement',
+    description: 'Jobworker material statement: per jobworker × item — qty out, qty in, loss %, WIP at the jobworker and its aging (days since the oldest open out). Optional party filter (code). Use this to answer "how much material is lying at which jobworker".',
+    domain: 'jobwork',
+    isWrite: false,
+    schema: z.object({
+      party: z.string().optional().describe('Jobworker party code filter.'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the JWL-07 register service — the same read path the
+      // /jobwork/statement screen uses.
+      const res = await queryJobworkerStatement({ party: args.party, limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1 })
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} party × item lines — WIP ${res.totals?.find((t) => t.label === 'WIP at jobworkers')?.value ?? 0}${truncated ? ` (showing first ${(res.rows as any[]).length} — pass party to narrow)` : ''}`,
+        json: res.rows.map((r) => ({
+          party: r.party, partyCode: r.partyCode, item: r.item, itemType: r.itemType, uom: r.uom,
+          outQty: r.outQty, inQty: r.inQty, wip: r.wip, lossPct: r.lossPct, agingDays: r.agingDays,
         })),
       }
     },
@@ -2632,7 +2660,7 @@ const writeTools: AgentTool[] = [
   },
   {
     name: 'accept_jobwork_pcs',
-    description: 'Accept pieces received back from a jobworker (the GAN queue over received jobwork DCs — receipts park pending acceptance before stock posts, PITFALLS #12). Required: dcNo (the JW-#### jobwork DC). Optional: comments. Creates the pending pcs_acceptance approval first when the DC lacks one, then approves it.',
+    description: 'Accept pieces received back from a jobworker (the GAN queue over received jobwork DCs — PITFALLS #12). M39/JWL-05: the gate is REAL — approval-commit posts the received qty per line INTO G2 (Finished Goods) and clears the G3 Jobworker-Yard WIP; before acceptance no stock moves. Required: dcNo (the JW-#### DC, must be fully received). Optional: comments.',
     domain: 'workflow',
     isWrite: true,
     schema: z.object({
@@ -2640,10 +2668,98 @@ const writeTools: AgentTool[] = [
       comments: z.string().optional(),
     }),
     async execute(args, actor) {
-      const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo }, include: { jobworker: true } })
-      if (!jw) return { text: `Jobwork DC ${args.dcNo} not found` }
-      const r = { entityId: jw.id, title: jw.dcNo, detail: `pcs GAN ${jw.dcNo} · ${jw.jobworker?.name ?? 'jobworker'} · ${jw.processType} · ${jw.totalQty} units · ${jw.status}`, href: approvalRefHref('pcs_acceptance', jw.id) }
-      return proposeApprovalGate('pcs_acceptance', r, args.comments, actor)
+      const jw = await db.jobworkOrder.findUnique({ where: { dcNo: args.dcNo }, include: { jobworker: true, lines: true } })
+      if (!jw) return { text: `Jobwork DC ${args.dcNo} not found`, error: `Jobwork DC ${args.dcNo} not found` }
+      if (jw.status === 'accepted') return { text: `Jobwork DC ${args.dcNo} is already GAN-accepted (stock posted into G2).` }
+      if (jw.status !== 'received') {
+        const balance = Math.round((jw.totalQty - jw.receivedQty - jw.rejectedQty) * 100) / 100
+        return { text: `GAN requires a fully received DC: ${args.dcNo} is ${jw.status} (open balance ${balance} — receive it fully first via receive_jobwork)`, error: `GAN requires a fully received DC: ${args.dcNo} is ${jw.status} (open balance ${balance})` }
+      }
+      const g2 = await db.godown.findUnique({ where: { code: 'G2' } })
+      if (!g2) return { text: 'Godown G2 (Finished Goods) not found', error: 'Godown G2 (Finished Goods) not found' }
+      const g3 = await db.godown.findUnique({ where: { code: 'G3' } })
+      if (jw.lines.length === 0) {
+        return {
+          text: `DC ${args.dcNo} is header-only (no material lines) — GAN acceptance posts stock per line, so there is nothing to post. Issue material DCs with lines[] (create_jobwork_order / create_dc) for the stock-moving GAN.`,
+          error: `DC ${args.dcNo} is header-only — GAN acceptance requires a lines[] DC`,
+        }
+      }
+
+      // accepted qty per line: cumulative received (rejected never entered stock)
+      const lines = jw.lines.map((l) => ({ id: l.id, itemType: l.itemType, itemId: l.itemId, itemCode: l.itemCode, uom: l.uom, qty: l.receivedQty, rate: l.rate }))
+      const acceptedQty = Math.round(lines.reduce((s, l) => s + l.qty, 0) * 100) / 100
+      const g2In = lines.map((l) => ({
+        table: 'stockLedger',
+        data: { txnType: 'process_receipt', itemType: l.itemType, itemId: l.itemId, godownId: g2.id, docNo: jw.dcNo, docDate: new Date(), inKgs: l.uom === 'kgs' ? l.qty : 0, inPcs: l.uom === 'pcs' ? l.qty : 0, rate: l.rate, partyId: jw.jobworkerId, notes: `GAN acceptance ${jw.dcNo} → G2` },
+      }))
+      const g3Out = g3 ? lines.map((l) => ({
+        table: 'stockLedger',
+        data: { txnType: 'process_delivery', itemType: l.itemType, itemId: l.itemId, godownId: g3.id, docNo: jw.dcNo, docDate: new Date(), outKgs: l.uom === 'kgs' ? l.qty : 0, outPcs: l.uom === 'pcs' ? l.qty : 0, rate: l.rate, partyId: jw.jobworkerId, notes: `GAN WIP cleared ${jw.dcNo}` },
+      })) : []
+
+      const kind = findApprovalKind('pcs_acceptance')!
+      const approvedBy = actor?.email ?? 'agent'
+      const existing = await db.approval.findFirst({ where: { entity: 'pcs_acceptance', entityId: jw.id }, orderBy: { createdAt: 'desc' } })
+      if (existing?.status === 'rejected') {
+        return { text: `GAN for ${jw.dcNo} was rejected — receive again to re-open it.` }
+      }
+      const willCreate = !existing
+
+      return {
+        text: `Proposed GAN acceptance of ${jw.dcNo}: ${acceptedQty} units INTO G2${g3 ? ' + G3 WIP cleared' : ''}.`,
+        plan: {
+          summary: `GAN acceptance — ${jw.dcNo} | ${jw.jobworker?.name ?? 'jobworker'} | ${jw.processType} | ${acceptedQty} units into G2${g3 ? ' | G3 WIP −' + acceptedQty : ''} | status → accepted`,
+          creates: [
+            ...(willCreate ? [{ table: 'approval', data: { entity: 'pcs_acceptance', entityId: jw.id, step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
+            ...g2In,
+            ...g3Out,
+          ],
+          updates: [
+            { table: 'approval', id: existing?.id ?? '<new>', data: { status: 'approved', approvedBy, approvedAt: new Date(), comments: args.comments } },
+            { table: 'jobworkOrder', id: jw.id, data: { status: 'accepted' } },
+          ],
+          sideEffects: [
+            `${acceptedQty} units post INTO G2 (Finished Goods) — JWL-05: stock moves ONLY on this acceptance`,
+            ...(g3 ? [`G3 'Jobworker Yard' WIP −${acceptedQty} (the out leg's parked WIP clears)`] : []),
+            `${jw.dcNo} status → accepted; bill via bill_jobwork`,
+            'Approval audit trail records the acceptance decision',
+          ],
+        },
+        async commit() {
+          return await db.$transaction(async (tx) => {
+            let row = existing
+            if (!row) {
+              row = await tx.approval.create({
+                data: { entity: 'pcs_acceptance', entityId: jw.id, step: 1, requestedBy: 'agent', status: 'pending' },
+              })
+            }
+            const updated = await tx.approval.update({
+              where: { id: row.id },
+              data: { status: 'approved', approvedBy, approvedAt: new Date(), comments: args.comments },
+            })
+            for (const l of lines) {
+              // G2 IN (docKey = the idempotency anchor — double-accept impossible)
+              await postLedger(tx, {
+                txnType: 'process_receipt', itemType: l.itemType, itemId: l.itemId,
+                godownId: g2.id, docNo: jw.dcNo, docKey: `GAN-${jw.dcNo}-${l.itemType}-${l.itemId}`, docDate: new Date(),
+                partyId: jw.jobworkerId,
+                in: l.uom === 'kgs' ? { kgs: l.qty } : { pcs: l.qty },
+                rate: l.rate, notes: `GAN acceptance ${jw.dcNo} → G2 — ${l.itemCode}`,
+              })
+              if (g3) {
+                await postLedger(tx, {
+                  txnType: 'process_delivery', itemType: l.itemType, itemId: l.itemId,
+                  godownId: g3.id, docNo: jw.dcNo, docDate: new Date(), partyId: jw.jobworkerId,
+                  out: l.uom === 'kgs' ? { kgs: l.qty } : { pcs: l.qty },
+                  rate: l.rate, notes: `GAN WIP cleared ${jw.dcNo} — ${l.itemCode}`,
+                })
+              }
+            }
+            await tx.jobworkOrder.update({ where: { id: jw.id }, data: { status: 'accepted' } })
+            return { id: updated.id, entity: 'pcs_acceptance', entityId: jw.id, ref: jw.dcNo, status: updated.status, dcNo: jw.dcNo, acceptedQty, into: 'G2' }
+          })
+        },
+      }
     },
   },
   {
@@ -2791,7 +2907,7 @@ const writeTools: AgentTool[] = [
 
   docTool(
     'create_jobwork_order',
-    'Send material out to a jobworker (washing/dyeing/printing/embroidery). dcNo is optional — auto-assigned JW-#### if omitted or taken. Required: jobworkerCode (party), processType, totalQty, totalValue. Optional: orderId, expectedInDate.',
+    'Send material out to a jobworker (washing/dyeing/printing/embroidery). dcNo auto: JW-####. MATERIAL door (M39): pass lines (array of {itemType (yarn|fabric|accessory), itemCode, qty, rate}) + optional godownCode (G1 default) — stock posts OUT of the godown, G3 Jobworker-Yard WIP parks, an ITC-04 line is written, JobworkLine rows carry sent-vs-received per line. ALLOTMENT door (JWL-09): pass allotmentNo (AL-####) to fulfill a contract — the DC links it and the allotment flips to issued. HEADER-ONLY door (legacy): totalQty + totalValue, no stock moves. Required: jobworkerCode, processType + (lines | totalQty). Optional: totalValue, orderNo, expectedInDate, outDate.',
     'production',
     JOBWORK_OUT_SCHEMA,
     planJobworkOut,
@@ -2945,10 +3061,17 @@ const writeTools: AgentTool[] = [
   },
   docTool(
     'receive_jobwork',
-    'Mark a jobwork DC as received back from the jobworker. Required: dcNo. Optional: receivedDate, receivedQty (defaults to sent qty).',
+    'Receive jobwork material back from a jobworker — CUMULATIVE (M39/JWL-03): receivedQty accumulates across receipts, never overwrites. Header door: dcNo + receivedQty (+rejectedQty optional — books as process loss). Line door: lines (array of {itemCode, qty, rejectedQty?}) validated per line. Partial receipts flip status sent → partial; full balance → received. Over-receipt is rejected with the open balance. Required: dcNo.',
     'production',
     JOBWORK_IN_SCHEMA,
     planJobworkIn,
+  ),
+  docTool(
+    'bill_jobwork',
+    'Bill a jobworker for completed jobwork (M39/JWL-06): aggregates every received-not-billed jobwork DC of the party into ONE jobwork invoice (SalesInvoice billType=jobwork, INV-####), flips the DCs to status billed. Line value = receivedQty × rate. Required: jobworkerCode. Optional: gstRate (default 18), gstType (cgst_sgst default | igst), invoiceNo, invoiceDate.',
+    'jobwork',
+    JOBWORK_BILL_SCHEMA,
+    planJobworkBill,
   ),
   docTool(
     'create_program',

@@ -212,7 +212,7 @@ describe('SPEC-M33 — bundle label fetchers (the sticker sheet)', () => {
     expect(tool).toBeDefined()
     expect(tool!.domain).toBe('cutting')
     expect(tool!.isWrite).toBe(false)
-    expect(allTools.length).toBe(230)
+    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement
     // resolves a real bundle by bundleNo (the scan reflex)
     const res = await tool!.execute({ bundle: `${CUT_NO}/B1` })
     expect(res.text).toContain(`${CUT_NO}/B1`)

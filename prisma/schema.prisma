@@ -686,22 +686,54 @@ model BudgetLine {
 }
 
 // ============== JOBWORK ==============
+// SPEC-M39 (Phase-6B Batch 3, JWL) — the JW loop closes:
+//   totalQty = SENT (immutable truth; the M3 receipt bug overwrote it — JWL-03)
+//   receivedQty/rejectedQty = cumulative header mirrors of the lines (partial-aware)
+//   returnedQty = cumulative via the RTN DC-return door (JWL-04 guard)
+//   allotmentId = plain FK → the AL-#### contract this DC fulfills (JWL-09;
+//     relation-less per PITFALLS #21) · billedInvoiceNo ← bill_jobwork (JWL-06)
+//   status: sent | partial | received | accepted | billed (+ contract: allotted | issued)
 model JobworkOrder {
-  id             String    @id @default(cuid())
-  dcNo           String    @unique
-  jobworkerId    String
-  jobworker      Party     @relation(fields: [jobworkerId], references: [id])
-  processType    String // washing | dyeing | printing | embroidery
-  outDate        DateTime  @default(now())
-  expectedInDate DateTime?
-  receivedDate   DateTime?
-  totalQty       Float     @default(0)
-  totalValue     Float     @default(0)
-  status         String    @default("sent") // sent | received (billed returns with JWL-06 — HFX-09)
-  itc04Line      String?
-  orderId        String?
-  createdAt      DateTime  @default(now())
+  id               String    @id @default(cuid())
+  dcNo             String    @unique
+  jobworkerId      String
+  jobworker        Party     @relation(fields: [jobworkerId], references: [id])
+  processType      String // washing | dyeing | printing | embroidery | knitting | …
+  outDate          DateTime  @default(now())
+  expectedInDate   DateTime?
+  receivedDate     DateTime?
+  totalQty         Float     @default(0)
+  totalValue       Float     @default(0)
+  receivedQty      Float     @default(0) // JWL-03 — cumulative good receipts
+  rejectedQty      Float     @default(0) // JWL-03 — cumulative rejected on receipt
+  returnedQty      Float     @default(0) // JWL-04 — cumulative via DC-return (RTN)
+  status           String    @default("sent") // sent | partial | received | accepted | billed (+ allotted | issued)
+  itc04Line        String? // JWL-02 — real ITC-04 line (written when stock posts)
+  orderId          String?
+  allotmentId      String? // JWL-09 — the AL- contract row this JW- DC fulfills
+  billedInvoiceNo  String? // JWL-06 — the INV-#### that billed this DC
+  createdAt        DateTime  @default(now())
+  lines            JobworkLine[]
   @@index([createdAt])
+}
+
+// JWL-01 — material lines on the JW/DC document. receivedQty (receipt door,
+// cumulative), rejectedQty (JWL-03), returnedQty (RTN door, cumulative — JWL-04).
+model JobworkLine {
+  id             String   @id @default(cuid())
+  jobworkOrderId String
+  jobworkOrder   JobworkOrder @relation(fields: [jobworkOrderId], references: [id], onDelete: Cascade)
+  itemType       String // yarn | fabric | accessory
+  itemId         String // relation-less FK (PITFALLS #21)
+  itemCode       String
+  uom            String // kgs | pcs
+  qty            Float    @default(0) // SENT
+  rate           Float    @default(0)
+  receivedQty    Float    @default(0) // cumulative good receipts (JWL-03)
+  rejectedQty    Float    @default(0) // cumulative rejected (JWL-03)
+  returnedQty    Float    @default(0) // cumulative returned via RTN (JWL-04)
+  createdAt      DateTime @default(now())
+  @@index([jobworkOrderId])
 }
 
 

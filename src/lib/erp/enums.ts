@@ -86,9 +86,11 @@ export type CutStatus = (typeof CUT_STATUS)[number]
 export const BUNDLE_STATUS = ['in_cutting', 'issued_to_sewing', 'sewn', 'packed'] as const
 export type BundleStatus = (typeof BUNDLE_STATUS)[number]
 
-// HFX-09 (Phase-6B Batch 0) — 'billed' retired until JWL-06 writes it: the
-// enum lists only states the system can actually reach.
-export const JOBWORK_STATUS = ['sent', 'received'] as const
+// M39 (Phase-6B Batch 3, JWL) — every state has a writer: partial ← partial
+// receipt/return (JWL-03/04), received ← full receipt/return, accepted ← GAN
+// commit (JWL-05), billed ← bill_jobwork (JWL-06 — HFX-09's removal retired).
+// Contract family states (allotted | issued, JWL-09) live on AL- rows only.
+export const JOBWORK_STATUS = ['sent', 'partial', 'received', 'accepted', 'billed'] as const
 export type JobworkStatus = (typeof JOBWORK_STATUS)[number]
 
 export const VOUCHER_TYPES = ['receipt', 'payment', 'contra', 'journal'] as const

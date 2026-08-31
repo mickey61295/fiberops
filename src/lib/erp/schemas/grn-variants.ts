@@ -45,19 +45,22 @@ export type MultiProcessGrnInput = z.infer<typeof MULTI_PROCESS_GRN_SCHEMA>
 /** FrmFabDel_Return / FrmAccDel_Return — DC Return (/dispatch/dc-return).
  *  Books material that went out on a DC back INTO stock: one RTN-#### GRN
  *  (grnType='process_return') against the DC number; StockLedger
- *  process_receipt IN per line (the mirror of the DC's process_delivery OUT). */
+ *  process_receipt IN per line (the mirror of the DC's process_delivery OUT).
+ *  M39 / JWL-04: the DC is RESOLVED + guarded (qty ≤ sent − returned,
+ *  cumulative) and the DC status flips in the commit; partyCode optional —
+ *  defaults to the DC's own party (mismatched parties are rejected). */
 export const DC_RETURN_SCHEMA = z.object({
   grnNo: z.string().optional().describe('GRN no — auto-assigned RTN-#### when blank.'),
-  partyCode: z.string().describe('Party the material returns from (the DC party).'),
-  dcNo: z.string().describe('The DC number being returned against (MDC-/PDC-/JW-####).'),
+  partyCode: z.string().optional().describe('Party the material returns from — defaults to the DC party (must match it).'),
+  dcNo: z.string().describe('The DC number being returned against (MDC-/PDC-/JW-####) — must exist.'),
   godownCode: z.string().optional().describe('Godown the material re-enters — default G1 (Main Store).'),
   grnDate: z.string().optional(),
   notes: z.string().optional(),
   lines: z.array(z.object({
     itemType: z.enum(['yarn', 'fabric', 'accessory']),
-    itemCode: z.string(),
-    qty: z.number().describe('Qty returned (kgs for yarn/fabric, pcs for accessory).'),
-    rate: z.number().optional().describe('Rate for the return value — default 0.'),
+    itemCode: z.string().describe('Item code — must be a line on the DC (validated).'),
+    qty: z.number().describe('Qty returned (kgs for yarn/fabric, pcs for accessory) — cumulative guard vs sent − returned.'),
+    rate: z.number().optional().describe('Rate for the return value — default the DC line rate.'),
   })).min(1, 'At least one line is required'),
 })
 
