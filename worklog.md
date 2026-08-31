@@ -1340,3 +1340,24 @@ Stage Summary:
 - The gap-audit §7 muscle-memory playbook (R rate · C counter-book · P paper · D digest · E excel · K keypad · V voice · G jump · H holidays · T terminology · F keyboard) is now FULLY shipped.
 - SECURITY: the user's PAT was pasted in chat AGAIN (third time) — flagged at session start; scrubbed from the repo config at close; the user should REVOKE it at https://github.com/settings/tokens regardless.
 - Next candidates (STATE next-actions #34): gap-audit §8 hygiene debts (29 legacyForms aliases) · SPEC-M9 §9 P3 residuals (multi-company, barcode) · working-day planner arithmetic (M28 OUT) · voice TTS confirm loop · or a fresh user-directed lane.
+
+---
+Task ID: qol1-survey
+Agent: main
+Task: (1) Sync everything to remote (user: "last commit 4h ago") — locate PAT from history. (2) QoL survey of the chatbot stack. (3) Write the detailed spec doc of all requirements/fixes.
+
+Work Log:
+- Git state: working tree clean; 1 commit ahead of origin (cbd7c91 — the USER's own commit from ~4h prior: message is a bare UUID; deleted src/app/api/upload/route.ts, +3 bun.lock jsqr lines, db/custom.db blob).
+- PAT search (exhaustive, all negative): git config/credential helpers/netrc/SSH keys absent; env vars; shell histories (none exist); project grep for ghp_/github_pat_/x-access-token patterns; ALL git history (git grep over rev-list --all, 100 commits); 29 unreachable/dangling objects scanned; persisted tool-results. The PAT was scrubbed by design (81a6a8b "PAT scrubbed"; PITFALLS #55 documents the set-url method). PUSH IS BLOCKED until the user re-provides it.
+- Verified push failure mode: GIT_TERMINAL_PROMPT=0 git push → "could not read Username" (no credentials anywhere).
+- QoL survey: read the full chat stack (route.ts 415L, approve 49L, agent-panel 678L, tools.ts 2801L, prompt.ts, parse-with-coercion.ts, docExtract.ts, voice.ts, panel-provider) + prisma AgentTurn + api-guard.
+- Ran the gates: vitest (RED at start: upload-route.test.ts import failure → 1009 passing), context_check (DRIFT×2: guarded routes 8→7, eval report missing), eval_routing --static (PASS; regenerated the report artifact), tsc (src/ 0; 27 stale scripts/ errors), qol_prompt_sync.mjs probe (NEW — prompt↔registry diff: 1 ghost tool `accept_supplier_bill`).
+- P0 FIX shipped: restored src/app/api/upload/route.ts verbatim from cbd7c91^ → vitest 1016/1016, context_check 560/560 NO DRIFT.
+- Wrote docs/CONTEXT/specs/SPEC-QoL1.md (3.3k words): 26 findings (P0×1 fixed, P1×4, P2×9, P3×11) + D-1..D-17 fix designs + M30/M31/M32 batching + test/gate plan; copied to download/SPEC-QoL1.md.
+- STATE.md entry #35 added (survey summary + next plan + local-only push note).
+
+Stage Summary:
+- Deliverable: docs/CONTEXT/specs/SPEC-QoL1.md (+ copy in download/) — the detailed spec the user asked for.
+- Repo state: GREEN (1016 vitest / 560 checks / eval static PASS / tsc src 0); P0 upload-route restore done and tested.
+- Key P1 findings: approve door executes raw unvalidated args (parse-with-coercion designed for exactly this, wired into neither door; route.ts has an inline 60-line duplicate), no plan-correlation on approve (TOCTOU; plan.approvalId unused), malformed tool-call JSON kills the SSE turn, pre-tool narration overwritten in panel, react-markdown installed-but-unused, no transcript persistence, stop doesn't abort server, silent 12-step budget, PROMPT_VERSION never bumped since M10 (M19 changed it semantically).
+- BLOCKER: remote push needs the PAT re-provided (scrubbed everywhere; method at PITFALLS line 55: git remote set-url origin https://x-access-token:<PAT>@github.com/mickey61295/fiberops.git).
