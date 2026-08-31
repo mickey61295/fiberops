@@ -4,6 +4,38 @@
 // After a zod failure, patch only the flagged paths and re-validate.
 // Shared by /api/agent (proposal step) AND /api/agent/approve (commit step)
 // so a plan proposed with coerced args commits with the SAME coerced args.
+//
+// SPEC-M30 (QoL1 D-1): this module is the SINGLE source of the arg pipeline.
+// normalizeArgs (moved here from the agent route's inline copy) unwraps
+// stringified-JSON args FIRST; both doors call
+//   normalizeArgs(raw) → parseWithCoercion(schema, normalized) → execute
+
+/** Unwrap LLM habits: an arg passed as a JSON *string* ("{\"a\":1}") becomes
+ * the object itself. Recursive; non-objects pass through untouched. */
+export function normalizeArgs(args: any): any {
+  if (args === null || typeof args !== 'object') return args
+  const out: any = Array.isArray(args) ? [] : {}
+  for (const [key, val] of Object.entries(args)) {
+    if (typeof val === 'string') {
+      const trimmed = val.trim()
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          out[key] = JSON.parse(trimmed)
+          continue
+        } catch {}
+      }
+      out[key] = val
+    } else if (typeof val === 'object') {
+      out[key] = normalizeArgs(val)
+    } else {
+      out[key] = val
+    }
+  }
+  return out
+}
 
 function setByPath(obj: any, path: (string | number)[], value: any) {
   let cur = obj

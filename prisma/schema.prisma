@@ -35,8 +35,10 @@ model AgentTurn {
   approvedAt DateTime?
   userId     String // plain string (auth out of scope for v1; would be FK to User.id in prod)
   promptVersion String? // SPEC-M10 — the system-prompt version that drove this turn (observability; nullable for pre-M10 rows)
+  approvalId String? // SPEC-M30 (QoL1 D-3) — correlation token: the proposing loop stamps it, the approve door verifies it (scoped audit marking; null = pre-M30 rows)
   createdAt  DateTime  @default(now())
   @@index([createdAt])
+  @@index([approvalId])
 }
 
 
