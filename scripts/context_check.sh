@@ -58,7 +58,7 @@ POSTINGSVCS=$(ls src/lib/erp/posting/*.ts 2>/dev/null | wc -l)
 CHAINSTAGES=$(grep -cE "^  \{ step: " src/lib/erp/chain.ts)
 DOCCFGS=$(ls src/lib/erp/doc-configs/*.ts 2>/dev/null | grep -v types.ts | grep -v index.ts | grep -v coerce.ts | wc -l)
 DOCSCREENVIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
-MAXSTEPS=$(grep -oE "MAX_STEPS = [0-9]+" src/app/api/agent/route.ts | grep -oE "[0-9]+")
+MAXSTEPS=$(grep -oE "MAX_STEPS = [0-9]+" src/lib/agent/loop.ts | grep -oE "[0-9]+")
 APIS=$(ls src/app/api/ | tr '\n' ' ')
 echo "  tools=$TOOLS (inline=$INLINE_TOOLS + factory=$FACTORY_CREATE+$FACTORY_UPDATE + docTool=$DOCTOOLS)  prisma-models=$MODELS  erp-views=$VIEWS  archetypes=$ARCHETYPES"
 echo "  pipeline-tests=$TESTS  registry-tests=$REGTESTS  master-cfg-tests=$CFGTESTS  master-parity-tests=$PARITYTESTS  doc-parity-tests=$DOCPARITYTESTS"
@@ -129,8 +129,8 @@ check "m9 get_live_activity tool registered" "1" "$(grep -c "name: 'get_live_act
 check "m9 live-tracker menu item in home group" "1" "$(grep -c "id: 'live-tracker'" src/lib/erp/menu-registry.ts)"
 check "m9 tracker screen + component" "2" "$(ls 'src/app/(erp)/tracker/page.tsx' src/components/erp/live-tracker.tsx 2>/dev/null | wc -l)"
 check "m10 prompt module (PROMPT_VERSION + SYSTEM_PROMPT)" "2" "$(grep -cE "^export const (PROMPT_VERSION|SYSTEM_PROMPT)" src/lib/agent/prompt.ts)"
-check "m10 route imports the prompt module (versioned prompt in use)" "1" "$(grep -c "from '@/lib/agent/prompt'" src/app/api/agent/route.ts)"
-check "m10 route stamps promptVersion (SSE start + AgentTurn rows)" "2" "$(grep -c 'promptVersion: PROMPT_VERSION' src/app/api/agent/route.ts)"
+check "m10 loop imports the prompt module (versioned prompt in use; SPEC-M30 moved the stamping to loop.ts)" "1" "$(grep -c "from './prompt'" src/lib/agent/loop.ts)"
+check "m10 loop stamps promptVersion (SSE start + AgentTurn rows; SPEC-M30 moved this from the route)" "2" "$(grep -c 'promptVersion: PROMPT_VERSION' src/lib/agent/loop.ts)"
 check "m10 AgentTurn.promptVersion column in schema" "1" "$(grep -c 'promptVersion String?' prisma/schema.prisma)"
 check "m10 routing eval script" "1" "$(ls scripts/eval_routing.mjs 2>/dev/null | wc -l)"
 check "m10 golden routing set entries (50 prompts, 16 domains)" "50" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
@@ -157,8 +157,18 @@ check "m12 e2e test cases across the suite" "14" "$(grep -ch '^  test(' tests/e2
 check "m12 global setup + teardown + one-command runner" "3" "$(ls scripts/e2e_global_setup.ts scripts/e2e_global_teardown.ts scripts/e2e.sh 2>/dev/null | wc -l)"
 check "m12 setup isolation guard (refuses non-e2e DATABASE_URL)" "1" "$(grep -c "does not point at db/e2e.db" scripts/e2e_global_setup.ts)"
 check "m12 package script test:e2e" "1" "$(grep -c '"test:e2e"' package.json)"
-check "m12 agent SSE disconnect guard (send/safeClose)" "2" "$(grep -cE 'const (send|safeClose) =' src/app/api/agent/route.ts)"
+check "m12 agent SSE disconnect guard (send/safeClose — SPEC-M30: still in the route, the loop is injected)" "2" "$(grep -cE 'const (send|safeClose) =' src/app/api/agent/route.ts)"
 check "m12 spec document" "1" "$(ls docs/CONTEXT/specs/SPEC-M12.md 2>/dev/null | wc -l)"
+check "m30 agent loop module exports (runAgentTurn + persistTurn hook)" "2" "$(grep -cE 'export (async function runAgentTurn|interface TurnAuditRow)' src/lib/agent/loop.ts)"
+check "m30 loop imports the SHARED coercion module (D-1: one pipeline, inline duplicate deleted)" "1" "$(grep -c "from './parse-with-coercion'" src/lib/agent/loop.ts)"
+check "m30 approve door imports the SHARED coercion module (D-1: both doors, identical inputs)" "1" "$(grep -c "from '@/lib/agent/parse-with-coercion'" src/app/api/agent/approve/route.ts)"
+check "m30 AgentTurn.approvalId column + index in schema (D-3 correlation)" "2" "$(grep -c 'approvalId' prisma/schema.prisma)"
+check "m30 approve door guards (approvalId required + 404 unknown + 409 already_approved + 409 plan_changed + scoped updateMany comment)" "5" "$(grep -cE 'approvalId required|Unknown approval|already_approved|plan_changed' src/app/api/agent/approve/route.ts)"
+check "m30 panel reducer wiring (TranscriptReducer + approvalId round-trip in the approve POST)" "2" "$(grep -cE 'new TranscriptReducer|approvalId: pending\.approvalId' src/components/agent/agent-panel.tsx)"
+check "m30 turn-events pure module exports (split/parse/compose + the reducer class)" "4" "$(grep -cE '^export (function|class)' src/lib/agent/turn-events.ts)"
+check "m30 agent-loop unit tests (D-1/D-2/D-3/E/clientGone/maxSteps pins)" "9" "$(grep -c '^  it(' tests/unit/agent-loop.test.ts)"
+check "m30 approval-correlation unit tests (the door matrix)" "9" "$(grep -c '^  it(' tests/unit/approval-correlation.test.ts)"
+check "m30 turn-events unit tests (SSE + segment accumulation)" "18" "$(grep -c '^  it(' tests/unit/turn-events.test.ts)"
 
 echo
 echo "[file existence — critical assets]"
@@ -486,7 +496,16 @@ for f in docs/CONTEXT/00-START-HERE.md docs/CONTEXT/01-STATE.md \
          docs/CONTEXT/specs/SPEC-M28.md \
          src/lib/erp/jump.ts \
          tests/unit/jump.test.ts \
-         docs/CONTEXT/specs/SPEC-M29.md; do
+         docs/CONTEXT/specs/SPEC-M29.md \
+         src/lib/agent/loop.ts \
+         src/lib/agent/turn-events.ts \
+         tests/unit/agent-loop.test.ts \
+         tests/unit/approval-correlation.test.ts \
+         tests/unit/turn-events.test.ts \
+         scripts/route_smoke_m30.sh \
+         scripts/m30_smoke_fixture.ts \
+         scripts/m15_smoke_fixture.ts \
+         docs/CONTEXT/specs/SPEC-M30.md; do
   if [ -f "$f" ]; then echo "  OK    $f"; PASS=$((PASS+1)); else echo "  MISSING $f"; FAIL=$((FAIL+1)); fi
 done
 

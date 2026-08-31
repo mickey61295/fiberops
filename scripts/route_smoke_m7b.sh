@@ -81,11 +81,16 @@ else
 fi
 
 echo "== M7 Wave B: approval actor e2e (accept_grn through the human door) =="
-npx tsx scripts/m7b_smoke_fixture.ts setup | grep -q "KEY=setup-ok" && ok "fixture setup (stale rows cleared)" || bad "fixture setup failed"
-out=$(curl -s -w "\n%{http_code}" --max-time 60 -b "$JAR" -X POST -H 'Content-Type: application/json' -d '{"toolName":"accept_grn","args":{"grnNo":"GRN-001","comments":"m7b smoke"}}' "$BASE/api/agent/approve")
+FIXTURE=$(npx tsx scripts/m7b_smoke_fixture.ts setup 2>/dev/null)
+echo "$FIXTURE" | grep -q "KEY=setup-ok" && ok "fixture setup (stale rows cleared + SPEC-M30 proposal turn row)" || bad "fixture setup failed: $(echo "$FIXTURE" | head -c 200)"
+APPROVAL_ID=$(echo "$FIXTURE" | grep -oE '^APPROVAL_ID=[0-9a-f-]{36}$' | cut -d= -f2)
+[ -n "$APPROVAL_ID" ] && ok "proposal row carries approvalId (SPEC-M30 D-3)" || bad "fixture returned no approvalId"
+# SPEC-M30: the approve door REQUIRES the correlation token — the panel
+# round-trips it from the proposal's stamped plan.
+out=$(curl -s -w "\n%{http_code}" --max-time 60 -b "$JAR" -X POST -H 'Content-Type: application/json' -d '{"toolName":"accept_grn","args":{"grnNo":"GRN-001","comments":"m7b smoke"},"approvalId":"'$APPROVAL_ID'"}' "$BASE/api/agent/approve")
 code="${out##*$'\n'}"; body="${out%$'\n'*}"
 if [ "$code" = "200" ] && echo "$body" | grep -q '"success":true'; then
-  ok "approve accept_grn GRN-001 -> success:true"
+  ok "approve accept_grn GRN-001 (with approvalId) -> success:true"
 else
   bad "approve accept_grn -> $code '$body'"
 fi

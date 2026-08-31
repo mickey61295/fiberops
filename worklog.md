@@ -1361,3 +1361,27 @@ Stage Summary:
 - Repo state: GREEN (1016 vitest / 560 checks / eval static PASS / tsc src 0); P0 upload-route restore done and tested.
 - Key P1 findings: approve door executes raw unvalidated args (parse-with-coercion designed for exactly this, wired into neither door; route.ts has an inline 60-line duplicate), no plan-correlation on approve (TOCTOU; plan.approvalId unused), malformed tool-call JSON kills the SSE turn, pre-tool narration overwritten in panel, react-markdown installed-but-unused, no transcript persistence, stop doesn't abort server, silent 12-step budget, PROMPT_VERSION never bumped since M10 (M19 changed it semantically).
 - BLOCKER: remote push needs the PAT re-provided (scrubbed everywhere; method at PITFALLS line 55: git remote set-url origin https://x-access-token:<PAT>@github.com/mickey61295/fiberops.git).
+
+---
+Task ID: m30-impl
+Agent: main (Super Z)
+Task: M30 — chat-loop correctness (the SPEC-QoL1 P1 batch, D-1..D-4 + the E double-push fix): finish what the environment auto-commit 548629e had half-shipped (loop.ts/turn-events.ts/approve-rewrite/schema were in; the PANEL wiring, all three test files, the smoke re-fits, context pins, and docs were not).
+
+Work Log:
+- Verified 548629e contents: server-side M30 present (loop.ts 294L, turn-events.ts 210L, approve route 139L, parse-with-coercion + normalizeArgs, AgentTurn.approvalId pushed to db) but agent-panel.tsx untouched (approve flow would 400 on the required approvalId) and zero test files — the door contract was live with no pins.
+- Panel (D-4 + E): agent-panel.tsx now imports splitSseBuffer/parseSseEvent/TranscriptReducer + the module's message/tool-call/pending types (local copies deleted); sendPrompt seeds the reducer, captures outgoingMessages BEFORE beginAssistant (no empty assistant placeholder in the request), drives applyEvent per payload, merges new pendings on top of earlier turns' cards; approve() posts {toolName, args, approvalId} and handles 409 already_approved / 409 plan_changed / 404 by removing the stale card with a specific toast (400 + network errors keep the card).
+- tests/unit/turn-events.test.ts NEW 18/18: SSE framing (CRLF, chunk boundaries, [DONE], garbage), composeText, the P1-4 segment-accumulation regression pin (narration before tool-call survives), tool lifecycle, approvalId capture, immutability, outgoingMessages.
+- tests/unit/agent-loop.test.ts NEW 9/9: D-2 malformed-JSON turn survives + error tool-result fed back; D-1 parsed args in events + audit row (limit "7" → 7); E ONE assistant message per completion; D-3 approvalId UUID stamped + persisted + execute is DRY (no party row); clientGone unwind; maxSteps; unknown tool; start version; MAX_STEPS=12. Fake client SNAPSHOTs messages (the live-reference trap, PITFALLS #43).
+- tests/unit/approval-correlation.test.ts NEW 9/9: real runAgentTurn proposal (fake LLM, real tools, REAL persist) → approve door matrix: 401 / 400 missing-id / read-only / unknown / 200 happy (party + audit + turn approved + SCOPED marking with a second pending row untouched) / 409 double / 404 unknown / 409 plan_changed nothing-committed / 400 invalid args.
+- Smokes: m7b fixture extended + smoke sends the approvalId (26/26); m15 fixture NEW + smoke re-fitted (13/13); route_smoke_m30.sh + m30_smoke_fixture.ts NEW 18/18 (401s, 400 matrix, 404, happy + audit + scoped, 409 double, 409 stale + party-absent, cleanup). Fixed the fixture stale-row bug (findFirst without orderBy desc — PITFALLS #43).
+- context_check.sh: MAX_STEPS + the two m10 prompt pins re-pointed at loop.ts; 12 NEW m30 pins (loop exports, coercion imports in both doors, approvalId column, approve guards, panel wiring, turn-events exports, 3 test counts); 8 NEW critical files. 560→579 NO DRIFT.
+- Gates: vitest 1016→1052 (+36, 56 files green) · tsc src/ 0 (71 tests/ + 25 scripts/ errors pre-existing, stash-verified) · eval_routing --static PASS · dev server RESTARTED (the stale-Prisma-client 500s, PITFALLS #42) before the smoke trio.
+- LIVE browser E2E (agent-browser): login → ⌘J panel → real GLM "Create a supplier M30 Live Verify Mills…" → transcript shows TWO segments joined \n\n ("I'll create…\n\nI've created…") — the P1-4 fix live → PLAN AWAITING APPROVAL card → Approve & Commit → card flips to ok; DB: party PRT-0006 + AgentTurn approved=true approvedBy=admin + audit agent:create; zero console errors; screenshot download/m30-live-approval.png.
+- Docs: SPEC-M30 §5 filled, STATE #36, PITFALLS #42/#43, this entry.
+
+Stage Summary:
+- M30 COMPLETE: both chat doors execute identical coerced inputs (D-1), malformed tool-args no longer kill the turn (D-2), approvals are correlated + TOCTOU-guarded + idempotent + scoped (D-3), panel narration accumulates (D-4), one assistant message per completion (E).
+- Repo GREEN: 1052 vitest / tsc src 0 / eval --static PASS / context_check 579 NO DRIFT / route_smoke m30 18 + m7b 26 + m15 13.
+- LIVE evidence kept in dev DB: party PRT-0006 (M30 Live Verify Mills) + its audit row.
+- PUSH STILL BLOCKED on the GitHub PAT (now 3 local commits: cbd7c91, cb79146, + m30 commit); method: PITFALLS line 55.
+- Next: M31 chat UX (SPEC-QoL1 D-5..D-13).

@@ -11,6 +11,18 @@ import { Textarea } from '@/components/ui/textarea'
 import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { VOICE_LANGS, DEFAULT_VOICE_LANG, VOICE_LANG_STORAGE_KEY, nextVoiceLang, getSpeechRecognition, createVoiceSession, type VoiceSession } from '@/lib/agent/voice'
+// SPEC-M30 (QoL1 D-4) — SSE parsing + transcript reduction live in the pure
+// module src/lib/agent/turn-events.ts (unit-tested like voice.ts); the panel
+// keeps only the side effects (toasts, 401 redirect, nextFormUrl navigation,
+// the promptVersion chip).
+import {
+  splitSseBuffer,
+  parseSseEvent,
+  TranscriptReducer,
+  type PanelMessage,
+  type PanelToolCall,
+  type PendingApprovals,
+} from '@/lib/agent/turn-events'
 
 interface AgentPanelProps {
   open: boolean
@@ -20,29 +32,10 @@ interface AgentPanelProps {
   seedPrompt?: string
 }
 
-interface ToolCall {
-  toolCallId: string
-  toolName: string
-  args: any
-  output?: any
-  status: 'calling' | 'result' | 'error'
-  isWrite?: boolean
-}
-
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  text: string
-  toolCalls: ToolCall[]
-}
-
-interface PendingApproval {
-  toolCallId: string
-  toolName: string
-  args: any
-  plan: any
-  messageId: string
-}
+// SPEC-M30: the message/tool-call/pending-approval shapes are the turn-events
+// module's (single source — the panel's local copies are deleted).
+type ChatMessage = PanelMessage
+type ToolCall = PanelToolCall
 
 const SUGGESTED_PROMPTS = [
   'List all open purchase orders',
@@ -59,7 +52,7 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [pendingApprovals, setPendingApprovals] = useState<Record<string, PendingApproval>>({})
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApprovals>({})
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({})
   const abortRef = useRef<AbortController | null>(null)
   const [attachedFile, setAttachedFile] = useState<string | null>(null)
@@ -160,9 +153,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       text,
       toolCalls: [],
     }
-    const assistantMsgId = `a-${Date.now()}`
+    // Optimistic user + empty-assistant pair for immediate feedback; the
+    // reducer's state replaces it on the first streamed event (same content).
     const assistantMsg: ChatMessage = {
-      id: assistantMsgId,
+      id: `a-${Date.now()}`,
       role: 'assistant',
       text: '',
       toolCalls: [],
@@ -175,16 +169,21 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     const controller = new AbortController()
     abortRef.current = controller
 
+    // SPEC-M30 (QoL1 D-4) — the transcript reducer owns text-segment
+    // accumulation (narration before a tool call SURVIVES later text), the
+    // tool-call lifecycle, and pending-approval capture including the
+    // approvalId the approve door now requires. Seeded with the messages as
+    // of this send; driven by every parsed SSE payload below.
+    const reducer = new TranscriptReducer(messages)
+    reducer.addUserMessage(text)
+    const outgoing = reducer.outgoingMessages
+    reducer.beginAssistant()
+
     try {
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.role,
-            content: m.text,
-          })),
-        }),
+        body: JSON.stringify({ messages: outgoing }),
         signal: controller.signal,
       })
 
@@ -203,99 +202,34 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
-      let currentTextBuffer = ''
 
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
-        // SSE: events separated by \n\n
-        const events = buffer.split('\n\n')
-        buffer = events.pop() || ''
+        // SSE: events separated by \n\n (CRLF-tolerant — splitSseBuffer)
+        const { events, rest } = splitSseBuffer(buffer)
+        buffer = rest
         for (const evt of events) {
-          const line = evt.trim()
-          if (!line.startsWith('data:')) continue
-          const json = line.slice(5).trim()
-          if (!json || json === '[DONE]') continue
-          let payload: any
-          try {
-            payload = JSON.parse(json)
-          } catch {
-            continue
-          }
+          const payload = parseSseEvent(evt)
+          if (!payload) continue
           switch (payload.type) {
             case 'start': {
               // SPEC-M10 C2 — stamp the active prompt version for the operator
               setPromptVersion(payload.promptVersion || null)
               break
             }
-            case 'text-delta': {
-              currentTextBuffer += payload.delta || ''
-              setMessages((prev) => {
-                const next = [...prev]
-                const idx = next.findIndex((m) => m.id === assistantMsgId)
-                if (idx >= 0) {
-                  next[idx] = { ...next[idx], text: currentTextBuffer }
-                }
-                return next
-              })
-              break
-            }
-            case 'tool-call-start': {
-              currentTextBuffer = '' // reset for next text segment
-              setMessages((prev) => {
-                const next = [...prev]
-                const idx = next.findIndex((m) => m.id === assistantMsgId)
-                if (idx >= 0) {
-                  next[idx] = {
-                    ...next[idx],
-                    toolCalls: [
-                      ...next[idx].toolCalls,
-                      {
-                        toolCallId: payload.toolCallId,
-                        toolName: payload.toolName,
-                        args: payload.args,
-                        status: 'calling',
-                        isWrite: payload.isWrite,
-                      },
-                    ],
-                  }
-                }
-                return next
-              })
-              break
-            }
+            case 'text-delta':
+            case 'tool-call-start':
             case 'tool-call-end': {
-              const { toolCallId, output, toolName, args } = payload
-              setMessages((prev) => {
-                const next = [...prev]
-                const idx = next.findIndex((m) => m.id === assistantMsgId)
-                if (idx >= 0) {
-                  const tcs = [...next[idx].toolCalls]
-                  const tcIdx = tcs.findIndex((t) => t.toolCallId === toolCallId)
-                  if (tcIdx >= 0) {
-                    tcs[tcIdx] = {
-                      ...tcs[tcIdx],
-                      output,
-                      status: output?.error ? 'error' : 'result',
-                    }
-                  }
-                  next[idx] = { ...next[idx], toolCalls: tcs }
+              const st = reducer.applyEvent(payload)
+              if (st) {
+                setMessages(st.messages)
+                // New pending approvals accumulate on top of earlier turns'
+                // still-unapproved cards (the reducer tracks this stream only).
+                if (Object.keys(st.pendingApprovals).length > 0) {
+                  setPendingApprovals((prev) => ({ ...prev, ...st.pendingApprovals }))
                 }
-                return next
-              })
-              // If write + has plan + has commit fn → pending approval
-              if (output?.isWrite && output?.plan && output?.hasCommitFn) {
-                setPendingApprovals((prev) => ({
-                  ...prev,
-                  [toolCallId]: {
-                    toolCallId,
-                    toolName,
-                    args,
-                    plan: output.plan,
-                    messageId: assistantMsgId,
-                  },
-                }))
               }
               break
             }
@@ -349,14 +283,29 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     }
   }
 
+  const removePending = (toolCallId: string) => {
+    setPendingApprovals((prev) => {
+      const next = { ...prev }
+      delete next[toolCallId]
+      return next
+    })
+  }
+
   const approve = async (toolCallId: string) => {
     const pending = pendingApprovals[toolCallId]
     if (!pending) return
     try {
+      // SPEC-M30 (QoL1 D-3) — the correlation token rides the POST: the door
+      // verifies it against the persisted AgentTurn row (unknown → 404,
+      // double-approve → 409, plan changed since proposal → 409).
       const res = await fetch('/api/agent/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toolName: pending.toolName, args: pending.args }),
+        body: JSON.stringify({
+          toolName: pending.toolName,
+          args: pending.args,
+          approvalId: pending.approvalId,
+        }),
       })
       if (res.status === 401) {
         toast.error('Session expired — redirecting to login')
@@ -364,18 +313,29 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
         return
       }
       const data = await res.json()
-      if (data.success) {
-        toast.success(`Approved: ${(pending.plan.summary || '').slice(0, 60)}…`)
-        setPendingApprovals((prev) => {
-          const next = { ...prev }
-          delete next[toolCallId]
-          return next
-        })
+      if (res.ok && data.success) {
+        toast.success(`Committed: ${(data.summary || pending.plan?.summary || '').slice(0, 60)}…`)
+        removePending(toolCallId)
         onCommitted()
+      } else if (res.status === 409 && data.error === 'already_approved') {
+        toast.info('This plan was already approved and committed.')
+        removePending(toolCallId)
+        onCommitted()
+      } else if (res.status === 409) {
+        // plan_changed — the doc numbers shifted between proposal and
+        // approval; the stale card comes down, the user asks for a fresh plan.
+        toast.error('The plan changed since you approved it — ask the agent to re-propose, then approve the fresh plan.')
+        removePending(toolCallId)
+      } else if (res.status === 404) {
+        toast.error('Approval not found — the proposing turn is gone. Ask the agent to re-propose.')
+        removePending(toolCallId)
       } else {
+        // 400 invalid args / missing approvalId — keep the card up (the plan
+        // is still valid; the agent can re-propose on the next turn).
         toast.error('Approval failed: ' + (data.error || ''))
       }
     } catch (e: any) {
+      // Network errors keep the card (retryable).
       toast.error(e.message)
     }
   }

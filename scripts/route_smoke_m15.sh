@@ -25,37 +25,23 @@ body=$(curl -s --max-time 30 -c "$JAR" -X POST -H 'Content-Type: application/jso
 echo "$body" | grep -q '"ok":true' && ok "admin login" || bad "admin login: $body"
 
 echo "== M15: commit something through the AGENT DOOR (approve a master create) =="
-SEED=$(npx tsx -e "
-(async () => {
-  const { PrismaClient } = require('@prisma/client');
-  const db = new PrismaClient();
-  const ts = Date.now();
-  const before = await db.auditLog.count();
-  console.log(JSON.stringify({ ts: String(ts), before }));
-  await db.\$disconnect();
-})()")
+# SPEC-M30: the approve door requires the correlated proposal turn — the
+# fixture inserts it exactly the way the agent loop persists a proposal
+# (dry execute → stamp approvalId → persist); the POST sends the token.
+SEED=$(npx tsx scripts/m15_smoke_fixture.ts setup 2>/dev/null)
 TS=$(echo "$SEED" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).ts)}catch{console.log('')}})")
 BEFORE=$(echo "$SEED" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).before)}catch{console.log('')}})")
-[ -n "$TS" ] && ok "baseline audit count = $BEFORE" || { bad "baseline probe failed"; echo "$SEED" | head -3; }
+APPROVAL_ID=$(echo "$SEED" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).approvalId)}catch{console.log('')}})")
+[ -n "$APPROVAL_ID" ] && ok "baseline audit count = $BEFORE (proposal turn row + approvalId ready)" || { bad "fixture setup failed"; echo "$SEED" | head -3; }
 
-# agent door: create_party via the approve endpoint (auto-approves its own pending)
+# agent door: create_party via the approve endpoint (approvalId-correlated)
 body=$(curl -s --max-time 60 -b "$JAR" -X POST -H 'Content-Type: application/json' \
-  -d '{"toolName":"create_party","args":{"name":"Smoke Audit Party '$TS'","partyType":"both","code":"SM15-P-'$TS'"}}' "$BASE/api/agent/approve")
+  -d '{"toolName":"create_party","args":{"name":"Smoke Audit Party '$TS'","partyType":"both","code":"SM15-P-'$TS'"},"approvalId":"'$APPROVAL_ID'"}' "$BASE/api/agent/approve")
 echo "$body" | grep -q '"success":true' && ok "agent-door commit succeeded" || bad "agent commit: $(echo $body | head -c 200)"
 
 # verify the audit row landed with source=agent + the docNo extracted
-AFTER=$(npx tsx -e "
-(async () => {
-  const { PrismaClient } = require('@prisma/client');
-  const db = new PrismaClient();
-  const c = await db.auditLog.count();
-  const row = await db.auditLog.findFirst({ where: { docNo: 'SM15-P-$TS' } });
-  console.log(JSON.stringify({ c, row: row ? { source: row.actorSource, actor: row.actorName, action: row.action, entity: row.entity } : null }));
-  await db.party.deleteMany({ where: { code: 'SM15-P-$TS' } }).catch(()=>{});
-  await db.auditLog.deleteMany({ where: { docNo: 'SM15-P-$TS' } }).catch(()=>{});
-  await db.\$disconnect();
-})()")
-COUNT=$(echo "$AFTER" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).c)}catch{console.log('')}})")
+AFTER=$(npx tsx scripts/m15_smoke_fixture.ts verify "$TS" 2>/dev/null)
+COUNT=$(echo "$AFTER" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).count)}catch{console.log('')}})")
 ROW=$(echo "$AFTER" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.stringify(JSON.parse(s).row))}catch{console.log('null')}})")
 echo "$ROW" | grep -q '"source":"agent"' && ok "audit row: source=agent actor=$ROW" || bad "audit row wrong: $ROW"
 [ "$COUNT" -gt "$BEFORE" ] && ok "audit count grew ($BEFORE → $COUNT)" || bad "audit count did not grow"

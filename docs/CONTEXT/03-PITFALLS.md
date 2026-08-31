@@ -493,3 +493,25 @@ fixtures in the far future (e.g. 2026-12-31) so they sort first; (2) make quanti
 `toLocaleString('en-IN')` — 99999 renders "99,999", so grep the COMMA form; (4) the sidebar
 renders only the ACTIVE group's items — assert group-local pages (orderwise label on
 /pieces/*, not /inventory).
+
+### 42 — The dev server caches the OLD Prisma client (M30)
+After `prisma db push` + `prisma generate`, a LONG-RUNNING dev server keeps the
+pre-change client in memory: the new `AgentTurn.approvalId` filter 500'd with
+"Unknown argument `approvalId`. Did you mean `approved`?" on every HTTP call,
+while vitest (fresh process per run) saw the new client and passed green —
+only the HTTP door was wrong, so the unit suite looked healthy. Rule: after
+any schema push + generate, RESTART the dev server before trusting route
+smokes (pkill "next dev" / "next-server", npm run dev, wait for /login 200).
+The generated client is fine — the stale process is the bug.
+
+### 43 — findFirst without orderBy picks the WRONG fixture row (M30)
+route_smoke_m30's stale-plan case tampered the persisted plan of the HAPPY-PATH
+leftover row (same fixture prompt, already approved) instead of the fresh
+proposal — the approve then matched the untouched fresh plan and returned 200
+where 409 plan_changed was expected. Rule: any fixture that finds "the" row by
+a shared marker MUST use `orderBy: { createdAt: 'desc' }` (latest first) — or
+better, look it up by its unique key (approvalId). Same lesson inside test
+harnesses: the fake LLM client recorded the LIVE messages array reference the
+loop keeps pushing into — every recorded "call" showed the FINAL state, not
+what the model saw at call time. Snapshot (`params.messages.map(m => ({...m}))`)
+at record time.

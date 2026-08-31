@@ -140,7 +140,53 @@ moved); NEW m30 pins (loop, turn-events, approvalId column, approve
 guards, 3 test files, SPEC-M30.md) · `route_smoke_m30` green ·
 route_smoke_m7b/m15 re-run green after their fixture updates.
 
-## 5. Shipped (filled after implementation)
+## 5. Shipped (2026-08-31)
 
-- (to record: final test counts, gate outputs, bugs found on the way,
-  honest deviations from this frozen design)
+- **Server side** (loop.ts 294L + turn-events.ts 210L extracted; approve route
+  rewritten 139L; parse-with-coercion gained normalizeArgs; schema
+  AgentTurn.approvalId + @@index, models stay 78, db pushed) landed in the
+  environment auto-commit `548629e`; this session finished the batch.
+- **Panel (§2-E)**: agent-panel.tsx now drives splitSseBuffer/parseSseEvent/
+  TranscriptReducer (the local ToolCall/ChatMessage/PendingApproval copies
+  deleted); approve() posts the approvalId; 409 already_approved /
+  409 plan_changed / 404 remove the card with specific toasts; 400 and
+  network errors keep it (retryable).
+- **Tests (+36 → 1052)**: agent-loop.test.ts 9/9 (D-2 malformed-JSON
+  survives + error tool-result; D-1 parsed-args-in-events + audit row; E
+  single-assistant-message; D-3 approvalId stamped + persisted + execute is
+  DRY; clientGone unwind; maxSteps budget; unknown-tool; PROMPT_VERSION
+  start; MAX_STEPS=12) · approval-correlation.test.ts 9/9 (401; 400
+  missing-approvalId / read-only / unknown; happy path via REAL
+  runAgentTurn proposal → approve → party committed + audit + turn approved +
+  SCOPED marking; 409 double; 404 unknown; 409 plan_changed with NOTHING
+  committed; 400 invalid args) · turn-events.test.ts 18/18 (CRLF/chunk
+  boundaries/[DONE]/garbage; the P1-4 segment-accumulation pin; tool
+  lifecycle; approvalId capture; immutability; outgoingMessages).
+- **Smokes**: m7b 26/26 + m15 13/13 re-fitted (fixtures insert the proposal
+  turn row exactly the way the loop persists it; curl sends the token; the
+  400 input guards unchanged — tool checks precede the token check).
+  NEW route_smoke_m30.sh 18/18 + scripts/m30_smoke_fixture.ts.
+- **Gates**: 1052/1052 vitest · tsc src/ 0 (the 71 tests/ + 25 scripts/
+  errors are the pre-existing P3-10 legacy, verified unchanged via stash) ·
+  eval_routing --static PASS (prompt untouched — the full-eval protocol is
+  NOT triggered; PROMPT_VERSION stays m10-2026-08-28 by design, M32 owns the
+  bump) · context_check 579/579 NO DRIFT (3 pins re-pointed at loop.ts:
+  MAX_STEPS, m10 prompt import, m10 promptVersion stamps; 12 NEW m30 pins;
+  8 NEW critical files) · LIVE browser E2E (real GLM: two-segment narration
+  survives the tool call; Approve → PRT-0006 + audit agent:create + turn
+  approved; zero console errors; download/m30-live-approval.png).
+- **Bugs found on the way (PITFALLS #42/#43)**: (1) the long-running dev
+  server keeps the OLD Prisma client in memory — after db push + generate
+  it 500s with "Unknown argument approvalId" until restarted (unit tests
+  see the new client, so only the HTTP door is wrong); (2) a fixture
+  findFirst without `orderBy: {createdAt: 'desc'}` tampered the happy-path
+  leftover row instead of the fresh proposal (route_smoke_m30 stale case
+  initially returned 200 instead of 409) — and the panel test harness
+  learned the same lesson (the fake LLM client must SNAPSHOT messages, the
+  loop mutates the same array reference).
+- **Honest deviations from the frozen design**: none in scope; §2-D's
+  "pending-approval capture" turned out to need panel-side accumulation
+  (the reducer tracks per-stream pendings only, `setPendingApprovals(prev
+  => ({...prev, ...st.pendingApprovals}))`) because earlier turns'
+  un-approved cards must survive a new send — the spec's reducer sketch
+  did not specify cross-turn seeding.
