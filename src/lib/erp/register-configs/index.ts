@@ -35,6 +35,7 @@ import {
 import { closingStockConfig } from './closing-stock'
 import { auditLogConfig } from './audit-log'
 import { attendanceConfig } from './attendance'
+import { despatchRegisterConfig } from './despatch-register' // SPEC-M41 PRC-05
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -73,6 +74,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   closingStockConfig, // SPEC-M19 §4 Wave D
   auditLogConfig, // SPEC-M9 §9 M15 — admin audit viewer
   attendanceConfig, // SPEC-M20 (Gap D) — attendance day-book
+  despatchRegisterConfig, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

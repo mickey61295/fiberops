@@ -102,7 +102,7 @@ describe('approval actor on commits (SPEC-M7 Wave B)', () => {
   })
 
   it('the tool registry still exposes every tool with the widened execute signature', () => {
-    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
     for (const t of allTools) {
       expect(typeof t.execute).toBe('function')
     }

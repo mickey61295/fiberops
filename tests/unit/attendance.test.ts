@@ -167,6 +167,6 @@ describe('SPEC-M20 §4 — agent tools', () => {
   })
 
   it('registry grew 222 → 226 (the two M20 tools)', () => {
-    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
   })
 })

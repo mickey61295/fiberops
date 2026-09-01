@@ -467,6 +467,12 @@ export async function fetchPcsDespatchPrint(idOrNo: string): Promise<PrintDoc | 
       ['Order', orderNo],
       ['Vehicle', dc.vehicleNo ?? '—'],
       ['Courier', dc.courierName ?? '—'],
+      // SPEC-M41 PRC-08 — logistics block (blank-safe: legacy rows show '—').
+      ['LR / AWB', dc.lrNo ?? '—'],
+      ['Transporter', dc.transporter ?? '—'],
+      ['Freight', dc.freight != null ? inr(dc.freight) : '—'],
+      ['Cartons', dc.cartons != null ? String(dc.cartons) : '—'],
+      ['Gross Wt (kg)', dc.grossWeightKg != null ? String(dc.grossWeightKg) : '—'],
       ['Status', cap(dc.status)],
       ['Fin Year', dc.finYear],
     ],

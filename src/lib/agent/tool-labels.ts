@@ -52,6 +52,12 @@ const LABELS: Record<string, string> = {
   // SPEC-M40 (Batch 4, PAY) — the supplier-bill + reversal doors
   create_supplier_bill: 'Create supplier bill',
   create_bill_pass: 'Pass supplier bill',
+  // SPEC-M41 (Phase-6B Batch 5, PRC)
+  update_purchase_order: 'Amend purchase order',
+  create_purchase_return: 'Purchase return',
+  list_purchase_returns: 'List purchase returns',
+  deliver_dc: 'DC delivery',
+  clear_gate_entry: 'Clear gate entry',
   cancel_payment: 'Reverse payment',
   cancel_journal: 'Reverse journal',
   cancel_debit_note: 'Cancel debit note',

@@ -195,3 +195,205 @@ export async function planOrderAmend(args: OrderAmendInput): Promise<DocPlanResu
     },
   }
 }
+
+// ───────────── SPEC-M41 (Phase-6B Batch 5, PRC-02/05/07) ─────────────
+
+export interface PoAmendInput {
+  poNo: string
+  deliveryDate?: string
+  status?: string
+  notes?: string
+  lines?: Array<{ itemType: 'yarn' | 'fabric' | 'accessory'; itemCode: string; qty?: number; rate?: number }>
+}
+
+/** PRC-02 — PO amendment (the planOrderAmend precedent, with line revisions):
+ *  deliveryDate / status / notes / per-line qty+rate patches. totalQty and
+ *  totalValue recompute from the amended lines; the trail appends to notes;
+ *  a qty reduction below the already-received qty is refused (the receipt
+ *  is a fact — cancel the PO or return via PRN instead); cancelled /
+ *  completed POs refuse (their doors are the lifecycle/cancel services). */
+export async function planPoAmend(args: PoAmendInput): Promise<DocPlanResult> {
+  const po = await db.purchaseOrder.findUnique({ where: { poNo: args.poNo }, include: { lines: true } })
+  if (!po) return { ok: false, error: `PO ${args.poNo} not found` }
+  if (po.status === 'cancelled') return { ok: false, error: `PO ${args.poNo} is cancelled — amend the replacement PO instead` }
+  if (po.status === 'completed') return { ok: false, error: `PO ${po.poNo} is completed — history is frozen (receive-then-return via PRN- if goods are wrong)` }
+
+  const patch: any = {}
+  if (args.deliveryDate) patch.deliveryDate = new Date(args.deliveryDate)
+  if (args.status) {
+    if (args.status === 'cancelled' || args.status === 'completed') {
+      return { ok: false, error: `status '${args.status}' is a lifecycle transition, not an amendment — use complete_purchase_order / the PO cancel door` }
+    }
+    patch.status = args.status
+  }
+  const notesTrail: string[] = []
+  if (args.notes) notesTrail.push(args.notes)
+
+  // Line revisions — matched by itemType+itemId (the input's itemCode is
+  // resolved through the item models first — POLine has NO itemCode column,
+  // PITFALLS #21 convention; PRC-01 addressing).
+  const ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory' }
+  const poCodeByLine = new Map<string, string>()
+  for (const p of po.lines) {
+    const model = ITEM_MODELS[p.itemType]
+    const item = model ? await (db as any)[model].findUnique({ where: { id: p.itemId } }).catch(() => null) : null
+    if (item) poCodeByLine.set(p.id, item.code ?? p.itemId)
+  }
+  const linePatches: Array<{ poLine: any; data: any }> = []
+  const lineUpdates: Array<{ table: string; id: string; data: any }> = []
+  if (args.lines && args.lines.length > 0) {
+    const seen = new Set<string>()
+    for (const l of args.lines) {
+      const key = `${l.itemType}:${l.itemCode}`
+      if (seen.has(key)) return { ok: false, error: `Duplicate amendment line ${l.itemType} ${l.itemCode} — combine into one revision` }
+      seen.add(key)
+      const model = ITEM_MODELS[l.itemType]
+      const item = model ? await (db as any)[model].findUnique({ where: { code: l.itemCode } }) : null
+      if (!item) return { ok: false, error: `${l.itemType} ${l.itemCode} not found` }
+      const poLine = po.lines.find((p) => p.itemType === l.itemType && p.itemId === item.id)
+      if (!poLine) {
+        const lineList = po.lines.map((p) => `${p.itemType}/${poCodeByLine.get(p.id) ?? p.itemId}`).join(', ')
+        return { ok: false, error: `PO ${po.poNo} has no ${l.itemType} line for ${l.itemCode} (its lines: ${lineList || 'none'})` }
+      }
+      const data: any = {}
+      if (l.qty != null) {
+        if (l.qty <= 0) return { ok: false, error: `Line ${l.itemCode}: amended qty must be positive` }
+        if (l.qty < poLine.receivedQty - 1e-9) {
+          return { ok: false, error: `Line ${l.itemCode}: amended qty ${l.qty} is below the already-received ${poLine.receivedQty} — receive-then-return via PRN- instead of amending below reality` }
+        }
+        data.qty = l.qty
+        data.amount = l.qty * (l.rate ?? poLine.rate)
+      }
+      if (l.rate != null) {
+        if (l.rate < 0) return { ok: false, error: `Line ${l.itemCode}: amended rate cannot be negative` }
+        data.rate = l.rate
+        if (l.qty == null) data.amount = poLine.qty * l.rate
+        else data.amount = l.qty * l.rate
+      }
+      if (Object.keys(data).length === 0) return { ok: false, error: `Line ${l.itemCode}: nothing to amend — pass qty and/or rate` }
+      notesTrail.push(`amended ${l.itemType}/${l.itemCode}: ${[l.qty != null ? `qty ${poLine.qty} → ${l.qty}` : null, l.rate != null ? `rate ${poLine.rate} → ${l.rate}` : null].filter(Boolean).join(', ')}`)
+      linePatches.push({ poLine, data })
+      lineUpdates.push({ table: 'poLine', id: poLine.id, data })
+    }
+  }
+
+  // Recompute totals over amended lines (only when lines actually moved — a
+  // header-only amendment leaves totals untouched).
+  if (lineUpdates.length > 0) {
+    const amendedLines = po.lines.map((p) => {
+      const patchLine = linePatches.find((lp) => lp.poLine.id === p.id)
+      return patchLine ? { ...p, ...patchLine.data } : p
+    })
+    const newTotalQty = amendedLines.reduce((s, l) => s + l.qty, 0)
+    const newTotalValue = amendedLines.reduce((s, l) => s + l.qty * l.rate, 0)
+    patch.totalQty = newTotalQty
+    patch.totalValue = newTotalValue
+  }
+  if (notesTrail.length > 0) {
+    const stamp = new Date().toISOString().slice(0, 10)
+    patch.notes = `${po.notes ? po.notes + ' | ' : ''}[amended ${stamp}] ${notesTrail.join('; ')}`
+  }
+  if (Object.keys(patch).length === 0 && lineUpdates.length === 0) {
+    return { ok: false, error: 'Nothing to amend — provide deliveryDate, status, notes or lines[]' }
+  }
+  const newTotalsQty = patch.totalQty ?? po.totalQty
+  const newTotalsValue = patch.totalValue ?? po.totalValue
+
+  return {
+    ok: true,
+    text: `Proposed amendment to PO ${po.poNo}${lineUpdates.length > 0 ? ` (${lineUpdates.length} line revision${lineUpdates.length > 1 ? 's' : ''})` : ''} — totals ${newTotalsQty} units / ₹${newTotalsValue}.`,
+    summary: `Amend PO ${po.poNo} | fields: ${[args.deliveryDate ? 'deliveryDate' : null, args.status ? 'status' : null, args.notes ? 'notes' : null, lineUpdates.length > 0 ? `lines ×${lineUpdates.length}` : null].filter(Boolean).join(', ')} | totals ${newTotalsQty} / ₹${newTotalsValue}`,
+    updates: [
+      { table: 'purchaseOrder', id: po.id, data: patch },
+      ...lineUpdates,
+    ],
+    sideEffects: [
+      'PO master updated (history = the appended [amended …] notes trail + runCommit audit row)',
+      `${newTotalsQty} units / ₹${newTotalsValue} become the new PO truth`,
+      'Already-received quantities are immutable (qty amendments refuse to go below them)',
+    ],
+    async commit() {
+      await db.$transaction(async (tx) => {
+        const { lines: _lines, ...headerPatch } = patch
+        await tx.purchaseOrder.update({ where: { id: po.id }, data: headerPatch })
+        for (const lu of lineUpdates) {
+          await (tx as any).pOLine.update({ where: { id: lu.id }, data: lu.data })
+        }
+      })
+      return { id: po.id, poNo: po.poNo, linesAmended: lineUpdates.length }
+    },
+  }
+}
+
+export interface DcTransitionInput {
+  dcNo: string
+  to: 'despatched' | 'delivered'
+  date?: string
+  notes?: string
+}
+
+/** PRC-05 — the DC/LAD lifecycle door (ADR-001: one service, both doors):
+ *  - `to: 'despatched'` = the LAD CONVERSION (loading → actually shipped;
+ *    the LAD- number stays as the permanent document identity — the ledger
+ *    docNo/docKey chain is untouchable, OPS-05);
+ *  - `to: 'delivered'` = the buyer-side terminal state (stamps deliveredAt).
+ *  Guards: delivered is terminal; already-at-target refuses; cancelled
+ *  refuses. Document-only — the stock left at despatch time already. */
+export async function planDcTransition(args: DcTransitionInput): Promise<DocPlanResult> {
+  const dc = await db.pcsDespatch.findUnique({ where: { dcNo: args.dcNo } })
+  if (!dc) return { ok: false, error: `DC ${args.dcNo} not found — despatch day-book at /dispatch/register` }
+  const at = args.date ? new Date(args.date) : new Date()
+  const patch: any = { status: args.to }
+  if (args.to === 'delivered') patch.deliveredAt = at
+  if (dc.status === args.to) {
+    return { ok: false, error: `DC ${args.dcNo} is already ${args.to}${args.to === 'delivered' ? ` (deliveredAt ${dc.deliveredAt ? new Date(dc.deliveredAt).toISOString().slice(0, 10) : '—'})` : ''}` }
+  }
+  if (dc.status === 'delivered') {
+    return { ok: false, error: `DC ${args.dcNo} is delivered — the terminal state (no transitions back; cancel/reverse doors do not exist for delivered goods)` }
+  }
+  if (dc.status === 'draft') {
+    return { ok: false, error: `DC ${args.dcNo} is still a draft — commit it first (the despatch door)` }
+  }
+  const label = args.to === 'despatched' ? 'CONVERT (loading challan → live despatch)' : 'DELIVER'
+  return {
+    ok: true,
+    text: `Proposed ${label} for DC ${args.dcNo} (${dc.status} → ${args.to}).`,
+    summary: `${label} DC ${args.dcNo} | ${dc.status} → ${args.to}${args.to === 'delivered' ? ` | deliveredAt ${at.toISOString().slice(0, 10)}` : ''} | ${dc.totalPcs} pcs`,
+    updates: [{ table: 'pcsDespatch', id: dc.id, data: patch }],
+    sideEffects: [
+      args.to === 'despatched'
+        ? 'The loading challan becomes a live despatch (the LAD- number stays — permanent document identity, ledger docNo intact)'
+        : `Buyer-side delivery recorded (deliveredAt ${at.toISOString().slice(0, 10)}) — the despatch aging stops`,
+      'No stock effect — goods left stock at despatch commit time',
+    ],
+    async commit() {
+      await db.pcsDespatch.update({ where: { id: dc.id }, data: patch })
+      return { id: dc.id, dcNo: dc.dcNo, status: args.to, ...(args.to === 'delivered' ? { deliveredAt: at } : {}) }
+    },
+  }
+}
+
+export interface GateClearInput {
+  entryNo: string
+  notes?: string
+}
+
+/** PRC-07 — the gate clear door: logged → cleared (the vehicle left / the
+ *  entry settled). Clearing again refuses; a cleared row never re-logs (the
+ *  gate log is append-only by discipline). */
+export async function planClearGateEntry(args: GateClearInput): Promise<DocPlanResult> {
+  const ge = await db.gateEntry.findUnique({ where: { entryNo: args.entryNo } })
+  if (!ge) return { ok: false, error: `Gate ${args.entryNo} not found` }
+  if (ge.status === 'cleared') return { ok: false, error: `Gate ${args.entryNo} is already cleared — the log is append-only (log a fresh entry for a new movement)` }
+  return {
+    ok: true,
+    text: `Proposed CLEAR of gate ${args.entryNo} (${ge.gateType.toUpperCase()}${ge.refDocNo ? `, ref ${ge.refDocNo}` : ''}).`,
+    summary: `Clear gate ${args.entryNo} | ${ge.gateType.toUpperCase()} | ref ${ge.refDocNo || '—'} | vehicle ${ge.vehicleNo || '—'}`,
+    updates: [{ table: 'gateEntry', id: ge.id, data: { status: 'cleared' } }],
+    sideEffects: ['Gate log row flips logged → cleared (the log itself is append-only)'],
+    async commit() {
+      await db.gateEntry.update({ where: { id: ge.id }, data: { status: 'cleared' } })
+      return { id: ge.id, entryNo: ge.entryNo, status: 'cleared' }
+    },
+  }
+}

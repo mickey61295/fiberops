@@ -354,9 +354,9 @@ describe('CHAT-11 — prompt formatting contract', () => {
     expect(SYSTEM_PROMPT).toContain('[CONTEXT] line')
   })
 
-  it('PROMPT_VERSION is bumped (m40 — the money loop rewrite)', () => {
+  it('PROMPT_VERSION is bumped (m41 — the procurement/dispatch rewrite)', () => {
     // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
-    expect(PROMPT_VERSION).toBe('m40-2026-09-01')
+    expect(PROMPT_VERSION).toBe('m41-2026-09-01')
   })
 })
 
@@ -405,7 +405,7 @@ describe('CHAT-12 — chat polish sweep', () => {
   })
 
   it('tool count is 232 (230 at M38 + M39 JWL: bill_jobwork + list_jobworker_statement)', () => {
-    expect(allTools.length).toBe(238)
+    expect(allTools.length).toBe(243)
     const names = allTools.map((t) => t.name)
     expect(names).toContain('bill_jobwork')
     expect(names).toContain('list_jobworker_statement')

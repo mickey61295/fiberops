@@ -5,6 +5,7 @@
  * the report layer, zero new queries) and deep-linked to its report.
  */
 import Link from 'next/link'
+import { db } from '@/lib/db'
 import { AlertCircle, ArrowDownRight, ArrowUpRight, BarChart3, Boxes, ClipboardCheck, IndianRupee, Package, TrendingUp } from 'lucide-react'
 import { REPORT_SERVICES } from '@/lib/erp/reports'
 import { getUpcomingHolidays } from '@/lib/erp/holidays' // SPEC-M28 — the shutdown strip
@@ -58,6 +59,23 @@ export default async function MisDashboardPage() {
 
   // SPEC-M28 §7-H — upcoming shutdowns (Pongal/Deepavali planning reflex)
   const holidays = await getUpcomingHolidays({ days: 45 })
+
+  // SPEC-M41 PRC-07 — DCs without a gate pass (the recon card): despatched/
+  // loading DCs with NO OUT-side gate row referencing them. Silent when clean
+  // (the M28 discipline).
+  const recentDcs = await db.pcsDespatch.findMany({
+    where: { status: { in: ['loading', 'despatched'] } },
+    orderBy: { despatchDate: 'desc' },
+    take: 200,
+    select: { dcNo: true, totalPcs: true, despatchDate: true, status: true },
+  })
+  const gateRefs = recentDcs.length
+    ? new Set((await db.gateEntry.findMany({
+        where: { gateType: 'out', refDocNo: { in: recentDcs.map((d) => d.dcNo) } },
+        select: { refDocNo: true },
+      })).map((g) => g.refDocNo).filter(Boolean) as string[])
+    : new Set<string>()
+  const dcsWithoutGate = recentDcs.filter((d) => !gateRefs.has(d.dcNo))
 
   const stockValue = Number(currentStock.totals?.find((t) => t.label === 'Value')?.value ?? 0)
   const ar = Number(outstanding.totals?.find((t) => t.label === 'AR Outstanding')?.value ?? 0)
@@ -120,6 +138,27 @@ export default async function MisDashboardPage() {
                 </span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SPEC-M41 PRC-07 — DCs without a gate pass (recon; silent when clean) */}
+      {dcsWithoutGate.length > 0 && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-4" data-testid="dc-gate-recon">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-rose-900">DCs without a gate pass</div>
+            <Link href="/dispatch/register" className="text-xs text-rose-700 hover:underline">despatch register →</Link>
+          </div>
+          <div className="mt-2 space-y-1">
+            {dcsWithoutGate.slice(0, 6).map((d) => (
+              <div key={d.dcNo} className="flex items-center justify-between text-xs text-rose-900">
+                <span className="font-mono font-medium">{d.dcNo}</span>
+                <span className="text-rose-600">{d.totalPcs} pcs · {d.status} · {new Date(d.despatchDate).toISOString().slice(0, 10)}</span>
+              </div>
+            ))}
+            {dcsWithoutGate.length > 6 && (
+              <div className="text-[11px] text-rose-500">… and {dcsWithoutGate.length - 6} more</div>
+            )}
           </div>
         </div>
       )}

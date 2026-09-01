@@ -385,6 +385,9 @@ model GRNLine {
   rate     Float
   uomId    String?
   amount   Float
+  // SPEC-M41 PRC-03 — cumulative qty rejected/returned to the supplier on
+  // this line (PRN- rows increment it; supplier-pending reads bills, not this).
+  rejectedQty Float @default(0)
 }
 
 // ============== INVENTORY ==============
@@ -561,7 +564,15 @@ model PcsDespatch {
   totalPcs     Int               @default(0)
   vehicleNo    String?
   courierName  String?
-  status       String            @default("draft") // draft | despatched | delivered
+  status       String            @default("draft") // draft | despatched | delivered (+ loading for LAD- challans — PRC-05)
+  // SPEC-M41 PRC-05 — the delivery stamp (planDcTransition delivered).
+  deliveredAt  DateTime?
+  // SPEC-M41 PRC-08 — logistics fields (legacy FrmPcsDespatch Lorry/AWB block).
+  lrNo         String? // LR / AWB / docket number
+  transporter  String? // transport company / driver
+  freight      Float? // freight ₹
+  cartons      Int? // carton count
+  grossWeightKg Float? // gross weight (kg)
   createdAt    DateTime          @default(now())
   lines        PcsDespatchLine[]
   @@index([createdAt])

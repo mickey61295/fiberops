@@ -507,3 +507,18 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
     `int(time.time() * 1000)` for every DateTime column. Column names in raw SQL are
     the camelCase Prisma field names (partyId, grnId), never snake_case. Diagnose by
     tailing dev.log — the browser shows only the digest.
+
+44. **POLine/GRNLine store itemType+itemId ONLY — no itemCode column** (M41, PRC
+    batch): every user-facing line addressing (multi-line GRN receipts, PO
+    amendment revisions, purchase returns) speaks itemCode, but the line tables
+    only carry the itemId FK. The THREErd guise of the PITFALLS #21 id-map
+    reflex: resolve the input itemCode through the item models
+    (yarn/fabric/accessory by code → id), match lines by (itemType, itemId),
+    and map ids BACK to codes for honest error text ("its lines: yarn/Y-0001,
+    fabric/F-0002" — not cuids). Same trap in read paths: the despatch
+    register's `include: { order: ... }` throws "Unknown argument `order`" —
+    PcsDespatch.orderId/buyerId are PLAIN FK cols; resolve via id-map queries
+    and id-scoped search (find orders by orderNo contains → orderId in ids).
+    Companion: doc-config select options are `{ value, label }` OBJECTS —
+    bare string arrays fail the TYPES contract test ('boolean' is also not a
+    known type; use select with options).

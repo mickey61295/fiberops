@@ -123,12 +123,15 @@ describe('HFX Batch 0 — correctness one-liners', () => {
     await db.party.deleteMany({ where: { id: partyId } })
   })
 
-  // ---- HFX-01: GRN guard ----
-  it('HFX-01: planGrn refuses a multi-line PO (names the limitation) and a cancelled PO (quotes the status)', async () => {
+  // ---- HFX-01: GRN guard (AMENDED at M41/PRC-01 — the multi-line refusal
+  // is RETIRED: multi-line POs are now receivable via lines[]; the header-qty
+  // path refuses with the WHICH-LINE guidance; the terminal-status guard
+  // (HFX-01b) stays verbatim) ----
+  it('HFX-01 (M41): a header qty on a multi-line PO names the ambiguity; a cancelled PO quotes the status', async () => {
     const multi = await planGrn({ poNo: PO_MULTI, godownCode: GODOWN, receivedQty: 5 })
     expect(multi.ok).toBe(false)
     expect(multi.error).toContain('2 lines')
-    expect(multi.error).toContain('PRC-01')
+    expect(multi.error).toContain('pass lines[]')
 
     const dead = await planGrn({ poNo: PO_CANCEL, godownCode: GODOWN, receivedQty: 5 })
     expect(dead.ok).toBe(false)

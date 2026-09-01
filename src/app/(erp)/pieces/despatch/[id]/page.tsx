@@ -11,6 +11,7 @@ import { CHAIN_ORDER_INCLUDE, computeChainState } from '@/lib/erp/chain'
 import { DocScreen } from '@/components/archetypes/doc-screen'
 import { DocBreadcrumb } from '@/components/erp/recent-docs'
 import { DocPrintLink } from '@/components/erp/doc-print-button' // SPEC-M8 §5 (Wave B)
+import { DcLifecycleActions } from '@/components/erp/dc-lifecycle-actions' // SPEC-M41 PRC-05
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,13 @@ export default async function PcsDespatchViewPage({ params }: { params: Promise<
     despatchDate: d(dc.despatchDate),
     vehicleNo: dc.vehicleNo ?? '',
     courierName: dc.courierName ?? '',
+    lrNo: dc.lrNo ?? '',
+    transporter: dc.transporter ?? '',
+    freight: dc.freight ?? '',
+    cartons: dc.cartons ?? '',
+    grossWeightKg: dc.grossWeightKg ?? '',
+    status: dc.status,
+    deliveredAt: dc.deliveredAt ? d(dc.deliveredAt) : '',
     lines: dc.lines.map((l) => ({
       styleNo: l.styleNo,
       colourName: l.colourId ? colourMap.get(l.colourId) ?? '' : '',
@@ -53,7 +61,12 @@ export default async function PcsDespatchViewPage({ params }: { params: Promise<
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <DocBreadcrumb href="/pieces/despatch" label="Despatch DCs" title={dc.dcNo} />
-        <DocPrintLink docType="pcs-despatch" id={dc.dcNo} />
+        <div className="flex items-center gap-2">
+          {/* SPEC-M41 PRC-05 — LAD conversion + delivery (same planDcTransition
+              service as the deliver_dc tool; hidden at terminal states) */}
+          <DcLifecycleActions dcNo={dc.dcNo} status={dc.status} />
+          <DocPrintLink docType="pcs-despatch" id={dc.dcNo} />
+        </div>
       </div>
       <DocScreen
         config={toScreenConfig(despatchConfig)}

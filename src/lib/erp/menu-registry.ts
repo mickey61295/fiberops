@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41'
 
 export interface MenuGroup {
   id: string
@@ -227,6 +227,10 @@ export const LIVE_ROUTES = new Set<string>([
   '/hr/attendance', // Attendance (M20) — attendance (day-book; posted via post_attendance agent tool)
   // M21 (gap-audit P3) — waste receipt
   '/inventory/waste-receipt', // Waste Receipt (M21) — waste-receipt (WST-#### stock-adj variant, FrmWasteReceiptEntry)
+  // SPEC-M41 (Phase-6B Batch 5, PRC) — procurement & dispatch closure
+  '/dispatch/register', // Despatch Register (M41 PRC-05) — despatch-register (RG day-book + aging + gate-pass join)
+  '/procurement/po/amendments', // PO Amendments (M41 PRC-02) — po-amendments (planPoAmend form door)
+  '/procurement/purchase-return', // Purchase Return (M41 PRC-03) — purchase-return (PRN-#### doc screen)
 ])
 
 // ---------------------------------------------------------------------------
@@ -930,6 +934,14 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['create_loading_challan'], pendingTools: [],
     notes: 'Variant of despatch mode=loading (SPEC-M6 §7-B-4) — LAD-#### space, status starts loading',
   },
+  {
+    id: 'despatch-register', label: 'Despatch Register', groupId: 'dispatch', route: '/dispatch/register', arch: 'RG', phase: 'M41',
+    description: 'Despatch day-book — DC & LAD rows with aging and the gate-pass join.',
+    legacyForms: [], // the legacy despatch registers were reports; this is the app's day-book
+    agentTools: ['list_despatches'], pendingTools: [],
+    agentPrompt: 'Show me the despatch register with aging',
+    notes: 'SPEC-M41 PRC-05/07 — aging anchored at deliveredAt ?? despatchDate; gate-pass join surfaces DCs without a GP-',
+  },
 
   // ---- accounts (12) ----
   {
@@ -1111,6 +1123,22 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['list_attendance'], pendingTools: ['post_attendance'],
     agentPrompt: 'Show me today\u2019s attendance',
     notes: 'SPEC-M20 Gap D closure — the HR view\u2019s Post-Attendance-via-Agent button has its backing tool; register default window = today',
+  },
+  {
+    id: 'po-amendments', label: 'PO Amendments', groupId: 'procurement', route: '/procurement/po/amendments', arch: 'DS', phase: 'M41',
+    description: 'Amend a purchase order — delivery date, status, notes, per-line qty/rate revisions with a trail.',
+    legacyForms: [], // the legacy app had NO PO amendment (the PRC-02 gap)
+    agentTools: ['update_purchase_order'], pendingTools: [],
+    agentPrompt: 'Amend PO-Y-001 delivery date to month end',
+    notes: 'SPEC-M41 PRC-02 — the planOrderAmend twin for POs; qty below already-received refuses',
+  },
+  {
+    id: 'purchase-return', label: 'Purchase Return', groupId: 'procurement', route: '/procurement/purchase-return', arch: 'DS', phase: 'M41',
+    description: 'Return rejected goods to a supplier against a GRN (PRN-####), optionally raising a debit note.',
+    legacyForms: ['frmGRNEntryAcc_Ret_Multi'], // the real GRN-return form
+    agentTools: ['create_purchase_return'], pendingTools: [],
+    agentPrompt: 'Return 5 kgs of yarn from GRN-0001 to the supplier',
+    notes: 'SPEC-M41 PRC-03 — supplier-pending unaffected (bills rule); rejectedQty guards per line',
   },
 
   // ---- quality (5) ----

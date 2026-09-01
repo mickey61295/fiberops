@@ -22,6 +22,12 @@ export const despatchConfig: DocConfig = {
     { name: 'despatchDate', label: 'Despatch Date', type: 'date', colSpan: 1 },
     { name: 'vehicleNo', label: 'Vehicle No', type: 'text', colSpan: 1 },
     { name: 'courierName', label: 'Courier', type: 'text', colSpan: 1 },
+    // SPEC-M41 PRC-08 — logistics block (legacy FrmPcsDespatch Lorry/AWB row).
+    { name: 'lrNo', label: 'LR / AWB No', type: 'text', colSpan: 1 },
+    { name: 'transporter', label: 'Transporter', type: 'text', colSpan: 1 },
+    { name: 'freight', label: 'Freight (₹)', type: 'number', colSpan: 1 },
+    { name: 'cartons', label: 'Cartons', type: 'number', colSpan: 1 },
+    { name: 'grossWeightKg', label: 'Gross Weight (kg)', type: 'number', colSpan: 1 },
   ],
   lineFields: [
     // service stores styleNo as a plain string (no FK) — picker emits styleNo

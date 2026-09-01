@@ -24,6 +24,13 @@ export const DESPATCH_SCHEMA = z.object({
   // required, vehicle optional) and 'loading' (LAD-#### docNo space, status
   // starts 'loading' instead of 'despatched'; ledger identical).
   mode: z.enum(['despatch', 'courier', 'loading']).optional().describe('despatch (default) | courier | loading challan'),
+  // SPEC-M41 PRC-08 — logistics fields (legacy FrmPcsDespatch Lorry/AWB
+  // block). All optional; print shows '—' when absent.
+  lrNo: z.string().optional().describe('LR / AWB / docket number'),
+  transporter: z.string().optional().describe('Transport company / driver'),
+  freight: z.number().optional().describe('Freight ₹'),
+  cartons: z.number().int().optional().describe('Carton count'),
+  grossWeightKg: z.number().optional().describe('Gross weight (kg)'),
 })
 
 export type DespatchInput = z.infer<typeof DESPATCH_SCHEMA>

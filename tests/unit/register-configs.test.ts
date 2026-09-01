@@ -54,12 +54,13 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'supplier-history': '/procurement/supplier-history',
   'closing-stock': '/inventory/closing-stock',
   'audit-log': '/admin/audit',
+  'despatch-register': '/dispatch/register', // SPEC-M41 PRC-05
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement: exactly the 36 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement: exactly the 37 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
-      'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out',
+      'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out', 'despatch-register',
       'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register', 'jobworker-statement',
       'line-issue-register', 'lot-tracking', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
@@ -254,7 +255,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement // 189 + M19-C ×33
+    expect(allTools.length).toBe(243) // M41 PRC: +update_purchase_order +create_purchase_return +deliver_dc +clear_gate_entry +list_purchase_returnsjobworker_statement // 189 + M19-C ×33
   })
 })
 

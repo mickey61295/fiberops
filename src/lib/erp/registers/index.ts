@@ -37,6 +37,7 @@ import { querySupplierHistory } from './supplier-history'
 import { queryClosingStock } from './closing-stock'
 import { queryAuditLog } from './audit-log'
 import { queryAttendance } from './attendance'
+import { queryDespatchRegister } from './despatch' // SPEC-M41 PRC-05
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -75,6 +76,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'closing-stock': queryClosingStock, // SPEC-M19 §4 Wave D
   'audit-log': queryAuditLog, // SPEC-M9 §9 M15 — admin audit viewer
   'attendance': queryAttendance, // SPEC-M20 (Gap D) — attendance day-book
+  'despatch-register': queryDespatchRegister, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

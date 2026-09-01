@@ -49,6 +49,10 @@ export const FLAG_DEFS: FlagDef[] = [
   { name: 'doublebillpassreqd', value: 'false', valueType: 'boolean', category: 'commercial', description: 'Second pass required before a bill becomes payable' },
   { name: 'gstenable', value: 'true', valueType: 'boolean', category: 'commercial', description: 'GST fields enabled on invoices' },
   { name: 'need_rate_conf_for_dc', value: 'false', valueType: 'boolean', category: 'commercial', description: 'Block DC without an approved rate confirmation' },
+  // SPEC-M41 PRC-04 — the PO approval gate: when on, planGrn REFUSES receipts
+  // against a PO whose Approval row (entity 'po') is not approved. Default
+  // false = legacy behavior (post regardless) preserved.
+  { name: 'po_appr', value: 'false', valueType: 'boolean', category: 'commercial', description: 'GRN requires an APPROVED purchase order (reads the po Approval row before receiving)' },
   { name: 'tds_default_percent', value: '2', valueType: 'number', category: 'commercial', description: 'Default TDS % on bill pass (194C contract/jobwork)' },
   // — Company config (legacy globalcompanyid stand-in) —
   { name: 'coy_state', value: '33', valueType: 'string', category: 'company', description: 'Company GST state code (33 = Tamil Nadu) — drives CGST/SGST vs IGST split' },

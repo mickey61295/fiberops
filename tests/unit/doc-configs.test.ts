@@ -37,6 +37,7 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'invoice',
       'debit-note',
       'supplier-bill', // SPEC-M40 PAY-03
+      'purchase-return', // SPEC-M41 PRC-03
       'payment',
       'journal',
       'cost-sheet',

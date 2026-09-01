@@ -15,6 +15,7 @@ import { despatchConfig } from './despatch'
 import { invoiceConfig } from './invoice'
 import { debitNoteConfig } from './debit-note'
 import { supplierBillConfig } from './supplier-bill' // SPEC-M40 PAY-03
+import { purchaseReturnConfig } from './purchase-return' // SPEC-M41 PRC-03
 import { paymentConfig } from './payment'
 import { journalConfig } from './journal'
 import { costSheetConfig } from './cost-sheet'
@@ -77,6 +78,7 @@ export {
   invoiceConfig,
   debitNoteConfig,
   supplierBillConfig, // SPEC-M40 PAY-03
+  purchaseReturnConfig, // SPEC-M41 PRC-03
   paymentConfig,
   journalConfig,
   costSheetConfig,
@@ -144,6 +146,7 @@ export const DOC_CONFIGS: DocConfig[] = [
   invoiceConfig,
   debitNoteConfig,
   supplierBillConfig, // SPEC-M40 PAY-03
+  purchaseReturnConfig, // SPEC-M41 PRC-03
   paymentConfig,
   journalConfig,
   costSheetConfig,

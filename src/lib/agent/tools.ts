@@ -61,8 +61,10 @@ import { JOBWORK_PCS_RETURN_SCHEMA } from '@/lib/erp/schemas/grn-variants'
 import { WAGE_PAYMENT_SCHEMA } from '@/lib/erp/schemas/payment-variants'
 import { REJECTION_SCHEMA } from '@/lib/erp/schemas/rejection'
 import { DESPATCH_SCHEMA } from '@/lib/erp/schemas/despatch'
-import { CLOSE_ORDER_SCHEMA, CANCEL_PROGRAM_SCHEMA, COMPLETE_PROGRAM_SCHEMA, PO_LIFECYCLE_SCHEMA } from '@/lib/erp/schemas/lifecycle'
-import { planCloseOrder, planCancelProgram, planCompleteProgram, planPoLifecycle } from '@/lib/erp/posting/lifecycle'
+import { CLOSE_ORDER_SCHEMA, CANCEL_PROGRAM_SCHEMA, COMPLETE_PROGRAM_SCHEMA, PO_LIFECYCLE_SCHEMA, PO_AMEND_SCHEMA, DC_TRANSITION_SCHEMA, GATE_CLEAR_SCHEMA } from '@/lib/erp/schemas/lifecycle'
+import { planCloseOrder, planCancelProgram, planCompleteProgram, planPoLifecycle, planPoAmend, planDcTransition, planClearGateEntry } from '@/lib/erp/posting/lifecycle'
+import { PURCHASE_RETURN_SCHEMA } from '@/lib/erp/schemas/purchase-return' // SPEC-M41 PRC-03
+import { planPurchaseReturn } from '@/lib/erp/posting/purchase-return' // SPEC-M41 PRC-03
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
 import { COMMERCIAL_INVOICE_SCHEMA } from '@/lib/erp/schemas/commercial-invoice'
 import { SUPPLIER_ORDER_SCHEMA } from '@/lib/erp/schemas/supplier-order'
@@ -1255,6 +1257,23 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    name: 'list_purchase_returns',
+    description: 'List purchase returns (PRN-####) against purchase GRNs — dcNo-style rows with the against-GRN ref, party, qty, value, date. Use to review what went back to suppliers.',
+    domain: 'procurement',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const prs = await db.gRN.findMany({ where: { grnType: 'purchase_return' }, orderBy: { grnDate: 'desc' }, take: 50 })
+      const partyIds = [...new Set(prs.map((g) => g.partyId))]
+      const parties = partyIds.length ? await db.party.findMany({ where: { id: { in: partyIds } }, select: { id: true, name: true } }) : []
+      const partyMap = new Map(parties.map((p) => [p.id, p.name]))
+      return {
+        text: `${prs.length} purchase returns`,
+        json: prs.map((g) => ({ prnNo: g.grnNo, againstGrn: g.docNo ?? null, party: partyMap.get(g.partyId) ?? null, totalQty: g.totalQty, totalValue: g.totalValue, date: g.grnDate })),
+      }
+    },
+  },
+  {
     name: 'list_journals',
     description: 'List accounting journal vouchers (receipt/payment/contra/journal). Filter by voucherType optional.',
     domain: 'accounting',
@@ -1817,7 +1836,7 @@ const docTools: AgentTool[] = [
   ),
   docTool(
     'receive_grn',
-    'Receive a GRN against a PO. grnNo is optional — auto-assigned GRN-#### if omitted or colliding. Required: poNo, godownCode, receivedQty (per line in order). Optional: partyDcRef, deptCode.',
+    'Receive a GRN against a PO (multi-line PRC-01). grnNo auto-assigned GRN-#### if omitted/colliding. Single-line POs: header path poNo+godownCode+receivedQty. Multi-line POs: pass lines (array of {itemType, itemCode, qty, rate?} — one entry per PO line being received, addressed by item code). PO status derives from all-lines coverage (received/partial). Optional: partyDcRef, deptCode, reprocess.',
     'procurement',
     GRN_SCHEMA,
     planGrn,
@@ -3116,6 +3135,26 @@ const writeTools: AgentTool[] = [
       }
     },
   },
+  {
+    name: 'update_purchase_order',
+    description: 'Amend a purchase order by poNo (PRC-02). Updatable: deliveryDate, status (open|partial|received), notes, and per-LINE qty/rate revisions via lines (array of {itemType, itemCode, qty?, rate?} — addressed by item code as written on the PO). Totals recompute; an amended qty below the already-received qty is refused (receive-then-return via create_purchase_return instead). The trail appends to notes. Cannot change poNo or party.',
+    domain: 'procurement',
+    isWrite: true,
+    schema: PO_AMEND_SCHEMA,
+    async execute(args) {
+      const plan = await planPoAmend(args)
+      if (!plan.ok) return { text: plan.error! }
+      return {
+        text: plan.text!,
+        plan: {
+          summary: plan.summary!,
+          updates: plan.updates,
+          sideEffects: plan.sideEffects,
+        },
+        commit: plan.commit,
+      }
+    },
+  },
   docTool(
     'receive_jobwork',
     'Receive jobwork material back from a jobworker — CUMULATIVE (M39/JWL-03): receivedQty accumulates across receipts, never overwrites. Header door: dcNo + receivedQty (+rejectedQty optional — books as process loss). Line door: lines (array of {itemCode, qty, rejectedQty?}) validated per line. Partial receipts flip status sent → partial; full balance → received. Over-receipt is rejected with the open balance. Required: dcNo.',
@@ -3178,6 +3217,28 @@ const writeTools: AgentTool[] = [
     'inventory',
     TRANSFER_SCHEMA,
     planTransfer,
+  ),
+  // SPEC-M41 (Phase-6B Batch 5, PRC) — procurement & dispatch closure
+  docTool(
+    'create_purchase_return',
+    'Return rejected goods to a supplier against a PURCHASE GRN (PRC-03). prnNo auto-assigned PRN-####. Lines addressed by itemType+itemCode as written on the GRN; each line qty is guarded (≤ received − already-returned on that line). Stock posts OUT of the godown; the PO stays untouched (supplier-pending reads bills); pass debitNote:true to also raise a linked DN- debit note for the return value. Required: grnNo, lines (array of {itemType, itemCode, qty, rate?}). Optional: godownCode (default the GRN\'s own), prnDate, notes, debitNote.',
+    'procurement',
+    PURCHASE_RETURN_SCHEMA,
+    planPurchaseReturn,
+  ),
+  docTool(
+    'deliver_dc',
+    'DC/LAD lifecycle transition (PRC-05). to=delivered: the buyer-side terminal state (stamps deliveredAt — aging stops); to=despatched: the LAD CONVERSION (a loading challan becomes a live despatch — the LAD- number stays as the document identity). No stock effect (goods left at despatch commit). Required: dcNo, to. Optional: date, notes.',
+    'dispatch',
+    DC_TRANSITION_SCHEMA,
+    planDcTransition,
+  ),
+  docTool(
+    'clear_gate_entry',
+    'Clear a gate entry/pass (PRC-07): status logged → cleared (the vehicle left / the entry settled). The gate log is append-only — clearing twice refuses. Required: entryNo (GE-#### or GP-####). Optional: notes.',
+    'dispatch',
+    GATE_CLEAR_SCHEMA,
+    planClearGateEntry,
   ),
 ]
 

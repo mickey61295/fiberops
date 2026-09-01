@@ -68,7 +68,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
     text: `Proposed despatch DC ${resolvedDcNo} for ${order.orderNo} — ${args.totalPcs} pcs.`,
     summary: `Create despatch DC ${resolvedDcNo} | order ${order.orderNo} | buyer ${order.buyer?.name || '-'} | ${args.totalPcs} pcs | vehicle ${args.vehicleNo || '-'} | courier ${args.courierName || '-'}`,
     creates: [
-      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: dateOrIstToday(args.despatchDate), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus } },
+      { table: 'pcsDespatch', data: { dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId, despatchDate: dateOrIstToday(args.despatchDate), finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus, lrNo: args.lrNo, transporter: args.transporter, freight: args.freight, cartons: args.cartons, grossWeightKg: args.grossWeightKg } },
       ...lineRows.map((l) => ({ table: 'pcsDespatchLine', data: { pcsDespatchId: '<pending>', styleNo: l.styleNo, qty: l.qty, rate: l.rate || 0, colourId: l.colourId, sizeId: l.sizeId } })),
       ...(args.returnable === false ? [{ table: 'approval', data: { entity: 'non_return_dc', entityId: '<pending>', step: 1, requestedBy: 'agent', status: 'pending' } }] : []),
     ],
@@ -84,6 +84,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
             dcNo: resolvedDcNo, orderId: order.id, buyerId: order.buyerId,
             despatchDate: dateOrIstToday(args.despatchDate),
             finYear, totalPcs: args.totalPcs, vehicleNo: args.vehicleNo, courierName: args.courierName, status: initialStatus,
+            lrNo: args.lrNo, transporter: args.transporter, freight: args.freight, cartons: args.cartons, grossWeightKg: args.grossWeightKg,
             lines: { create: lineRows.map(({ styleNo, qty, rate, colourId, sizeId }) => ({ styleNo, qty, rate, colourId, sizeId })) },
           },
         })

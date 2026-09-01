@@ -72,7 +72,7 @@ describe('M5 Wave C — approval kinds registry (SPEC-M5 §12-4)', () => {
   })
 
   it('registry ↔ menu ↔ LIVE_ROUTES wiring: every kind screen is live with its wrapper tool', () => {
-    expect(allTools.length).toBe(238) // M40 PAY: +create_supplier_bill +5 cancel tools // 189 + M19-C ×33
+    expect(allTools.length).toBe(243) // M40 PAY: +create_supplier_bill +5 cancel tools // 189 + M19-C ×33
     for (const k of APPROVAL_KINDS) {
       expect(LIVE_ROUTES.has(k.route)).toBe(true)
       const item = MENU_ITEMS.find((m) => m.route === k.route)

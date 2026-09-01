@@ -63,6 +63,17 @@ export interface DigestOpsRow {
 /** SPEC-M35 — the shutdowns briefing window (days). */
 export const DIGEST_SHUTDOWN_WINDOW_DAYS = 14
 
+/** SPEC-M41 PRC-06 — a non-return jobwork DC row (gendcdays aging). */
+export interface DigestNonReturnRow {
+  dcNo: string
+  jobworker: string | null
+  processType: string
+  sent: number
+  returned: number
+  outstanding: number
+  ageDays: number
+}
+
 export interface Digest {
   generatedAt: string
   sections: {
@@ -71,6 +82,9 @@ export interface Digest {
     gate: { rows: DigestGateRow[] }
     /** SPEC-M35 — upcoming shutdowns; silent when empty (M28 discipline). */
     shutdowns: { windowDays: number; rows: DigestShutdownRow[] }
+    /** SPEC-M41 PRC-06 — non-return jobwork DCs past the gendcdays window;
+     *  silent when empty or the flag is 0. */
+    nonReturn: { gendcdays: number; rows: DigestNonReturnRow[] }
     /** OPS-01 — ops & data growth (never crashes the digest). */
     ops: { rows: DigestOpsRow[] }
   }
@@ -176,6 +190,39 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     daysUntil: h.daysUntil,
   }))
 
+  // SPEC-M41 PRC-06 — non-return jobwork DCs past the gendcdays window.
+  // Detection by returnable-days (not only the manual non-return marker at
+  // creation): any JW-family DC (MDC/PDC/JW) still holding material — status
+  // sent/partial, returned < sent — with outDate older than the flag's days.
+  // Rows capped at 25, oldest first; section silent when empty/off.
+  const gendcdays = Number(await getFlag('gendcdays')) || 0
+  const nonReturn: DigestNonReturnRow[] = []
+  if (gendcdays > 0) {
+    const staleCutoff = new Date(now.getTime() - gendcdays * 86400000)
+    const staleDcs = await db.jobworkOrder.findMany({
+      where: {
+        status: { in: ['sent', 'partial'] },
+        outDate: { lt: staleCutoff },
+      },
+      include: { jobworker: { select: { name: true } } },
+      orderBy: { outDate: 'asc' },
+      take: 25,
+    })
+    for (const dc of staleDcs) {
+      const outstanding = dc.totalQty - dc.returnedQty
+      if (outstanding <= 1e-9) continue // fully returned — not a non-return
+      nonReturn.push({
+        dcNo: dc.dcNo,
+        jobworker: dc.jobworker?.name ?? null,
+        processType: dc.processType,
+        sent: dc.totalQty,
+        returned: dc.returnedQty,
+        outstanding,
+        ageDays: Math.floor((now.getTime() - dc.outDate.getTime()) / 86400000),
+      })
+    }
+  }
+
   // OPS-01 — ops & growth metrics (best-effort: never fail the digest for them)
   const opsRow = await buildOpsRow(now)
 
@@ -207,6 +254,16 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     }
   }
 
+  // SPEC-M41 PRC-06 — the non-return block (gendcdays aging; silent when empty)
+  if (nonReturn.length > 0) {
+    lines.push('')
+    lines.push(`Non-return jobwork DCs (past gendcdays=${gendcdays}): ${nonReturn.length}`)
+    for (const r of nonReturn.slice(0, 10)) {
+      lines.push(`  · ${r.dcNo} (${r.processType}) — ${r.jobworker || '—'}: ${Math.round(r.outstanding * 100) / 100}/${r.sent} still out, ${r.ageDays}d old`)
+    }
+    if (nonReturn.length > 10) lines.push(`  … and ${nonReturn.length - 10} more`) 
+  }
+
   // OPS-01 — the ops block: DB size, backup freshness, archival growth
   if (opsRow) {
     lines.push('')
@@ -225,6 +282,7 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
       lowStock: { thresholdPcs, rows: lowStock },
       gate: { rows: gateRows },
       shutdowns: { windowDays: DIGEST_SHUTDOWN_WINDOW_DAYS, rows: shutdownRows },
+      nonReturn: { gendcdays, rows: nonReturn },
       ops: { rows: opsRow ? [opsRow] : [] },
     },
     text: lines.join('\n'),

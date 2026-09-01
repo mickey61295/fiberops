@@ -100,7 +100,7 @@ describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
   })
 
   it('registry grew 224 → 226 (receive_waste)', () => {
-    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
   })
 
   it('the base service + its tool stay untouched (variant contract)', () => {

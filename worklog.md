@@ -1820,3 +1820,31 @@ Stage Summary:
 - The audit proposed at the end of the qol1/M30 session is CLOSED with a code-verified answer: nothing left to port. Both chat doors validate/coerce identically, malformed model JSON can no longer kill a turn, narration accumulates per-segment, approvals execute stored plans.
 - The local sandbox is back on the canonical M40 line with all four gates green — ready for Batch 5 PRC-01..09 (procurement & dispatch closure: multi-line GRN, PO amendment, purchase return) per SPEC-M40 §16.
 - Push requires a fresh PAT (public repo = tokenless fetch, but writes need auth; the persisted .pat-token vanished with the rollback). This worklog entry is committed locally, pending a token for push.
+
+---
+Task ID: m41-prc-batch5
+Agent: main (Super Z)
+Task: Continue the project after the qol1-audit-verify session — per the M40 record's own plan: Phase-6B Batch 5, the procurement & dispatch closure tier (PRC-01..09 from docs/PRD/PHASE-6B-REMEDIATION-SPEC.md §8).
+
+Work Log:
+- Re-verified every spec-cited gap on the M40 line before writing a line of code: planGrn po.lines[0] single-line + HFX-01 refusal + header-qty status math; no planPoAmend (planOrderAmend precedent); no purchase-return service + no GrnLine.rejectedQty; planGrn never reads Approval rows; PcsDespatch only writes loading/despatched (schema names delivered but no writer); flags.ts:56 gendcdays with no digest section; gate refDocNo free text; PcsDespatch vehicle/courier only. PRC-09 decision-gated → parked per §17-6 (the PAY-08 precedent).
+- Wrote SPEC-M41 (8 FRs + deferral, 9 design decisions — itemCode addressing via id-maps, PRN- on the GRN table, po_appr default false, LAD number preserved at conversion, JW-family digest scope, guidance-first gate validation, nullable logistics fields; files; acceptance).
+- Schema (db push + WAL checkpoint + generate): GrnLine + rejectedQty; PcsDespatch + deliveredAt + lrNo/transporter/freight/cartons/grossWeightKg. NO new models.
+- PRC-01: GRN_SCHEMA gains lines[]; planGrn rewritten (two input paths, per-line receivedQty, all-lines status math, per-line ledger + stock bumps, HFX-01 retired); grn doc-config gains lineFields (the form door gets the line editor).
+- PRC-02: planPoAmend in lifecycle.ts (line revisions + guarded totals recompute + the [amended] trail) + PO_AMEND_SCHEMA + update_purchase_order tool + /procurement/po/amendments page/actions.
+- PRC-03: posting/purchase-return.ts NEW (PRN-####, cumulative per-GRN-line guard, purchase_return ledger OUT, rejectedQty increments, optional linked DN-) + schema + doc-config + create_purchase_return/list_purchase_returns tools + the DocScreen page.
+- PRC-04: po_appr flag (default false) + the planGrn gate reading the Approval row.
+- PRC-05: planDcTransition (LAD convert + delivered w/ deliveredAt) + DC_TRANSITION_SCHEMA + deliver_dc tool + DcLifecycleActions view component + dcTransitionAction + the despatch day-book register (registers/despatch.ts + register-config + /dispatch/register + csv twin).
+- PRC-06: digest nonReturn section (gendcdays-gated, JW-family, returnable-days detection, silent when empty).
+- PRC-07: gate refDocNo resolver (7 families + SO — the M5D parity test caught the missing Order family) + planClearGateEntry + GATE_CLEAR_SCHEMA + clear_gate_entry tool + the register gatePass column + the MIS recon card.
+- PRC-08: logistics fields through schema → DESPATCH_SCHEMA → despatch/courier/loading doc-configs → service create/commit → print meta.
+- Agent surface: tool-labels +5; prompt §procurement/§despatch/§goods-movement + 4 PRC few-shots FOLDED into the M10 cap of 8; PROMPT_VERSION m41-2026-09-01.
+- Tests: tests/pipeline/prc-batch5.test.ts NEW 13/13 (loop-closures #1 + #5 GREEN end-to-end through both doors + guards + source contracts + the PRC-09 deferral pin). THREE real bugs caught by my own tests while writing them: (1) POLine/GRNLine carry NO itemCode column — the itemCode addressing needed id-maps (grn/amend/return all fixed); (2) planPoAmend empty-patch semantics (totals must move only when lines move); (3) the despatch register used relation includes on plain-FK columns (PITFALLS #21's third guise). All fixed; PITFALLS #44 records the pattern.
+- Inherited suites updated for the new truth: ~30 reds → 0 (version pins m40→m41 ×2; tool counts 238→243 ×11; menu 134→137 ×3; flags 32→33 ×5 + commercial 5→6; doc-configs registry + grn lineFields mirror + variant logistics fields + select options {value,label}; register-configs 36→37 + ROUTE_BY_SLUG + the csv twin; doc-view-actions NEW_ROUTE; hfx-batch0 HFX-01 amended for the retirement; legacy-aliases honest legacyForms; prompt few-shots refolded).
+- Gates: 1263 vitest (1263 = 1245 + 13 NEW + 5 doc-config assertions) · tsc src 0 (18 src errors found and fixed mid-flight — page orderBy on a column the model lacks, RecentDocRow string cells, missing db import, select option shapes, Promise.all empty-branch typing) · eval --static PASS (promptVersion m41-2026-09-01) · context_check 604/604 NO DRIFT (14 pins updated to the M41 truth) · route_smoke_m41.sh NEW 17/17 LIVE (three new screens + register columns + DC lifecycle row + MIS card + GRN line editor + csv) · LIVE browser E2E: Mark delivered click on DC-0428 → DB status delivered + deliveredAt stamped → reverted; zero console errors; screenshots download/m41-despatch-register.png + m41-dc-view-deliver.png · zero residue (M41-* codes all cleaned by afterAll).
+
+Stage Summary:
+- Batch 5 COMPLETE — seams 1 (PO↔GRN) + 5 (DC delivered) closed; loop-closure tests #1 and #5 GREEN through both doors; the gendcdays flag is no longer dead; the gate log is no longer free-text; LAD challans no longer live in 'loading' forever; rejected goods have a real return door.
+- PRC-09 (cumulative DC→invoice) deferred per §17-6 alongside PAY-08 (§17-3) — both owner decisions, recorded in SPEC-M41 + STATE #45.
+- Next per spec §16: Batch 6 INV-01..08 (stock take & valuation unification — StockTake cycle, one WAC valuation shared by all three stock-value surfaces, the take:5000 truncation retired, negative-stock guard).
+- Push still requires a PAT (public repo = tokenless fetch; the persisted .pat-token vanished with the sandbox rollback).
