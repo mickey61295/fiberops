@@ -1758,3 +1758,17 @@ Stage Summary:
 - The sixth race is fully reconciled: their line canonical with our surviving correctness fixes ON it (D-2 + D-1b + ghost), our line preserved on qol1-m30-alt, no force-push anywhere.
 - Both chat doors now execute identical coerced+validated inputs (the original SPEC-QoL1 D-1 promise, closed on the canonical line); malformed LLM JSON can no longer kill a turn (D-2).
 - Deferred honestly: transcript persistence, tool-spec caching, db-in-git hygiene — candidates for a later batch.
+
+---
+Task ID: qol1-reconcile-push
+Agent: main (Super Z)
+Task: Push the reconcile commits to origin/main via the persisted .pat-token.
+
+Work Log:
+- Pushed main c8a9015..fb96f22 (fast-forward on top of the parallel session's M39 — no force): fb17816 (inherited-red fixes) + fb96f22 (the qol1-reconcile batch).
+- URL scrubbed back to the PAT-free form immediately after; ls-remote confirms origin/main = fb96f22 = local HEAD, qol1-m30-alt = 8dc15ad preserved.
+- Token audit at close: .pat-token untracked (git ls-files empty), mode 600, 93 bytes, zero token occurrences in any commit across all history (binary-inclusive rev-list scan).
+
+Stage Summary:
+- REMOTE FULLY SYNCED: origin/main carries the M39 line + our surviving QoL1 fixes; our parallel line preserved on qol1-m30-alt; nothing force-pushed.
+- The sixth parallel-session race is closed end-to-end.
