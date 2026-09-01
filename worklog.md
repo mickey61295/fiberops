@@ -1885,3 +1885,17 @@ Stage Summary:
 - Three real bugs the batch's own gates caught (getFlag-in-tx WAL deadlock, styleNo-select-on-non-STYLE swallowed to empty code maps, duplicate React keys) — all fixed + PITFALLS #45.
 - Next per spec §16: Batch 7 PRG-01.. (program-flow revival — the nine-column balance waterfall, BOM×qty requirements, buyerPoRef/orderType/delivery splits). PAY-08 / PRC-09 / PRG-02 owner decisions remain open.
 - Push: PAT on file (.pat-token) — commit + push follows as the next step.
+---
+Task ID: m42-push
+Agent: main (Super Z)
+Task: Push the M42 commits to GitHub (PAT on file from the owner, the m41-push protocol).
+
+Work Log:
+- Verified no race: origin/main was at a942b2c (the M41 line incl. its worklog commit), local strictly 1 ahead (faf716e M42), worktree clean after commit.
+- Push origin main a942b2c..faf716e FAST-FORWARD (no force); URL scrubbed back to PAT-free form immediately after.
+- ls-remote confirms origin/main = faf716e = local HEAD.
+- Token audit at close: full-history binary-inclusive rev-list scan 0 occurrences; worktree 0 (outside the token file itself); .git/config 0; .pat-token untracked (ls-files 0), mode 600.
+
+Stage Summary:
+- REMOTE FULLY SYNCED at M42 (Phase-6B Batch 6 stock take & valuation unification live on origin/main).
+- Next per SPEC-M42/STATE §16: Batch 7 PRG-01.. (program-flow revival). PAY-08 (§17-3) / PRC-09 (§17-6) / PRG-02 (§17-5) owner decisions remain open.
