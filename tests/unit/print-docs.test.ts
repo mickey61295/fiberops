@@ -89,7 +89,7 @@ describe('M8 Wave A print docs (SPEC-M8 §6)', () => {
   it('registry has the 5 Wave-A docTypes (23 with Wave B + M18 order + M33 labels)', () => {
     const types = getPrintDocTypes()
     for (const t of ['dc', 'grn', 'invoice', 'payment', 'po']) expect(types).toContain(t)
-    expect(Object.keys(PRINT_DOCS)).toHaveLength(23) // 21 + SPEC-M33 bundle labels
+    expect(Object.keys(PRINT_DOCS)).toHaveLength(24) // 21 + SPEC-M33 bundle labels + M42 stock-take
     expect(types).toContain('order')
   })
 

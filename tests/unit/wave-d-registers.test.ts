@@ -44,7 +44,7 @@ describe('SPEC-M19 §4-D1 — queryClosingStock (cumulative as-of)', () => {
     await db.godown.deleteMany({ where: { id: godownId } })
   })
 
-  it('cumulative closing to the as-of date, per-uom, latest-rate valuation, post-cutoff rows excluded', async () => {
+  it('cumulative closing to the as-of date, per-uom, WAC valuation (SPEC-M42 INV-02), post-cutoff rows excluded', async () => {
     const res = await queryClosingStock({ limit: 100, page: 1, to: new Date(AS_OF), godown: GODOWN })
     expect(res.rows).toHaveLength(1)
     const row = res.rows[0] as any
@@ -52,8 +52,11 @@ describe('SPEC-M19 §4-D1 — queryClosingStock (cumulative as-of)', () => {
     expect(row.kgs).toBeCloseTo(IN1 - OUT1 + IN2, 6) // 120
     expect(row.mtrs).toBe(0)
     expect(row.pcs).toBe(0)
-    expect(row.rate).toBe(12) // latest ledger rate within the window (12-03 row)
-    expect(row.value).toBeCloseTo(120 * 12, 6)
+    // INV-02: the rate is the MOVING WEIGHTED AVERAGE replayed from the ledger
+    // rows in (docDate, createdAt) order — 100@10 → 30 out (rate holds 10, qty 70)
+    // → 50@12 blends: (70·10 + 50·12)/(70+50) = 1300/120. NOT the latest rate.
+    expect(row.rate).toBeCloseTo(1300 / 120, 6)
+    expect(row.value).toBeCloseTo(120 * (1300 / 120), 6) // exactly 1300 — the WAC mass
     expect(row.href).toBeNull() // period-end row — no doc drill
   })
 

@@ -10,6 +10,7 @@ import { AlertCircle, ArrowDownRight, ArrowUpRight, BarChart3, Boxes, ClipboardC
 import { REPORT_SERVICES } from '@/lib/erp/reports'
 import { getUpcomingHolidays } from '@/lib/erp/holidays' // SPEC-M28 — the shutdown strip
 import { queryOrderStatus } from '@/lib/erp/registers/order-status'
+import { compareStockDrift } from '@/lib/erp/registers/recon' // SPEC-M42 INV-06 — drift card
 import type { RegisterQuery } from '@/lib/erp/registers/types'
 
 export const dynamic = 'force-dynamic'
@@ -77,6 +78,12 @@ export default async function MisDashboardPage() {
     : new Set<string>()
   const dcsWithoutGate = recentDcs.filter((d) => !gateRefs.has(d.dcNo))
 
+  // SPEC-M42 INV-06 — stock drift (ledger vs cache) recon card: the
+  // append-only truth vs the CurrentStock cache, both sides of every bucket.
+  // Silent when clean (the M28 discipline); the daily digest carries the same
+  // compare (the scheduled ride).
+  const stockDrift = await compareStockDrift()
+
   const stockValue = Number(currentStock.totals?.find((t) => t.label === 'Value')?.value ?? 0)
   const ar = Number(outstanding.totals?.find((t) => t.label === 'AR Outstanding')?.value ?? 0)
   const ap = Number(outstanding.totals?.find((t) => t.label === 'AP Outstanding')?.value ?? 0)
@@ -138,6 +145,27 @@ export default async function MisDashboardPage() {
                 </span>
               </span>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SPEC-M42 INV-06 — stock drift (ledger vs cache; silent when clean) */}
+      {stockDrift.length > 0 && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50/60 p-4" data-testid="stock-drift-recon">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-rose-900">Stock drift — ledger vs cache</div>
+            <Link href="/inventory/stock" className="text-xs text-rose-700 hover:underline">current stock →</Link>
+          </div>
+          <div className="mt-2 space-y-1">
+            {stockDrift.slice(0, 6).map((d, i) => (
+              <div key={`${d.itemType}-${d.itemId}-${d.uom}-${i}`} className="flex items-center justify-between text-xs text-rose-900">
+                <span className="font-mono font-medium">{d.itemType} {d.itemCode} @ {d.godown}</span>
+                <span className="text-rose-600">{d.uom}: ledger {Math.round(d.ledgerQty * 100) / 100} · cache {Math.round(d.cacheQty * 100) / 100} · Δ {Math.round(d.delta * 100) / 100}</span>
+              </div>
+            ))}
+            {stockDrift.length > 6 && (
+              <div className="text-[11px] text-rose-500">… and {stockDrift.length - 6} more vectors</div>
+            )}
           </div>
         </div>
       )}

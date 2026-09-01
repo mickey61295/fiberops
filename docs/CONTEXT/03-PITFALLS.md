@@ -522,3 +522,26 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
     Companion: doc-config select options are `{ value, label }` OBJECTS —
     bare string arrays fail the TYPES contract test ('boolean' is also not a
     known type; use select with options).
+
+45. **Two M42 trap duets: getFlag-in-transaction deadlocks the WAL writer;
+    `select { styleNo }` on non-STYLE models swallows into empty code maps**
+    (M42, INV batch): (a) `getFlag` used to call `ensureFlags()` — which
+    WRITES missing flag rows on the GLOBAL db connection. Called from inside
+    an open interactive transaction (the INV-04 guard runs in postLedger),
+    the global write blocks on the transaction's WAL write lock while the
+    transaction waits on getFlag to return — deadlock until the 5s
+    interactive-transaction timeout kills the commit (symptom: "Transaction
+    already closed … 5016 ms passed", pointing at an innocent
+    `tx.stockLedger.create`). Fix: READ paths must never seed — `getFlag` is
+    a pure read (a missing row means the registry default; `coerce(undefined,
+    def)` already handles it); seeding stays in `setFlag`/`getFlags` (the
+    admin surfaces, no transaction holding the write lock). (b) The id-map
+    helper pattern `findMany({ select: { id: true, code: true, styleNo: true } })`
+    asks yarn/fabric/accessory for `styleNo` — a STYLE-master-only column.
+    Prisma throws a validation error, the habitual `.catch(() => [])`
+    swallows it, and EVERY code falls back to the raw cuid (drift vectors,
+    count-sheet prints, stock-take views showed cuids as item codes). Fix:
+    per-model select — only `t === 'pcs'` asks for styleNo; everything else
+    asks for code. General rule: a `.catch(() => [])` on a lookup whose
+    SHAPE is wrong doesn't degrade gracefully, it degrades INVISIBLY — test
+    the resolved code, not just row existence.

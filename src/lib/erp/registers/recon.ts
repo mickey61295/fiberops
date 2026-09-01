@@ -134,3 +134,125 @@ export async function despatchRecon(orderId: string): Promise<ReconResult | null
     })),
   }
 }
+
+// ───────── SPEC-M42 INV-06 — ledger ↔ CurrentStock drift (fleet-level) ─────────
+
+/** One drift vector: the append-only truth vs the cache for one bucket. */
+export interface StockDriftRow {
+  itemType: string
+  itemId: string
+  itemCode: string
+  godown: string
+  uom: 'kgs' | 'mtrs' | 'pcs' | 'bags'
+  ledgerQty: number
+  cacheQty: number
+  delta: number
+}
+
+/** INV-06 — compare the append-only StockLedger truth against the
+ *  CurrentStock cache, BOTH sides of every bucket (a bucket missing from the
+ *  cache lists as cache 0; one missing from the ledger lists as ledger 0 —
+ *  direct bucket writes like the legacy inline adjust_stock tool are exactly
+ *  the kind of split this catches). groupBy on the ledger (the null-dim
+ *  normalization identical to bumpStock's bucket key) + a full cache read;
+ *  deltas below 1e-9 on every uom are clean. Pure function — the MIS card
+ *  and the digest's stockDrift section both consume it. */
+export async function compareStockDrift(): Promise<StockDriftRow[]> {
+  const EPS = 1e-9
+  const [ledgerGroups, cache, godowns] = await Promise.all([
+    db.stockLedger.groupBy({
+      by: ['itemType', 'itemId', 'godownId'],
+      _sum: {
+        inBags: true, outBags: true, inKgs: true, outKgs: true,
+        inMtrs: true, outMtrs: true, inPcs: true, outPcs: true,
+      },
+    }),
+    db.currentStock.findMany(),
+    db.godown.findMany({ select: { id: true, code: true } }),
+  ])
+  const godownById = new Map(godowns.map((g) => [g.id, g.code]))
+
+  // item codes for the drift vectors (best-effort id-maps)
+  const byType: Record<string, Set<string>> = {}
+  const touch = (itemType: string, itemId: string) => (byType[itemType] ??= new Set()).add(itemId)
+  for (const g of ledgerGroups) if (g.godownId) touch(g.itemType, g.itemId)
+  for (const c of cache) touch(c.itemType, c.itemId)
+  const codeMaps = await buildItemCodeMapsSafe(byType)
+
+  const netOf = (s: { inBags?: number | null; outBags?: number | null; inKgs?: number | null; outKgs?: number | null; inMtrs?: number | null; outMtrs?: number | null; inPcs?: number | null; outPcs?: number | null }) => ({
+    kgs: (s.inKgs ?? 0) - (s.outKgs ?? 0),
+    mtrs: (s.inMtrs ?? 0) - (s.outMtrs ?? 0),
+    pcs: (s.inPcs ?? 0) - (s.outPcs ?? 0),
+    bags: (s.inBags ?? 0) - (s.outBags ?? 0),
+  })
+
+  // the cache keyed by the same bucket rule (all null dims)
+  const cacheByKey = new Map<string, { kgs: number; mtrs: number; pcs: number; bags: number; itemType: string; itemId: string; godownId: string }>()
+  for (const c of cache) {
+    if (c.lotId || c.colourId || c.sizeId || c.deptId || c.orderId) continue // non-bucket rows (legacy inline tool) can't compare 1:1
+    const key = `${c.itemType}|${c.itemId}|${c.godownId}`
+    const ex = cacheByKey.get(key)
+    if (ex) {
+      ex.kgs += c.kgs; ex.mtrs += c.mtrs; ex.pcs += c.pcs; ex.bags += c.bags
+    } else {
+      cacheByKey.set(key, { kgs: c.kgs, mtrs: c.mtrs, pcs: c.pcs, bags: c.bags, itemType: c.itemType, itemId: c.itemId, godownId: c.godownId })
+    }
+  }
+
+  const drift: StockDriftRow[] = []
+  const seen = new Set<string>()
+  for (const g of ledgerGroups) {
+    if (!g.godownId) continue
+    const key = `${g.itemType}|${g.itemId}|${g.godownId}`
+    seen.add(key)
+    const ledger = netOf(g._sum)
+    const cacheSide = cacheByKey.get(key)
+    for (const uom of ['kgs', 'mtrs', 'pcs', 'bags'] as const) {
+      const cacheQty = cacheSide?.[uom] ?? 0
+      const delta = ledger[uom] - cacheQty
+      if (Math.abs(delta) > EPS) {
+        drift.push({
+          itemType: g.itemType, itemId: g.itemId,
+          itemCode: codeMaps[g.itemType]?.get(g.itemId) ?? g.itemId,
+          godown: godownById.get(g.godownId) ?? g.godownId,
+          uom, ledgerQty: ledger[uom], cacheQty, delta,
+        })
+      }
+    }
+  }
+  // buckets the ledger never wrote (cache-only rows — the direct-write split)
+  for (const [key, c] of cacheByKey) {
+    if (seen.has(key)) continue
+    for (const uom of ['kgs', 'mtrs', 'pcs', 'bags'] as const) {
+      if (Math.abs(c[uom]) > EPS) {
+        drift.push({
+          itemType: c.itemType, itemId: c.itemId,
+          itemCode: codeMaps[c.itemType]?.get(c.itemId) ?? c.itemId,
+          godown: godownById.get(c.godownId) ?? c.godownId,
+          uom, ledgerQty: 0, cacheQty: c[uom], delta: -c[uom],
+        })
+      }
+    }
+  }
+  return drift
+}
+
+/** best-effort id-maps without the register dependency cycle (resolve.ts
+ *  imports from this module's family — a local lightweight twin is safer).
+ *  Per-model select (the real bug this caught): only the STYLE master carries
+ *  styleNo — selecting it on yarn/fabric/accessory throws a Prisma validation
+ *  error the catch swallows into an EMPTY map, so every drift vector's
+ *  itemCode fell back to the raw cuid. Only pcs asks for styleNo. */
+const RECON_ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory', pcs: 'style' }
+async function buildItemCodeMapsSafe(byType: Record<string, Set<string>>): Promise<Record<string, Map<string, string>>> {
+  const out: Record<string, Map<string, string>> = {}
+  for (const [t, ids] of Object.entries(byType)) {
+    const modelName = RECON_ITEM_MODELS[t]
+    const model: any = modelName ? (db as any)[modelName] : null
+    if (!model) { out[t] = new Map(); continue }
+    const select: any = t === 'pcs' ? { id: true, styleNo: true } : { id: true, code: true }
+    const rows: any[] = await model.findMany({ where: { id: { in: [...ids] } }, select }).catch(() => [])
+    out[t] = new Map(rows.map((r) => [r.id, (r.code ?? r.styleNo) ?? r.id]))
+  }
+  return out
+}

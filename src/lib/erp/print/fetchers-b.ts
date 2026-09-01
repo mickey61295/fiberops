@@ -723,3 +723,73 @@ export async function fetchLabTestPrint(idOrNo: string): Promise<PrintDoc | null
     notes: [clean(test.remarks) ?? 'Lab test report — internal quality record.'],
   }
 }
+
+// ── stock-take: COUNT SHEET (SPEC-M42 INV-01) ─────────────────────────────
+// The physical count sheet: system snapshot vs counted (blank while open —
+// the sheet is what the floor walks with). Resolves by db id OR takeNo.
+export async function fetchStockTakePrint(idOrNo: string): Promise<PrintDoc | null> {
+  let take = await db.stockTake.findUnique({ where: { id: idOrNo } }).catch(() => null)
+  if (!take) take = await db.stockTake.findUnique({ where: { takeNo: idOrNo } }).catch(() => null)
+  if (!take) return null
+  const lines = await db.stockTakeLine.findMany({ where: { takeId: take.id } })
+
+  const godown = await db.godown.findUnique({ where: { id: take.godownId } }).catch(() => null)
+
+  // item codes via the item models (StockTakeLine carries itemId — PITFALLS #44)
+  const ITEM_MODELS: Record<string, string> = { yarn: 'yarn', fabric: 'fabric', accessory: 'accessory', pcs: 'style' }
+  const byType: Record<string, Set<string>> = {}
+  for (const l of lines) (byType[l.itemType] ??= new Set()).add(l.itemId)
+  const codeByItemId = new Map<string, string>()
+  for (const [t, ids] of Object.entries(byType)) {
+    // per-model select: only the STYLE master carries styleNo — asking yarn/
+    // fabric/accessory for it throws Prisma validation (the catch would
+    // swallow into empty maps and print raw cuids as item codes)
+    const model = ITEM_MODELS[t] ? (db as any)[ITEM_MODELS[t]] : null
+    if (!model || !ids.size) continue
+    const select = t === 'pcs' ? { id: true, styleNo: true } : { id: true, code: true }
+    const items: any[] = await model.findMany({ where: { id: { in: [...ids] } }, select }).catch(() => [])
+    for (const i of items) codeByItemId.set(i.id, (i.code ?? i.styleNo) ?? i.id)
+  }
+
+  const rows = lines.map((l) => [
+    `${codeByItemId.get(l.itemId) ?? l.itemId} (${l.itemType})`,
+    qty(l.systemKgs), qty(l.systemMtrs), qty(l.systemPcs),
+    l.countedKgs == null ? '____' : qty(l.countedKgs),
+    l.countedMtrs == null ? '____' : qty(l.countedMtrs),
+    l.countedPcs == null ? '____' : qty(l.countedPcs),
+  ])
+
+  return {
+    docType: 'stock-take',
+    title: 'STOCK TAKE — COUNT SHEET',
+    docNo: take.takeNo,
+    docDate: d(take.createdAt),
+    meta: [
+      ['Godown', godown?.code ?? take.godownId],
+      ['Status', cap(take.status)],
+      ['Lines', String(lines.length)],
+      ...(take.committedAt ? [['Committed', d(take.committedAt)] as [string, string]] : []),
+    ],
+    lines: {
+      columns: [
+        { label: 'Item' },
+        { label: 'Sys kgs', align: 'right' },
+        { label: 'Sys mtrs', align: 'right' },
+        { label: 'Sys pcs', align: 'right' },
+        { label: 'Counted kgs', align: 'right' },
+        { label: 'Counted mtrs', align: 'right' },
+        { label: 'Counted pcs', align: 'right' },
+      ],
+      rows,
+      footer: [`Counted by: ______________  Date: ____________  Verified by: ______________`],
+    },
+    signatures: ['Store keeper', `For ${await co()}`],
+    notes: [
+      'System quantities are the snapshot at take creation — do not adjust from later movements.',
+      ...(take.status === 'committed'
+        ? ['Variance ADJs for this take are already posted (see the ledger ADJ- rows referencing this ST-).']
+        : ['Committing the take posts one ADJ- per variance and makes the take terminal.']),
+      clean(take.notes),
+    ].filter((n): n is string => !!n),
+  }
+}

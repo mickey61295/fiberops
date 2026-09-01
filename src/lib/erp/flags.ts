@@ -41,6 +41,11 @@ export const FLAG_DEFS: FlagDef[] = [
   { name: 'entrydatedev', value: '7', valueType: 'number', category: 'tolerance', description: 'Back-dating limit in days for any document' },
   { name: 'pcsrateamt_excess_percent', value: '10', valueType: 'number', category: 'tolerance', description: 'Piece-rate amount excess cap %' },
   { name: 'jobexcess', value: '5', valueType: 'number', category: 'tolerance', description: 'Jobwork excess cap %' },
+  // SPEC-M42 INV-04 — the negative-stock guard at postLedger: when on, any
+  // movement that would take a CurrentStock bucket below zero on a uom it
+  // touches FAILS with an actionable error. Default false = the legacy
+  // "warns but never blocks" behavior preserved.
+  { name: 'block_negative_stock', value: 'false', valueType: 'boolean', category: 'tolerance', description: 'Refuse stock movements that would overdraw a bucket below zero (off = legacy warn-only)' },
   { name: 'sampleqtylimitcheck', value: 'false', valueType: 'boolean', category: 'tolerance', description: 'Sample order qty limit check' },
   { name: 'boostupper', value: '2', valueType: 'number', category: 'tolerance', description: 'Requirement boost-up % (FN_Add_BoostupPer parity)' },
   { name: 'reserveper', value: '0', valueType: 'number', category: 'tolerance', description: 'Requirement reserve %' },
@@ -58,6 +63,16 @@ export const FLAG_DEFS: FlagDef[] = [
   { name: 'coy_state', value: '33', valueType: 'string', category: 'company', description: 'Company GST state code (33 = Tamil Nadu) — drives CGST/SGST vs IGST split' },
   // — Non-return DC aging (gendcdays) —
   { name: 'gendcdays', value: '5', valueType: 'number', category: 'module', description: 'Non-return jobwork DC aging days before digest flags it' },
+  // — SPEC-M42 INV-05 — waste as an identity: waste receipts land in the
+  // waste godown (auto-vivified on first use) at the scrap rate, never in
+  // good stock at the good item's rate. scrap rate 0 = waste carries no value
+  // until the operator sets one.
+  { name: 'waste_godown_code', value: 'WASTE', valueType: 'string', category: 'module', description: 'Godown code waste receipts post into (created on first use)' },
+  { name: 'waste_scrap_rate', value: '0', valueType: 'number', category: 'module', description: 'Scrap value per kg of waste (₹/kg; 0 = waste unvalued until set)' },
+  // — SPEC-M42 INV-07 — opening stock is postable only within the FY-start
+  // window (ties into the Phase-6 FY-close discipline). Default off = legacy.
+  { name: 'opn_fy_gate', value: 'false', valueType: 'boolean', category: 'module', description: 'Gate OPN- opening-stock entries to the financial-year start window' },
+  { name: 'opn_fy_window_days', value: '30', valueType: 'number', category: 'module', description: 'Days after the active FY start within which OPN- entries are allowed' },
   // — Notifications & digest (SPEC-M9 §9 M13) — arm the channels; the digest
   // itself is built by lib/erp/notifications/digest.ts, surfaced at
   // /notifications/digest + /api/cron/digest —
@@ -116,11 +131,17 @@ export async function getFlags(names?: string[]): Promise<Record<string, any>> {
   return out
 }
 
-/** Single typed flag value (registry default when the row is missing). */
+/** Single typed flag value (registry default when the row is missing).
+ * PURE READ — never seeds: ensureFlags WRITES on the global db connection,
+ * which deadlocks when getFlag runs INSIDE an open transaction that already
+ * holds the SQLite write lock (WAL single-writer — SPEC-M42 INV-04 hit this
+ * in the transfer commit: getFlag→ensureFlags→createMany blocked on the tx,
+ * the tx blocked on getFlag, 5s interactive-transaction timeout killed both).
+ * Seeding stays in setFlag/getFlags (the admin surfaces); a missing row here
+ * simply means the registry default — coerce(undefined, def) already does. */
 export async function getFlag<T = any>(name: string): Promise<T> {
   const def = defByName.get(name)
   if (!def) throw new Error(`Unknown flag: ${name} (not in registry)`)
-  await ensureFlags()
   const row = await db.appOption.findUnique({ where: { key: optKey(name) } })
   return coerce(row?.value, def) as T
 }

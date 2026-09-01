@@ -65,6 +65,8 @@ import { CLOSE_ORDER_SCHEMA, CANCEL_PROGRAM_SCHEMA, COMPLETE_PROGRAM_SCHEMA, PO_
 import { planCloseOrder, planCancelProgram, planCompleteProgram, planPoLifecycle, planPoAmend, planDcTransition, planClearGateEntry } from '@/lib/erp/posting/lifecycle'
 import { PURCHASE_RETURN_SCHEMA } from '@/lib/erp/schemas/purchase-return' // SPEC-M41 PRC-03
 import { planPurchaseReturn } from '@/lib/erp/posting/purchase-return' // SPEC-M41 PRC-03
+import { STOCK_TAKE_SCHEMA, STOCK_COUNT_SCHEMA, STOCK_TAKE_ADVANCE_SCHEMA } from '@/lib/erp/schemas/stock-take' // SPEC-M42 INV-01
+import { planStockTake, planStockTakeCount, planStockTakeAdvance } from '@/lib/erp/posting/stock-take' // SPEC-M42 INV-01
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
 import { COMMERCIAL_INVOICE_SCHEMA } from '@/lib/erp/schemas/commercial-invoice'
 import { SUPPLIER_ORDER_SCHEMA } from '@/lib/erp/schemas/supplier-order'
@@ -3239,6 +3241,28 @@ const writeTools: AgentTool[] = [
     'dispatch',
     GATE_CLEAR_SCHEMA,
     planClearGateEntry,
+  ),
+  // SPEC-M42 (Phase-6B Batch 6, INV) — stock take & valuation unification
+  docTool(
+    'create_stock_take',
+    'Start a stock take (physical count cycle, INV-01): takeNo auto-assigned ST-####. Snapshots EVERY live CurrentStock bucket of the godown (all four uoms — kgs/mtrs/pcs/bags) as the system quantities to count against; status starts open. Required: godownCode. Optional: itemType (yarn|fabric|accessory|pcs — count just one family), notes, takeDate. Then walk the floor, record counts via record_stock_counts, advance via advance_stock_take.',
+    'inventory',
+    STOCK_TAKE_SCHEMA,
+    planStockTake,
+  ),
+  docTool(
+    'record_stock_counts',
+    'Record physical counts on a stock take (INV-01). Works while the take is open or counting. Lines addressed by itemType+itemCode; pass ONLY the uoms you counted (kgs/mtrs/pcs/bags) — every system-non-zero uom must eventually get a count before the take can freeze to draft. Required: takeNo (ST-####), lines (array of {itemType, itemCode, kgs?, mtrs?, pcs?, bags?}).',
+    'inventory',
+    STOCK_COUNT_SCHEMA,
+    planStockTakeCount,
+  ),
+  docTool(
+    'advance_stock_take',
+    'Advance a stock take one step through its state graph (INV-01): open → counting → draft → committed (terminal). to=draft requires every line fully counted (freezes the counts); to=committed posts ONE ADJ- variance leg per (line, uom) with non-zero variance (add/less at the bucket WAC rate — a correction reprices nothing), stamps committedAt, and makes the take terminal. Required: takeNo, to. Optional: notes.',
+    'inventory',
+    STOCK_TAKE_ADVANCE_SCHEMA,
+    planStockTakeAdvance,
   ),
 ]
 

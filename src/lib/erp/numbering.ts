@@ -51,6 +51,8 @@ export const SEQUENCES: Record<string, SequenceDef> = {
   lot:            { model: 'lot',            field: 'lotNo',       template: 'LOT-####',   start: 1 },
   bill:           { model: 'bill',           field: 'billNo',      template: 'BILL-####',  start: 1 },
   payment:        { model: 'payment',        field: 'voucherNo',   template: 'PAY-####',   start: 1 },
+  // SPEC-M42 INV-01 — the stock take cycle
+  stock_take:     { model: 'stockTake',      field: 'takeNo',      template: 'ST-####',   start: 1 },
 }
 
 function render(template: string, n: number): string {

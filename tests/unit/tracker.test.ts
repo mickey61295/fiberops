@@ -189,7 +189,7 @@ describe('M9 Live Tracker (SPEC-M9 §7)', () => {
   })
 
   it('get_live_activity tool: registered read tool over the same service (189 pin)', async () => {
-    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(246) // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
     const tool = getTool('get_live_activity')
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(false)

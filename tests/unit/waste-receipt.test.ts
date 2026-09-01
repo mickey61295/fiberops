@@ -1,22 +1,29 @@
 /**
- * SPEC-M21 — Waste Receipt (FrmWasteReceiptEntry, gap-audit P3): the
- * stock-adj VARIANT contract — wasteClass validation, WST-#### numbering,
- * reason composition, the base service's validation passthrough, the G2
- * ledger+bucket proof on commit, and the doc-config/tool registration.
+ * SPEC-M21 → SPEC-M42 INV-05 — Waste Receipt: REWRITTEN from the stock-adj
+ * variant into the waste IDENTITY. Waste posts into the WASTE godown (flag
+ * waste_godown_code, auto-vivified) at the SCRAP rate (flag waste_scrap_rate),
+ * never into the good godown at the good item's rate. The WST- docNo family +
+ * the M21 reason composition stay byte-identical; godownCode is now the SOURCE
+ * godown (validated, informational). This suite pins the M42 contract:
+ * wasteClass validation, source validation, WST-#### numbering, the
+ * waste-store ledger+bucket proof on commit, and the doc-config/tool
+ * registration.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
 import { planWasteReceipt, planStockAdjustment } from '@/lib/erp/posting/stock-adj'
 import { DOC_CONFIGS } from '@/lib/erp/doc-configs'
 import { getTool, allTools } from '@/lib/agent/tools'
+import { setFlag } from '@/lib/erp/flags'
 
 const TS = Date.now()
 const GODOWN = `M21-G-${TS}`
 const YARN = `M21-Y-${TS}`
+const WASTE_STORE = 'WASTE' // the flag default
 
 let godownId = '', yarnId = '', wstLedgerIds: string[] = []
 
-describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
+describe('SPEC-M42 INV-05 — planWasteReceipt (the waste identity)', () => {
   beforeAll(async () => {
     const g = await db.godown.create({ data: { code: GODOWN, name: `M21 GD ${TS}` } })
     godownId = g.id
@@ -40,35 +47,40 @@ describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
     if (!res.ok) expect(res.error).toContain('knitting')
   })
 
-  it('base-service validation passes through (unknown godown / item / qty<=0)', async () => {
+  it('source-godown / item / qty validation (godownCode = where the waste came FROM)', async () => {
     const badGodown = await planWasteReceipt({ godownCode: 'NOPE', itemType: 'yarn', itemCode: YARN, qty: 10, wasteClass: 'knitting' })
     expect(badGodown.ok).toBe(false)
+    if (!badGodown.ok) expect(badGodown.error).toContain('Source godown NOPE')
     const badItem = await planWasteReceipt({ godownCode: GODOWN, itemType: 'yarn', itemCode: 'NOPE', qty: 10, wasteClass: 'knitting' })
     expect(badItem.ok).toBe(false)
     const badQty = await planWasteReceipt({ godownCode: GODOWN, itemType: 'yarn', itemCode: YARN, qty: 0, wasteClass: 'knitting' })
     expect(badQty.ok).toBe(false)
   })
 
-  it('plan: action=add forced, reason composed from wasteClass (+ notes), WST-#### monotonic', async () => {
+  it('plan: WST-#### monotonic, M21 reason composition byte-identical, destination = the waste store', async () => {
     const p1 = await planWasteReceipt({ godownCode: GODOWN, itemType: 'yarn', itemCode: YARN, qty: 25, wasteClass: 'knitting', notes: 'dyelot tail' })
     expect(p1.ok).toBe(true)
     if (p1.ok) {
       const row = p1.creates?.[0]
-      expect(row?.data.txnType).toBe('stock_adjustment_add') // the base family's type — WST- + notes distinguish
+      expect(row?.data.txnType).toBe('stock_adjustment_add') // the family identity — WST- + notes distinguish
       expect(row?.data.docNo).toMatch(/^WST-\d{4}$/)
       expect(row?.data.notes).toBe('Waste — knitting: dyelot tail')
-      // (the base service's `text` doesn't quote the docNo — creates[0] carries it)
+      // INV-05: the destination is the waste store, NOT the source godown
+      expect(row?.data.godownId).not.toBe(godownId)
     }
     const p2 = await planWasteReceipt({ godownCode: GODOWN, itemType: 'yarn', itemCode: YARN, qty: 5, wasteClass: 'cutting' })
     if (p2.ok) {
       expect(p2.creates?.[0]?.data.notes).toBe('Waste — cutting')
     }
-    // numbering advances after a commit (p1 committed below), monotonic across plans
   })
 
-  it('commit lands the ledger row AND increments the CurrentStock bucket (G2 proof)', async () => {
-    const before = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId } })
+  it('commit lands the ledger row AND the WASTE-godown bucket (INV-05 core proof — good stock untouched)', async () => {
+    const wasteStore = await db.godown.findUnique({ where: { code: WASTE_STORE } })
+    expect(wasteStore).toBeTruthy() // auto-vivified by the first plan above
+    const before = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId: wasteStore!.id } })
     const beforeKgs = before?.kgs ?? 0
+    const beforeSrc = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId } })
+    const beforeSrcKgs = beforeSrc?.kgs ?? 0
 
     const plan = await planWasteReceipt({ godownCode: GODOWN, itemType: 'yarn', itemCode: YARN, qty: 40, wasteClass: 'dyeing' })
     expect(plan.ok).toBe(true)
@@ -82,10 +94,14 @@ describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
     expect(ledger).toBeTruthy()
     expect(ledger!.notes).toBe('Waste — dyeing')
     expect(ledger!.inKgs).toBe(40)
+    expect(ledger!.godownId).toBe(wasteStore!.id) // the waste identity — not the good godown
+    expect(ledger!.rate).toBe(0) // scrap rate default 0 (unvalued until the operator sets one)
     wstLedgerIds.push(ledger!.id)
 
-    const after = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId } })
-    expect((after?.kgs ?? 0) - beforeKgs).toBe(40)
+    const after = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId: wasteStore!.id } })
+    expect((after?.kgs ?? 0) - beforeKgs).toBe(40) // the waste store gains the kgs
+    const afterSrc = await db.currentStock.findFirst({ where: { itemType: 'yarn', itemId: yarnId, godownId } })
+    expect((afterSrc?.kgs ?? 0) - beforeSrcKgs).toBe(0) // the SOURCE (good) godown is untouched — INV-05's whole point
   })
 
   it('the doc family is registered with the receive_waste chip (form door + agent door, ADR-001)', () => {
@@ -99,13 +115,22 @@ describe('SPEC-M21 §2 — planWasteReceipt (the stock-adj variant)', () => {
     expect(tool!.domain).toBe('inventory')
   })
 
-  it('registry grew 224 → 226 (receive_waste)', () => {
-    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
+  it('registry grew 224 → 246 (receive_waste + the M42 stock-take trio)', () => {
+    expect(allTools.length).toBe(246) // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 
-  it('the base service + its tool stay untouched (variant contract)', () => {
+  it('the base service + its tool stay untouched (the manual ADJ- door is separate from the waste door)', () => {
     // planStockAdjustment still exports and the post_stock_adjustment tool exists
     expect(typeof planStockAdjustment).toBe('function')
     expect(getTool('post_stock_adjustment')).toBeTruthy()
+  })
+
+  it('setFlag round-trips the waste flags (scrap rate drives waste valuation)', async () => {
+    // setFlag is the admin door; a missing row simply means the default (getFlag is a pure read now)
+    const v = await setFlag('waste_scrap_rate', 12)
+    expect(v).toBe(12)
+    const row = await db.appOption.findUnique({ where: { key: 'flag:waste_scrap_rate' } })
+    expect(row?.value).toBe('12')
+    await setFlag('waste_scrap_rate', 0) // restore the default for the other suites
   })
 })

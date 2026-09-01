@@ -31,3 +31,33 @@ export function valueBucket(b: ValuableBucket): number {
   const pcsValue = b.pcs * b.rate
   return kgsValue + mtrsValue + pcsValue
 }
+
+/** SPEC-M42 INV-02 — the bucket's PRIMARY uom (the movement-matrix isKgsItem
+ *  rule, given its shared home here): the single bucket rate is a kgs rate for
+ *  yarn/fabric and a pcs rate for accessory/pcs, so WAC blends weight by THIS
+ *  qty. bumpStock's in-branch and the closing-stock replay both use it — the
+ *  golden test pins that they agree bit-exactly. */
+export function primaryUomOf(itemType: string): 'kgs' | 'pcs' {
+  return itemType === 'yarn' || itemType === 'fabric' ? 'kgs' : 'pcs'
+}
+
+/** The per-uom qty of a movement/bucket under its primary uom. */
+export function primaryQtyOf(itemType: string, q: { kgs?: number | null; pcs?: number | null }): number {
+  return primaryUomOf(itemType) === 'kgs' ? (q.kgs ?? 0) : (q.pcs ?? 0)
+}
+
+/** SPEC-M42 INV-02 — one moving weighted-average step, shared by bumpStock
+ *  (post time) and the closing-stock replay (as-of-date) so both sides run the
+ *  IDENTICAL arithmetic sequence:
+ *    rate' = (max(0, oldQty)·oldRate + inQty·inRate) / (max(0, oldQty) + inQty)
+ *  Negative on-hand never weights (a bucket already overdrawn contributes no
+ *  valuation mass); inQty <= 0 or inRate <= 0 leaves the rate untouched (WAC
+ *  convention: outs and unpriced ins never reprice); a zero denominator falls
+ *  back to the in-rate. Returns the rate the bucket must carry after the in. */
+export function wacStep(oldQty: number, oldRate: number, inQty: number, inRate: number): number {
+  if (!(inQty > 0) || !(inRate > 0)) return oldRate
+  const base = Math.max(0, oldQty)
+  const denom = base + inQty
+  if (denom <= 0) return inRate
+  return (base * oldRate + inQty * inRate) / denom
+}

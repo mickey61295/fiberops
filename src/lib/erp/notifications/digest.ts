@@ -12,6 +12,7 @@ import { db } from '@/lib/db'
 import { getFlag } from '@/lib/erp/flags'
 import { getUpcomingHolidays } from '@/lib/erp/holidays'
 import { istDayStartInstant, istDateStr } from '@/lib/erp/dates'
+import { compareStockDrift } from '@/lib/erp/registers/recon'
 import { statSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -74,6 +75,17 @@ export interface DigestNonReturnRow {
   ageDays: number
 }
 
+/** SPEC-M42 INV-06 — one ledger ↔ CurrentStock drift vector. */
+export interface DigestStockDriftRow {
+  itemType: string
+  itemCode: string
+  godown: string
+  uom: string
+  ledgerQty: number
+  cacheQty: number
+  delta: number
+}
+
 export interface Digest {
   generatedAt: string
   sections: {
@@ -85,6 +97,9 @@ export interface Digest {
     /** SPEC-M41 PRC-06 — non-return jobwork DCs past the gendcdays window;
      *  silent when empty or the flag is 0. */
     nonReturn: { gendcdays: number; rows: DigestNonReturnRow[] }
+    /** SPEC-M42 INV-06 — ledger ↔ CurrentStock cache drift; silent when clean
+     *  (the daily cron ride = the scheduled compare). */
+    stockDrift: { rows: DigestStockDriftRow[] }
     /** OPS-01 — ops & data growth (never crashes the digest). */
     ops: { rows: DigestOpsRow[] }
   }
@@ -226,6 +241,27 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
   // OPS-01 — ops & growth metrics (best-effort: never fail the digest for them)
   const opsRow = await buildOpsRow(now)
 
+  // SPEC-M42 INV-06 — the scheduled ledger ↔ cache compare (rides the daily
+  // digest; drift = a split between the append-only truth and the cache —
+  // direct bucket writes, interrupted posts, back-dated WAC replay splits).
+  // Best-effort: never fail the digest for it. Rows are sorted by |delta|
+  // DESC (the most actionable split first) then capped at 25.
+  let stockDriftRows: DigestStockDriftRow[] = []
+  try {
+    const drift = await compareStockDrift()
+    stockDriftRows = drift
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 25)
+      .map((d) => ({
+        itemType: d.itemType, itemCode: d.itemCode, godown: d.godown, uom: d.uom,
+        ledgerQty: Math.round(d.ledgerQty * 100) / 100,
+        cacheQty: Math.round(d.cacheQty * 100) / 100,
+        delta: Math.round(d.delta * 100) / 100,
+      }))
+  } catch {
+    /* drift compare unavailable — section silent */
+  }
+
   const lines: string[] = []
   lines.push(`FiberOps daily digest — ${istDateStr(now)}`)
   lines.push('')
@@ -264,6 +300,16 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
     if (nonReturn.length > 10) lines.push(`  … and ${nonReturn.length - 10} more`) 
   }
 
+  // SPEC-M42 INV-06 — the drift block (silent when clean — the M28 discipline)
+  if (stockDriftRows.length > 0) {
+    lines.push('')
+    lines.push(`Stock drift (ledger vs cache): ${stockDriftRows.length} vector${stockDriftRows.length === 1 ? '' : 's'}`)
+    for (const r of stockDriftRows.slice(0, 10)) {
+      lines.push(`  · ${r.itemType} ${r.itemCode} @ ${r.godown} ${r.uom}: ledger ${r.ledgerQty} · cache ${r.cacheQty} · Δ ${r.delta}`)
+    }
+    if (stockDriftRows.length > 10) lines.push(`  … and ${stockDriftRows.length - 10} more`)
+  }
+
   // OPS-01 — the ops block: DB size, backup freshness, archival growth
   if (opsRow) {
     lines.push('')
@@ -283,6 +329,7 @@ export async function buildDigest(now = new Date()): Promise<Digest> {
       gate: { rows: gateRows },
       shutdowns: { windowDays: DIGEST_SHUTDOWN_WINDOW_DAYS, rows: shutdownRows },
       nonReturn: { gendcdays, rows: nonReturn },
+      stockDrift: { rows: stockDriftRows },
       ops: { rows: opsRow ? [opsRow] : [] },
     },
     text: lines.join('\n'),

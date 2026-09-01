@@ -3,11 +3,17 @@
  * menu item; legacy live-stock views). Rows = CurrentStock buckets by item ×
  * godown with rate + value; fetchCurrentStock is the shared fetch (the
  * get_stock tool + stock registers use the same read path).
+ *
+ * SPEC-M42 INV-02 — the row value is valueBucket (the ONE shared valuation):
+ * the old inline `primary-uom qty × rate` disagreed with the dashboard and
+ * stock-register totals whenever a bucket held 2+ uom columns. The group key
+ * equals the bucket key, so each group is exactly one bucket.
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
 import { fetchCurrentStock } from './stock-register'
 import { buildItemCodeMaps } from './resolve'
+import { valueBucket } from '../valuation'
 
 export async function queryCurrentStock(q: RegisterQuery): Promise<RegisterResult> {
   const stocks = await fetchCurrentStock({ itemType: q.itemType, godown: q.godown })
@@ -19,8 +25,8 @@ export async function queryCurrentStock(q: RegisterQuery): Promise<RegisterResul
 
   const groups = new Map<string, RegisterRow & { _value: number }>()
   for (const s of stocks) {
-    const qty = s.itemType === 'pcs' ? s.pcs : s.itemType === 'fabric' ? s.mtrs : s.kgs
-    const value = qty * s.rate
+    // INV-02: the shared per-uom valuation — never one uom's qty × rate
+    const value = valueBucket(s)
     const key = `${s.itemType}:${s.itemId}:${s.godownId}`
     const acc = groups.get(key)
     if (acc) {

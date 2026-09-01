@@ -88,7 +88,7 @@ describe('SPEC-M35 — the get_daily_digest tool (the restored Phase-4.5 promise
     expect(tool).toBeDefined()
     expect(tool!.domain).toBe('reports')
     expect(tool!.isWrite).toBe(false)
-    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(246) // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 
   it('returns the briefing text + section counts + shutdown rows', async () => {

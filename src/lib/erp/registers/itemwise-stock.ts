@@ -5,6 +5,11 @@
  * txn count. Item codes via the shared id-map helper (PITFALLS #21 — itemId is a
  * plain column; pcs items live in the STYLE master with styleNo as the code).
  * Direct read (ADR-001): the get_stock_ledger tool stays the txn-level twin.
+ *
+ * SPEC-M42 INV-03 — the 5,000-row aggregation cap is RETIRED: a true
+ * groupBy aggregate computes the sums INSIDE SQLite, complete at any row
+ * count (a 10k+ row period statement is whole), while the register's own
+ * page cap still applies to the grouped rows below.
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -24,43 +29,42 @@ export async function queryItemwiseStock(q: RegisterQuery): Promise<RegisterResu
     if (q.to) where.docDate.lte = q.to
   }
 
-  const ledger = await db.stockLedger.findMany({
+  // INV-03: true DB aggregate — no take cap, complete at any row count.
+  const groups = await db.stockLedger.groupBy({
+    by: ['itemType', 'itemId'],
     where,
-    select: {
-      itemType: true, itemId: true, inBags: true, inKgs: true, inMtrs: true, inPcs: true,
-      outBags: true, outKgs: true, outMtrs: true, outPcs: true,
+    _sum: {
+      inBags: true, outBags: true, inKgs: true, outKgs: true,
+      inMtrs: true, outMtrs: true, inPcs: true, outPcs: true,
     },
-    take: 5000, // aggregation source — page cap applies to grouped rows below
+    _count: true,
   })
 
-  const groups = new Map<string, {
+  const rowsBy = new Map<string, {
     itemType: string; itemId: string; txns: number
     inBags: number; outBags: number; inKgs: number; outKgs: number
     inMtrs: number; outMtrs: number; inPcs: number; outPcs: number
   }>()
-  for (const l of ledger) {
-    const key = `${l.itemType}:${l.itemId}`
-    const g = groups.get(key) ?? {
-      itemType: l.itemType, itemId: l.itemId, txns: 0,
-      inBags: 0, outBags: 0, inKgs: 0, outKgs: 0, inMtrs: 0, outMtrs: 0, inPcs: 0, outPcs: 0,
-    }
-    g.txns += 1
-    g.inBags += l.inBags; g.outBags += l.outBags
-    g.inKgs += l.inKgs; g.outKgs += l.outKgs
-    g.inMtrs += l.inMtrs; g.outMtrs += l.outMtrs
-    g.inPcs += l.inPcs; g.outPcs += l.outPcs
-    groups.set(key, g)
+  for (const g of groups) {
+    const s = g._sum
+    rowsBy.set(`${g.itemType}:${g.itemId}`, {
+      itemType: g.itemType, itemId: g.itemId, txns: g._count,
+      inBags: s.inBags ?? 0, outBags: s.outBags ?? 0,
+      inKgs: s.inKgs ?? 0, outKgs: s.outKgs ?? 0,
+      inMtrs: s.inMtrs ?? 0, outMtrs: s.outMtrs ?? 0,
+      inPcs: s.inPcs ?? 0, outPcs: s.outPcs ?? 0,
+    })
   }
 
   // item codes per itemType (id-maps; pcs → styleNo)
   const byType: Record<string, Set<string>> = {}
-  for (const g of groups.values()) (byType[g.itemType] ??= new Set()).add(g.itemId)
+  for (const g of rowsBy.values()) (byType[g.itemType] ??= new Set()).add(g.itemId)
   const codeMaps = await buildItemCodeMaps(byType)
 
   const movement = (g: { inBags: number; outBags: number; inKgs: number; outKgs: number; inMtrs: number; outMtrs: number; inPcs: number; outPcs: number }) =>
     g.inBags + g.outBags + g.inKgs + g.outKgs + g.inMtrs + g.outMtrs + g.inPcs + g.outPcs
 
-  let all: RegisterRow[] = [...groups.values()]
+  let all: RegisterRow[] = [...rowsBy.values()]
     .sort((a, b) => movement(b) - movement(a))
     .map((g) => ({
       id: g.itemId,

@@ -428,6 +428,11 @@ model StockLedger {
   createdAt DateTime @default(now())
   godown    Godown?  @relation(fields: [godownId], references: [id])
   party     Party?   @relation(fields: [partyId], references: [id])
+  // SPEC-M42 INV-08 — hot-path indexes: every register filter (itemType,
+  // godown, txnType families) and the groupBy keys stop full-scanning.
+  @@index([itemType, itemId])
+  @@index([godownId])
+  @@index([txnType])
   @@index([createdAt])
   @@index([docDate])
 }
@@ -472,6 +477,41 @@ model CurrentStock {
   department Department? @relation(fields: [deptId], references: [id])
 
   @@unique([itemType, itemId, godownId, lotId, colourId, sizeId, deptId, orderId])
+}
+
+// ============== STOCK TAKE (SPEC-M42 INV-01) ==============
+// Relation-less FK (the SupplierBill precedent, PITFALLS #21): godownId/lines
+// are plain columns — reads resolve via where-lookups, never include{} on a
+// non-relation. ST-#### via the numbering registry (model stockTake).
+model StockTake {
+  id          String   @id @default(cuid())
+  takeNo      String   @unique
+  godownId    String
+  // open -> counting -> draft -> committed (terminal)
+  status      String   @default("open")
+  notes       String?
+  createdAt   DateTime @default(now())
+  committedAt DateTime?
+  lines       StockTakeLine[]
+}
+
+model StockTakeLine {
+  id        String    @id @default(cuid())
+  takeId    String
+  take      StockTake @relation(fields: [takeId], references: [id], onDelete: Cascade)
+  itemType  String
+  itemId    String
+  // system = the CurrentStock bucket snapshot AT CREATION (all four uoms —
+  // buckets are multi-uom; a primary-uom-only sheet would be unauditable)
+  systemBags Float @default(0)
+  systemKgs  Float @default(0)
+  systemMtrs Float @default(0)
+  systemPcs  Float @default(0)
+  // counted = the physical count (nullable per uom until entered)
+  countedBags Float?
+  countedKgs  Float?
+  countedMtrs Float?
+  countedPcs  Float?
 }
 
 // ============== CUTTING ==============

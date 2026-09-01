@@ -39,6 +39,7 @@ export const WASTE_RECEIPT_SCHEMA = STOCK_ADJ_SCHEMA.extend({
   reason: z.string().optional().describe('Composed from wasteClass by the variant — no need to pass.'),
   wasteClass: z.string().describe('knitting | dyeing | cutting | packing | general (the waste SOURCE)'),
   notes: z.string().optional().describe('Free note appended to the composed reason'),
+  godownCode: z.string().describe('Source godown (where the waste came FROM) — waste itself posts into the waste store (SPEC-M42 INV-05)'),
 })
 
 export type WasteReceiptInput = z.infer<typeof WASTE_RECEIPT_SCHEMA>

@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42'
 
 export interface MenuGroup {
   id: string
@@ -227,6 +227,10 @@ export const LIVE_ROUTES = new Set<string>([
   '/hr/attendance', // Attendance (M20) — attendance (day-book; posted via post_attendance agent tool)
   // M21 (gap-audit P3) — waste receipt
   '/inventory/waste-receipt', // Waste Receipt (M21) — waste-receipt (WST-#### stock-adj variant, FrmWasteReceiptEntry)
+  // SPEC-M42 (Phase-6B Batch 6, INV) — stock take & valuation unification
+  '/inventory/stock-take', // Stock Take (M42 INV-01) — stock-take list + create (ST-#### cycle)
+  '/inventory/stock-take/[id]', // Stock Take view (M42 INV-01) — count grid + advance + count-sheet print
+  '/inventory/waste-percent', // Waste % Register (M42 INV-05) — waste-percent (WST- kgs ÷ receipts kgs KPI)
   // SPEC-M41 (Phase-6B Batch 5, PRC) — procurement & dispatch closure
   '/dispatch/register', // Despatch Register (M41 PRC-05) — despatch-register (RG day-book + aging + gate-pass join)
   '/procurement/po/amendments', // PO Amendments (M41 PRC-02) — po-amendments (planPoAmend form door)
@@ -578,10 +582,23 @@ export const MENU_ITEMS: MenuItem[] = [
   },
   {
     id: 'waste-receipt', label: 'Waste Receipt', groupId: 'inventory', route: '/inventory/waste-receipt', arch: 'DS', phase: 'M21',
-    description: 'Receive waste/scrap into stock (knitting/dyeing/cutting/packing/general classes).',
+    description: 'Receive waste/scrap into the waste store at the scrap rate (knitting/dyeing/cutting/packing/general classes).',
     legacyForms: ['FrmWasteReceiptEntry'],
     agentTools: ['receive_waste'], pendingTools: [],
-    agentPrompt: 'Receive 25 kgs of knitting waste for yarn YRN-001 into godown G1',
+    agentPrompt: 'Receive 25 kgs of knitting waste for yarn YRN-001 into the waste store',
+  },
+  {
+    id: 'stock-take', label: 'Stock Take', groupId: 'inventory', route: '/inventory/stock-take', arch: 'DS', phase: 'M42',
+    description: 'Count a godown against the book (ST-####) — commit drafts the variance ADJs.',
+    legacyForms: [], // legacy had NO stock-verification form (grep-verified — the honest empty list)
+    agentTools: ['create_stock_take', 'record_stock_counts', 'advance_stock_take'], pendingTools: [],
+    agentPrompt: 'Start a stock take of godown G1, then record counts for every yarn',
+  },
+  {
+    id: 'waste-percent', label: 'Waste %', groupId: 'inventory', route: '/inventory/waste-percent', arch: 'RG', phase: 'M42',
+    description: 'Waste (WST-) kgs against production receipts per item — the knitting KPI.',
+    legacyForms: [],
+    agentTools: [], pendingTools: [],
   },
   {
     id: 'stock-adjustment', label: 'Stock Adjustment', groupId: 'inventory', route: '/inventory/adjustment', arch: 'DS', phase: 'M3',

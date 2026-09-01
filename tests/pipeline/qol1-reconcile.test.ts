@@ -149,7 +149,7 @@ describe('D-15 — the ghost tool is gone (prompt↔registry sync)', () => {
   })
 
   it('PROMPT_VERSION bumped for the semantic change (m<milestone>.<rev> scheme)', () => {
-    expect(PROMPT_VERSION).toBe('m41-2026-09-01')
+    expect(PROMPT_VERSION).toBe('m42-2026-09-02')
   })
 })
 
@@ -161,6 +161,6 @@ describe('reconcile bookkeeping', () => {
   })
 
   it('the registry count is unchanged by the reconcile (232 — no tools added/removed)', () => {
-    expect(allTools.length).toBe(243) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(246) // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 })

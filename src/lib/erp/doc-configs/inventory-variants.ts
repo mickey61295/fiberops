@@ -54,7 +54,7 @@ export const wasteReceiptConfig: DocConfig = {
   service: { plan: (input: any) => planWasteReceipt(input) },
   headerFields: [
     { name: 'docNo', label: 'WST No', type: 'text', colSpan: 1 },
-    { name: 'godownCode', label: 'Godown', type: 'picker', picker: 'godown', required: true, colSpan: 1 },
+    { name: 'godownCode', label: 'Source godown', type: 'picker', picker: 'godown', required: true, colSpan: 1 },
     { name: 'itemType', label: 'Material', type: 'select', options: [
       { value: 'yarn', label: 'Yarn' }, { value: 'fabric', label: 'Fabric' }, { value: 'accessory', label: 'Accessory' },
     ], required: true, colSpan: 1 },
