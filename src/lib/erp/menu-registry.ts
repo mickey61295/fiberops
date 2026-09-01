@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40'
 
 export interface MenuGroup {
   id: string
@@ -132,6 +132,9 @@ export const LIVE_ROUTES = new Set<string>([
   '/dispatch/unit-transfer-ack', // Unit Transfer Ack (M5 Wave C) — unit-transfer-ack (IN, kind=godown_transfer)
   '/quality/reprocess-approval', // Reprocess Approval (M5 Wave C) — reprocess-approval (IN, kind=reprocess)
   '/quality/non-return-dc', // Non-Return DC Approval (M5 Wave C) — non-return-dc-approval (IN, kind=non_return_dc)
+  // SPEC-M40 (Phase-6B Batch 4, PAY) — money integrity
+  '/accounts/bill', // Supplier Bill (M40 PAY-03) — supplier-bill (DS, SB-####)
+  '/accounts/bill/[id]', // Supplier Bill view (M40 PAY-03)
   // M5 Wave D (SPEC-M5 §7-D — ADR-015 new models + write doors)
   '/orders/samples', // Samples & Enquiry (M5 Wave D) — samples-enquiry (Sample model)
   '/orders/samples/[id]', // Sample view (M5 Wave D)
@@ -956,8 +959,15 @@ export const MENU_ITEMS: MenuItem[] = [
     agentPrompt: 'I want to raise a debit note',
   },
   {
+    id: 'supplier-bill', label: 'Supplier Bill', groupId: 'accounts', route: '/accounts/bill', arch: 'DS', phase: 'M40',
+    description: 'SB-#### supplier bills from purchase GRNs — 3-way match, TDS, pass gate, FIFO payments.',
+    legacyForms: ['FrmSupplierBillReg'],
+    agentTools: ['create_supplier_bill', 'create_bill_pass'], pendingTools: [],
+    agentPrompt: 'I want to enter a supplier bill',
+  },
+  {
     id: 'bill-pass', label: 'Bill Pass', groupId: 'accounts', route: '/accounts/bill-pass', arch: 'IN', phase: 'M5',
-    description: 'Approve supplier bills for payment.',
+    description: 'Pass supplier bills (SB-####) for payment — the 3-way match gate.',
     legacyForms: ['frmBillPass'],
     agentTools: ['get_pending_approvals', 'create_bill_pass'], pendingTools: [],
   },

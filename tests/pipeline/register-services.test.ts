@@ -32,6 +32,7 @@ const STYLE = `RGTS-${TS}`
 const ORDER = `RGT-ORD-${TS}`
 const PO = `RGT-PO-${TS}`
 const GRN = `RGT-GRN-${TS}`
+const SB = `RGT-SB-${TS}`
 const DC = `RGT-DC-${TS}`
 const JW = `RGT-JW-${TS}`
 const INV = `RGT-INV-${TS}`
@@ -71,6 +72,7 @@ let styleId = ''
 let orderId = ''
 let poId = ''
 let grnId = ''
+let supplierBillId = ''
 let deptId = ''
 let godownId = ''
 let agentTurnId = ''
@@ -121,6 +123,11 @@ describe('register services math (SPEC-M4 §5)', () => {
       data: { grnNo: GRN, grnType: 'purchase', poId, partyId, godownId, totalQty: GRN_QTY, totalValue: GRN_VALUE, finYear: 'FY26' },
     })
     grnId = grn.id
+    // SPEC-M40 PAY-03 — the supplier bill doc (the register lists SBs, not GRNs)
+    const sb = await db.supplierBill.create({
+      data: { billNo: SB, partyId, grnId, poId, taxableValue: GRN_VALUE, billAmount: GRN_VALUE, tdsPercent: 2, billDate: new Date('2026-08-21'), finYear: 'FY26', status: 'passed', matchStatus: 'matched' },
+    })
+    supplierBillId = sb.id
 
     // StockLedger legs (io-history running balance: +10, −4, +2 → 8)
     await db.stockLedger.createMany({
@@ -186,6 +193,7 @@ describe('register services math (SPEC-M4 §5)', () => {
     await sw(db.stockLedger.deleteMany({ where: { godownId } }).catch(() => {}))
     await sw(db.pcsDespatch.deleteMany({ where: { dcNo: DC } }).catch(() => {}))
     await sw(db.gRN.deleteMany({ where: { grnNo: GRN } }).catch(() => {}))
+    await sw(db.supplierBill.deleteMany({ where: { id: supplierBillId } }).catch(() => {}))
     await sw(db.pOLine.deleteMany({ where: { poId } }).catch(() => {}))
     await sw(db.purchaseOrder.deleteMany({ where: { poNo: PO } }).catch(() => {}))
     await sw(db.currentStock.deleteMany({ where: { godownId } }).catch(() => {}))
@@ -314,14 +322,17 @@ describe('register services math (SPEC-M4 §5)', () => {
     expect(inv?.href).toBe(`/accounts/invoice/${inv?.id?.replace('inv:', '')}`)
   })
 
-  // ---- §5 row 13: supplier bills ----
-  it('supplier-bills: GRN row with PO linkage (6 / 600)', async () => {
+  // ---- §5 row 13: supplier bills (M40 PAY-03 — SB rows, not GRN rows) ----
+  it('supplier-bills: SB row with GRN + PO linkage (6 / 600)', async () => {
     const res = await REGISTER_SERVICES['supplier-bills']({ party: PARTY, limit: 50, page: 1 })
-    const row = res.rows.find((r) => r.grnNo === GRN)
+    const row = res.rows.find((r) => r.billNo === SB)
     expect(row).toBeTruthy()
+    expect(row!.grnNo).toBe(GRN)
     expect(row!.poNo).toBe(PO)
-    expect(row!.totalQty).toBe(GRN_QTY)
-    expect(row!.href).toBe(`/procurement/grn/${grnId}`)
+    expect(row!.billAmount).toBe(GRN_VALUE)
+    expect(row!.status).toBe('passed')
+    expect(row!.matchStatus).toBe('matched')
+    expect(row!.href).toBe(`/accounts/bill/${supplierBillId}`)
   })
 
   // ---- §5 row 14: party ledger ----

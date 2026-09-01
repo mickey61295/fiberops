@@ -77,7 +77,7 @@ const poStatusOptions = [
 export const supplierPendingConfig: RegisterConfig = {
   slug: 'supplier-pending',
   title: 'Supplier Pending Orders',
-  description: 'Per-PO ordered vs received — the pending purchase chase list (pending > 0 by default).',
+  description: 'Per-PO ordered vs received — the pending purchase chase list (pending > 0 by default) + the received-not-billed memo (PAY-05).',
   filters: [
     { key: 'party', label: 'Party', type: 'party', placeholder: 'e.g. PRT-0001' },
     { key: 'status', label: 'Status', type: 'status', options: poStatusOptions },
@@ -93,6 +93,8 @@ export const supplierPendingConfig: RegisterConfig = {
     { name: 'receivedQty', label: 'Received', align: 'right', format: 'qty' },
     { name: 'pendingQty', label: 'Pending qty', align: 'right', format: 'qty' },
     { name: 'pendingValue', label: 'Pending value', align: 'right', format: 'inr' },
+    // SPEC-M40 PAY-05 — GRN value with no open SB (the billing gap; not AP until passed)
+    { name: 'receivedNotBilled', label: 'Recv not billed', align: 'right', format: 'inr' },
     { name: 'status', label: 'Status', format: 'badge' },
   ],
   agentTools: ['list_purchase_orders', 'get_party_ledger'],

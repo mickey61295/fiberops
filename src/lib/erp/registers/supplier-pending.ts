@@ -29,7 +29,7 @@ export async function querySupplierPending(q: RegisterQuery): Promise<RegisterRe
   const grns = pos.length
     ? await db.gRN.findMany({
         where: { poId: { in: pos.map((p) => p.id) } },
-        select: { poId: true, totalQty: true, totalValue: true },
+        select: { id: true, poId: true, totalQty: true, totalValue: true },
       })
     : []
   const receivedByPo = new Map<string, { qty: number; value: number }>()
@@ -40,11 +40,30 @@ export async function querySupplierPending(q: RegisterQuery): Promise<RegisterRe
     receivedByPo.set(g.poId!, acc)
   }
 
+  // SPEC-M40 PAY-05 — received-not-billed: GRN value with no open supplier bill
+  // (SB-####, status != cancelled). The chase-list gap between receipt and
+  // billing — honest memo, NOT AP payable (that needs a passed bill).
+  const billedGrnIds = new Set(
+    grns.length
+      ? (await db.supplierBill.findMany({ where: { grnId: { in: grns.map((g) => g.id) }, status: { not: 'cancelled' } }, select: { grnId: true } })).map((b) => b.grnId).filter(Boolean) as string[]
+      : [],
+  )
+
+  const grnsByPo = new Map<string, { id: string; totalValue: number }[]>()
+  for (const g of grns) {
+    const arr = grnsByPo.get(g.poId!) ?? []
+    arr.push({ id: g.id, totalValue: g.totalValue })
+    grnsByPo.set(g.poId!, arr)
+  }
+
   let all = pos.map((po) => {
     const orderedQty = po.lines.reduce((s, l) => s + l.qty, 0)
     const orderedValue = po.lines.reduce((s, l) => s + l.amount, 0)
     const receivedQty = receivedByPo.get(po.id)?.qty ?? 0
     const receivedValue = receivedByPo.get(po.id)?.value ?? 0
+    const receivedNotBilled = (grnsByPo.get(po.id) ?? [])
+      .filter((g) => !billedGrnIds.has(g.id))
+      .reduce((s, g) => s + g.totalValue, 0)
     return {
       id: po.id,
       href: `/procurement/po/${po.id}`,
@@ -57,6 +76,7 @@ export async function querySupplierPending(q: RegisterQuery): Promise<RegisterRe
       receivedQty,
       pendingQty: Math.max(0, orderedQty - receivedQty),
       pendingValue: Math.max(0, orderedValue - receivedValue),
+      receivedNotBilled: Math.round(receivedNotBilled * 100) / 100,
       status: po.status,
     }
   })
@@ -66,15 +86,16 @@ export async function querySupplierPending(q: RegisterQuery): Promise<RegisterRe
   const count = all.length
   const rows: RegisterRow[] = all.slice((q.page - 1) * q.limit, (q.page - 1) * q.limit + q.limit)
 
-  const sum = (k: 'pendingQty' | 'pendingValue') => all.reduce((s, r) => s + r[k], 0)
+  const sum = (k: 'pendingQty' | 'pendingValue' | 'receivedNotBilled') => all.reduce((s, r) => s + r[k], 0)
   return {
     rows,
     totals: [
       { label: 'POs pending', value: count },
       { label: 'Pending qty', value: sum('pendingQty') },
       { label: 'Pending value', value: Math.round(sum('pendingValue')) },
+      { label: 'Received not billed', value: Math.round(sum('receivedNotBilled')) },
     ],
-    summary: `${count} POs pending · ₹${Math.round(sum('pendingValue')).toLocaleString('en-IN')}`,
+    summary: `${count} POs pending · ₹${Math.round(sum('pendingValue')).toLocaleString('en-IN')} · ₹${Math.round(sum('receivedNotBilled')).toLocaleString('en-IN')} received-not-billed (PAY-05 memo)`,
     count,
   }
 }

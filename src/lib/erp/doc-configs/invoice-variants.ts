@@ -43,6 +43,9 @@ export const localInvoiceConfig: DocConfig = {
       { value: 'igst', label: 'IGST (inter-state)' },
     ] },
     { name: 'invoiceDate', label: 'Invoice Date', type: 'date', colSpan: 1 },
+    // SPEC-M40 PAY-07 — the aging anchor (schema keys inherited from INVOICE_SCHEMA)
+    { name: 'creditDays', label: 'Credit days', type: 'number', colSpan: 1 },
+    { name: 'dueDate', label: 'Due date (overrides credit days)', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
   ],
   listColumns: [
@@ -83,6 +86,9 @@ export const pieceJobworkInvoiceConfig: DocConfig = {
       { value: 'igst', label: 'IGST (inter-state)' },
     ] },
     { name: 'invoiceDate', label: 'Invoice Date', type: 'date', colSpan: 1 },
+    // SPEC-M40 PAY-07 — the aging anchor (schema keys inherited from INVOICE_SCHEMA)
+    { name: 'creditDays', label: 'Credit days', type: 'number', colSpan: 1 },
+    { name: 'dueDate', label: 'Due date (overrides credit days)', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
   ],
   listColumns: [

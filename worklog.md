@@ -1772,3 +1772,29 @@ Work Log:
 Stage Summary:
 - REMOTE FULLY SYNCED: origin/main carries the M39 line + our surviving QoL1 fixes; our parallel line preserved on qol1-m30-alt; nothing force-pushed.
 - The sixth parallel-session race is closed end-to-end.
+
+---
+Task ID: m40-pay-batch4
+Agent: main (Super Z)
+Task: Continue the project after the sixth-race reconciliation — per the M39 record's own plan: Phase-6B Batch 4, the money-integrity tier (PAY-01..08 from docs/PRD/PHASE-6B-REMEDIATION-SPEC.md §7).
+
+Work Log:
+- Verified the post-reconcile state first: main == origin/main == 92ea236 (no seventh race), tree clean, .pat-token safe (600, untracked), SPEC-M40 absent → the batch untouched.
+- Re-verified every spec-cited line on the M39.1 line: payment.ts:21/27/33 direction-blind + all-or-nothing settle; chain-money AP iteration-order guesswork (254-278); tolerance engine dead except checkProcessLoss; planCancelInvoice guard-free; bill-pass = approval row only.
+- Wrote SPEC-M40 (FR table, 8 design decisions, files, acceptance) — PAY-08 (cheque/PDC) explicitly DEFERRED per §17-3 (the owner's open decision; no dead columns).
+- Schema (db push + WAL CHECKPOINT TRUNCATE + generate): NEW PaymentAllocation / SupplierBill / SupplierBillLine (relation-less FKs per PITFALLS #21); Payment + status/cancelledAt; SalesInvoice + dueDate/creditDays; Journal + status; Budget + status.
+- posting/supplier-bill.ts NEW: planSupplierBill (SB-#### draft from a purchase GRN; lines default to GRN lines, overrides subset by itemCode; verdicts computed + stored; TDS from the tds_default_percent flag; one OPEN bill per GRN guarded; process GRNs refused with bill_jobwork guidance) + planBillPass (the REAL gate: draft→passed, verdicts re-derived fresh, BLOCK refuses, find-or-create supplier_bill Approval on the BILL).
+- posting/payment.ts REWRITTEN: FIFO allocations (explicit target capped at outstanding; auto-FIFO oldest-first without one; remainder = labeled on-account), status DERIVES from Σ active allocations inside the commit (recompute helpers; the M3 single-shot flip retired), direction guard (out+sales-invoice / in+bill / draft-bill all rejected with guidance).
+- posting/cancel.ts: +planCancelPayment (CN- contra mirror, allocations reversedAt, statuses re-derive), +planCancelJournal (CN- mirror; JV- companions + CN- system rows refuse), +planCancelDebitNote/Expense/Budget (status flips + guards); planCancelInvoice gains guards (live IRN, active allocations w/ voucher names, legacy-paid). cancel-action.ts CANCEL_PLAN + doc-view-actions keyset +5; +5 agent cancel docTools.
+- Registers/reports: supplier-bills REWRITTEN (SB rows: billNo/party/grn/po/amounts/TDS/match/status; PO batch lookup restored); supplier-pending + received-not-billed memo (per-PO + total); chain-money queryOutstandingSummary REWRITTEN (AR anchors dueDate ?? invoiceDate + onAccount column; AP = open bills − active bill allocations — the guesswork RETIRED; received-not-billed memo; buckets widened to spec 0-30/31-60/61-90/90+); wages register + paid/owed (operator statement — loop-closure #3).
+- Views: /accounts/bill (new-doc screen) + /accounts/bill/[id] (SB view: lines vs GRN, verdicts card, TDS net, allocation trail, status chips) + menu/LIVE_ROUTES/new-routes entries; invoice + invoice-variants doc-configs gain creditDays/dueDate fields; payment doc-config gains billNo + status; wage-payments drops the now-rejected invoiceNo field.
+- Agent: create_supplier_bill docTool; create_bill_pass REWRITTEN as the gate delegate (BILL_PASS_SCHEMA {billNo, comments}); +5 cancel tools; record_payment/list_supplier_bills descriptions rewritten; tool-labels +7; prompt §money + few-shots (folded to the M10 hard cap of 8) + the procurement money-loop paragraph; PROMPT_VERSION m40-2026-09-01.
+- Inherited suites updated for the new truth: doc-parity #18, industry-chain #14, doc-configs payment form-door + registry array, register-services supplier-bills, report-services outstanding (fixture now creates allocations + a passed SB), approval-kinds (the 5 bill-pass tests rewritten for the gate), wage-payments schema mirror (WAGE_PAYMENT_SCHEMA omits invoiceNo/billNo), 12 count pins 232→238, menu 133→134, version pins m39.1→m40.
+- NEW tests/pipeline/pay-batch4.test.ts 17/17: loop-closure #4 (₹400+₹600 → partial→paid via allocations, both doors) + overpayment onAccount + auto-FIFO + direction guards + SB draft/gate/block-verdict + AP/memo + cancel contra legs + invoice guards + journal/note/expense/budget cancels + dueDate aging + loop-closure #3 wages (earned 1000/paid 600/owed 400) + PAY-08 deferral pin + status-fleet source contracts.
+- PITFALLS #43: Prisma SQLite stores DateTime as INTEGER epoch-millis — raw fixture INSERTs with ISO strings produce P2023 (route_smoke debug). Column names are camelCase in raw SQL.
+- Gates: 1245 vitest (1228+17) · tsc src 0 · eval --static PASS (promptVersion m40-2026-09-01) · context_check 10 pins updated → 604/604 NO DRIFT · route_smoke_m40.sh NEW 15/15 LIVE (server+smoke in one invocation — the sandbox reaps the dev server between tool calls; zombie port conflicts need pkill -9 -f next) · STATE #42 + header.
+
+Stage Summary:
+- Batch 4 COMPLETE — seams 3+4 closed; loop-closure tests #3 and #4 GREEN end-to-end; every tolerance flag that owns the money path is enforced or honestly recorded as deferred (po_bud* → Batch 5).
+- PAY-08 (cheque/PDC lifecycle) is the owner's §17-3 decision, explicitly deferred — recorded in SPEC-M40 + STATE #42.
+- Next per spec §16: Batch 5 PRC-01..09 (procurement & dispatch closure — multi-line GRN, PO amendment, purchase return).

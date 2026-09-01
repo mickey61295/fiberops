@@ -230,7 +230,7 @@ describe('SPEC-M31 §2 — the agent tool (get_working_days)', () => {
     expect(t).toBeDefined()
     expect((t as any).isWrite).toBe(false)
     expect((t as any).domain).toBe('masters')
-    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
   })
 
   it('window mode returns the breakdown against live fixtures', async () => {

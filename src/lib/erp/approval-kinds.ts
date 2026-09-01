@@ -34,12 +34,15 @@ export interface ApprovalKind {
 
 export const APPROVAL_KINDS: ApprovalKind[] = [
   {
+    // SPEC-M40 PAY-03 — the gate is real: the Approval row rides the SupplierBill
+    // (SB-####) document, not the GRN; entityId = the bill's id. The M5-era
+    // GRN-keyed rows remain readable (their refResolver fell through to null).
     entity: 'supplier_bill',
     label: 'Bill Pass',
-    description: 'Approve supplier bills for payment',
+    description: 'Pass supplier bills (SB-####) for payment — the 3-way match gate',
     route: '/accounts/bill-pass',
     tool: 'create_bill_pass',
-    refResolver: (grnId) => `/procurement/grn/${grnId}`,
+    refResolver: (billId) => `/accounts/bill/${billId}`,
   },
   {
     entity: 'godown_transfer',

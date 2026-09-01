@@ -1,76 +1,76 @@
 /**
- * Supplier Bill Register service — SPEC-M4 §5 row 13 (FrmSupplierBillReg).
- * GRN day-book with PO linkage (poId id-map — relation exists but PO lookup is
- * batched for the poNo column). q.status maps to grnType (frozen filter-key
- * set §4). Rows drill into /procurement/grn/[id] (W2).
+ * Supplier Bill Register service — SPEC-M4 §5 row 13 (FrmSupplierBillReg),
+ * REWRITTEN by SPEC-M40 PAY-03: rows are SupplierBill documents (SB-####), not
+ * GRNs — the bill is now a real document with lines, tolerance verdicts, TDS
+ * and a lifecycle (draft → passed → partial → paid). GRN/PO ride as columns
+ * (plain-FK batch lookups — PITFALLS #21); status filter is the bill's own
+ * fleet (every state has a writer). q.status keys the bill status directly.
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
 
 export async function querySupplierBills(q: RegisterQuery): Promise<RegisterResult> {
   const where: any = {}
-  if (q.status) where.grnType = q.status // status key rides grnType (config comment)
+  if (q.status) where.status = q.status
   if (q.party) {
     const p = await db.party.findUnique({ where: { code: q.party } })
     if (!p) return { rows: [], summary: `Party ${q.party} not found`, count: 0 }
     where.partyId = p.id
   }
   if (q.from || q.to) {
-    where.grnDate = {}
-    if (q.from) where.grnDate.gte = q.from
-    if (q.to) where.grnDate.lte = q.to
+    where.billDate = {}
+    if (q.from) where.billDate.gte = q.from
+    if (q.to) where.billDate.lte = q.to
   }
 
-  const [grns, count] = await Promise.all([
-    db.gRN.findMany({
+  const [bills, count] = await Promise.all([
+    db.supplierBill.findMany({
       where,
-      include: { party: true },
-      orderBy: { grnDate: 'desc' },
+      include: { lines: true },
+      orderBy: { billDate: 'desc' },
       take: q.limit,
       skip: (q.page - 1) * q.limit,
     }),
-    db.gRN.count({ where }),
+    db.supplierBill.count({ where }),
   ])
 
-  const poIds = [...new Set(grns.map((g) => g.poId).filter(Boolean) as string[])]
+  // batch lookups: party + GRN + PO (plain FKs — PITFALLS #21)
+  const partyIds = [...new Set(bills.map((b) => b.partyId))]
+  const parties = partyIds.length ? await db.party.findMany({ where: { id: { in: partyIds } }, select: { id: true, name: true } }) : []
+  const partyMap = new Map(parties.map((p) => [p.id, p.name]))
+  const grnIds = [...new Set(bills.map((b) => b.grnId).filter(Boolean) as string[])]
+  const grns = grnIds.length ? await db.gRN.findMany({ where: { id: { in: grnIds } }, select: { id: true, grnNo: true } }) : []
+  const grnMap = new Map(grns.map((g) => [g.id, g.grnNo]))
+  const poIds = [...new Set(bills.map((b) => b.poId).filter(Boolean) as string[])]
   const pos = poIds.length ? await db.purchaseOrder.findMany({ where: { id: { in: poIds } }, select: { id: true, poNo: true } }) : []
   const poMap = new Map(pos.map((p) => [p.id, p.poNo]))
 
-  // SPEC-M5 §6 Wave C — bill-pass state per GRN: the supplier_bill Approval
-  // (create_bill_pass / pending hook) IS the bill-pass document. 'Passed' when
-  // approved, 'Pending' when awaiting, '—' when none raised.
-  const aps = grns.length
-    ? await db.approval.findMany({ where: { entity: 'supplier_bill', entityId: { in: grns.map((g) => g.id) } }, orderBy: { createdAt: 'desc' } })
-    : []
-  const apMap = new Map<string, string>()
-  for (const ap of aps) if (!apMap.has(ap.entityId)) apMap.set(ap.entityId, ap.status)
-  const billPass = (id: string) => {
-    const st = apMap.get(id)
-    return st === 'approved' ? 'Passed' : st === 'pending' ? 'Pending' : '—'
-  }
-
-  const rows: RegisterRow[] = grns.map((g) => ({
-    id: g.id,
-    href: `/procurement/grn/${g.id}`,
-    grnNo: g.grnNo,
-    grnType: g.grnType,
-    party: g.party?.name ?? '—',
-    poNo: g.poId ? poMap.get(g.poId) ?? null : null,
-    grnDate: g.grnDate,
-    totalQty: g.totalQty,
-    totalValue: g.totalValue,
-    billPass: billPass(g.id),
+  const rows: RegisterRow[] = bills.map((b) => ({
+    id: b.id,
+    href: `/accounts/bill/${b.id}`,
+    billNo: b.billNo,
+    party: partyMap.get(b.partyId) ?? '—',
+    grnNo: b.grnId ? grnMap.get(b.grnId) ?? null : null,
+    poNo: b.poId ? poMap.get(b.poId) ?? null : null,
+    billDate: b.billDate,
+    taxableValue: b.taxableValue,
+    gst: Math.round((b.cgstAmt + b.sgstAmt + b.igstAmt) * 100) / 100,
+    billAmount: b.billAmount,
+    tdsPercent: b.tdsPercent ?? 0,
+    matchStatus: b.matchStatus ?? '—',
+    status: b.status,
+    lines: b.lines.length,
   }))
 
-  const sum = (k: 'totalQty' | 'totalValue') => rows.reduce((s, r) => s + (r[k] as number), 0)
+  const sum = (k: 'taxableValue' | 'billAmount') => rows.reduce((s, r) => s + (r[k] as number), 0)
   return {
     rows,
     totals: [
-      { label: 'GRNs', value: count },
-      { label: 'Qty (page)', value: Math.round(sum('totalQty') * 100) / 100 },
-      { label: 'Value (page)', value: Math.round(sum('totalValue')) },
+      { label: 'Bills', value: count },
+      { label: 'Taxable (page)', value: Math.round(sum('taxableValue')) },
+      { label: 'Bill value (page)', value: Math.round(sum('billAmount')) },
     ],
-    summary: `${count} supplier bills${q.status ? ` · type ${q.status}` : ''} · value ₹${Math.round(sum('totalValue')).toLocaleString('en-IN')} (page)`,
+    summary: `${count} supplier bills${q.status ? ` · ${q.status}` : ''} · ₹${Math.round(sum('billAmount')).toLocaleString('en-IN')} (page)`,
     count,
   }
 }

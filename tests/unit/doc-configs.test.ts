@@ -36,6 +36,7 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
       'despatch',
       'invoice',
       'debit-note',
+      'supplier-bill', // SPEC-M40 PAY-03
       'payment',
       'journal',
       'cost-sheet',
@@ -724,7 +725,7 @@ describe('form-door integration — Wave D accounts + inventory ops (ADR-001 thr
     expect(inv?.status).toBe('issued')
   })
 
-  it('payment: full receipt against the invoice settles it + writes the companion JV', async () => {
+  it('payment: full receipt against the invoice settles it via ALLOCATIONS (M40 PAY-01) + writes the companion JV', async () => {
     const res = await commitDocAction('payment', {
       header: {
         voucherNo: '',
@@ -744,13 +745,18 @@ describe('form-door integration — Wave D accounts + inventory ops (ADR-001 thr
     if (res.ok) {
       paymentId = res.doc?.id
       paymentVoucherNo = String(res.doc?.voucherNo ?? '')
-      expect(res.doc?.invoiceSettled).toBe(true)
+      // SPEC-M40 PAY-01 — settlement rides allocation rows (invoiceSettled retired)
+      expect(res.doc?.allocated).toBe(16800)
+      expect(res.doc?.onAccount).toBe(0)
     }
     const inv = await db.salesInvoice.findUnique({ where: { invoiceNo: invNo } })
     expect(inv?.status).toBe('paid')
     const pay = await db.payment.findFirst({ where: { invoiceId: inv?.id } })
     expect(pay?.direction).toBe('in')
     expect(pay?.amount).toBe(16800)
+    expect(pay?.status).toBe('active')
+    const alloc = await db.paymentAllocation.findFirst({ where: { invoiceId: inv?.id, reversedAt: null } })
+    expect(alloc?.amount).toBe(16800)
     const jv = await db.journal.findUnique({ where: { voucherNo: `JV-${paymentVoucherNo}` } })
     expect(jv?.voucherType).toBe('receipt')
     expect(jv?.amount).toBe(16800)

@@ -254,7 +254,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement // 189 + M19-C ×33
+    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement // 189 + M19-C ×33
   })
 })
 

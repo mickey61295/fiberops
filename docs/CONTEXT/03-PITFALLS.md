@@ -498,3 +498,12 @@ fixtures in the far future (e.g. 2026-12-31) so they sort first; (2) make quanti
 `toLocaleString('en-IN')` — 99999 renders "99,999", so grep the COMMA form; (4) the sidebar
 renders only the ACTIVE group's items — assert group-local pages (orderwise label on
 /pieces/*, not /inventory).
+
+43. **Prisma + SQLite stores DateTime as INTEGER epoch-millis** (M40, route_smoke
+    fixture): a raw `sqlite3` INSERT writing ISO strings (`datetime.now().isoformat()`)
+    into a DateTime column reads back fine in sqlite3 but throws Prisma **P2023
+    "inconsistent column data"** on the first query — the page 500s with no compile
+    error hint. Raw-SQL fixtures (route smokes, cleanup scripts) MUST write
+    `int(time.time() * 1000)` for every DateTime column. Column names in raw SQL are
+    the camelCase Prisma field names (partyId, grnId), never snake_case. Diagnose by
+    tailing dev.log — the browser shows only the digest.

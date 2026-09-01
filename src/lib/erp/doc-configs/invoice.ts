@@ -32,6 +32,9 @@ export const invoiceConfig: DocConfig = {
       { value: 'igst', label: 'IGST (inter-state)' },
     ] },
     { name: 'invoiceDate', label: 'Invoice Date', type: 'date', colSpan: 1 },
+    // SPEC-M40 PAY-07 — the aging anchor: dueDate = invoiceDate + creditDays
+    { name: 'creditDays', label: 'Credit days', type: 'number', colSpan: 1 },
+    { name: 'dueDate', label: 'Due date (overrides credit days)', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
   ],
   listColumns: [
@@ -42,6 +45,7 @@ export const invoiceConfig: DocConfig = {
     { name: 'billAmount', label: 'Bill Amount (₹)', align: 'right' },
     { name: 'status', label: 'Status' },
     { name: 'invoiceDate', label: 'Date' },
+    { name: 'dueDate', label: 'Due' },
   ],
   recentCount: 20,
   agentTools: ['create_sales_invoice'],

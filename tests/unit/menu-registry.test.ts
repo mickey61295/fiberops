@@ -28,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 133 items (113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement)', () => {
-    expect(MENU_ITEMS.length).toBe(133) // M39 JWL: +jobworker-statement
+  it('has exactly 134 items (113 parity + M40 supplier-bill + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement)', () => {
+    expect(MENU_ITEMS.length).toBe(134) // M39 JWL: +jobworker-statement
   })
 
   it('has exactly 17 groups', () => {
@@ -102,10 +102,10 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupForPath('/admin/settings')?.id).toBe('masters-admin')
   })
 
-  it('parityStats: 133/133 live after M21 (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit)', () => {
+  it('parityStats: 134/134 live after M21 (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(133)
-    expect(s.liveItems).toBe(133)
+    expect(s.totalItems).toBe(134)
+    expect(s.liveItems).toBe(134)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)

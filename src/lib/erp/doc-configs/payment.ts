@@ -24,7 +24,10 @@ export const paymentConfig: DocConfig = {
       { value: 'in', label: 'Receipt (in from buyer)' },
       { value: 'out', label: 'Payment (out to supplier)' },
     ] },
-    { name: 'invoiceNo', label: 'Invoice No (settles when fully paid)', type: 'text', colSpan: 1 },
+    { name: 'invoiceNo', label: 'Invoice No (in-payments — FIFO allocates)', type: 'text', colSpan: 1 },
+    // SPEC-M40 PAY-02 — out-payments attach supplier bills; direction guard
+    // rejects cross-direction tags with guidance.
+    { name: 'billNo', label: 'Supplier Bill No (out-payments)', type: 'text', colSpan: 1 },
     { name: 'orderNo', label: 'Order No', type: 'text', colSpan: 1 },
     // HFX-06 (Phase-6B Batch 0) — rtgs | neft join the mode select (the schema
     // comment's contract: cash | bank | cheque | rtgs | neft | upi).
@@ -46,6 +49,8 @@ export const paymentConfig: DocConfig = {
     { name: 'direction', label: 'Dir' },
     { name: 'amount', label: 'Amount (₹)', align: 'right' },
     { name: 'mode', label: 'Mode' },
+    // SPEC-M40 PAY-06 — the cancel door's muscle-memory hygiene needs status
+    { name: 'status', label: 'Status' },
     { name: 'payDate', label: 'Date' },
   ],
   recentCount: 20,

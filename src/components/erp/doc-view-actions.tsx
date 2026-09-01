@@ -27,9 +27,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { planCancelDocView, commitCancelDocView } from '@/lib/erp/cancel-action'
 import { NEW_ROUTE_BY_SLUG } from '@/lib/erp/new-routes'
 
-/** the four families with cancel services (client copy of cancel-action.ts's
- * CANCEL_PLAN keyset — 'use server' files export async functions only) */
-const CANCELABLE_SLUGS = new Set(['order', 'purchase-order', 'invoice', 'program'])
+/** families with cancel services (client copy of cancel-action.ts's
+ * CANCEL_PLAN keyset — 'use server' files export async functions only;
+ * SPEC-M40 PAY-06 adds the money vouchers) */
+const CANCELABLE_SLUGS = new Set(['order', 'purchase-order', 'invoice', 'program', 'payment', 'journal', 'debit-note', 'expense', 'budget'])
 
 /** Statuses in which the cancel door is hidden (terminal states). The service
  * guards regardless — this is muscle-memory hygiene, not the enforcement. */
@@ -39,6 +40,12 @@ const CANCEL_HIDDEN_STATUS: Record<string, string[]> = {
   'purchase-order': ['cancelled', 'received', 'completed', 'complete'],
   invoice: ['cancelled', 'paid'],
   program: ['cancelled', 'completed', 'complete'],
+  // SPEC-M40 PAY-06
+  payment: ['cancelled'],
+  journal: ['cancelled'],
+  'debit-note': ['cancelled'],
+  expense: ['cancelled', 'settled'],
+  budget: ['cancelled'],
 }
 
 export interface DocViewActionsProps {
@@ -63,7 +70,16 @@ export function DocViewActions({ slug, docNo, status, seed }: DocViewActionsProp
   const duplicateRoute = number ? NEW_ROUTE_BY_SLUG[slug] : undefined
   if (!canCancel && !duplicateRoute) return null
 
-  const cancelLabel = slug === 'invoice' ? 'Void invoice' : slug === 'order' ? 'Cancel order' : slug === 'program' ? 'Cancel program' : 'Cancel PO'
+  const cancelLabel =
+    slug === 'invoice' ? 'Void invoice'
+    : slug === 'order' ? 'Cancel order'
+    : slug === 'program' ? 'Cancel program'
+    : slug === 'purchase-order' ? 'Cancel PO'
+    : slug === 'payment' ? 'Reverse payment'
+    : slug === 'journal' ? 'Reverse journal'
+    : slug === 'debit-note' ? 'Cancel note'
+    : slug === 'expense' ? 'Cancel expense'
+    : 'Cancel budget'
 
   async function openCancelDialog() {
     setPlanning(true)

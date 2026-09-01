@@ -149,7 +149,7 @@ describe('D-15 — the ghost tool is gone (prompt↔registry sync)', () => {
   })
 
   it('PROMPT_VERSION bumped for the semantic change (m39.1 scheme)', () => {
-    expect(PROMPT_VERSION).toBe('m39.1-2026-09-01')
+    expect(PROMPT_VERSION).toBe('m40-2026-09-01')
   })
 })
 
@@ -161,6 +161,6 @@ describe('reconcile bookkeeping', () => {
   })
 
   it('the registry count is unchanged by the reconcile (232 — no tools added/removed)', () => {
-    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
   })
 })

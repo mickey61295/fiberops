@@ -17,7 +17,7 @@
 import { revalidatePath } from 'next/cache'
 import { runCommit } from '@/lib/erp/audit'
 import { getSessionUser } from '@/lib/auth/current-user'
-import { planCancelOrder, planCancelInvoice } from './posting/cancel'
+import { planCancelOrder, planCancelInvoice, planCancelPayment, planCancelJournal, planCancelDebitNote, planCancelExpense, planCancelBudget } from './posting/cancel'
 import { planPoLifecycle, planCancelProgram } from './posting/lifecycle'
 import type { DocPlanResult } from './posting/types'
 
@@ -41,6 +41,12 @@ const CANCEL_PLAN: Record<string, (docNo: string, reason: string) => Promise<Doc
   'purchase-order': (docNo, reason) => planPoLifecycle({ poNo: docNo, action: 'cancel', reason: reason || undefined }),
   invoice: (docNo, reason) => planCancelInvoice({ invoiceNo: docNo, reason: reason || undefined }),
   program: (docNo, reason) => planCancelProgram({ programNo: docNo, notes: reason || undefined }),
+  // SPEC-M40 PAY-06 — money-voucher cancel/reversal (contra legs)
+  payment: (docNo, reason) => planCancelPayment({ voucherNo: docNo, reason: reason || undefined }),
+  journal: (docNo, reason) => planCancelJournal({ voucherNo: docNo, reason: reason || undefined }),
+  'debit-note': (docNo, reason) => planCancelDebitNote({ noteNo: docNo, reason: reason || undefined }),
+  expense: (docNo, reason) => planCancelExpense({ expNo: docNo, reason: reason || undefined }),
+  budget: (docNo, reason) => planCancelBudget({ budgetId: docNo, reason: reason || undefined }),
 }
 
 /** Screens revalidated after a committed cancel (registers that show status). */
@@ -49,6 +55,12 @@ const CANCEL_REVALIDATE: Record<string, string[]> = {
   'purchase-order': ['/procurement/po', '/procurement', '/procurement/party-balance'],
   invoice: ['/accounts/invoice', '/accounts'],
   program: ['/programs', '/programs/new', '/programs/status'],
+  // SPEC-M40 PAY-06
+  payment: ['/accounts/payments', '/accounts/party-ledger', '/accounts/invoice', '/accounts/bill', '/accounts'],
+  journal: ['/accounts/journal', '/accounts/party-ledger', '/accounts'],
+  'debit-note': ['/accounts/debit-note', '/accounts/party-ledger', '/accounts'],
+  expense: ['/costing/expenses', '/accounts'],
+  budget: ['/costing/budget', '/costing/budget-vs-actual'],
 }
 
 export async function planCancelDocView(slug: string, docNo: string): Promise<CancelActionResult> {

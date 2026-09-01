@@ -74,20 +74,45 @@ export async function queryWages(q: RegisterQuery): Promise<RegisterResult> {
     amount: g.amount,
   }))
 
+  // SPEC-M40 (Batch 4, loop-closure #3) — the operator statement columns:
+  // paid = Σ ACTIVE wage payments to the operator's employee-party (the
+  // HFX-07 convention: employee parties carry the operator's code); owed =
+  // earned (this register's period) − paid. Payments are all-time cash paid
+  // — the statement mixes period earnings with cumulative cash honestly.
+  const operatorCodes = all.map((r) => r.code).filter((c) => c && c !== '—')
+  const employeeParties = operatorCodes.length
+    ? await db.party.findMany({ where: { partyType: 'employee', code: { in: operatorCodes } }, select: { id: true, code: true } })
+    : []
+  const partyIdByCode = new Map(employeeParties.map((p) => [p.code, p.id]))
+  const partyIds = employeeParties.map((p) => p.id)
+  const wagePayments = partyIds.length
+    ? await db.payment.findMany({ where: { partyId: { in: partyIds }, direction: 'out', status: 'active' }, select: { partyId: true, amount: true } })
+    : []
+  const paidByParty = new Map<string, number>()
+  for (const p of wagePayments) paidByParty.set(p.partyId, (paidByParty.get(p.partyId) ?? 0) + p.amount)
+  for (const r of all) {
+    const pid = partyIdByCode.get(r.code)
+    const paid = pid ? Math.round((paidByParty.get(pid) ?? 0) * 100) / 100 : 0
+    ;(r as any).paid = paid
+    ;(r as any).owed = Math.round((r.amount - paid) * 100) / 100
+  }
+
   const count = all.length
   const start = (q.page - 1) * q.limit
   const rows: RegisterRow[] = all.slice(start, start + q.limit).map((r) => ({ ...r }))
 
   const qty = all.reduce((s, r) => s + r.qty, 0)
   const amount = all.reduce((s, r) => s + r.amount, 0)
+  const owed = all.reduce((s, r) => s + ((r as any).owed ?? 0), 0)
   return {
     rows,
     totals: [
       { label: 'Operators', value: count },
       { label: 'Qty', value: qty },
       { label: 'Wages (₹)', value: Math.round(amount) },
+      { label: 'Owed (₹)', value: Math.round(owed) },
     ],
-    summary: `${count} operators · ${qty.toLocaleString('en-IN')} pcs · ₹${Math.round(amount).toLocaleString('en-IN')} earned`,
+    summary: `${count} operators · ${qty.toLocaleString('en-IN')} pcs · ₹${Math.round(amount).toLocaleString('en-IN')} earned · ₹${Math.round(owed).toLocaleString('en-IN')} owed`,
     count,
   }
 }

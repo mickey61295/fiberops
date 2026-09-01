@@ -61,6 +61,7 @@ let partyId = ''
 let orderId = ''
 let invoiceId = ''
 let grnId = ''
+let supplierBillId = ''
 let godownId = ''
 let deptId = ''
 let lineId = ''
@@ -111,18 +112,27 @@ describe('report services math (SPEC-M6 §7-A)', () => {
       },
     })
     invoiceId = inv.id
-    await db.payment.create({
-      data: { voucherNo: RCP, partyId, direction: 'in', amount: RECEIVED_AMT, invoiceId, payDate: new Date(), finYear: 'FY26' },
+    const rcp = await db.payment.create({
+      data: { voucherNo: RCP, partyId, direction: 'in', amount: RECEIVED_AMT, invoiceId, payDate: new Date(), finYear: 'FY26', status: 'active' },
     })
+    // SPEC-M40 PAY-01 — settlement rides allocation rows (the service writes
+    // these; the fixture mirrors the door's commit exactly)
+    await db.paymentAllocation.create({ data: { paymentId: rcp.id, invoiceId, amount: RECEIVED_AMT } })
 
-    // AP: GRN 600 + payment out 200
+    // AP: GRN 600 + supplier bill (M40 PAY-05: AP = open bills, not GRN-value
+    // guesswork) + payment out 200 allocated to it
     const grn = await db.gRN.create({
       data: { grnNo: GRN, grnType: 'purchase', partyId, godownId, totalQty: 6, totalValue: GRN_VALUE, grnDate: new Date(), finYear: 'FY26' },
     })
     grnId = grn.id
-    await db.payment.create({
-      data: { voucherNo: `RPT-PO-${TS}`, partyId, direction: 'out', amount: AP_PAID, payDate: new Date(), finYear: 'FY26' },
+    const sb = await db.supplierBill.create({
+      data: { billNo: `RPT-SB-${TS}`, partyId, grnId, taxableValue: GRN_VALUE, billAmount: GRN_VALUE, billDate: new Date(), finYear: 'FY26', status: 'passed' },
     })
+    supplierBillId = sb.id
+    const pmt = await db.payment.create({
+      data: { voucherNo: `RPT-PO-${TS}`, partyId, direction: 'out', amount: AP_PAID, payDate: new Date(), finYear: 'FY26', status: 'active' },
+    })
+    await db.paymentAllocation.create({ data: { paymentId: pmt.id, billId: sb.id, amount: AP_PAID } })
 
     // expense (period-level for daily-pnl totals — same unique window)
     const exp = await db.expense.create({
@@ -141,6 +151,8 @@ describe('report services math (SPEC-M6 §7-A)', () => {
 
   afterAll(async () => {
     const sw = (e: unknown) => e as any
+    await sw(db.paymentAllocation.deleteMany({ where: { OR: [{ invoiceId }, { billId: supplierBillId }] } }).catch(() => {}))
+    await sw(db.supplierBill.deleteMany({ where: { id: supplierBillId } }).catch(() => {}))
     await sw(db.expense.deleteMany({ where: { id: expenseId } }).catch(() => {}))
     await sw(db.payment.deleteMany({ where: { partyId } }).catch(() => {}))
     await sw(db.salesInvoice.deleteMany({ where: { invoiceNo: INV } }).catch(() => {}))
@@ -169,20 +181,23 @@ describe('report services math (SPEC-M6 §7-A)', () => {
     expect(res.totals?.find((t) => t.label === 'Net Margin')?.value).toBe(MARGIN - EXPENSE_AMT)
   })
 
-  // ---- outstanding-summary (§7-A rule 5) ----
-  it('outstanding-summary: AR 3000 in the 0-15 bucket; AP 400 for the supplier', async () => {
+  // ---- outstanding-summary (§7-A rule 5, M40 PAY-05/07) ----
+  it('outstanding-summary: AR 3000 in the 0-30 bucket (dueDate fallback); AP 400 from the open bill', async () => {
     const res = await REPORT_SERVICES['outstanding-summary']({ party: PARTY, limit: 50, page: 1 })
     const ar = res.rows.find((r) => r.type === 'AR')
     expect(ar).toBeTruthy()
     expect(ar!.billed).toBe(BILL_AMOUNT)
     expect(ar!.settled).toBe(RECEIVED_AMT)
     expect(ar!.outstanding).toBe(AR_OUTSTANDING)
-    expect(ar!.b0).toBe(AR_OUTSTANDING) // invoice dated today → 0-15 bucket
+    expect(ar!.b0).toBe(AR_OUTSTANDING) // invoice dated today → 0-30 bucket (no dueDate → fallback)
     expect(ar!.b1 + ar!.b2 + ar!.b3).toBe(0)
+    expect(ar!.onAccount).toBe(0)
     const ap = res.rows.find((r) => r.type === 'AP')
     expect(ap).toBeTruthy()
     expect(ap!.billed).toBe(GRN_VALUE)
+    expect(ap!.settled).toBe(AP_PAID)
     expect(ap!.outstanding).toBe(AP_OUTSTANDING)
+    expect(ap!.receivedNotBilled).toBe(0) // the GRN carries an open bill (PAY-05 memo)
     expect(res.totals?.find((t) => t.label === 'AR Outstanding')?.value).toBe(AR_OUTSTANDING)
     expect(res.totals?.find((t) => t.label === 'AP Outstanding')?.value).toBe(AP_OUTSTANDING)
   })

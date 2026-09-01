@@ -484,7 +484,7 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
     expect(cA!.totalCost).toBe(11840)
   })
 
-  it('18. record_payment — both doors, identical payment + JV + invoice settled', async () => {
+  it('18. record_payment — both doors, identical payment + JV + invoice settled via allocations (M40 PAY-01)', async () => {
     const [iA, iB] = await Promise.all([
       db.salesInvoice.findUnique({ where: { invoiceNo: invA } }),
       db.salesInvoice.findUnique({ where: { invoiceNo: invB } }),
@@ -495,21 +495,29 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
       { voucherNo: rcpB, orderNo: ordB, invoiceNo: invB, ...base })
     expect(a.committed.voucherNo).toBe(rcpA)
     expect(b.committed.voucherNo).toBe(rcpB)
-    expect(a.committed.invoiceSettled).toBe(true)
-    expect(b.committed.invoiceSettled).toBe(true)
+    // SPEC-M40 PAY-01 — settlement rides allocation rows (invoiceSettled retired)
+    expect(a.committed.allocated).toBe(iA!.billAmount)
+    expect(b.committed.allocated).toBe(iB!.billAmount)
+    expect(a.committed.onAccount).toBe(0)
+    expect(b.committed.onAccount).toBe(0)
     const [pA, pB] = await Promise.all([
       db.payment.findUnique({ where: { voucherNo: rcpA } }),
       db.payment.findUnique({ where: { voucherNo: rcpB } }),
     ])
-    expect(pick(pA!, ['direction', 'amount', 'mode', 'reference']))
-      .toEqual(pick(pB!, ['direction', 'amount', 'mode', 'reference']))
+    expect(pick(pA!, ['direction', 'amount', 'mode', 'reference', 'status']))
+      .toEqual(pick(pB!, ['direction', 'amount', 'mode', 'reference', 'status']))
     // companion JV written on both doors
     for (const v of [`JV-${rcpA}`, `JV-${rcpB}`]) {
       const jv = await db.journal.findUnique({ where: { voucherNo: v } })
       expect(jv?.voucherType).toBe('receipt')
       expect(jv?.amount).toBe(19320)
     }
-    // invoice flipped to paid on both doors
+    // allocation rows on both doors settle the invoices
+    for (const [rcp, inv] of [[rcpA, invA], [rcpB, invB]] as const) {
+      const pay = await db.payment.findUnique({ where: { voucherNo: rcp } })
+      const alloc = await db.paymentAllocation.findFirst({ where: { paymentId: pay!.id, reversedAt: null } })
+      expect(alloc?.amount).toBe(19320)
+    }
     expect((await db.salesInvoice.findUnique({ where: { invoiceNo: invA } }))?.status).toBe('paid')
     expect((await db.salesInvoice.findUnique({ where: { invoiceNo: invB } }))?.status).toBe('paid')
   })

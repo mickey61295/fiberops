@@ -53,24 +53,34 @@ export async function planInvoice(args: InvoiceInput): Promise<DocPlanResult> {
     return `INV-${String(n).padStart(4, '0')}`
   })()
 
+  // PAY-07 — dueDate: explicit wins; else invoiceDate + creditDays; else null
+  // (the aging anchor falls back to invoiceDate when null).
+  const invoiceDate = dateOrIstToday(args.invoiceDate)
+  const creditDays = args.creditDays ?? null
+  const dueDate = args.dueDate
+    ? dateOrIstToday(args.dueDate)
+    : creditDays != null && creditDays > 0
+      ? new Date(invoiceDate.getTime() + creditDays * 86_400_000)
+      : null
+
   return {
     ok: true,
-    text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType}).`,
-    summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}`,
+    text: `Proposed invoice ${resolvedInvoiceNo} for ₹${billAmount} (${args.taxableValue} + ${args.gstRate}% ${args.gstType})${dueDate ? ` · due ${dueDate.toISOString().slice(0, 10)}` : ''}.`,
+    summary: `Create invoice ${resolvedInvoiceNo} | ${party.name} | order ${args.orderNo} | qty ${args.totalQty} | taxable ₹${args.taxableValue} | GST ${args.gstRate}% ${args.gstType} | total ₹${billAmount}${creditDays ? ` | credit ${creditDays}d` : ''}${dueDate ? ` | due ${dueDate.toISOString().slice(0, 10)}` : ''}`,
     creates: [
-      { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate: dateOrIstToday(args.invoiceDate), finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
+      { table: 'salesInvoice', data: { invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id, invoiceDate, dueDate, creditDays, finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue, cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued' } },
     ],
-    sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created'],
+    sideEffects: ['Party AR increases', 'GST payable will be set up', 'Stock will be reduced when despatch is created', ...(dueDate ? [`Aging anchors on due ${dueDate.toISOString().slice(0, 10)} (PAY-07)`] : [])],
     async commit() {
       const inv = await db.salesInvoice.create({
         data: {
           invoiceNo: resolvedInvoiceNo, invoiceType: 'domestic', orderId: order.id, partyId: party.id,
-          invoiceDate: dateOrIstToday(args.invoiceDate),
+          invoiceDate, dueDate, creditDays,
           finYear, billType: args.billType, totalQty: args.totalQty, taxableValue: args.taxableValue,
           cgstRate, sgstRate, igstRate, cgstAmt, sgstAmt, igstAmt, billAmount, status: 'issued',
         },
       })
-      return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount }
+      return { id: inv.id, invoiceNo: inv.invoiceNo, billAmount: inv.billAmount, dueDate: inv.dueDate }
     },
   }
 }

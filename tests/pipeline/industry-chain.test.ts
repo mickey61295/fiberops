@@ -232,7 +232,7 @@ describe('industry chain E2E', () => {
     expect(committed).toBeTruthy()
   })
 
-  it('14. record_payment collects and settles the invoice', async () => {
+  it('14. record_payment collects and settles the invoice via allocations (M40 PAY-01)', async () => {
     const inv = await db.salesInvoice.findUnique({ where: { invoiceNo } })
     const { committed } = await call('record_payment', {
       partyCode: PARTY,
@@ -244,9 +244,15 @@ describe('industry chain E2E', () => {
       reference: 'UTR-E2E-001',
     })
     expect(committed.voucherNo).toMatch(/^RCP-/)
-    expect(committed.invoiceSettled).toBe(true)
+    expect(committed.allocated).toBe(inv!.billAmount)
+    expect(committed.onAccount).toBe(0)
     const after = await db.salesInvoice.findUnique({ where: { invoiceNo } })
     expect(after!.status).toBe('paid')
+    // the allocation row is the settlement truth
+    const pay = await db.payment.findUnique({ where: { voucherNo: committed.voucherNo } })
+    const alloc = await db.paymentAllocation.findFirst({ where: { paymentId: pay!.id, reversedAt: null } })
+    expect(alloc?.invoiceId).toBe(inv!.id)
+    expect(alloc?.amount).toBe(inv!.billAmount)
     // Journal voucher written
     const party = await db.party.findUnique({ where: { code: PARTY } })
     const jv = await db.journal.findFirst({ where: { partyId: party!.id, voucherType: 'receipt' } })

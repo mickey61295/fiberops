@@ -602,6 +602,8 @@ model SalesInvoice {
   otherCharges Float    @default(0)
   roundOff     Float    @default(0)
   billAmount   Float    @default(0)
+  dueDate      DateTime? // SPEC-M40 PAY-07 — aging anchor (fallback invoiceDate)
+  creditDays   Int?      // SPEC-M40 PAY-07 — dueDate = invoiceDate + creditDays when dueDate absent
   ern          String? // Export Report Number
   irn          String? // e-invoice IRN (SPEC-M23 mock handshake)
   irnAckNo     String? // SPEC-M23 — mock IRN acknowledgement no (10 digits)
@@ -626,8 +628,58 @@ model DebitNote {
   finYear   String
   amount    Float    @default(0)
   reason    String?
-  status    String   @default("raised")
+  status    String   @default("raised") // raised | cancelled (SPEC-M40 PAY-06)
   createdAt DateTime @default(now())
+}
+
+// ============== SPEC-M40 (Phase-6B Batch 4, PAY) — money integrity ==============
+// PAY-03: the supplier bill document (SB-####) — the missing middle of the
+// GRN → bill → payment story. Lines mirror the GRN receipt (qty × rate); the
+// pass gate (create_bill_pass) runs the tolerance engine and stores verdicts.
+// status: draft → passed (the gate) → partial → paid; cancelled.
+// Relation-less FKs per PITFALLS #21 (one OPEN bill per GRN — service guard).
+model SupplierBill {
+  id            String           @id @default(cuid())
+  billNo        String           @unique
+  partyId       String
+  grnId         String? // receipt evidence (PAY-03 lines link to GRN lines)
+  poId          String? // denormalized from the GRN for the 3-way match (PAY-04)
+  billDate      DateTime         @default(now())
+  finYear       String
+  taxableValue  Float            @default(0)
+  cgstRate      Float            @default(0)
+  sgstRate      Float            @default(0)
+  igstRate      Float            @default(0)
+  cgstAmt       Float            @default(0)
+  sgstAmt       Float            @default(0)
+  igstAmt       Float            @default(0)
+  otherCharges  Float            @default(0)
+  roundOff      Float            @default(0)
+  billAmount    Float            @default(0)
+  dueDate       DateTime?
+  tdsPercent    Float? // PAY-04 — defaults from the tds_default_percent flag
+  status        String           @default("draft") // draft | passed | partial | paid | cancelled
+  matchStatus   String? // matched | variance (null until passed — PAY-04)
+  matchVariance Float?
+  matchVerdicts String? // JSON verdict lines (tolerance engine, stored at pass)
+  notes         String?
+  createdAt     DateTime         @default(now())
+  lines         SupplierBillLine[]
+  @@index([createdAt])
+}
+
+model SupplierBillLine {
+  id        String        @id @default(cuid())
+  billId    String
+  bill      SupplierBill  @relation(fields: [billId], references: [id], onDelete: Cascade)
+  grnLineId String?
+  itemType  String // yarn | fabric | accessory
+  itemId    String
+  itemCode  String
+  uomId     String?
+  qty       Float
+  rate      Float
+  amount    Float
 }
 
 model Journal {
@@ -642,6 +694,7 @@ model Journal {
   creditAccount String
   amount        Float    @default(0)
   narration     String?
+  status        String   @default("active") // SPEC-M40 PAY-06 — active | cancelled (a CN- mirror row preserves the audit)
   createdAt     DateTime @default(now())
   @@index([createdAt])
 }
@@ -672,6 +725,7 @@ model Budget {
   deptId     String?
   finYear    String
   amount     Float        @default(0)
+  status     String       @default("active") // SPEC-M40 PAY-06 — active | cancelled (guard: actuals exist → block)
   createdAt  DateTime     @default(now())
   BudgetLine BudgetLine[]
 }
@@ -831,22 +885,42 @@ model FinYear {
 
 // Payment register (LLD FrmPaymentReg) — settles bills / parties
 model Payment {
-  id        String   @id @default(cuid())
-  voucherNo String   @unique
-  partyId   String
-  party     Party    @relation(fields: [partyId], references: [id])
-  direction String   @default("out") // in = receipt | out = payment
-  orderId   String?
-  order     Order?   @relation(fields: [orderId], references: [id])
-  invoiceId String?
-  payDate   DateTime @default(now())
-  finYear   String
-  amount    Float    @default(0)
-  mode      String   @default("bank") // cash | bank | cheque | rtgs | neft | upi
-  reference String? // cheque/UTR no
-  notes     String?
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  voucherNo   String    @unique
+  partyId     String
+  party       Party     @relation(fields: [partyId], references: [id])
+  direction   String    @default("out") // in = receipt | out = payment
+  orderId     String?
+  order       Order?    @relation(fields: [orderId], references: [id])
+  invoiceId   String?
+  payDate     DateTime  @default(now())
+  finYear     String
+  amount      Float     @default(0)
+  mode        String    @default("bank") // cash | bank | cheque | rtgs | neft | upi
+  reference   String? // cheque/UTR no
+  notes       String?
+  status      String    @default("active") // SPEC-M40 PAY-06 — active | cancelled (contra journal + allocations reversedAt)
+  cancelledAt DateTime? // SPEC-M40 PAY-06
+  createdAt   DateTime  @default(now())
   @@index([createdAt])
+}
+
+// PAY-01: allocation rows are the ONE truth for settlement. Invoice/bill status
+// is DERIVED from Σ active allocations (reversedAt null) inside the payment
+// commit — the M3 single-shot `amount >= billAmount - 0.01` flip is retired.
+// in-payments allocate against SalesInvoice, out-payments against SupplierBill
+// (exactly-one-of invoiceId/billId is service-enforced — SQLite cannot express it).
+model PaymentAllocation {
+  id         String    @id @default(cuid())
+  paymentId  String
+  invoiceId  String?
+  billId     String?
+  amount     Float
+  reversedAt DateTime? // PAY-06 — cancel marks, never deletes; excluded from sums
+  createdAt  DateTime  @default(now())
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@index([billId])
 }
 
 

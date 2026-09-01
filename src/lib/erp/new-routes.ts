@@ -31,6 +31,7 @@ export const NEW_ROUTE_BY_SLUG: Record<string, string> = {
   loading: '/dispatch/loading',
   invoice: '/accounts/invoice',
   'debit-note': '/accounts/debit-note',
+  'supplier-bill': '/accounts/bill', // SPEC-M40 PAY-03
   payment: '/accounts/payments',
   journal: '/accounts/journal',
   'cost-sheet': '/costing/cost-sheet',

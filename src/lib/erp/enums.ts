@@ -77,8 +77,34 @@ export type OrderStatus = (typeof ORDER_STATUS)[number]
 export const PO_STATUS = ['open', 'partial', 'received', 'cancelled'] as const
 export type PoStatus = (typeof PO_STATUS)[number]
 
-export const INVOICE_STATUS = ['draft', 'issued', 'paid', 'cancelled'] as const
+// M40 (Phase-6B Batch 4, PAY-01) — 'partial' joins the invoice fleet; every
+// state has a writer: partial ← allocation commit (₹0 < Σ active < billAmount),
+// paid ← full allocation. 'settled' == 'paid' (legacy vocabulary kept — the
+// ~15 existing consumers make renaming pure churn, SPEC-M40 §2.1).
+export const INVOICE_STATUS = ['draft', 'issued', 'partial', 'paid', 'cancelled'] as const
 export type InvoiceStatus = (typeof INVOICE_STATUS)[number]
+
+// M40 PAY-03 — the supplier bill lifecycle: draft (created) → passed (the
+// bill-pass gate — create_bill_pass) → partial → paid (allocation-derived);
+// cancelled.
+export const SUPPLIER_BILL_STATUS = ['draft', 'passed', 'partial', 'paid', 'cancelled'] as const
+export type SupplierBillStatus = (typeof SUPPLIER_BILL_STATUS)[number]
+
+// M40 PAY-06 — money-voucher cancel vocabularies (contra legs preserve audit).
+export const PAYMENT_STATUS = ['active', 'cancelled'] as const
+export type PaymentStatus = (typeof PAYMENT_STATUS)[number]
+
+export const JOURNAL_STATUS = ['active', 'cancelled'] as const
+export type JournalStatus = (typeof JOURNAL_STATUS)[number]
+
+export const DEBIT_NOTE_STATUS = ['raised', 'cancelled'] as const
+export type DebitNoteStatus = (typeof DEBIT_NOTE_STATUS)[number]
+
+export const EXPENSE_STATUS = ['recorded', 'settled', 'cancelled'] as const
+export type ExpenseStatus = (typeof EXPENSE_STATUS)[number]
+
+export const BUDGET_STATUS = ['active', 'cancelled'] as const
+export type BudgetStatus = (typeof BUDGET_STATUS)[number]
 
 export const CUT_STATUS = ['planned', 'cut', 'acknowledged'] as const
 export type CutStatus = (typeof CUT_STATUS)[number]

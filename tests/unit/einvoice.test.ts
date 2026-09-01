@@ -135,7 +135,7 @@ describe('SPEC-M23 §2 — planGenerateIrn (guards + thresholds + commit)', () =
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)
     expect(tool!.domain).toBe('accounting')
-    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement
+    expect(allTools.length).toBe(238) // M39 JWL: +bill_jobwork +list_jobworker_statement
   })
 })
 

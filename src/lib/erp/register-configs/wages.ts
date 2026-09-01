@@ -22,6 +22,10 @@ export const productionWagesConfig: RegisterConfig = {
     { name: 'qty', label: 'Qty', align: 'right', format: 'int' },
     { name: 'rate', label: 'Avg rate (₹)', align: 'right', format: 'inr' },
     { name: 'amount', label: 'Earned (₹)', align: 'right', format: 'inr' },
+    // SPEC-M40 (loop-closure #3) — the operator statement: cash paid via
+    // pay_wages (employee-party code = operator code, HFX-07) and owed.
+    { name: 'paid', label: 'Paid (₹)', align: 'right', format: 'inr' },
+    { name: 'owed', label: 'Owed (₹)', align: 'right', format: 'inr' },
   ],
   // read-door chip only — the wage-bill journal door is the page's
   // "Generate wage bill" button (planJournal) + the menu item's create_journal

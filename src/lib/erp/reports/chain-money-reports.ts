@@ -167,14 +167,18 @@ export async function queryDespatchPackingSummary(q: RegisterQuery): Promise<Reg
 
 // ---------------------------------------------------------------------------
 // 11. Outstanding Summary — AR/AP aging per party (§7-A rule 5).
-// AR: invoices (status != cancelled) − settled payments; aging by invoiceDate.
-// AP: GRN totalValue − payments out. Buckets 0-15 / 16-30 / 31-60 / 60+.
+// SPEC-M40 (Batch 4, PAY-05/07): AR aging anchors on dueDate (fallback
+// invoiceDate); settlement comes from ACTIVE PaymentAllocation rows; the
+// on-account advance shows per party. AP derives from open SupplierBills −
+// Σ active bill allocations (the iteration-order GRN-value guesswork RETIRED);
+// received-not-billed shows as a separate MEMO (not owed until billed).
+// Buckets 0-30 / 31-60 / 61-90 / 90+ (spec §7 PAY-07 widths).
 // ---------------------------------------------------------------------------
 const AGE_BUCKETS = [
-  { label: '0-15', max: 15 },
-  { label: '16-30', max: 30 },
+  { label: '0-30', max: 30 },
   { label: '31-60', max: 60 },
-  { label: '60+', max: Infinity },
+  { label: '61-90', max: 90 },
+  { label: '90+', max: Infinity },
 ]
 const ageBucket = (d: Date, now = Date.now()): number => {
   const days = Math.floor((now - d.getTime()) / 86_400_000)
@@ -183,38 +187,55 @@ const ageBucket = (d: Date, now = Date.now()): number => {
 
 export async function queryOutstandingSummary(q: RegisterQuery): Promise<RegisterResult> {
   const invWhere: any = { status: { not: 'cancelled' }, ...dateWhere(q, 'invoiceDate') }
-  const grnWhere: any = { ...dateWhere(q, 'grnDate') }
+  const grnWhere: any = { grnType: { in: ['purchase', 'direct_receipt'] }, ...dateWhere(q, 'grnDate') }
+  const billsWhere: any = { status: { in: ['passed', 'partial', 'paid'] }, ...dateWhere(q, 'billDate') }
   if (q.party) {
     const p = await db.party.findUnique({ where: { code: q.party } })
     if (!p) return { rows: [], summary: `Party ${q.party} not found`, count: 0 }
     invWhere.partyId = p.id
     grnWhere.partyId = p.id
+    billsWhere.partyId = p.id
   }
-  const [invoices, payments, grns] = await Promise.all([
+  const [invoices, payments, grns, bills] = await Promise.all([
     db.salesInvoice.findMany({ where: invWhere, include: { party: true }, take: 5000 }),
-    db.payment.findMany({ where: { ...dateWhere(q, 'payDate') }, take: 5000 }),
+    db.payment.findMany({ where: { status: 'active', ...dateWhere(q, 'payDate') }, take: 5000 }),
     db.gRN.findMany({ where: grnWhere, include: { party: true }, take: 5000 }),
+    // PAY-05 — open supplier bills (passed/partial = payable; draft is NOT
+    // owed). partyId is a relation-less FK (PITFALLS #21) — resolved below.
+    db.supplierBill.findMany({ where: billsWhere, take: 5000 }),
   ])
+  const billPartyIds = [...new Set(bills.map((b) => b.partyId))]
+  const billParties = billPartyIds.length ? await db.party.findMany({ where: { id: { in: billPartyIds } }, select: { id: true, name: true } }) : []
+  const billPartyName = new Map(billParties.map((p) => [p.id, p.name]))
 
-  // per-invoice settled amounts — HFX-04 (Phase-6B Batch 0): ONLY
-  // direction:'in' payments settle a sales invoice. An out-payment tagged with
-  // an invoiceNo (refund / adjustment) must not reduce AR.
+  // PAY-01 — settlement truth: ACTIVE allocation rows (direction-correct by
+  // construction: in-payments allocate invoices, out-payments allocate bills).
+  const payIds = payments.map((p) => p.id)
+  const activeAllocs = payIds.length
+    ? await db.paymentAllocation.findMany({ where: { paymentId: { in: payIds }, reversedAt: null }, take: 20000 })
+    : []
   const settledByInvoice = new Map<string, number>()
-  for (const p of payments) if (p.invoiceId && p.direction === 'in') settledByInvoice.set(p.invoiceId, (settledByInvoice.get(p.invoiceId) ?? 0) + p.amount)
+  const settledByBill = new Map<string, number>()
+  const allocByPayment = new Map<string, number>()
+  for (const a of activeAllocs) {
+    if (a.invoiceId) settledByInvoice.set(a.invoiceId, (settledByInvoice.get(a.invoiceId) ?? 0) + a.amount)
+    if (a.billId) settledByBill.set(a.billId, (settledByBill.get(a.billId) ?? 0) + a.amount)
+    allocByPayment.set(a.paymentId, (allocByPayment.get(a.paymentId) ?? 0) + a.amount)
+  }
 
   type Acc = RegisterRow & { _type: string }
   const agg = new Map<string, Acc>()
 
-  // AR side
+  // AR side — PAY-07: anchor on dueDate (fallback invoiceDate)
   for (const i of invoices) {
     const key = `ar:${i.partyId}`
     const outstanding = Math.max(0, i.billAmount - (settledByInvoice.get(i.id) ?? 0))
-    const bucket = ageBucket(i.invoiceDate)
+    const bucket = ageBucket(i.dueDate ?? i.invoiceDate)
     let acc = agg.get(key)
     if (!acc) {
       acc = {
         id: key, party: i.party?.name ?? '—', _type: 'AR',
-        billed: 0, settled: 0, outstanding: 0,
+        billed: 0, settled: 0, outstanding: 0, onAccount: 0, receivedNotBilled: 0,
         b0: 0, b1: 0, b2: 0, b3: 0,
       }
       agg.set(key, acc)
@@ -228,13 +249,15 @@ export async function queryOutstandingSummary(q: RegisterQuery): Promise<Registe
     else acc.b3 = (acc.b3 as number) + outstanding
   }
 
-  // AR: party-level receipts with no invoiceId credit the party — HFX-05
-  // (Phase-6B Batch 0): the partyReceipts map is now CONSUMED. A buyer paying
-  // on-account reduces their AR outstanding (oldest aging bucket first — the
-  // standard FIFO application order for aging reports; receipts beyond the
-  // outstanding sit as an advance on the party ledger, not in aging).
+  // AR: on-account credit per party (PAY-01/07) — a receipt's unallocated
+  // remainder. HFX-05's FIFO application stays (b3→b0 order); the advance
+  // beyond outstanding is now its own labeled column, not just a ledger fact.
   const partyReceipts = new Map<string, number>()
-  for (const p of payments) if (p.direction === 'in' && !p.invoiceId) partyReceipts.set(p.partyId, (partyReceipts.get(p.partyId) ?? 0) + p.amount)
+  for (const p of payments) {
+    if (p.direction !== 'in') continue
+    const remainder = p.amount - (allocByPayment.get(p.id) ?? 0)
+    if (remainder > 0.005) partyReceipts.set(p.partyId, (partyReceipts.get(p.partyId) ?? 0) + remainder)
+  }
   for (const [partyId, receiptTotal] of partyReceipts) {
     const acc = agg.get(`ar:${partyId}`)
     if (!acc || receiptTotal <= 0) continue
@@ -249,32 +272,53 @@ export async function queryOutstandingSummary(q: RegisterQuery): Promise<Registe
       remaining -= take
     }
     acc.outstanding = Math.max(0, outstanding - receiptTotal)
+    acc.onAccount = Math.max(0, receiptTotal - Math.max(0, outstanding)) // the labeled advance (PAY-07)
   }
 
-  // AP side: GRN value − payments out (party-level)
-  const paidOut = new Map<string, number>()
-  for (const p of payments) if (p.direction === 'out') paidOut.set(p.partyId, (paidOut.get(p.partyId) ?? 0) + p.amount)
-  for (const g of grns) {
-    const key = `ap:${g.partyId}`
+  // AP side — PAY-05: open SupplierBills (the honest payable). Billed =
+  // Σ billAmount of passed/partial/paid bills; settled = Σ ACTIVE bill
+  // allocations; aging anchors on dueDate (fallback billDate). The M3
+  // iteration-order GRN-minus-paidOut guesswork is RETIRED.
+  for (const b of bills) {
+    const key = `ap:${b.partyId}`
+    const outstanding = Math.max(0, b.billAmount - (settledByBill.get(b.id) ?? 0))
+    const bucket = ageBucket(b.dueDate ?? b.billDate)
     let acc = agg.get(key)
     if (!acc) {
       acc = {
-        id: key, party: g.party?.name ?? '—', _type: 'AP',
-        billed: 0, settled: 0, outstanding: 0,
+        id: key, party: billPartyName.get(b.partyId) ?? '—', _type: 'AP',
+        billed: 0, settled: 0, outstanding: 0, onAccount: 0, receivedNotBilled: 0,
         b0: 0, b1: 0, b2: 0, b3: 0,
       }
       agg.set(key, acc)
     }
-    acc.billed = (acc.billed as number) + g.totalValue
-    const settled = Math.min(g.totalValue, paidOut.get(g.partyId) ?? 0)
-    acc.settled = (acc.settled as number) + settled
-    acc.outstanding = (acc.outstanding as number) + g.totalValue - settled
-    const bucket = ageBucket(g.grnDate)
-    const out = g.totalValue - settled
-    if (bucket === 0) acc.b0 = (acc.b0 as number) + out
-    else if (bucket === 1) acc.b1 = (acc.b1 as number) + out
-    else if (bucket === 2) acc.b2 = (acc.b2 as number) + out
-    else acc.b3 = (acc.b3 as number) + out
+    acc.billed = (acc.billed as number) + b.billAmount
+    acc.settled = (acc.settled as number) + (settledByBill.get(b.id) ?? 0)
+    acc.outstanding = (acc.outstanding as number) + outstanding
+    if (bucket === 0) acc.b0 = (acc.b0 as number) + outstanding
+    else if (bucket === 1) acc.b1 = (acc.b1 as number) + outstanding
+    else if (bucket === 2) acc.b2 = (acc.b2 as number) + outstanding
+    else acc.b3 = (acc.b3 as number) + outstanding
+  }
+
+  // PAY-05 — received-not-billed MEMO: purchase GRN value with no open bill
+  // (the gap between receipt and billing). Not owed until a bill is passed —
+  // shown so the chase list is honest, never added to AP outstanding.
+  const billedGrnIds = new Set(
+    (await db.supplierBill.findMany({ where: { status: { not: 'cancelled' } }, select: { grnId: true } })).map((b) => b.grnId).filter(Boolean) as string[],
+  )
+  for (const g of grns) {
+    if (billedGrnIds.has(g.id)) continue
+    let acc = agg.get(`ap:${g.partyId}`)
+    if (!acc) {
+      acc = {
+        id: `ap:${g.partyId}`, party: g.party?.name ?? '—', _type: 'AP',
+        billed: 0, settled: 0, outstanding: 0, onAccount: 0, receivedNotBilled: 0,
+        b0: 0, b1: 0, b2: 0, b3: 0,
+      }
+      agg.set(`ap:${g.partyId}`, acc)
+    }
+    acc.receivedNotBilled = (acc.receivedNotBilled as number) + g.totalValue
   }
 
   const all: (RegisterRow & { type: string })[] = [...agg.values()].map(({ _type, ...r }) => ({ ...r, type: _type }))
@@ -282,13 +326,15 @@ export async function queryOutstandingSummary(q: RegisterQuery): Promise<Registe
   const rows = all.slice((q.page - 1) * q.limit, (q.page - 1) * q.limit + q.limit)
   const arRows = all.filter((r) => r.type === 'AR')
   const apRows = all.filter((r) => r.type === 'AP')
+  const rnb = apRows.reduce((s, r) => s + (r.receivedNotBilled as number), 0)
   return {
     rows,
     totals: [
       { label: 'AR Outstanding', value: Math.round(arRows.reduce((s, r) => s + (r.outstanding as number), 0)) },
       { label: 'AP Outstanding', value: Math.round(apRows.reduce((s, r) => s + (r.outstanding as number), 0)) },
+      { label: 'Received not billed (memo)', value: Math.round(rnb) },
     ],
-    summary: `AR ₹${Math.round(arRows.reduce((s, r) => s + (r.outstanding as number), 0)).toLocaleString('en-IN')} across ${arRows.length} parties · AP ₹${Math.round(apRows.reduce((s, r) => s + (r.outstanding as number), 0)).toLocaleString('en-IN')} across ${apRows.length} suppliers`,
+    summary: `AR ₹${Math.round(arRows.reduce((s, r) => s + (r.outstanding as number), 0)).toLocaleString('en-IN')} across ${arRows.length} parties · AP ₹${Math.round(apRows.reduce((s, r) => s + (r.outstanding as number), 0)).toLocaleString('en-IN')} across ${apRows.length} suppliers${rnb > 0 ? ` · ₹${Math.round(rnb).toLocaleString('en-IN')} received-not-billed (memo)` : ''}`,
     count: all.length,
   }
 }

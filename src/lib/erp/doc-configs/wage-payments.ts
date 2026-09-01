@@ -35,7 +35,6 @@ export const wagePaymentsConfig: DocConfig = {
     ] },
     { name: 'payDate', label: 'Pay Date', type: 'date', colSpan: 1 },
     { name: 'orderNo', label: 'Order No (optional)', type: 'text', colSpan: 1 },
-    { name: 'invoiceNo', label: 'Invoice No (optional)', type: 'text', colSpan: 1 },
     { name: 'reference', label: 'Reference (UTR / cheque no)', type: 'text', colSpan: 2 },
     { name: 'notes', label: 'Notes (period / week)', type: 'textarea', colSpan: 2 },
   ],

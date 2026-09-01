@@ -17,6 +17,7 @@ import { APPROVAL_KINDS, APPROVAL_KIND_ENTITIES, findApprovalKind, approvalRefHr
 import { planTransfer } from '@/lib/erp/posting/transfer'
 import { planGrn } from '@/lib/erp/posting/grn'
 import { planPcsDespatch } from '@/lib/erp/posting/despatch'
+import { planSupplierBill } from '@/lib/erp/posting/supplier-bill' // SPEC-M40 PAY-03
 import { REGISTER_SERVICES } from '@/lib/erp/registers'
 
 const TS = Date.now()
@@ -47,7 +48,8 @@ describe('M5 Wave C — approval kinds registry (SPEC-M5 §12-4)', () => {
     expect(bill.label).toBe('Bill Pass')
     expect(bill.route).toBe('/accounts/bill-pass')
     expect(bill.tool).toBe('create_bill_pass')
-    expect(bill.refResolver('grn-id-1')).toBe('/procurement/grn/grn-id-1')
+    // SPEC-M40 PAY-03 — the kind drills the SB-#### document, not the GRN
+    expect(bill.refResolver('sb-id-1')).toBe('/accounts/bill/sb-id-1')
     expect(findApprovalKind('reprocess')!.refResolver('g')).toBe('/procurement/grn/g')
     expect(findApprovalKind('non_return_dc')!.refResolver('dc')).toBe('/pieces/despatch/dc')
     expect(findApprovalKind('godown_transfer')!.refResolver('GT-0001')).toBe('/inventory/io-history')
@@ -70,7 +72,7 @@ describe('M5 Wave C — approval kinds registry (SPEC-M5 §12-4)', () => {
   })
 
   it('registry ↔ menu ↔ LIVE_ROUTES wiring: every kind screen is live with its wrapper tool', () => {
-    expect(allTools.length).toBe(232) // M39 JWL: +bill_jobwork +list_jobworker_statement // 189 + M19-C ×33
+    expect(allTools.length).toBe(238) // M40 PAY: +create_supplier_bill +5 cancel tools // 189 + M19-C ×33
     for (const k of APPROVAL_KINDS) {
       expect(LIVE_ROUTES.has(k.route)).toBe(true)
       const item = MENU_ITEMS.find((m) => m.route === k.route)
@@ -98,6 +100,8 @@ describe('M5 Wave C — posting hooks + wrapper tools (SPEC-M5 §6/§12-4)', () 
   let grnNo = ''
   let dcId = ''
   let dcNo = ''
+  let supplierBillId = ''
+  let supplierBillNo = ''
   const gtDocNos: string[] = []   // every GT-#### this suite creates (ledger pair cleanup)
   let snapYarnBuckets: any[] = []
 
@@ -176,28 +180,42 @@ describe('M5 Wave C — posting hooks + wrapper tools (SPEC-M5 §6/§12-4)', () 
     expect(ap!.status).toBe('pending')
   })
 
-  it('create_bill_pass: approves the pending-row path AND surfaces Passed in the supplier-bill register', async () => {
-    const out = await agentDoor('create_bill_pass', { grnNo, comments: 'wave-c test' })
-    expect((out as any).status).toBe('approved')
-    expect((out as any).ref).toBe(grnNo)
-    const ap = await db.approval.findFirst({ where: { entity: 'supplier_bill', entityId: grnId } })
+  it('create_bill_pass (M40 PAY-03): the REAL gate — SB draft → passed, verdicts stored, register shows the bill', async () => {
+    // the new PAY-03 door first: the SB-#### draft from the fixture's GRN
+    const sbPlan = await planSupplierBill({ grnNo, gstRate: 5 })
+    expect(sbPlan.ok).toBe(true)
+    expect(sbPlan.creates!.some((c) => c.table === 'supplierBill')).toBe(true)
+    const sb = (await sbPlan.commit!()) as any
+    supplierBillId = sb.id
+    supplierBillNo = sb.billNo
+    expect(sb.status).toBe('draft')
+    // the gate: draft → passed; verdicts re-derived + stored; approval row on the BILL
+    const out = await agentDoor('create_bill_pass', { billNo: sb.billNo, comments: 'm40 gate test' })
+    expect(out.status).toBe('approved')
+    expect(out.billStatus).toBe('passed')
+    expect(out.ref).toBe(sb.billNo)
+    const ap = await db.approval.findFirst({ where: { entity: 'supplier_bill', entityId: sb.id } })
     expect(ap!.status).toBe('approved')
     expect(ap!.approvedBy).toBe('agent')
-    // register surfaces the bill-pass state (the "GRN billed status")
+    const stored = await db.supplierBill.findUnique({ where: { id: sb.id } })
+    expect(stored!.status).toBe('passed')
+    expect(stored!.matchStatus).toBeTruthy() // verdicts stored (matched | variance)
+    expect(stored!.matchVerdicts).toBeTruthy()
+    // register surfaces the SB row with its lifecycle status
     const reg = await REGISTER_SERVICES['supplier-bills']({ limit: 100, page: 1 })
-    const row = reg.rows.find((r) => r.grnNo === grnNo)
-    expect(row!.billPass).toBe('Passed')
+    const row = reg.rows.find((r) => r.billNo === sb.billNo)
+    expect(row!.status).toBe('passed')
     // agent read door carries it too (additive json)
     const t = getTool('list_supplier_bills')!
     const res = await t.execute({})
-    const jsonRow = (res.json as any[]).find((r) => r.grnNo === grnNo)
-    expect(jsonRow.billPass).toBe('Passed')
+    const jsonRow = (res.json as any[]).find((r) => r.billNo === sb.billNo)
+    expect(jsonRow.status).toBe('passed')
   })
 
   it('create_bill_pass is idempotent: second run returns text only (no plan/commit)', async () => {
     const tool = getTool('create_bill_pass')!
-    const res = await tool.execute({ grnNo })
-    expect(res.text).toContain('already approved')
+    const res = await tool.execute({ billNo: supplierBillNo })
+    expect(res.text).toContain('already passed')
     expect(res.plan).toBeUndefined()
   })
 
@@ -236,7 +254,7 @@ describe('M5 Wave C — posting hooks + wrapper tools (SPEC-M5 §6/§12-4)', () 
 
   it('wrapper tools reject unknown documents with text-only results', async () => {
     for (const [tool, args] of [
-      ['create_bill_pass', { grnNo: 'GRN-NOPE' }],
+      ['create_bill_pass', { billNo: 'SB-NOPE' }],
       ['acknowledge_unit_transfer', { docNo: 'GT-NOPE' }],
       ['approve_reprocess', { grnNo: 'GRN-NOPE' }],
       ['approve_non_return_dc', { dcNo: 'DC-NOPE' }],
@@ -254,13 +272,16 @@ describe('M5 Wave C — posting hooks + wrapper tools (SPEC-M5 §6/§12-4)', () 
       where: {
         OR: [
           { entity: 'godown_transfer', entityId: { in: gtDocNos.length ? gtDocNos : ['__none__'] } },
-          { entity: 'supplier_bill', entityId: grnId || '__none__' },
+          { entity: 'supplier_bill', entityId: supplierBillId || '__none__' },
           { entity: 'reprocess', entityId: grnId || '__none__' },
           { entity: 'non_return_dc', entityId: dcId || '__none__' },
           { entity: 'po', entityId: poId || '__none__' },
         ],
       },
     }))
+    // SPEC-M40 — the suite's supplier bill + any allocations on it
+    await sw(db.paymentAllocation.deleteMany({ where: { billId: supplierBillId || '__none__' } }))
+    await sw(db.supplierBill.deleteMany({ where: { id: supplierBillId || '__none__' } }))
     // GT pairs + GRN + DC ledger rows (scoped to this suite's doc numbers)
     await sw(db.stockLedger.deleteMany({ where: { docNo: { in: [...gtDocNos, grnNo, dcNo].filter(Boolean) } } }))
     await sw(db.stockLedger.deleteMany({ where: { orderId } }))

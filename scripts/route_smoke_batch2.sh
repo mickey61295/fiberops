@@ -44,8 +44,8 @@ if is429 "$SSE_JSON"; then
   echo "  SKIP  context probe rate-limited (429) — rerun to cover CHAT-02/11"
 else
   if echo "$SSE" | grep -q '"type":"finish"'; then ok "stream finished cleanly"; else bad "stream never finished"; fi
-  # qol1-reconcile: ghost-tool removal bumped the version m39 -> m39.1
-  if echo "$SSE" | grep -q "promptVersion\":\"m39.1-2026-09-01"; then ok "PROMPT_VERSION m39.1 stamped on start event (CHAT-11 + qol1-reconcile)"; else bad "prompt version not stamped in stream"; fi
+  # qol1-reconcile: the M40 money loop rewrite bumped the version
+  if echo "$SSE" | grep -q "promptVersion\":\"m40-2026-09-01"; then ok "PROMPT_VERSION m39.1 stamped on start event (CHAT-11 + qol1-reconcile)"; else bad "prompt version not stamped in stream"; fi
 fi
 
 # ── 3. plan a stock adjustment through the SSE door → capture turnId + plan ──

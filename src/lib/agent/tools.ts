@@ -86,7 +86,7 @@ import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
 import { WASTE_RECEIPT_SCHEMA } from '@/lib/erp/schemas/stock-adj'
 import { EINVOICE_SCHEMA, EINVOICE_CANCEL_SCHEMA } from '@/lib/erp/schemas/einvoice'
-import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA } from '@/lib/erp/schemas/cancel'
+import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA, CANCEL_PAYMENT_SCHEMA, CANCEL_JOURNAL_SCHEMA, CANCEL_DEBIT_NOTE_SCHEMA, CANCEL_EXPENSE_SCHEMA, CANCEL_BUDGET_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
 import { planProgram } from '@/lib/erp/posting/program'
@@ -94,6 +94,8 @@ import { planPurchaseOrder } from '@/lib/erp/posting/purchase-order'
 import { planGrn, planJobworkPcsReturn } from '@/lib/erp/posting/grn'
 import { planJobworkOut, planJobworkIn, planMaterialDc } from '@/lib/erp/posting/jobwork'
 import { planJobworkBill } from '@/lib/erp/posting/jobwork-bill' // SPEC-M39 JWL-06
+import { SUPPLIER_BILL_SCHEMA, BILL_PASS_SCHEMA } from '@/lib/erp/schemas/supplier-bill' // SPEC-M40 PAY-03
+import { planSupplierBill, planBillPass } from '@/lib/erp/posting/supplier-bill' // SPEC-M40 PAY-03/04
 import { planCutOrder } from '@/lib/erp/posting/cut'
 import { planLineIssue } from '@/lib/erp/posting/line-issue'
 import { planProductionEntry, planReworkEntry, planFinishedGoods, planOperationEntry, planScanBundle } from '@/lib/erp/posting/production'
@@ -130,7 +132,7 @@ import { planProductionBill } from '@/lib/erp/posting/production-bill'
 import { planAttendance } from '@/lib/erp/posting/attendance'
 import { planWasteReceipt } from '@/lib/erp/posting/stock-adj'
 import { planGenerateIrn, planCancelIrn } from '@/lib/erp/einvoice'
-import { planCancelOrder, planCancelPo, planCancelInvoice } from '@/lib/erp/posting/cancel'
+import { planCancelOrder, planCancelPo, planCancelInvoice, planCancelPayment, planCancelJournal, planCancelDebitNote, planCancelExpense, planCancelBudget } from '@/lib/erp/posting/cancel'
 
 export type ToolResult = {
   text?: string
@@ -1609,7 +1611,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_supplier_bills',
-    description: 'Supplier bill register: GRN day-book with supplier + PO linkage and values.',
+    description: 'Supplier bill register: SB-#### bill documents with supplier + GRN linkage, taxable/GST/amount, TDS %, 3-way match verdict (matched|variance) and lifecycle status (draft → passed → partial → paid; cancelled). M40/PAY-03 rewrote the register from the GRN day-book to real bills. Optional: partyCode, from, to (YYYY-MM-DD).',
     domain: 'accounting',
     isWrite: false,
     schema: z.object({
@@ -1629,10 +1631,11 @@ const readTools: AgentTool[] = [
       })
       return {
         text: res.summary,
-        json: res.rows.map((g) => ({
-          grnNo: g.grnNo, grnType: g.grnType, party: g.party, poNo: g.poNo,
-          grnDate: g.grnDate, totalQty: g.totalQty, totalValue: g.totalValue,
-          billPass: g.billPass, // M5 Wave C additive: Passed | Pending | —
+        json: res.rows.map((b) => ({
+          billNo: b.billNo, party: b.party, grnNo: b.grnNo,
+          billDate: b.billDate, taxableValue: b.taxableValue, gst: b.gst,
+          billAmount: b.billAmount, tdsPercent: b.tdsPercent,
+          matchStatus: b.matchStatus, status: b.status, // M40/PAY-03: the bill lifecycle
         })),
       }
     },
@@ -2557,20 +2560,30 @@ const writeTools: AgentTool[] = [
   // document, finds the pending Approval row for its kind — creating it when
   // the entity lacks one — and proposes approving it via the SAME plan/commit
   // contract as approve_pending. Kinds registry: src/lib/erp/approval-kinds.ts.
+  // ───────── SPEC-M40 (Phase-6B Batch 4, PAY-03) — the REAL bill-pass gate ─────────
+  // Replaces the M5-era approval-only wrapper: the pass gates a real SB-####
+  // document (status draft → passed), re-derives the tolerance verdicts fresh
+  // (BLOCK refuses), stores matchStatus/variance/verdicts, and writes the
+  // supplier_bill Approval row on the bill — CHAT-06 deterministic re-plan.
   {
     name: 'create_bill_pass',
-    description: 'Pass (approve for payment) a supplier bill — the GRN rows in the supplier-bill register. Required: grnNo. Optional: comments. Marks the GRN bill-passed (the supplier-bill register shows Passed); creates the pending supplier_bill approval first when the GRN lacks one.',
+    description: 'Pass (approve for payment) a supplier bill — SB-#### (M40/PAY-03: the REAL gate). The bill must be draft (create_supplier_bill first). Runs the 3-way match (PO vs GRN vs bill) + GRN-vs-PO + entry-date tolerance checks fresh — BLOCK verdicts refuse the pass. Commit flips status → passed (payable: AP + out-payment allocation source), stores the match verdicts, and writes the supplier_bill approval row. Required: billNo. Optional: comments.',
     domain: 'workflow',
     isWrite: true,
-    schema: z.object({
-      grnNo: z.string(),
-      comments: z.string().optional(),
-    }),
+    schema: BILL_PASS_SCHEMA,
     async execute(args, actor) {
-      const grn = await db.gRN.findUnique({ where: { grnNo: args.grnNo }, include: { party: true } })
-      if (!grn) return { text: `GRN ${args.grnNo} not found` }
-      const r = { entityId: grn.id, title: grn.grnNo, detail: `${grn.party?.name ?? 'party'} · ₹${Math.round(grn.totalValue).toLocaleString('en-IN')} · ${grn.grnType}`, href: approvalRefHref('supplier_bill', grn.id) }
-      return proposeApprovalGate('supplier_bill', r, args.comments, actor)
+      const plan = await planBillPass(args, actor ? { email: actor.email } : undefined)
+      if (!plan.ok) return { text: plan.error, error: plan.error }
+      return {
+        text: plan.text,
+        plan: {
+          summary: plan.summary,
+          creates: plan.creates,
+          updates: plan.updates,
+          sideEffects: plan.sideEffects,
+        },
+        commit: plan.commit,
+      }
     },
   },
   {
@@ -3026,10 +3039,54 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'cancel_invoice',
-    'Cancel a sales invoice by invoiceNo (sets status=cancelled).',
+    'Cancel a sales invoice by invoiceNo (sets status=cancelled). M40/PAY-06 guards: a LIVE IRN must be cancelled first; an invoice with active payment allocations must have those payments cancelled first; legacy-paid invoices refuse with guidance.',
     'accounting',
     CANCEL_INVOICE_SCHEMA,
     planCancelInvoice,
+  ),
+  // ───────────── SPEC-M40 (PAY-06) — money-voucher cancel/reversal (+5) ─────────────
+  docTool(
+    'cancel_payment',
+    'Cancel/reverse a payment by voucherNo (RCP-#### receipt / PMT-#### payment). Writes a CONTRA journal (CN-####, legs swapped — audit preserved, nothing deleted), flips the payment to cancelled, reverses its PaymentAllocation rows, and re-derives the affected invoice/bill statuses (partial/paid recompute). Guards: already-cancelled, contra already exists.',
+    'accounting',
+    CANCEL_PAYMENT_SCHEMA,
+    planCancelPayment,
+  ),
+  docTool(
+    'cancel_journal',
+    'Cancel a standalone journal by voucherNo (V-####) — writes a CN-#### mirror (debit/credit swapped) and flips the original to cancelled. Payment companion vouchers (JV-*) follow the payment door (cancel_payment); CN-* contras are system rows and refuse.',
+    'accounting',
+    CANCEL_JOURNAL_SCHEMA,
+    planCancelJournal,
+  ),
+  docTool(
+    'cancel_debit_note',
+    'Cancel a debit note by noteNo (DN-####) — status → cancelled (the note posts no ledger legs; the party effect reverses in the read models).',
+    'accounting',
+    CANCEL_DEBIT_NOTE_SCHEMA,
+    planCancelDebitNote,
+  ),
+  docTool(
+    'cancel_expense',
+    'Cancel an expense by expNo (EXP-####) — status → cancelled. Settled expenses refuse (reversal is a journal entry, not a cancel).',
+    'accounting',
+    CANCEL_EXPENSE_SCHEMA,
+    planCancelExpense,
+  ),
+  docTool(
+    'cancel_budget',
+    'Cancel a budget by budgetId — status → cancelled. Guards: already cancelled; budgets with recorded actuals on their lines refuse (revise the amounts instead).',
+    'costing',
+    CANCEL_BUDGET_SCHEMA,
+    planCancelBudget,
+  ),
+  // ───────────── SPEC-M40 (PAY-03) — the supplier bill document ─────────────
+  docTool(
+    'create_supplier_bill',
+    'Create a supplier bill (SB-####) from a purchase GRN — the missing middle of the GRN → bill → payment story (M40/PAY-03). billNo auto-assigned SB-####. Lines default to ALL GRN lines (received qty × rate); pass lines (array of {itemCode, qty?, rate?}) to bill a subset. Runs the 3-way match (PO vs GRN vs bill) + entry-date tolerance checks and stores the verdicts on the bill; TDS defaults from the tds_default_percent flag. Status starts DRAFT — pass it via create_bill_pass to make it payable. Required: grnNo. Optional: billNo, billDate, gstRate (default 18), gstType (cgst_sgst default | igst), lines, dueDate, tdsPercent, notes.',
+    'procurement',
+    SUPPLIER_BILL_SCHEMA,
+    planSupplierBill,
   ),
   {
     name: 'update_order',
@@ -3103,7 +3160,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'record_payment',
-    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out). voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). Required: partyCode, amount, direction. Optional: invoiceNo (marks the invoice paid when fully collected), orderNo, mode (cash|bank|cheque|rtgs|neft|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
+    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out) against a supplier bill. voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). M40/PAY-01 FIFO allocations: with invoiceNo/billNo the payment allocates to that document (capped at outstanding); without one it walks the party\'s open invoices/bills oldest-first; the unallocated remainder stays ON-ACCOUNT (labeled party credit). Invoice/bill status derives from Σ allocations — two receipts that together cover the bill settle it. Out-payments attach supplier bills via billNo (must be passed); cross-direction tags are rejected with guidance. Required: partyCode, amount, direction. Optional: invoiceNo (in only), billNo (out only), orderNo, mode (cash|bank|cheque|rtgs|neft|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
     'accounting',
     PAYMENT_SCHEMA,
     planPayment,
