@@ -1017,3 +1017,20 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   Restricted' group (rights orders+production) + user, tightens to
   ['accounts'] for the stale-cookie window, deactivates for the mid-session
   lockout, and cleans up. 36 checks total.
+
+41. **QOL1-RECONCILE DONE — the sixth-race adoption + SPEC-QoL1 landed on the M39 line** (2026-09-01).
+    The qol1/M30 parallel line (cbd7c91→8dc15ad) is preserved on origin `qol1-m30-alt`;
+    remote main (M39, c8a9015) adopted locally as canonical. Audit verdict: M38/M39 had already
+    closed D-3 (TOCTOU — CHAT-06 turnId + stored-args + drift-compare, better than our approvalId),
+    D-4 (HFX-16 narration segments), D-5 (HFX-14 real streaming), markdown (HFX-15), Stop, and the
+    step-budget visibility (CHAT-12). Landed here: D-2 (malformed tool-call JSON now becomes an
+    error TOOL RESULT the model can retry from — the turn survives), D-1b (the approve door runs
+    the SAME normalizeArgs+parseWithCoercion stack BEFORE execute; the legacy raw-args path is
+    closed), parse-with-coercion.ts is the canonical shared module again (inline duplicate
+    deleted), the ghost tool `accept_supplier_bill` removed from the prompt (probe: 224-name sync,
+    registry 232 unchanged), PROMPT_VERSION → m39.1-2026-09-01 (eval report artifact now tracks
+    version on --static refresh), SPEC-QoL1 doc + qol_prompt_sync.mjs probe restored, and two
+    inherited suite reds fixed (the date-rolling holidays Monday pin; db/backups snapshot via
+    OPS-01 backup_db.py). Gates: 1213+15=1228 vitest · tsc src 0 · eval --static PASS ·
+    context_check 595→604 NO DRIFT. PITFALLS #8 amended for the persistent .pat-token.
+    **Next**: the Phase-6B roadmap continues (Batch 4 money, SPEC-M40+) or user-directed lane.

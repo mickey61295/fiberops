@@ -159,6 +159,15 @@ check "m12 setup isolation guard (refuses non-e2e DATABASE_URL)" "1" "$(grep -c 
 check "m12 package script test:e2e" "1" "$(grep -c '"test:e2e"' package.json)"
 check "m12 agent SSE disconnect guard (send/safeClose)" "2" "$(grep -cE 'const (send|safeClose) =' src/app/api/agent/route.ts)"
 check "m12 spec document" "1" "$(ls docs/CONTEXT/specs/SPEC-M12.md 2>/dev/null | wc -l)"
+check "qol1 parse-with-coercion canonical module (normalizeArgs + parseWithCoercion exports)" "2" "$(grep -cE '^export function (normalizeArgs|parseWithCoercion)' src/lib/agent/parse-with-coercion.ts)"
+check "qol1 BOTH agent doors import the coercion module (proposal + approve)" "2" "$(grep -l "from '@/lib/agent/parse-with-coercion'" src/app/api/agent/route.ts src/app/api/agent/approve/route.ts | wc -l)"
+check "qol1 D-2 malformed-JSON guard in the loop (error tool-result fed back)" "1" "$(grep -c 'Malformed JSON arguments for' src/app/api/agent/route.ts)"
+check "qol1 D-1b approve validates before execute (coerced.value)" "1" "$(grep -c 'await t.execute(coerced.value, actor)' src/app/api/agent/approve/route.ts)"
+check "qol1 no inline coercion duplicate left in route.ts" "0" "$(grep -cE '^function (normalizeArgs|parseWithCoercion)\(' src/app/api/agent/route.ts)"
+check "qol1 ghost tool gone (accept_supplier_bill absent from the prompt)" "0" "$(grep -c 'accept_supplier_bill' src/lib/agent/prompt.ts)"
+check "qol1 PROMPT_VERSION bumped for the semantic change (m39.1-2026-09-01)" "1" "$(grep -c "PROMPT_VERSION = 'm39.1-2026-09-01'" src/lib/agent/prompt.ts)"
+check "qol1 SPEC-QoL1 doc + prompt-sync probe" "2" "$(ls docs/CONTEXT/specs/SPEC-QoL1.md scripts/qol_prompt_sync.mjs 2>/dev/null | wc -l)"
+check "qol1 reconcile test file (15 tests)" "15" "$(grep -c '^  it(' tests/pipeline/qol1-reconcile.test.ts)"
 
 echo
 echo "[file existence — critical assets]"

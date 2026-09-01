@@ -3,6 +3,10 @@ import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT } from '@/lib/agent/prompt'
+// qol1-reconcile (SPEC-QoL1 D-1) — the canonical coercion stack, shared by
+// BOTH doors (this proposal door AND /api/agent/approve). The M36-era inline
+// duplicate lived here; it moved back to its designed home verbatim.
+import { normalizeArgs, parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 // CHAT-02 (Phase-6B Batch 2) — the dynamic context line: today IST, user,
 // activeFinYear(), active screen + docNo, godown roster.
 import { buildDynamicContext } from '@/lib/agent/context'
@@ -112,89 +116,6 @@ function buildToolSpecs() {
       },
     }
   })
-}
-
-function normalizeArgs(args: any): any {
-  if (args === null || typeof args !== 'object') return args
-  const out: any = Array.isArray(args) ? [] : {}
-  for (const [key, val] of Object.entries(args)) {
-    if (typeof val === 'string') {
-      const trimmed = val.trim()
-      if (
-        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-        (trimmed.startsWith('[') && trimmed.endsWith(']'))
-      ) {
-        try {
-          out[key] = JSON.parse(trimmed)
-          continue
-        } catch {}
-      }
-      out[key] = val
-    } else if (typeof val === 'object') {
-      out[key] = normalizeArgs(val)
-    } else {
-      out[key] = val
-    }
-  }
-  return out
-}
-
-// LLMs sometimes pass numbers as strings ("4.5") or booleans as "true".
-// After a zod failure, patch only the flagged paths and re-validate.
-function setByPath(obj: any, path: (string | number)[], value: any) {
-  let cur = obj
-  for (let i = 0; i < path.length - 1; i++) {
-    const k = path[i]
-    cur = cur?.[k as any]
-  }
-  const last = path[path.length - 1]
-  if (cur != null && last !== undefined) {
-    ;(cur as any)[last as any] = value
-  }
-}
-
-function getByPath(obj: any, path: (string | number)[]): any {
-  let cur = obj
-  for (const k of path) cur = cur?.[k as any]
-  return cur
-}
-
-function parseWithCoercion(schema: any, args: any): { ok: true; value: any } | { ok: false; error: any } {
-  try {
-    return { ok: true, value: schema.parse(args) }
-  } catch (first: any) {
-    const issues = first?.issues || []
-    if (issues.length === 0) return { ok: false, error: first }
-    let fixed: any
-    try {
-      fixed = JSON.parse(JSON.stringify(args))
-    } catch {
-      return { ok: false, error: first }
-    }
-    let applied = 0
-    for (const issue of issues) {
-      const path: (string | number)[] = issue.path || []
-      if (path.length === 0) continue
-      const current = getByPath(fixed, path)
-      if (issue.code === 'invalid_type' && (issue.expected === 'number' || issue.expected === 'integer')) {
-        if (typeof current === 'string' && current.trim() !== '' && Number.isFinite(Number(current))) {
-          setByPath(fixed, path, Number(current))
-          applied++
-        }
-      } else if (issue.code === 'invalid_type' && issue.expected === 'boolean') {
-        if (current === 'true' || current === 'false') {
-          setByPath(fixed, path, current === 'true')
-          applied++
-        }
-      }
-    }
-    if (applied === 0) return { ok: false, error: first }
-    try {
-      return { ok: true, value: schema.parse(fixed) }
-    } catch (second: any) {
-      return { ok: false, error: second }
-    }
-  }
 }
 
 export async function POST(req: Request) {
@@ -367,8 +288,40 @@ export async function POST(req: Request) {
           for (const tc of toolCalls) {
             const toolName = tc.function.name
             const t = getTool(toolName)
-            const rawArgs = JSON.parse(tc.function.arguments || '{}')
-            const args = normalizeArgs(rawArgs)
+            // QoL1 D-2 (qol1-reconcile) — malformed tool-call JSON must NEVER
+            // kill the turn. The M36-era code parsed tc.function.arguments
+            // UNGUARDED: a truncated generation threw past the per-call try
+            // into the outer catch, aborting the whole SSE turn with zero
+            // recovery. Now the parse failure becomes an error TOOL RESULT the
+            // model sees and can retry from — the loop continues.
+            let args: any
+            try {
+              args = normalizeArgs(JSON.parse(tc.function.arguments || '{}'))
+            } catch (err: any) {
+              const parseError = `Malformed JSON arguments for ${toolName} — the model output was truncated or invalid. Retry the tool call with clean JSON.`
+              console.warn('[/api/agent] D-2 guard:', toolName, err?.message || err)
+              send({
+                type: 'tool-call-start',
+                toolCallId: tc.id,
+                toolName,
+                args: {},
+                isWrite: t?.isWrite ?? false,
+              })
+              send({
+                type: 'tool-call-end',
+                toolCallId: tc.id,
+                toolName,
+                args: {},
+                output: { error: parseError, toolName, isWrite: t?.isWrite ?? false },
+                turnId: null, // no AgentTurn row was written — nothing to approve
+              })
+              messages.push({
+                role: 'tool',
+                tool_call_id: tc.id,
+                content: JSON.stringify({ error: parseError }),
+              })
+              continue
+            }
 
             send({
               type: 'tool-call-start',

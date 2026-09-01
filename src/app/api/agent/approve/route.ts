@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
 import { getTool } from '@/lib/agent/tools'
+// qol1-reconcile (SPEC-QoL1 D-1b) — the commit door runs the SAME coercion
+// stack as the proposal door: client-posted args are normalized + zod-validated
+// BEFORE execute(). The turnId path already stores coerced args (validated at
+// proposal time); this closes the legacy { toolName, args } path, which fed
+// RAW client JSON straight into the tool.
+import { normalizeArgs, parseWithCoercion } from '@/lib/agent/parse-with-coercion'
 import { requireApiSession } from '@/lib/auth/api-guard'
 import { runCommit } from '@/lib/erp/audit'
 import { docCta } from '@/lib/erp/doc-cta'
@@ -75,8 +81,21 @@ export async function POST(req: Request) {
     if (!t) return Response.json({ error: 'Unknown tool' }, { status: 400 })
     if (!t.isWrite) return Response.json({ error: 'Tool is read-only' }, { status: 400 })
 
+    // qol1-reconcile D-1b — validate + coerce at the DOOR (both paths).
+    // Identical inputs to the proposal door = identical plans to compare.
+    const coerced = parseWithCoercion(t.schema, normalizeArgs(effectiveArgs))
+    if (!coerced.ok) {
+      const issues = (coerced.error?.issues || [])
+        .map((i: any) => `${(i.path || []).join('.') || '(root)'}: ${i.message}`)
+        .join('; ')
+      return Response.json(
+        { error: `Invalid arguments for ${effectiveToolName}: ${issues || coerced.error?.message || 'validation failed'} — nothing was committed.` },
+        { status: 400 },
+      )
+    }
+
     // Re-execute to get the plan + commit fn
-    const result = await t.execute(effectiveArgs, actor)
+    const result = await t.execute(coerced.value, actor)
     if (!result.commit) return Response.json({ error: result.error || 'No commit function — the plan did not validate. ' + (result.text || '') }, { status: 400 })
 
     // CHAT-06 drift guard: the fresh plan must equal the plan the operator

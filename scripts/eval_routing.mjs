@@ -298,6 +298,10 @@ const main = async () => {
     mkdirSync('/home/z/my-project/download', { recursive: true }) // fresh-clone safe (full mode mkdirs; static didn't)
     try {
       const prev = JSON.parse(readFileSync(REPORT, 'utf8'))
+      // qol1-reconcile — keep the artifact's version honest (it used to carry
+      // the PROMPT_VERSION of whatever run last REWROTE the whole report,
+      // staying stale across --static refreshes)
+      prev.promptVersion = st.version
       prev.static = { checkedAt: new Date().toISOString(), ok: st.ok, entries: GOLDEN.length, domains: st.domains, errors: st.errors }
       writeFileSync(REPORT, JSON.stringify(prev, null, 2))
     } catch {

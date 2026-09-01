@@ -56,7 +56,10 @@ code=$(curl -s -o /dev/null -w "%{http_code}" -b "$JAR" "$BASE/accounts/bills-re
 echo "== HFX-09: jobwork register filter =="
 code=$(curl -s -o /tmp/hfx_jw.html -w "%{http_code}" -b "$JAR" "$BASE/jobwork/register")
 [ "$code" = "200" ] && ok "jobwork register 200" || bad "jobwork register HTTP $code"
-grep -q "Billed" /tmp/hfx_jw.html && bad "'billed' ghost still in the filter" || ok "no 'billed' filter option"
+# qol1-reconcile drift fix: M39 JWL-06 deliberately RE-ADDED 'billed'
+# (bill_jobwork writes it; HFX-09's removal is retired — every option has a
+# writer again). The stale M36-era absence check failed from M39 onward.
+grep -q "Billed" /tmp/hfx_jw.html && ok "'billed' filter option present (M39 JWL-06 — bill_jobwork writes it)" || bad "'billed' filter option missing (JWL-06 regression)"
 
 echo "== HFX-06: payments screen + mode options =="
 code=$(curl -s -o /tmp/hfx_pay.html -w "%{http_code}" -b "$JAR" "$BASE/accounts/payments")

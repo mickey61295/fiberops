@@ -355,7 +355,8 @@ describe('CHAT-11 — prompt formatting contract', () => {
   })
 
   it('PROMPT_VERSION is bumped to m38', () => {
-    expect(PROMPT_VERSION).toBe('m39-2026-08-31') // M39 JWL batch
+    // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
+    expect(PROMPT_VERSION).toBe('m39.1-2026-09-01')
   })
 })
 

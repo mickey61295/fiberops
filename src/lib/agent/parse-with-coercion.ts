@@ -4,6 +4,40 @@
 // After a zod failure, patch only the flagged paths and re-validate.
 // Shared by /api/agent (proposal step) AND /api/agent/approve (commit step)
 // so a plan proposed with coerced args commits with the SAME coerced args.
+//
+// qol1-reconcile (2026-09-01, SPEC-QoL1 D-1): this module is the CANONICAL
+// home again — normalizeArgs moved in from the route.ts inline duplicate so
+// both doors import the identical coercion stack. Behavior is verbatim the
+// inline version M36–M39 shipped (the module body was already identical
+// for parseWithCoercion; only normalizeArgs was missing here).
+
+/** LLMs sometimes pass nested objects as JSON STRINGS ("{\"qty\": 7}").
+ *  Unwrap them (recursively) before zod sees the args — verbatim from the
+ *  M38-era route.ts inline copy. */
+export function normalizeArgs(args: any): any {
+  if (args === null || typeof args !== 'object') return args
+  const out: any = Array.isArray(args) ? [] : {}
+  for (const [key, val] of Object.entries(args)) {
+    if (typeof val === 'string') {
+      const trimmed = val.trim()
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          out[key] = JSON.parse(trimmed)
+          continue
+        } catch {}
+      }
+      out[key] = val
+    } else if (typeof val === 'object') {
+      out[key] = normalizeArgs(val)
+    } else {
+      out[key] = val
+    }
+  }
+  return out
+}
 
 function setByPath(obj: any, path: (string | number)[], value: any) {
   let cur = obj
