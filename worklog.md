@@ -1798,3 +1798,25 @@ Stage Summary:
 - Batch 4 COMPLETE — seams 3+4 closed; loop-closure tests #3 and #4 GREEN end-to-end; every tolerance flag that owns the money path is enforced or honestly recorded as deferred (po_bud* → Batch 5).
 - PAY-08 (cheque/PDC lifecycle) is the owner's §17-3 decision, explicitly deferred — recorded in SPEC-M40 + STATE #42.
 - Next per spec §16: Batch 5 PRC-01..09 (procurement & dispatch closure — multi-line GRN, PO amendment, purchase return).
+
+---
+Task ID: qol1-audit-verify
+Agent: main (Super Z)
+Task: Resume after a context restart (the sandbox had rolled back to the fork point cbd7c91 — local qol1-m30-alt branch AND .pat-token both gone with the snapshot) and finish the pending D-1/D-2/D-4 diff audit against the remote line, which had moved again (M39 → M40).
+
+Work Log:
+- Rebuilt context from worklog + git fetch: origin/main advanced c8a9015 → e34ae6e (M40, Phase-6B Batch 4 money integrity, on top of qol1-reconcile's fb17816+fb96f22+92ea236); origin/qol1-m30-alt still 8dc15ad (our line preserved); repo verified PUBLIC via anonymous GitHub API (fetch works tokenless; push still needs a PAT — .pat-token did not survive the sandbox rollback).
+- CODE-LEVEL AUDIT of the SPEC-QoL1 findings on origin/main (verifying the qol1-reconcile worklog's claims, not trusting them):
+  * D-1 (coercion double-door) — VERIFIED at src/app/api/agent/approve/route.ts:84-95: parseWithCoercion(t.schema, normalizeArgs(effectiveArgs)) runs BEFORE execute on BOTH paths (turnId + legacy {toolName,args}); invalid input returns 400 with zod issues, nothing committed.
+  * D-2 (malformed tool-call JSON) — VERIFIED at src/app/api/agent/route.ts:296-324: JSON.parse wrapped in try/catch; on failure emits protocol-complete tool-call-start/tool-call-end with an error result + pushes the error as a tool message for the model to retry from + `continue` — the loop survives (was: one bad JSON aborted the whole SSE turn).
+  * D-3 (approve-door TOCTOU) — VERIFIED superseded by M38 CHAT-06: turnId rides tool-call-end; Approve executes the STORED plan, never a re-planned mutant.
+  * D-4 (narration accumulation) — VERIFIED at src/lib/agent/narration.ts (HFX-16): NarrationSegments = Map<segmentId, text> with per-step segments + mergeNarration joining in arrival order with \n\n (paragraph break for Markdown HFX-15) — same design as our turn-events reducer; pre-tool-call narration is no longer deleted.
+- VERDICT: ZERO remaining cherry-picks from qol1-m30-alt. The SPEC-QoL1 P1 batch (D-1..D-4 + E) is fully closed on the canonical line — D-2/D-1b by our fb96f22, D-3/D-4 by their M38. Honest defers unchanged: transcript persistence, tool-spec caching, db-in-git.
+- RE-ADOPTED the canonical line in this rolled-back sandbox: git reset --hard origin/main (cbd7c91 → e34ae6e; tree verified clean pre-reset per PITFALLS #39; our whole line safe at origin/qol1-m30-alt) + bun install (remark-gfm +10) + prisma generate (PITFALLS #42).
+- Restored the two environment-generated artifacts the sandbox reset had wiped: the OPS-01 snapshot (python3 scripts/backup_db.py → db/backups/custom-20260901-183612.db, integrity ok, 3.1 MB, rotation kept 1) and the m10 routing eval report (node scripts/eval_routing.mjs --static regenerates it — context_check DRIFTED "report exists: STATE 1 / reality 0" until then).
+- GATES on the adopted line, all green: vitest 1245/1245 (63 files) · context_check 604/604 NO DRIFT · eval --static PASS (50 entries, 16 domains, 230 registry tools, promptVersion m40-2026-09-01) · tsc src 0 (residual TS noise confined to tests/ + vitest.config.ts, matching the prior baseline).
+
+Stage Summary:
+- The audit proposed at the end of the qol1/M30 session is CLOSED with a code-verified answer: nothing left to port. Both chat doors validate/coerce identically, malformed model JSON can no longer kill a turn, narration accumulates per-segment, approvals execute stored plans.
+- The local sandbox is back on the canonical M40 line with all four gates green — ready for Batch 5 PRC-01..09 (procurement & dispatch closure: multi-line GRN, PO amendment, purchase return) per SPEC-M40 §16.
+- Push requires a fresh PAT (public repo = tokenless fetch, but writes need auth; the persisted .pat-token vanished with the rollback). This worklog entry is committed locally, pending a token for push.
