@@ -1848,3 +1848,18 @@ Stage Summary:
 - PRC-09 (cumulative DC→invoice) deferred per §17-6 alongside PAY-08 (§17-3) — both owner decisions, recorded in SPEC-M41 + STATE #45.
 - Next per spec §16: Batch 6 INV-01..08 (stock take & valuation unification — StockTake cycle, one WAC valuation shared by all three stock-value surfaces, the take:5000 truncation retired, negative-stock guard).
 - Push still requires a PAT (public repo = tokenless fetch; the persisted .pat-token vanished with the sandbox rollback).
+
+---
+Task ID: m41-push
+Agent: main (Super Z)
+Task: Push the pending M41 commits (PAT supplied by the owner mid-session).
+
+Work Log:
+- Verified no eighth race: origin/main still e34ae6e (M40 line), local strictly 2 ahead (e77d5eb worklog + ea7a577 M41), qol1-m30-alt preserved at 8dc15ad.
+- .pat-token persisted (600, untracked, .gitignore:84 backstop); push origin main e34ae6e..ea7a577 FAST-FORWARD (no force); URL scrubbed back to PAT-free form immediately after.
+- ls-remote confirms origin/main = ea7a577 = local HEAD.
+- Token audit at close: full-history binary-inclusive rev-list scan 0 occurrences; worktree 0 (outside the token file itself); .git/config 0; .pat-token untracked (ls-files 0), mode 600, 93 bytes.
+
+Stage Summary:
+- REMOTE FULLY SYNCED at M41 (Batch 5 procurement & dispatch closure live on origin/main).
+- Next per SPEC-M41 §16: Batch 6 INV-01..08 (stock take & valuation unification).
