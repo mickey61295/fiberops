@@ -196,9 +196,23 @@ describe('SPEC-M31 §2 — the db wrappers (fixtures from the M28 block)', () =>
     expect(await workingDaysUntil(at(-5))).toBeNull()
   })
 
-  it('planFinishDate: 1 working day from a known Monday is that Monday', async () => {
-    const d = await planFinishDate({ from: new Date('2026-09-07T00:00:00'), leadDays: 1 })
-    expect(d?.toISOString().slice(0, 10)).toBe('2026-09-07')
+  it('planFinishDate: 1 working day from a clean Monday is that Monday', async () => {
+    // date-roll-proof rewrite (qol1-reconcile): the original pinned the FIXED
+    // Monday 2026-09-07 — which the relative fixture at(6) landed on exactly
+    // when today rolled to 2026-09-01, turning the suite red on the parallel
+    // line's close-out+1. Pick a Monday ~400d out (outside every fixture
+    // window) and skip any Monday that is itself a holiday in the live table.
+    let probe = new Date(new Date(Date.now() + 400 * dayMs).setHours(0, 0, 0, 0))
+    while (probe.getDay() !== 1) probe = new Date(probe.getTime() + dayMs)
+    for (let i = 0; i < 8; i++) {
+      const dayEnd = new Date(probe.getTime() + 86_399_999)
+      const hit = await db.govtHoliday.findFirst({ where: { date: { gte: probe, lte: dayEnd } } })
+      if (!hit) break
+      probe = new Date(probe.getTime() + 7 * dayMs)
+    }
+    expect(probe.getDay()).toBe(1)
+    const d = await planFinishDate({ from: probe, leadDays: 1 })
+    expect(d?.toISOString().slice(0, 10)).toBe(probe.toISOString().slice(0, 10))
   })
 
   it('planFinishDate crosses the fixture holiday: 7 working days never lands on it', async () => {
