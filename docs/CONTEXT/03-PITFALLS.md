@@ -55,6 +55,13 @@ PATs pasted in chat are BURNED. Protocol per push: user mints fresh PAT →
 `git remote set-url origin https://x-access-token:<PAT>@github.com/mickey61295/fiberops.git`
 → push → immediately reset to `https://github.com/mickey61295/fiberops.git` →
 remind user to revoke. NEVER write a PAT into any tracked file (incl. worklog).
+2026-09-01 AMENDMENT (user-directed): the user chose a PERSISTENT token instead
+of mint-per-push — it lives at `.pat-token` (repo root, mode 600, gitignored by
+`.gitignore` — verified `git check-ignore` + never tracked; the 2026-09-01
+auto-commit gremlin sweep was audited: it picked db/custom.db + scripts/ but NOT
+.pat-token). Push flow: set-url with `x-access-token:$(cat .pat-token)` → push
+→ reset URL. The token is STILL considered burned-in-chat (it transited the IM
+channel); recommend revoking when the engagement ends.
 
 **#9 — Summary-vs-reality drift is REAL and observed.**
 2026-08-26 audit found: PROMPT_VERSION claimed by a summary doesn't exist in code;

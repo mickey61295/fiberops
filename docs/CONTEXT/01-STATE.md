@@ -995,3 +995,18 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
   Restricted' group (rights orders+production) + user, tightens to
   ['accounts'] for the stale-cookie window, deactivates for the mid-session
   lockout, and cleans up. 36 checks total.
+
+37. **2026-09-01 — SIXTH PARALLEL-SESSION RACE discovered at push time (qol1/M30 line vs Phase-6B line).**
+   A parallel session pushed 27 commits to origin/main after 81a6a8b (the Task 40
+   close-out): their own M30–M35 fourth six-task run (M30=legacy-aliases, M31=working-day
+   planner, M32=voice TTS, M33=barcode, M34=terms master, M35=holidays digest; 1112 vitest,
+   574 checks, tags m30/m35), the loomERP gap analysis (Tasks 48–49), the Phase-6 PRD
+   (Task 50), deep dives 1–3, the 90-FR Phase-6B remediation spec, and M36–M39 batches
+   (hotfix/ops/agent-QoL/jobwork). Their M38 CHAT-06 closed the approve-door TOCTOU
+   (turnId-based stored-args re-plan deep-compare — a DIFFERENT, more advanced mechanism
+   than our approvalId) and their line has upload/route.ts intact. OUR line (cbd7c91 →
+   cb79146 qol1 survey+P0 restore → 548629e → 3f1ffc8 our-M30 chat-loop correctness →
+   fbd4b2e) is preserved verbatim on branch `qol1-m30-alt` on origin. Remote main is
+   CANONICAL; reconciliation (cherry-pick SPEC-QoL1 doc + diagnostics + audit which of
+   D-1/D-2/D-4 their M38 already covers) is the open follow-up. PITFALLS #8 amended:
+   persistent .pat-token (gitignored) replaces mint-per-push per user direction.

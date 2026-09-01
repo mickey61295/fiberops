@@ -70,3 +70,6 @@ db/e2e.db*
 tests/e2e/.e2e-state.json
 tests/e2e/.results/
 playwright-report/
+
+# Security: persistent push token (user-directed 2026-09-01) — NEVER commit this file
+.pat-token
