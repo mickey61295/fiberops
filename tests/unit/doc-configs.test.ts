@@ -198,7 +198,11 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
     const schemaKeys = Object.keys(ORDER_SCHEMA.shape)
     const headerNames = order.headerFields.map((f) => f.name)
     for (const k of schemaKeys) {
-      if (k === 'lines') continue
+      // SPEC-M43 PRG-01 — deliveries[] is a STRUCTURED sub-doc, not a header
+      // field: its form door is the Order Hub schedule editor (the DocScreen
+      // archetype renders ONE line grid — the order lines); the agent door
+      // (create_order / set_order_deliveries) passes it structured.
+      if (k === 'lines' || k === 'deliveries') continue
       expect(headerNames, `header field for schema key '${k}'`).toContain(k)
     }
     const lineNames = (order.lineFields ?? []).map((f) => f.name)
@@ -213,7 +217,9 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
     // that make the posting services leave a pending Approval row. They are
     // deliberately NOT form fields (default false = pre-Wave-C behaviour; the
     // form door never sets them), so the mirror rule skips them.
-    const AGENT_ONLY_HOOK_KEYS = new Set(['requiresAck', 'reprocess', 'returnable'])
+    // SPEC-M43 — 'deliveries' (order schedule: structured sub-doc; the Order
+    // Hub editor + set_order_deliveries own it — the create form shows one grid)
+    const AGENT_ONLY_HOOK_KEYS = new Set(['requiresAck', 'reprocess', 'returnable', 'deliveries'])
     for (const c of DOC_CONFIGS) {
       const shape = (c.schema as unknown as { shape?: Record<string, unknown> }).shape
       if (!shape) throw new Error(`${c.slug} schema must be a zod object`)

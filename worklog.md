@@ -1899,3 +1899,40 @@ Work Log:
 Stage Summary:
 - REMOTE FULLY SYNCED at M42 (Phase-6B Batch 6 stock take & valuation unification live on origin/main).
 - Next per SPEC-M42/STATE §16: Batch 7 PRG-01.. (program-flow revival). PAY-08 (§17-3) / PRC-09 (§17-6) / PRG-02 (§17-5) owner decisions remain open.
+
+---
+Task ID: analysis-1
+Agent: Super Z (successor session)
+Task: Fresh-session takeover — clone fiberops via PAT, full-verification state audit, deep analysis for the owner (chat delivery), then continue dev at Batch 7.
+
+Work Log:
+- Cloned origin/main @ 58ccfaf (m42-push) with the user-supplied PAT; token moved to .pat-token (mode 600, gitignored), remote URL scrubbed clean.
+- Re-rooted the working copy to /home/z/my-project (the path the test fixtures/smokes hardcode): bun install (915 pkgs), prisma generate, sandbox db/custom.db placed, OPS-01 backup snapshot created (db/backups/), .env DATABASE_URL honored.
+- FULL GATES RE-RUN, ALL GREEN: vitest 1309/1309 (65 files) · tsc src 0 errors · eval --static PASS (m42-2026-09-02, 50 entries, 16 domains, registry 238) · context_check 604/604 NO DRIFT · route_smoke_m42 24/24 LIVE on a booted dev server · local HEAD == origin/main.
+- Deep exploration: schema (85 models), agent harness (246 tools, SSE loop, approve door), posting engine, registers/doc-configs/archetypes, PITFALLS (44), ADRs (17 of 19), gap register (11 P0s), PLAN-2.0, Phase-6 PRD (A–J), Phase-6B spec (90 FRs), loomERP gap study.
+- Verified code-quality findings first-hand: 33× hardcoded finYear '26-27' in src; dead posting-engine/movement-matrix/projectors cluster (811 lines, zero importers); line-table index gaps; 282 `: any` in src.
+
+Stage Summary:
+- Verdict: the repo is NOT mid-breakage — the previous agent completed M42, pushed, and logged the push; the takeover point is a pristine milestone boundary. The next planned unit is Batch 7 (PRG-01..05 program-flow revival), which this session proceeds to implement as SPEC-M43.
+
+---
+Task ID: m43-prg-batch7
+Agent: Super Z (successor session, continuing at the M42 boundary)
+Task: SPEC-M43 — Phase-6B Batch 7 program-flow revival (PRG-01..05) per the remediation spec §10.
+
+Work Log:
+- Resumed from the verified-clean M42 takeover point: full gates re-proven green (1309 vitest / tsc src 0 / eval --static / context_check 604 / route_smoke_m42 24/24) before touching anything.
+- Spec-first per the contract: docs/CONTEXT/specs/SPEC-M43.md committed (e1bd3f2) before any code.
+- Schema: Order +buyerPoRef/orderType + new OrderDelivery {seq,qty,date,notes} (+@@index orderId); db push zero-residue; Prisma regenerate.
+- PRG-01: ORDER_SCHEMA buyerPoRef/orderType/deliveries[] (additive-optional); planOrder creates the schedule in-commit; posting/order-deliveries.ts REPLACE service (over-total/cancelled guards); Order Hub Delivery-schedule FamilySection (delivery-forms + delivery-actions, useActionState — the stock-take pattern); order-register orderType filter (REGISTER_FILTER_KEYS/RegisterQuery/parseRegisterQuery) + buyerPoRef column + q-search; fetchOrderPrint Buyer PO meta + schedule note.
+- PRG-02: multi_style_orders flag (module, default OFF — §17-5 stays open); lines[].styleNo; planOrder flag-gated resolution with a LOUD refusal naming the flag; Style picker on the order line grid.
+- PRG-03: PROGRAM_SCHEMA + the five spec inputs; planProgram merges non-blank spec onto ProgBalanceFabric (Dia resolved by VALUE — PITFALLS #46); posting/program-spec.ts correction service through runCommit (AuditLog after-image); program view Knitting-spec section (relation-less FK id-maps).
+- PRG-04: queryProgramStatus waterfall legs (poKgs from POLine, dcKgs process_delivery, grnKgs process_receipt+purchase_grn, finishedKgs process_receipt only); register config PO'd/DC'd/GRN'd/Finished; frozen get_program_status json pinned untouched; DEAD TRIO DELETED (posting-engine + movement-matrix + projectors = 811 unreachable lines).
+- PRG-05: registers/program-proposal.ts (per-style denominators × BOM × (1+boostupper%+reserveper%)); propose_program_requirements read tool; /programs/propose page (propose-forms + actions — one-click Create through planProgram+runCommit); menu program-propose 139→140 + LIVE_ROUTES.
+- PROMPT_VERSION m43-2026-09-02: §1 domain lines, §3 folded few-shot, §5 ingestion PHASE-2 (buyerPoRef + deliveries + first-shipment date), §6 chain step-3 propose-first reflex.
+- Tests: prg-batch7.test.ts NEW 25/25 (the §10 walkthrough + golden proposal + frozen json + source contracts); inherited pins bumped ~19 spots (tools 246→249, flags 38→39 + module 6, menu 139→140, versions, doc-configs deliveries skip, register filter keys).
+
+Stage Summary:
+- Gates: 1334 vitest (65 files + 1 new) · tsc src 0 · eval --static PASS (m43-2026-09-02) · context_check 604/604 NO DRIFT (11 pins bumped same-commit) · route_smoke_m43 NEW 31/31 LIVE · browser E2E form-door full cycle (191-row proposal → PGM-0183 via per-row Create → reverted; zero console errors).
+- Phase-6B scoreboard: batches 0–7 of 11 shipped; remaining K (costing) / L (payroll) / M (final accounts) + Phase-6 A–J.
+- Next: Module K or L per spec §16; owner decisions PAY-08/PRC-09/PRG-02 still open.

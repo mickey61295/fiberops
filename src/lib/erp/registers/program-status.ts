@@ -4,6 +4,14 @@
  * service (the tool now delegates here; its json shape is frozen — asserted
  * in tests). Rows: one per program — required vs actual (ledger-derived) vs
  * balance, "the operator's compass".
+ *
+ * SPEC-M43 PRG-04 — the NINE-COLUMN WATERFALL, read model only (ADR-002: no
+ * trigger writes): the register row gains PO'd / DC'd / GRN'd / Finished —
+ * poKgs from POLine (order-linked sums), dcKgs from StockLedger
+ * process_delivery OUT, grnKgs from process_receipt + purchase_grn IN,
+ * finishedKgs from process_receipt IN only (material that came back
+ * PRODUCED — bought material is GRN'd, not finished). This read service is
+ * the honest successor of the deleted projector trio (SPEC-M43 §2-5).
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -61,6 +69,31 @@ export async function programStatusForOrder(orderNo: string): Promise<{ orderNo:
   return { orderNo: order.orderNo, programs }
 }
 
+/** PRG-04 — waterfall legs per (orderId, itemId), derived not stored. */
+interface WaterfallLegs { poKgs: number; dcKgs: number; grnKgs: number; finishedKgs: number }
+
+function computeWaterfall(
+  orderIds: string[],
+  ledgerRows: { orderId: string; itemType: string; itemId: string; txnType: string; inKgs: number; outKgs: number }[],
+  poLines: { orderId: string; itemId: string; qty: number }[],
+): Map<string, WaterfallLegs> {
+  const wf = new Map<string, WaterfallLegs>()
+  const get = (orderId: string, itemId: string) => {
+    const key = `${orderId}|${itemId}`
+    let w = wf.get(key)
+    if (!w) { w = { poKgs: 0, dcKgs: 0, grnKgs: 0, finishedKgs: 0 }; wf.set(key, w) }
+    return w
+  }
+  for (const pl of poLines) get(pl.orderId, pl.itemId).poKgs += pl.qty
+  for (const r of ledgerRows) {
+    const w = get(r.orderId, r.itemId)
+    if (r.txnType === 'process_delivery') w.dcKgs += r.outKgs
+    if (r.txnType === 'process_receipt' || r.txnType === 'purchase_grn') w.grnKgs += r.inKgs
+    if (r.txnType === 'process_receipt') w.finishedKgs += r.inKgs
+  }
+  return wf
+}
+
 export async function queryProgramStatus(q: RegisterQuery): Promise<RegisterResult> {
   const orderWhere: any = {}
   if (q.order) orderWhere.orderNo = { contains: q.order }
@@ -82,12 +115,25 @@ export async function queryProgramStatus(q: RegisterQuery): Promise<RegisterResu
     agg.set(key, a)
   }
 
+  // PRG-04 — one POLine pass (order-scoped), then the derived waterfall legs
+  const poLines = (await db.pOLine.findMany({
+    where: { orderId: { in: orders.map((o) => o.id) } },
+    select: { orderId: true, itemId: true, qty: true },
+  })).filter((pl): pl is { orderId: string; itemId: string; qty: number } => !!pl.orderId)
+  const wf = computeWaterfall(
+    orders.map((o) => o.id),
+    ledger.map((r) => ({ orderId: r.orderId as string, itemType: r.itemType, itemId: r.itemId, txnType: r.txnType, inKgs: r.inKgs, outKgs: r.outKgs })),
+    poLines,
+  )
+
   const rows: RegisterRow[] = []
   for (const order of orders) {
     for (const p of order.programs as any[]) {
       const isYarn = !!p.yarnId
-      const key = isYarn ? `yarn:${p.yarnId}` : `fabric:${p.fabricId}`
+      const itemId = (p.yarnId ?? p.fabricId) as string
+      const key = isYarn ? `yarn:${itemId}` : `fabric:${itemId}`
       const a = agg.get(key) || { inKgs: 0, outKgs: 0 }
+      const w = wf.get(`${order.id}|${itemId}`) || { poKgs: 0, dcKgs: 0, grnKgs: 0, finishedKgs: 0 }
       const required = p.requiredKgs
       const actual = isYarn ? a.outKgs : a.inKgs
       rows.push({
@@ -100,6 +146,10 @@ export async function queryProgramStatus(q: RegisterQuery): Promise<RegisterResu
         dept: p.department?.code ?? '—',
         item: isYarn ? p.yarn?.code : p.fabric?.code,
         requiredKgs: required,
+        poKgs: Math.round(w.poKgs * 100) / 100,
+        dcKgs: Math.round(w.dcKgs * 100) / 100,
+        grnKgs: Math.round(w.grnKgs * 100) / 100,
+        finishedKgs: Math.round(w.finishedKgs * 100) / 100,
         actualKgs: Math.round(actual * 100) / 100,
         balanceKgs: Math.round((required - actual) * 100) / 100,
         status: p.status,

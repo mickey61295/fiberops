@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43'
 
 export interface MenuGroup {
   id: string
@@ -50,6 +50,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/orders/new', // Order Sheet New mode (M3 Wave B) — order-sheet-new
   '/orders/[id]', // Order Hub (M3 Wave B, W3) — order-hub
   '/programs/new', // Program Entry (M3 Wave C) — program-entry
+  '/programs/propose', // Propose from BOM (M43 PRG-05) — program-propose (IN custom)
   '/programs/[id]', // Program view (M3 Wave C)
   '/procurement', // ProcurementView
   '/procurement/po', // Purchase Order (M3 Wave C) — purchase-order
@@ -393,13 +394,21 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['create_commercial_invoice'], pendingTools: [],
   },
 
-  // ---- programs (5) ----
+  // ---- programs (6) ----
   {
     id: 'program-entry', label: 'Program Entry', groupId: 'programs', route: '/programs/new', arch: 'DS', phase: 'M3',
     description: 'Program an order: yarn/fabric requirements with kgs/mtrs/pcs.',
     legacyForms: ['frmProgEntry', 'frmProgNew', 'frmProgEntry_Actual', 'frmProgEntry_YarnCons'],
     agentTools: ['create_program'], pendingTools: [],
     agentPrompt: 'I want to create a program for an order',
+  },
+  {
+    id: 'program-propose', label: 'Propose from BOM', groupId: 'programs', route: '/programs/propose', arch: 'IN', phase: 'M43',
+    description: 'BOM × order qty × wastage — the computed program requirements, one click to create.',
+    legacyForms: [],
+    agentTools: ['propose_program_requirements'], pendingTools: [],
+    agentPrompt: 'Propose program requirements from the order BOM',
+    notes: 'SPEC-M43 PRG-05: proposeProgramRequirements read service + one-click create through planProgram (one service, both doors)',
   },
   {
     id: 'program-status', label: 'Program Status', groupId: 'programs', route: '/programs/status', arch: 'RG', phase: 'M3',

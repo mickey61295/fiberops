@@ -356,7 +356,7 @@ describe('CHAT-11 — prompt formatting contract', () => {
 
   it('PROMPT_VERSION is bumped (m42 — the stock take/valuation rewrite)', () => {
     // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
-    expect(PROMPT_VERSION).toBe('m42-2026-09-02')
+    expect(PROMPT_VERSION).toBe('m43-2026-09-02')
   })
 })
 
@@ -405,7 +405,7 @@ describe('CHAT-12 — chat polish sweep', () => {
   })
 
   it('tool count is 246 (243 at M41 + M42 INV: create_stock_take / record_stock_counts / advance_stock_take)', () => {
-    expect(allTools.length).toBe(246)
+    expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements
     const names = allTools.map((t) => t.name)
     expect(names).toContain('bill_jobwork')
     expect(names).toContain('list_jobworker_statement')

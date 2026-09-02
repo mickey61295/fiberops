@@ -16,6 +16,8 @@ export interface RegisterQuery {
   status?: string
   variant?: string
   q?: string
+  /** SPEC-M43 PRG-01 — orderType select filter (export | domestic | trading). */
+  orderType?: string
   /** CHAT-12 (Phase-6B Batch 2) — buyer id scope for the order register
    * (the agent's list_orders buyerId filter resolves to this). */
   buyerId?: string

@@ -17,14 +17,27 @@ export const orderRegisterConfig: RegisterConfig = {
         { value: 'cancelled', label: 'Cancelled' },
       ],
     },
+    // SPEC-M43 PRG-01 — the trade-type filter
+    {
+      key: 'orderType',
+      label: 'Type',
+      type: 'select',
+      options: [
+        { value: 'export', label: 'Export' },
+        { value: 'domestic', label: 'Domestic' },
+        { value: 'trading', label: 'Trading' },
+      ],
+    },
     { key: 'from', label: 'From', type: 'dateRange' },
     { key: 'to', label: 'To', type: 'dateRange' },
-    { key: 'q', label: 'Search', type: 'text', placeholder: 'order no, buyer, style…' },
+    { key: 'q', label: 'Search', type: 'text', placeholder: 'order no, buyer, style, buyer PO…' },
   ],
   columns: [
     { name: 'orderNo', label: 'Order No', mono: true },
     { name: 'buyer', label: 'Buyer' },
     { name: 'style', label: 'Style', mono: true },
+    { name: 'buyerPoRef', label: 'Buyer PO', mono: true },
+    { name: 'orderType', label: 'Type' },
     { name: 'orderDate', label: 'Ordered', format: 'date' },
     { name: 'deliveryDate', label: 'Delivery', format: 'date' },
     { name: 'totalPcs', label: 'Pcs', align: 'right', format: 'int' },

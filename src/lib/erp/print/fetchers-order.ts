@@ -25,6 +25,12 @@ export async function fetchOrderPrint(idOrNo: string): Promise<PrintDoc | null> 
   if (!order) order = await db.order.findUnique({ where: { orderNo: idOrNo }, include })
   if (!order) return null
 
+  // SPEC-M43 PRG-01 — the multi-shipment schedule on the print
+  const deliveries = await db.orderDelivery.findMany({
+    where: { orderId: order.id },
+    orderBy: { seq: 'asc' },
+  }).catch(() => [])
+
   const cur = order.currency || 'INR'
   const isInr = cur === 'INR'
   const lineTotal = (l: { qty: number; rate: number }) => (l.qty || 0) * (l.rate || 0)
@@ -38,6 +44,10 @@ export async function fetchOrderPrint(idOrNo: string): Promise<PrintDoc | null> 
     ['Total Pcs', Number(order.totalPcs || 0).toLocaleString('en-IN')],
     ['Currency', cur],
   ]
+  // PRG-01 — buyer PO reference + trade type first-class on the sheet
+  if (order.buyerPoRef) meta.unshift(['Buyer PO', order.buyerPoRef])
+  if (order.orderType && order.orderType !== 'export') meta.push(['Order Type', order.orderType])
+  if (deliveries.length > 1) meta.push(['Shipments', String(deliveries.length)])
   if (!isInr && order.fxRate && order.fxRate !== 1) {
     meta.push(['FX Rate', `1 ${cur} = ${order.fxRate} INR`])
   }
@@ -96,6 +106,10 @@ export async function fetchOrderPrint(idOrNo: string): Promise<PrintDoc | null> 
       order.notes || 'Delivery as per buyer purchase order terms.',
       'Quantity variation of ±5% is industry-standard and acceptable unless agreed otherwise.',
       ...(isInr ? [] : [`Values in ${cur}; INR equivalents at the booked rate where applicable.`]),
+      // PRG-01 — the schedule block (multi-shipment orders print their splits)
+      ...(deliveries.length > 1
+        ? [`Delivery schedule: ${deliveries.map((r) => `${Number(r.qty || 0).toLocaleString('en-IN')} pcs @ ${d(r.date)}`).join('  ·  ')}`]
+        : []),
     ],
   }
 }

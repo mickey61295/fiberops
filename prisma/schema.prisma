@@ -270,10 +270,15 @@ model Order {
   // and are converted at fxRate for INR views (party exposure, dashboards).
   currency          String            @default("INR")
   fxRate            Float             @default(1)
+  // SPEC-M43 PRG-01 — buyer PO stored first-class: the reference on OUR order
+  // (legacy put it in notes free-text; the LPP "696GJ" case) + the trade type.
+  buyerPoRef        String?
+  orderType         String            @default("export") // export | domestic | trading
   notes             String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   lines             OrderLine[]
+  deliveries        OrderDelivery[]
   poLines           POLine[]
   cutOrders         CutOrder[]
   productionEntries ProductionEntry[]
@@ -312,6 +317,24 @@ model BomLine {
   qty      Float
   uomId    String?
   rate     Float   @default(0)
+}
+
+// SPEC-M43 PRG-01 — the multi-shipment delivery schedule. One order, many
+// shipment dates: the LPP ingestion splits buyer POs into five orders ONLY
+// because this table didn't exist. Header Order.deliveryDate stays the
+// first/overall delivery (back-compat); these rows are the splits. seq is
+// 1-based, assigned in arrival order by the writers.
+model OrderDelivery {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  seq       Int
+  qty       Int      @default(0)
+  date      DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 // ============== PROCUREMENT ==============

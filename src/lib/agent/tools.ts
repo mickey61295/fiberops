@@ -47,8 +47,10 @@ import { getTrackerSnapshot } from '@/lib/erp/tracker'
 import { CHAIN, CHAIN_ORDER_INCLUDE, computeChainState, resolveStageUrl } from '@/lib/erp/chain'
 import type { DocPlanResult } from '@/lib/erp/posting/types'
 import { ORDER_SCHEMA } from '@/lib/erp/schemas/order'
+import { ORDER_DELIVERIES_SCHEMA } from '@/lib/erp/schemas/order'
 import { BOM_SCHEMA } from '@/lib/erp/schemas/bom'
 import { PROGRAM_SCHEMA } from '@/lib/erp/schemas/program'
+import { PROGRAM_SPEC_CORRECTION_SCHEMA } from '@/lib/erp/schemas/program'
 import { PURCHASE_ORDER_SCHEMA } from '@/lib/erp/schemas/purchase-order'
 import { GRN_SCHEMA } from '@/lib/erp/schemas/grn'
 import { JOBWORK_OUT_SCHEMA, JOBWORK_IN_SCHEMA, JOBWORK_BILL_SCHEMA } from '@/lib/erp/schemas/jobwork'
@@ -94,6 +96,10 @@ import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA, CANCEL_PA
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
 import { planProgram } from '@/lib/erp/posting/program'
+// SPEC-M43 — program-flow revival services
+import { planOrderDeliveries } from '@/lib/erp/posting/order-deliveries'
+import { planProgramSpecCorrection } from '@/lib/erp/posting/program-spec'
+import { proposeProgramRequirements } from '@/lib/erp/registers/program-proposal'
 import { planPurchaseOrder } from '@/lib/erp/posting/purchase-order'
 import { planGrn, planJobworkPcsReturn } from '@/lib/erp/posting/grn'
 import { planJobworkOut, planJobworkIn, planMaterialDc } from '@/lib/erp/posting/jobwork'
@@ -1529,6 +1535,30 @@ const readTools: AgentTool[] = [
       }
     },
   },
+  // ---- SPEC-M43 PRG-05 — the BOM→program proposal (read; adopt via create_program) ----
+  {
+    name: 'propose_program_requirements',
+    description: 'Propose program requirements for an order from its BOM: per item (yarn → knitting, fabric → dyeing), BOM qty-per-pc × order pcs × (1 + boostupper% + reserveper% wastage flags). Returns rows with perPc, orderQty, totalQty, rate. Adopt by calling create_program with the proposed requiredKgs (yarnCode/fabricCode from the row). Refuses when the style has no BOM.',
+    domain: 'production',
+    isWrite: false,
+    schema: z.object({
+      orderNo: z.string().describe('Sales order number like SO-1001'),
+    }),
+    async execute(args) {
+      // SPEC-M43 PRG-05 — the read service the /programs/propose screen shares
+      // (one service, both doors — ADR-001; read-only, adopt via create_program).
+      const res = await proposeProgramRequirements(args.orderNo)
+      if (!res.ok) return { text: res.error, error: res.error }
+      const p = res.proposal
+      const lines = p.rows.map((r) =>
+        `${r.itemCode} [${r.stage}] ${r.styleNo}: ${r.perPc} × ${r.orderQty} pcs × (1+${r.boostPct}%) = ${r.totalQty} ${r.uom}${r.rate ? ` @ ${r.rate}` : ''}`
+      )
+      return {
+        text: `Program proposal for ${p.orderNo} (styles ${p.styles.join(', ')}, ${p.totalPcs} pcs):\n` + lines.join('\n') + '\n' + p.notes.join('\n'),
+        json: p,
+      }
+    },
+  },
   // ---- SPEC-M4 §11 — new register read tools (Wave B) ----
   {
     name: 'list_inhand_orders',
@@ -1824,10 +1854,17 @@ function docTool(
 const docTools: AgentTool[] = [
   docTool(
     'create_order',
-    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), notes.',
+    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), buyerPoRef (the buyer\'s own PO reference, stored first-class), orderType (export|domestic|trading, default export), deliveries (array of {qty, date, notes} — the multi-shipment schedule; ONE order, many dates, never split the order over delivery dates), per-line styleNo (multi-style — needs the multi_style_orders flag; blank = header style), notes.',
     'orders',
     ORDER_SCHEMA,
     planOrder,
+  ),
+  docTool(
+    'set_order_deliveries',
+    'Set (REPLACE) the multi-shipment delivery schedule on an order: deliveries = array of {qty, date, notes?}. Total schedule qty cannot exceed the order qty; header deliveryDate is untouched (first/overall delivery). One order, many shipment dates — never split orders over dates.',
+    'orders',
+    ORDER_DELIVERIES_SCHEMA,
+    planOrderDeliveries,
   ),
   docTool(
     'create_purchase_order',
@@ -3173,10 +3210,17 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_program',
-    'Create a production PROGRAM for an order — the production plan step right after BOM. For a knitting program pass stage=knitting + yarnCode + requiredKgs; for a dyeing program pass stage=dyeing + fabricCode + requiredKgs; for sewing/finishing/packing pass requiredPcs. programNo auto-assigned PGM-####. Dept auto-maps from stage (knitting→D1, dyeing→D2, sewing→D4, finishing→D5, packing→D6) unless deptCode given. Also updates the legacy ProgBalanceYarn/ProgBalanceFabric projector rows.',
+    'Create a production PROGRAM for an order — the production plan step right after BOM. For a knitting program pass stage=knitting + yarnCode + requiredKgs; for a dyeing program pass stage=dyeing + fabricCode + requiredKgs (optionally the knitting spec: colourCode, designCode, finDiaCode, finGsm, ll — stored on the program balance); for sewing/finishing/packing pass requiredPcs. programNo auto-assigned PGM-####. Dept auto-maps from stage (knitting→D1, dyeing→D2, sewing→D4, finishing→D5, packing→D6) unless deptCode given. Also updates the legacy ProgBalanceYarn/ProgBalanceFabric projector rows. TIP: call propose_program_requirements first — it computes requiredKgs from the order BOM × qty × wastage flags.',
     'production',
     PROGRAM_SCHEMA,
     planProgram,
+  ),
+  docTool(
+    'correct_program_spec',
+    'Correct the knitting specification (colourCode, designCode, finDiaCode, finGsm, ll) on a FABRIC program — updates the ProgBalanceFabric row with an audit trail (the legacy correction form). Only the fields passed change; programNo required. Yarn-only programs refuse (the spec belongs to fabric programs).',
+    'production',
+    PROGRAM_SPEC_CORRECTION_SCHEMA,
+    planProgramSpecCorrection,
   ),
   docTool(
     'issue_to_line',

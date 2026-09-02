@@ -21,12 +21,17 @@ import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
 import { holidaysBeforeDelivery, workingDaysUntil } from '@/lib/erp/holidays' // SPEC-M28 warning + SPEC-M31 runway
+// SPEC-M43 PRG-01 — the delivery-schedule section (same planOrderDeliveries
+// service as set_order_deliveries — ADR-001)
+import { DeliveryScheduleEditor } from './delivery-forms'
+import { setOrderDeliveriesAction } from './delivery-actions'
 
 export const dynamic = 'force-dynamic'
 
 const HUB_INCLUDE = {
   ...CHAIN_ORDER_INCLUDE,
   rejections: true,
+  deliveries: { orderBy: { seq: 'asc' as const } },
   poLines: { include: { po: { include: { party: true, grns: { include: { party: true, godown: true } } } } } },
 }
 
@@ -206,6 +211,15 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             <div className="text-[11px] uppercase tracking-wide text-slate-400">Style</div>
             <Link href="/masters/style" className="text-sm font-medium text-emerald-700 hover:underline">{order.style?.styleNo ?? '—'}</Link>
           </div>
+          {/* SPEC-M43 PRG-01 — buyer PO first-class + the trade type */}
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-slate-400">Buyer PO</div>
+            <div className="font-mono text-sm">{order.buyerPoRef ?? '—'}</div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-slate-400">Type</div>
+            <div className="text-sm capitalize">{order.orderType ?? 'export'}</div>
+          </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-slate-400">Delivery</div>
             <div className="text-sm">{d(order.deliveryDate)}</div>
@@ -292,6 +306,24 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
             ))}
           </tbody>
         </table>
+      </FamilySection>
+
+      {/* Delivery schedule (SPEC-M43 PRG-01 — one order, many shipment dates) */}
+      <FamilySection
+        title="Delivery schedule"
+        stageStep={1}
+        rollup={`${(order.deliveries ?? []).length} shipment${(order.deliveries ?? []).length === 1 ? '' : 's'} · ${(order.deliveries ?? []).reduce((s: number, r: { qty: number }) => s + r.qty, 0)} of ${num(order.totalPcs)} pcs`}
+      >
+        <DeliveryScheduleEditor
+          action={setOrderDeliveriesAction}
+          orderNo={order.orderNo}
+          orderId={order.id}
+          frozen={order.status === 'cancelled'}
+          initialRows={(order.deliveries ?? []).map((r: { qty: number; date: Date; notes: string | null }) => ({
+            qty: r.qty, date: new Date(r.date).toISOString().slice(0, 10), notes: r.notes ?? '',
+          }))}
+          testId="delivery-schedule"
+        />
       </FamilySection>
 
       {/* BOM card (chain stage 2) */}

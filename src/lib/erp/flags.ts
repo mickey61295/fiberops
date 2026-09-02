@@ -73,6 +73,11 @@ export const FLAG_DEFS: FlagDef[] = [
   // window (ties into the Phase-6 FY-close discipline). Default off = legacy.
   { name: 'opn_fy_gate', value: 'false', valueType: 'boolean', category: 'module', description: 'Gate OPN- opening-stock entries to the financial-year start window' },
   { name: 'opn_fy_window_days', value: '30', valueType: 'number', category: 'module', description: 'Days after the active FY start within which OPN- entries are allowed' },
+  // — SPEC-M43 PRG-02 — multi-style orders, flag-gated per remediation spec
+  // §17-5 (the owner's open decision): OFF (default) = a line style differing
+  // from the order style REFUSES with the flag named; ON = per-line styles
+  // resolve and store. Blank line style = header fallback in BOTH states.
+  { name: 'multi_style_orders', value: 'false', valueType: 'boolean', category: 'module', description: 'Allow per-line styles on one order (off = single-style orders only, differing line style refuses)' },
   // — Notifications & digest (SPEC-M9 §9 M13) — arm the channels; the digest
   // itself is built by lib/erp/notifications/digest.ts, surfaced at
   // /notifications/digest + /api/cron/digest —

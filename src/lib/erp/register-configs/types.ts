@@ -72,6 +72,8 @@ export const REGISTER_FILTER_KEYS = [
   'itemType',
   'status',
   'variant',
+  // SPEC-M43 PRG-01 — the order register's trade-type filter
+  'orderType',
   'q',
 ] as const
 

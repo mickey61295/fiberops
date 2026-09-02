@@ -10,6 +10,8 @@ import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
 export async function queryOrderRegister(q: RegisterQuery): Promise<RegisterResult> {
   const where: any = {}
   if (q.status) where.status = q.status
+  // SPEC-M43 PRG-01 — orderType select filter (export | domestic | trading).
+  if ((q as any).orderType) where.orderType = (q as any).orderType
   // CHAT-12 (Phase-6B Batch 2) — buyer scope (list_orders buyerId filter;
   // '__none__' = a buyer filter that matched no buyer → no rows, honestly).
   if (q.buyerId) where.buyerId = q.buyerId
@@ -23,6 +25,8 @@ export async function queryOrderRegister(q: RegisterQuery): Promise<RegisterResu
       { orderNo: { contains: q.q } },
       { buyer: { name: { contains: q.q } } },
       { style: { styleNo: { contains: q.q } } },
+      // PRG-01 — buyer PoRef is first-class: search finds it
+      { buyerPoRef: { contains: q.q } },
     ]
   }
 
@@ -43,6 +47,8 @@ export async function queryOrderRegister(q: RegisterQuery): Promise<RegisterResu
     orderNo: o.orderNo,
     buyer: o.buyer?.name ?? '—',
     style: o.style?.styleNo ?? '—',
+    buyerPoRef: o.buyerPoRef ?? '—',
+    orderType: o.orderType ?? 'export',
     orderDate: o.orderDate,
     deliveryDate: o.deliveryDate,
     totalPcs: o.totalPcs,

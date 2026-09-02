@@ -23,6 +23,13 @@ export const programStatusConfig: RegisterConfig = {
     { name: 'dept', label: 'Dept' },
     { name: 'item', label: 'Item', mono: true },
     { name: 'requiredKgs', label: 'Required', align: 'right', format: 'qty' },
+    // SPEC-M43 PRG-04 — the nine-column waterfall legs (read model, ADR-002):
+    // PO'd (POLine sums) → DC'd (process_delivery out) → GRN'd
+    // (process_receipt + purchase_grn in) → Finished (process_receipt only).
+    { name: 'poKgs', label: "PO'd", align: 'right', format: 'qty' },
+    { name: 'dcKgs', label: "DC'd", align: 'right', format: 'qty' },
+    { name: 'grnKgs', label: "GRN'd", align: 'right', format: 'qty' },
+    { name: 'finishedKgs', label: 'Finished', align: 'right', format: 'qty' },
     { name: 'actualKgs', label: 'Actual', align: 'right', format: 'qty' },
     { name: 'balanceKgs', label: 'Balance', align: 'right', format: 'qty' },
     { name: 'status', label: 'Status', format: 'badge' },

@@ -545,3 +545,19 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
     asks for code. General rule: a `.catch(() => [])` on a lookup whose
     SHAPE is wrong doesn't degrade gracefully, it degrades INVISIBLY — test
     the resolved code, not just row existence.
+
+## #46 — M43 duet: Dia is keyed by VALUE (no code column), and structured sub-docs break the doc-config mirror rule
+
+- **Dia master lookup**: `db.dia.findUnique({ where: { code } })` does not exist — the Dia
+  model is `{ id, value }` (value unique). Both `planProgram` and
+  `planProgramSpecCorrection` resolve `finDiaCode` by VALUE; the doc-config picker pins
+  `pickerValueField: 'value'`. Same class as #21/#44 (per-model irregularities — check the
+  model before writing a lookup; the typecheck catches it, but only if you read the error).
+- **ORDER_SCHEMA.deliveries[] vs the doc-config mirror test**: a structured ARRAY field on a
+  shared schema (not the lines grid) has no DocScreen header field — the DocScreen archetype
+  renders ONE line grid. The mirror rule now skips it via AGENT_ONLY_HOOK_KEYS ('deliveries')
+  with the documented home: the Order Hub schedule editor (post-creation form door) +
+  set_order_deliveries / create_order deliveries[] (agent doors). If a future schema adds
+  another structured sub-doc, either give it a dedicated custom section (the stock-take
+  precedent) or extend the skip set WITH a comment — never silently drop the field from the
+  form layer.

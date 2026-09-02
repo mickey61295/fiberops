@@ -63,6 +63,8 @@ export function parseRegisterQuery(
   if (keys.has('itemType')) q.itemType = val('itemType')
   if (keys.has('status')) q.status = val('status')
   if (keys.has('variant')) q.variant = val('variant')
+  // SPEC-M43 PRG-01 — the orderType select filter (order register)
+  if (keys.has('orderType')) q.orderType = val('orderType')
   if (keys.has('q')) q.q = val('q')
   return q
 }

@@ -24,6 +24,15 @@ export const orderConfig: DocConfig = {
     { name: 'styleNo', label: 'Style', type: 'picker', picker: 'style', required: true, colSpan: 1 },
     { name: 'orderDate', label: 'Order Date', type: 'date', colSpan: 1 },
     { name: 'deliveryDate', label: 'Delivery Date', type: 'date', required: true, colSpan: 1 },
+    // SPEC-M43 PRG-01 — buyer PO first-class + the trade type
+    { name: 'buyerPoRef', label: 'Buyer PO Ref', type: 'text', colSpan: 1 },
+    {
+      name: 'orderType', label: 'Order Type', type: 'select', colSpan: 1, options: [
+        { value: 'export', label: 'Export' },
+        { value: 'domestic', label: 'Domestic' },
+        { value: 'trading', label: 'Trading' },
+      ],
+    },
     { name: 'finYear', label: 'Fin Year', type: 'text', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
   ],
@@ -31,6 +40,9 @@ export const orderConfig: DocConfig = {
     // service resolves by NAME (case-insensitive) — picker emits name (ERRATUM 1)
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', required: true },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', pickerValueField: 'name', required: true },
+    // SPEC-M43 PRG-02 — per-line style (multi-style needs the
+    // multi_style_orders flag; blank = the header style)
+    { name: 'styleNo', label: 'Style (multi)', type: 'picker', picker: 'style' },
     { name: 'qty', label: 'Qty (pcs)', type: 'number', required: true },
     { name: 'rate', label: 'Rate (₹/pc)', type: 'number', required: true },
   ],

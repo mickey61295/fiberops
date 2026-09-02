@@ -89,10 +89,10 @@ async function loginAs(id: string) {
 }
 
 describe('flag registry shape (LLD-07, SPEC-M11)', () => {
-  it('has exactly 38 defs with unique names (28 LLD-07 + 4 M13 notification + M41 po_appr + M42 INV ×5)', () => {
-    expect(FLAG_DEFS.length).toBe(38)
+  it('has exactly 39 defs with unique names (28 LLD-07 + 4 M13 notification + M41 po_appr + M42 INV ×5 + M43 PRG multi_style_orders)', () => {
+    expect(FLAG_DEFS.length).toBe(39)
     const names = FLAG_DEFS.map((f) => f.name)
-    expect(new Set(names).size).toBe(38)
+    expect(new Set(names).size).toBe(39)
   })
 
   it('every def has a valid valueType, category and non-trivial description', () => {
@@ -107,7 +107,7 @@ describe('flag registry shape (LLD-07, SPEC-M11)', () => {
     const byCat = (c: string) => FLAG_DEFS.filter((f) => f.category === c).length
     expect(byCat('tolerance')).toBe(22) // M42 block_negative_stock joins
     expect(byCat('commercial')).toBe(6) // M41 po_appr joins
-    expect(byCat('module')).toBe(5) // gendcdays + M42 waste_godown_code/waste_scrap_rate/opn_fy_gate/opn_fy_window_days
+    expect(byCat('module')).toBe(6) // gendcdays + M42 waste_godown_code/waste_scrap_rate/opn_fy_gate/opn_fy_window_days + M43 multi_style_orders
     expect(byCat('company')).toBe(1)
     expect(byCat('notification')).toBe(4) // SPEC-M9 §9 M13
   })
@@ -193,15 +193,15 @@ describe('/api/config route (SPEC-M11 C1)', () => {
     expect(row?.value).toBe('7')
   })
 
-  it('GET (admin) reflects the typed values + the 38-entry registry', async () => {
+  it('GET (admin) reflects the typed values + the 39-entry registry', async () => {
     await loginAs(adminId)
     const res = await GET()
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.flags.po_bud).toBe(false)
     expect(body.flags.grn_dev).toBe(7)
-    expect(Object.keys(body.flags).length).toBe(38)
-    expect(body.registry.length).toBe(38)
+    expect(Object.keys(body.flags).length).toBe(39)
+    expect(body.registry.length).toBe(39)
     expect(body.registry[0]).toMatchObject({ name: expect.any(String), valueType: expect.any(String) })
   })
 })

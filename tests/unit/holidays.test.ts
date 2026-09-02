@@ -230,7 +230,7 @@ describe('SPEC-M31 §2 — the agent tool (get_working_days)', () => {
     expect(t).toBeDefined()
     expect((t as any).isWrite).toBe(false)
     expect((t as any).domain).toBe('masters')
-    expect(allTools.length).toBe(246) // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
+    expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 
   it('window mode returns the breakdown against live fixtures', async () => {

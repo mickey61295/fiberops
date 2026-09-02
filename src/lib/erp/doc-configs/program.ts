@@ -29,6 +29,13 @@ export const programConfig: DocConfig = {
     ] },
     { name: 'yarnCode', label: 'Yarn (knitting)', type: 'picker', picker: 'yarn', colSpan: 1 },
     { name: 'fabricCode', label: 'Fabric (dyeing)', type: 'picker', picker: 'fabric', colSpan: 1 },
+    // SPEC-M43 PRG-03 — the knitting specification (fabric programs):
+    // written onto the ProgBalanceFabric row; correction door on the view page.
+    { name: 'colourCode', label: 'Colour (spec)', type: 'picker', picker: 'colour', colSpan: 1 },
+    { name: 'designCode', label: 'Design (spec)', type: 'picker', picker: 'design', colSpan: 1 },
+    { name: 'finDiaCode', label: 'Finish Dia (spec)', type: 'picker', picker: 'dia', pickerValueField: 'value', colSpan: 1 },
+    { name: 'finGsm', label: 'Finish GSM (spec)', type: 'number', colSpan: 1 },
+    { name: 'll', label: 'Loop Length (spec)', type: 'text', colSpan: 1 },
     { name: 'requiredKgs', label: 'Required (kgs)', type: 'number', colSpan: 1 },
     { name: 'requiredMtrs', label: 'Required (mtrs)', type: 'number', colSpan: 1 },
     { name: 'requiredPcs', label: 'Required (pcs)', type: 'number', colSpan: 1 },
@@ -47,5 +54,5 @@ export const programConfig: DocConfig = {
     { name: 'status', label: 'Status' },
   ],
   recentCount: 20,
-  agentTools: ['create_program', 'get_program_status', 'suggest_next_step'],
+  agentTools: ['create_program', 'get_program_status', 'propose_program_requirements', 'suggest_next_step'],
 }
