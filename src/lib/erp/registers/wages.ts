@@ -75,23 +75,25 @@ export async function queryWages(q: RegisterQuery): Promise<RegisterResult> {
   }))
 
   // SPEC-M40 (Batch 4, loop-closure #3) — the operator statement columns:
-  // paid = Σ ACTIVE wage payments to the operator's employee-party (the
-  // HFX-07 convention: employee parties carry the operator's code); owed =
+  // paid = Σ ACTIVE wage payments to the operator's employee-party; owed =
   // earned (this register's period) − paid. Payments are all-time cash paid
   // — the statement mixes period earnings with cumulative cash honestly.
-  const operatorCodes = all.map((r) => r.code).filter((c) => c && c !== '—')
-  const employeeParties = operatorCodes.length
-    ? await db.party.findMany({ where: { partyType: 'employee', code: { in: operatorCodes } }, select: { id: true, code: true } })
+  // SPEC-M45 L-01 — the 1:1 link is REAL now (Employee.partyId): resolve
+  // parties through the link (code-matching was the M40 interim); the
+  // dedicated /hr/operator-statement register is the full reconciliation.
+  const operatorIds = all.map((r) => r.id).filter((id) => id && id !== 'unassigned')
+  const linkedEmployees = operatorIds.length
+    ? await db.employee.findMany({ where: { id: { in: operatorIds } }, select: { id: true, partyId: true } })
     : []
-  const partyIdByCode = new Map(employeeParties.map((p) => [p.code, p.id]))
-  const partyIds = employeeParties.map((p) => p.id)
+  const partyIdByOperator = new Map(linkedEmployees.map((e) => [e.id, e.partyId]))
+  const partyIds = linkedEmployees.map((e) => e.partyId).filter((p): p is string => !!p)
   const wagePayments = partyIds.length
     ? await db.payment.findMany({ where: { partyId: { in: partyIds }, direction: 'out', status: 'active' }, select: { partyId: true, amount: true } })
     : []
   const paidByParty = new Map<string, number>()
   for (const p of wagePayments) paidByParty.set(p.partyId, (paidByParty.get(p.partyId) ?? 0) + p.amount)
   for (const r of all) {
-    const pid = partyIdByCode.get(r.code)
+    const pid = partyIdByOperator.get(r.id)
     const paid = pid ? Math.round((paidByParty.get(pid) ?? 0) * 100) / 100 : 0
     ;(r as any).paid = paid
     ;(r as any).owed = Math.round((r.amount - paid) * 100) / 100

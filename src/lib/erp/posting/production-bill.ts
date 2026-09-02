@@ -9,6 +9,7 @@
 // convention — JOURNAL is one model).
 import { db } from '@/lib/db'
 import { activeFinYear } from '../numbering'
+import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
 import type { DocPlanResult } from './types'
 import type { ProductionBillInput } from '../schemas/production-bill'
 import { dateOrIstToday, istTodayDate } from '@/lib/erp/dates'
@@ -23,11 +24,16 @@ export async function planProductionBill(args: ProductionBillInput): Promise<Doc
     deptName = dept.name
   }
   let operatorName = ''
+  let operatorPartyId: string | undefined // SPEC-M45 L-01 — the bill hits the employee's party ledger
+  let operatorPartyCode = ''
   if (args.operatorCode?.trim()) {
     const op = await db.employee.findUnique({ where: { code: args.operatorCode.trim() } })
     if (!op) return { ok: false, error: `Operator ${args.operatorCode} not found` }
     where.operatorId = op.id
     operatorName = op.name
+    const party = await ensureEmployeeParty(op)
+    operatorPartyId = party.id
+    operatorPartyCode = party.code
   }
 
   const to = dateOrIstToday(args.to)
@@ -61,22 +67,26 @@ export async function planProductionBill(args: ProductionBillInput): Promise<Doc
     text: `Proposed production bill ${resolvedVoucherNo} — ₹${amount} across ${entries.length} entries (${qty} pcs, ${scope}).`,
     summary: `Post production bill ${resolvedVoucherNo} | Dr Production Wages / Cr Wage Payable | ₹${amount} | ${period} | ${scope}`,
     creates: [
-      { table: 'journal', data: { voucherNo: resolvedVoucherNo, voucherType: 'journal', debitAccount: 'Production Wages', creditAccount: 'Wage Payable', amount, narration } },
+      { table: 'journal', data: { voucherNo: resolvedVoucherNo, voucherType: 'journal', partyId: operatorPartyId, debitAccount: 'Production Wages', creditAccount: 'Wage Payable', amount, narration } },
     ],
     sideEffects: [
       'Wage Payable grows by the bill amount (the hr/wages register reads the same account)',
       'Production Wages expense recognized for the period',
+      ...(operatorPartyId
+        ? [`Employee-party ${operatorPartyCode} credited — the party ledger + operator statement now see this bill (earned leg)`]
+        : ['No party stamped — an aggregate bill across operators hits no single party ledger (run per-operator bills to reconcile)']),
     ],
     async commit() {
       const j = await db.journal.create({
         data: {
           voucherNo: resolvedVoucherNo, voucherType: 'journal',
           date: istTodayDate(), finYear: await activeFinYear(),
+          partyId: operatorPartyId,
           debitAccount: 'Production Wages', creditAccount: 'Wage Payable',
           amount, narration,
         },
       })
-      return { id: j.id, voucherNo: j.voucherNo, amount, entries: entries.length, qty }
+      return { id: j.id, voucherNo: j.voucherNo, amount, entries: entries.length, qty, partyCode: operatorPartyCode || undefined }
     },
   }
 }

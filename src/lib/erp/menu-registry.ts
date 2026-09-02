@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45'
 
 export interface MenuGroup {
   id: string
@@ -127,6 +127,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/jobwork/pcs-return', // Jobwork Pcs Return (M5 Wave B) — jobwork-pcs-return (process_return GRN)
   '/costing/input', // Costing Input (M5 Wave B) — costing-input (variant of /costing/cost-sheet)
   '/hr/wages', // Production Wages (M5 Wave B) — production-wages (RG + wage-bill journal)
+  '/hr/operator-statement', // Operator Statement (M45 L-01) — operator-statement (RG: earned − paid = owed)
   '/hr/wage-payments', // Wage Payments (M5 Wave B) — wage-payments (variant of /accounts/payments)
   // M5 Wave C (SPEC-M5 §6 — approval gates; kind-filtered inbox views)
   '/accounts/bill-pass', // Bill Pass (M5 Wave C) — bill-pass (IN, kind=supplier_bill)
@@ -1134,6 +1135,14 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['get_production_wages', 'create_journal'], pendingTools: [],
     agentPrompt: 'Show me production wages per operator',
     notes: 'RG family screen per SPEC-M5 §2 (arch upgraded DS→RG); wage bill posts a journal',
+  },
+  {
+    id: 'operator-statement', label: 'Operator Statement', groupId: 'hr', route: '/hr/operator-statement', arch: 'RG', phase: 'M45',
+    description: 'Wage reconciliation per operator: earned − paid = owed (piece-rate entries vs wage payments to the employee-party).',
+    legacyForms: [],
+    agentTools: ['get_operator_statement'], pendingTools: [],
+    agentPrompt: 'How much do I still owe each operator?',
+    notes: 'SPEC-M45 L-01 — the last structural P0: the 1:1 employee-party link + the reconciliation statement (all-time default; from/to window both legs)',
   },
   {
     id: 'wage-payments', label: 'Wage Payments', groupId: 'hr', route: '/hr/wage-payments', arch: 'DS', phase: 'M5',

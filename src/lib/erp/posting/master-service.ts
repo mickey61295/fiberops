@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { getMasterConfig, MASTER_CONFIGS } from '../master-configs'
+import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
 import type { MasterConfig, MasterField, MasterRow } from '../master-configs/types'
 
 // ---------------------------------------------------------------------------
@@ -406,6 +407,11 @@ export async function planMasterCreate(
 
   const summary = `Create ${summaryOf(config, args, keyValue)}`
   const sideEffects = [`${config.singular} can now be referenced on transactions`]
+  // SPEC-M45 L-01 — declared up-front so the agent door narrates the linkage
+  // before approval (the commit performs the find-or-create + link).
+  if (config.delegate === 'employee') {
+    sideEffects.push('1:1 employee-party auto-created and linked (wage payouts + the operator statement become available)')
+  }
 
   return {
     ok: true,
@@ -421,6 +427,14 @@ export async function planMasterCreate(
       }
       const out: { id: string; code?: string; [k: string]: any } = { id: rec.id }
       if (config.codeField) out.code = rec[config.codeField]
+      // SPEC-M45 L-01 — employee create auto-creates/links the 1:1
+      // employee-party (wage payouts + operator statements). One seam in the
+      // shared commit: BOTH doors (agent create_employee + the masters form)
+      // get the linkage; find-or-create is idempotent.
+      if (config.delegate === 'employee') {
+        const party = await ensureEmployeeParty(rec as { id: string; code: string; name: string })
+        out.employeeParty = party.code
+      }
       return out
     },
   }

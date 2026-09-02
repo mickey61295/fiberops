@@ -54,6 +54,7 @@ model Party {
   phone          String?
   email          String?
   openingBalance Float           @default(0)
+  employee       Employee?       // SPEC-M45 L-01 — the 1:1 back-relation (wage payouts)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   orders         Order[]
@@ -212,6 +213,8 @@ model Employee {
   pieceRate         Float             @default(0)
   dailyWage         Float             @default(0)
   active            Boolean           @default(true)
+  partyId           String?           @unique // SPEC-M45 L-01 — the 1:1 employee-party (wage payouts + statements)
+  party             Party?            @relation(fields: [partyId], references: [id])
   productionEntries ProductionEntry[]
   attendance        Attendance[] // SPEC-M20 (Gap D) — daily attendance rows
 }

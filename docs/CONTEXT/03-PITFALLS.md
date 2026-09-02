@@ -561,3 +561,23 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
   another structured sub-doc, either give it a dedicated custom section (the stock-take
   precedent) or extend the skip set WITH a comment — never silently drop the field from the
   form layer.
+
+## #47 — M45 duet: WAL sidecars make the raw main-file copy stale, and deleting a Payment without its JV companion orphans the number
+
+- **`custom.db` runs journal_mode=WAL (OPS-02) — a schema push or backfill can leave ALL its
+  pages in `custom.db-wal` while the main file's mtime stays hours old.** The vitest
+  globalSetup copies `custom.db → test.db` with plain `copyFileSync` — a main-only copy of
+  that state ships a test db MISSING columns (`The column partyId does not exist`) even
+  though every Prisma connection sees the new schema fine through the sidecar. The setup now
+  copies the `-wal` sidecar alongside (never `-shm`: SQLite rebuilds it; main+wal from the
+  same instant are self-consistent). After ANY `prisma db push`, checkpoint
+  (`echo "PRAGMA wal_checkpoint(TRUNCATE);" | bunx prisma db execute --stdin`) so the main
+  file is self-contained for raw copies and backups-by-copy.
+- **Test cleanup must delete the payment's JV-<voucherNo> companion journal WITH the Payment
+  row.** Delete only the payment and the companion is an orphan: the number PMT-#### looks
+  free to the next resolver (payment scan), the Payment create succeeds, and the
+  `tx.journal.create` inside the SAME commit dies on the unique voucherNo — but only when a
+  PARALLEL vitest worker re-resolves that number, so it reproduces on full runs and passes
+  in isolation (this cost an hour: the failing test was doc-parity-m5b, not the file with
+  the buggy afterAll). Symmetric rule for any paired rows created in one transaction:
+  clean the PAIR, not the row (the pay-batch4 `JV-`/`CN-` deleteMany is the pattern).

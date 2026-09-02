@@ -135,7 +135,7 @@ describe('SPEC-M23 §2 — planGenerateIrn (guards + thresholds + commit)', () =
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)
     expect(tool!.domain).toBe('accounting')
-    expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
+    expect(allTools.length).toBe(250) // M45 L-01: +get_operator_statement // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 })
 

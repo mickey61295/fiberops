@@ -11,7 +11,7 @@
  * NOTE: this runs in a SEPARATE process before workers spawn — the env pin
  * for the workers is tests/setup/pin-test-db.ts (setupFiles).
  */
-import { rmSync, copyFileSync } from 'node:fs'
+import { rmSync, copyFileSync, existsSync } from 'node:fs'
 
 const SRC = '/home/z/my-project/db/custom.db'
 const DST = '/home/z/my-project/db/test.db'
@@ -21,4 +21,13 @@ export default function globalSetup() {
     rmSync(f, { force: true })
   }
   copyFileSync(SRC, DST)
+  // PITFALLS #47 (SPEC-M45 session): the live db runs journal_mode=WAL
+  // (OPS-02) — a schema push or backfill can leave its pages in
+  // custom.db-wal with a STALE main file. A main-only copy then ships a test
+  // db MISSING columns ("partyId does not exist"). Copy the -wal sidecar too
+  // when present (never -shm: SQLite rebuilds it; the pair main+wal is
+  // self-consistent because both come from the same instant and no writer
+  // runs during vitest startup).
+  const wal = `${SRC}-wal`
+  if (existsSync(wal)) copyFileSync(wal, `${DST}-wal`)
 }

@@ -23,6 +23,7 @@ import { queryLots } from '@/lib/erp/registers/lots'
 import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
+import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -1122,6 +1123,37 @@ const readTools: AgentTool[] = [
           operator: r.operator, code: r.code, dept: r.dept,
           orders: r.orders, entries: r.entries, qty: r.qty,
           rate: r.rate, amount: r.amount,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_operator_statement',
+    description: 'Operator wage statement (reconciliation): per operator — earned (Σ piece-rate production entries), paid (Σ wage payments to the 1:1 employee-party), owed = earned − paid. Optional filters: q (operator code/name), party (employee-party code), from/to (ISO dates — earned windows by production date, paid by payment date; default all-time). Use this to answer "how much do I still owe operator X"; pay wages with pay_wages.',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      q: z.string().optional().describe('Operator code or name contains.'),
+      party: z.string().optional().describe('Employee-party code filter.'),
+      from: z.string().optional().describe('Window start (ISO date) — applies to both legs on their own dates.'),
+      to: z.string().optional().describe('Window end (ISO date).'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M45 L-01 register service — the same read path
+      // the /hr/operator-statement screen uses.
+      const res = await queryOperatorStatement({
+        q: args.q, party: args.party, from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const owed = (res.totals ?? []).find((t) => t.label === 'Owed ₹')?.value ?? 0
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} operators with wage activity — ₹${Math.round(Number(owed)).toLocaleString('en-IN')} still owed${truncated ? ` (showing first ${(res.rows as any[]).length} — pass q to narrow)` : ''}`,
+        json: res.rows.map((r) => ({
+          operator: r.operator, code: r.code, dept: r.dept, party: r.party,
+          entries: r.entries, qty: r.qty, earned: r.earned, paid: r.paid, owed: r.owed,
         })),
       }
     },

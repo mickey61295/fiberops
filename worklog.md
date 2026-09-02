@@ -1968,3 +1968,24 @@ Work Log:
 Stage Summary:
 - M44 SHIPPED (local commits): the FY default is decided in exactly ONE place — the owner activates 27-28 at /admin/company and every posting service follows with zero code changes. Zero schema/prompt/tool/menu change; PROMPT_VERSION stays m43.
 - Next: Module L payroll L-01 (wage reconciliation — the LAST structural P0, closes loop-closure #3) or Module K costing; PAY-08/PRC-09/PRG-02 owner decisions still open. PAT re-supply needed to push.
+---
+Task ID: m45-l01
+Agent: main (Super Z)
+Task: Ship SPEC-M45 — Module L Batch 1, L-01 wage reconciliation (the LAST structural P0 of the consolidated gap register; closes loop-closure #3).
+
+Work Log:
+- Scoped from PHASE-6B-REMEDIATION-SPEC §12: verified planProductionBill posts journal WITHOUT partyId, pay_wages posts Payment+companion WITH it, Employee has no partyId, no statement surface exists.
+- Wrote + froze SPEC-M45.md (L-01 only; L-02..06 documented OUT — payroll is 1–1.5 batches per the spec).
+- Schema: Employee.partyId @unique + Party.employee back-relation (db push). ensureEmployeeParty (posting/employee-party.ts, find-or-create + link, idempotent, clash-throws) hooked into master-service's CREATE commit (the finYear-invariant seam — BOTH doors); sideEffects declares the linkage pre-approval. scripts/backfill_employee_parties.ts run: 10/10 linked.
+- planProductionBill: operatorCode → resolve/ensure party → journal partyId (per-operator bills hit the party ledger; aggregate bills honest about being party-less).
+- THE OPERATOR STATEMENT: registers/operator-statement.ts (earned Σ ProductionEntry.amount − paid Σ out-payments to the linked party = owed; all-time default; both legs windowed on their own dates; zero-activity silent; unlinked honest '—') + register-config + registers/index wiring + /hr/operator-statement page + csv + menu 140→141 + LIVE_ROUTES 175→176 + get_operator_statement read tool (tools 249→250) + PROMPT_VERSION m45-2026-09-02 (§1 HR line).
+- The M40 wages-register paid/owed interim retired: resolves through Employee.partyId now (code-matching was the pre-link guess); pay-batch4's fixture updated to link (the M45 truth).
+- REAL BUG the gates caught (§2-0): party-ledger double-counted every receipt — companion JV journals counted in −journals while the Payment legs counted the same cash (live probe CUS001: formula −₹34.0M vs true AR ≈ ₹4.3M). Fixed: journals term counts voucherType journal|contra only. The wage loop now closes in the ledger (bill + payment, companion excluded).
+- PITFALLS #47 duet: (1) WAL sidecar vs raw copy — globalSetup copies -wal now; checkpointed custom.db after db push (the M45 test db initially shipped a column short); (2) deleting a Payment without its JV companion orphans the number — my payroll afterAll did that and killed doc-parity-m5b's parallel commit (fixed: delete the JV-CN pair with the payment, the pay-batch4 pattern).
+- Tests: payroll-l01.test.ts NEW 15/15 (auto-link + idempotence + LOOP-CLOSURE #3 GREEN: entry → bill(partyId) → payment → owed 0 + ledger agreement + wages-register agreement + unlinked honesty + independent windows + wiring/source pins). Inherited pins ~23 spots same-commit (tools 250 ×15 files, menu 141 ×3, regcfg 39 + slug list + ROUTE_BY_SLUG, PROMPT_VERSION ×3).
+- Gates: 1365/1365 vitest (68 files) · tsc src 0 · eval --static PASS (m45-2026-09-02, registry 242) · context_check 606/606 NO DRIFT (7 pins) · route_smoke_m45 NEW 20/20 LIVE (columns + LIVE arithmetic invariant on E001 ₹21,85,920 + csv + q/party filters + 10/10 backfill) · browser E2E: /hr/operator-statement renders the full table, ZERO console errors (download/m45-operator-statement.png).
+- Docs: SPEC-M45 frozen, STATE #49 + header, PITFALLS #47, this entry.
+
+Stage Summary:
+- M45 SHIPPED (local): the last structural P0 closed — operator wage statements exist at /hr/operator-statement, chat-reachable via get_operator_statement, backed by the real 1:1 employee-party link, with the party-ledger receipt double-count fixed as a bonus. All Phase-6B P0 seams (1–6) are now CLOSED.
+- Remaining: L-02 PayrollRun+Payslip, L-03 statutory, L-04 attendance depth, L-05 payout fields, L-06 shiftWages; Module K costing; Module M final accounts; owner decisions PAY-08/PRC-09/PRG-02. PUSH PENDING: sandbox reset wiped .pat-token — re-supply to push m44+m45 (4 commits).

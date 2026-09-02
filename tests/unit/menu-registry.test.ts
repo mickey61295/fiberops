@@ -28,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 140 items (113 parity + M40 supplier-bill + M41 PRC ×3 + M42 INV ×2 + M43 PRG program-propose + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement)', () => {
-    expect(MENU_ITEMS.length).toBe(140) // M43 PRG: +program-propose (M42 INV: +stock-take +waste-percent)
+  it('has exactly 141 items (113 parity + M40 supplier-bill + M41 PRC ×3 + M42 INV ×2 + M43 PRG program-propose + M45 L-01 operator-statement + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement)', () => {
+    expect(MENU_ITEMS.length).toBe(141) // M45 L-01: +operator-statement (M43 PRG: +program-propose; M42 INV: +stock-take +waste-percent)
   })
 
   it('has exactly 17 groups', () => {
@@ -102,10 +102,10 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupForPath('/admin/settings')?.id).toBe('masters-admin')
   })
 
-  it('parityStats: 140/140 live after M21 (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit + M41 ×3 + M42 ×2 + M43 ×1)', () => {
+  it('parityStats: 141/141 live after M21 (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit + M41 ×3 + M42 ×2 + M43 ×1 + M45 ×1)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(140)
-    expect(s.liveItems).toBe(140)
+    expect(s.totalItems).toBe(141)
+    expect(s.liveItems).toBe(141)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)
