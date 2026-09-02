@@ -166,6 +166,8 @@ check "qol1 D-1b approve validates before execute (coerced.value)" "1" "$(grep -
 check "qol1 no inline coercion duplicate left in route.ts" "0" "$(grep -cE '^function (normalizeArgs|parseWithCoercion)\(' src/app/api/agent/route.ts)"
 check "qol1 ghost tool gone (accept_supplier_bill absent from the prompt)" "0" "$(grep -c 'accept_supplier_bill' src/lib/agent/prompt.ts)"
 check "m43 PROMPT_VERSION (the program-flow revival)" "1" "$(grep -c "PROMPT_VERSION = 'm43-2026-09-02'" src/lib/agent/prompt.ts)"
+check "m44 FY single-source (zero frozen '26-27' in the posting layer)" "0" "$(grep -rc "'26-27'" src/lib/erp/posting/*.ts 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')"
+check "m44 fy-hotfix test file (11 tests)" "11" "$(grep -c '^  it(' tests/pipeline/fy-hotfix-m44.test.ts 2>/dev/null)"
 check "qol1 SPEC-QoL1 doc + prompt-sync probe" "2" "$(ls docs/CONTEXT/specs/SPEC-QoL1.md scripts/qol_prompt_sync.mjs 2>/dev/null | wc -l)"
 check "qol1 reconcile test file (15 tests)" "15" "$(grep -c '^  it(' tests/pipeline/qol1-reconcile.test.ts)"
 

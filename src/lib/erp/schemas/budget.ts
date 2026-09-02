@@ -7,7 +7,7 @@ import { z } from 'zod'
 export const BUDGET_SCHEMA = z.object({
   orderNo: z.string().optional().describe('Order the budget belongs to (optional for dept budgets)'),
   deptCode: z.string().optional().describe('Department for dept-level budgets'),
-  finYear: z.string().optional().describe('Defaults to current 26-27'),
+  finYear: z.string().optional().describe('Defaults to the active financial year'),
   amount: z.number().min(0).describe('Total budgeted amount'),
   lines: z.array(z.object({
     workId: z.string().optional().describe('Jobwork component id this line budgets'),

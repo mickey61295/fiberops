@@ -11,7 +11,7 @@
 
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
-import { resolveDocNo } from '../numbering'
+import { resolveDocNo, activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PurchaseReturnInput } from '../schemas/purchase-return'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -73,7 +73,7 @@ export async function planPurchaseReturn(args: PurchaseReturnInput): Promise<Doc
   const totalQty = resolved.reduce((s, l) => s + l.qty, 0)
   const totalValue = resolved.reduce((s, l) => s + l.qty * l.rate, 0)
   const notes = args.notes?.trim() || `Purchase return against ${args.grnNo}`
-  const finYear = grn.finYear || '26-27'
+  const finYear = grn.finYear || await activeFinYear()
 
   // Optional linked debit note (PAY-03 tie): DN- on the DebitNote table.
   const dnNo = args.debitNote ? await resolveDocNo('debitNote', 'noteNo', 'DN-', undefined) : null

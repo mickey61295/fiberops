@@ -8,6 +8,7 @@
 // (multi_style_orders, default OFF — §17-5 stays the owner's decision).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { OrderInput } from '../schemas/order'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -73,7 +74,7 @@ export async function planOrder(args: OrderInput): Promise<DocPlanResult> {
 
   const totalPcs = args.lines.reduce((s, l) => s + l.qty, 0)
   const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-  const finYear = args.finYear || '26-27'
+  const finYear = args.finYear || await activeFinYear()
 
   // Resolve colour/size ids (case-insensitive match — "NAVY" ≡ "Navy")
   const [allColours, allSizes] = await Promise.all([db.colour.findMany(), db.size.findMany()])

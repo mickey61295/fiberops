@@ -9,6 +9,7 @@
 // ZERO-sum — the register math test asserts it.
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { RollSplitInput } from '../schemas/roll-split'
 import { docKeyViolation } from './ledger'
@@ -103,14 +104,14 @@ export async function planRollSplit(args: RollSplitInput): Promise<DocPlanResult
           await tx.stockLedger.create({
             data: {
               txnType: 'transfer_out', itemType: 'fabric', itemId: fabric.id, lotId: lot.id,
-              godownId: godown.id, docNo, docKey: docNo, docDate, finYear: '26-27',
+              godownId: godown.id, docNo, docKey: docNo, docDate, finYear: await activeFinYear(),
               outMtrs: args.mtrs, notes,
             },
           })
           await tx.stockLedger.create({
             data: {
               txnType: 'transfer_in', itemType: 'fabric', itemId: fabric.id, lotId: newLot.id,
-              godownId: godown.id, docNo, docDate, finYear: '26-27',
+              godownId: godown.id, docNo, docDate, finYear: await activeFinYear(),
               inMtrs: args.mtrs, notes,
             },
           })

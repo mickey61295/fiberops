@@ -8,6 +8,7 @@
 // consistent. Voucher number rides the shared V-#### space (planJournal
 // convention — JOURNAL is one model).
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { ProductionBillInput } from '../schemas/production-bill'
 import { dateOrIstToday, istTodayDate } from '@/lib/erp/dates'
@@ -70,7 +71,7 @@ export async function planProductionBill(args: ProductionBillInput): Promise<Doc
       const j = await db.journal.create({
         data: {
           voucherNo: resolvedVoucherNo, voucherType: 'journal',
-          date: istTodayDate(), finYear: '26-27',
+          date: istTodayDate(), finYear: await activeFinYear(),
           debitAccount: 'Production Wages', creditAccount: 'Wage Payable',
           amount, narration,
         },

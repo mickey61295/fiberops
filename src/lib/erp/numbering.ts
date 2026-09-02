@@ -7,11 +7,32 @@
 // resolve() skips any desired number that is already taken).
 
 import { db } from '@/lib/db'
+import { istDateStr } from '@/lib/erp/dates'
 
-/** The active financial year code (falls back to '26-27' when none is active). */
+/** Fiscal-year code for an ISO date string ('YYYY-MM-DD', the IST business
+ * date): Indian FY runs Apr 1 – Mar 31, so month >= 4 starts a new code.
+ * Pure — no clock inside (SPEC-M44 FY-01): '2026-04-01' → '26-27',
+ * '2027-03-31' → '26-27', '2027-04-01' → '27-28', '2026-03-31' → '25-26'. */
+export function fyCodeFor(dateStr: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(dateStr)
+  if (!m) return fyCodeToday() // defensive — istDateStr never emits garbage
+  const year = Number(m[1])
+  const startsFy = Number(m[2]) >= 4
+  const a = startsFy ? year : year - 1
+  return `${String(a % 100).padStart(2, '0')}-${String((a + 1) % 100).padStart(2, '0')}`
+}
+
+/** The fiscal-year code of TODAY's IST day (the last-resort fallback only). */
+export function fyCodeToday(): string {
+  return fyCodeFor(istDateStr(new Date()))
+}
+
+/** The active financial year code (the FinYear master row the owner marked
+ * active at /admin/company; falls back to today's IST-derived code when no
+ * row is active — never a frozen literal, SPEC-M44 FY-01). */
 export async function activeFinYear(): Promise<string> {
   const fy = await db.finYear.findFirst({ where: { active: true } })
-  return fy?.code ?? '26-27'
+  return fy?.code ?? fyCodeToday()
 }
 
 type SequenceDef = {

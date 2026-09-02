@@ -6,6 +6,7 @@
 // /quality/non-return-dc (approve_non_return_dc tool).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import { postLedger } from './ledger'
 import type { DocPlanResult } from './types'
 import type { DespatchInput } from '../schemas/despatch'
@@ -42,7 +43,7 @@ export async function planPcsDespatch(args: DespatchInput): Promise<DocPlanResul
   }
   const numberPrefix = mode === 'loading' ? 'LAD-' : 'DC-'
   const initialStatus = mode === 'loading' ? 'loading' : 'despatched'
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
   const resolvedDcNo = await (async () => {
     const desired = args.dcNo?.trim()
     if (desired) {

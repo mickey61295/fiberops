@@ -9,6 +9,7 @@
 // despatch.ts (+ Wave D: stock-adj.ts, transfer.ts).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import { wacStep, primaryQtyOf } from '@/lib/erp/valuation'
 import { getFlag } from '@/lib/erp/flags'
 
@@ -148,7 +149,7 @@ export async function postLedger(tx: any, m: {
   notes?: string
 }) {
   await assertNoOverdraft(tx, m)
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
   const row = await tx.stockLedger.create({
     data: {
       txnType: m.txnType,

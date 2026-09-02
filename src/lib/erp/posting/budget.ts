@@ -4,11 +4,12 @@
 // No doc number on this model — the plan identifies by order/dept + amount.
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { BudgetInput } from '../schemas/budget'
 
 export async function planBudget(args: BudgetInput): Promise<DocPlanResult> {
-  const finYear = args.finYear?.trim() || '26-27'
+  const finYear = args.finYear?.trim() || await activeFinYear()
 
   let orderId: string | undefined
   if (args.orderNo?.trim()) {

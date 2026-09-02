@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
+import { activeFinYear } from '@/lib/erp/numbering'
 
 // ============== Agent Tool Registry ==============
 // Each tool has: name, description, parameters (zod), execute function.
@@ -1854,7 +1855,7 @@ function docTool(
 const docTools: AgentTool[] = [
   docTool(
     'create_order',
-    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), buyerPoRef (the buyer\'s own PO reference, stored first-class), orderType (export|domestic|trading, default export), deliveries (array of {qty, date, notes} — the multi-shipment schedule; ONE order, many dates, never split the order over delivery dates), per-line styleNo (multi-style — needs the multi_style_orders flag; blank = header style), notes.',
+    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to the active financial year; use e.g. "24-25" for historical documents), buyerPoRef (the buyer\'s own PO reference, stored first-class), orderType (export|domestic|trading, default export), deliveries (array of {qty, date, notes} — the multi-shipment schedule; ONE order, many dates, never split the order over delivery dates), per-line styleNo (multi-style — needs the multi_style_orders flag; blank = header style), notes.',
     'orders',
     ORDER_SCHEMA,
     planOrder,
@@ -1904,7 +1905,7 @@ const docTools: AgentTool[] = [
   // ── M5 Wave A (SPEC-M5 §8) ──
   docTool(
     'create_budget',
-    'Create a budget (order-level or department-level) with per-work lines. Required: amount (total; 0 lets the service use the line sum) + lines (array of {amount, workId?, actualAmount?}). Provide orderNo OR deptCode (at least one). Optional: finYear (defaults 26-27), notes.',
+    'Create a budget (order-level or department-level) with per-work lines. Required: amount (total; 0 lets the service use the line sum) + lines (array of {amount, workId?, actualAmount?}). Provide orderNo OR deptCode (at least one). Optional: finYear (defaults to the active financial year), notes.',
     'costing',
     BUDGET_SCHEMA,
     planBudget,
@@ -2871,7 +2872,7 @@ const writeTools: AgentTool[] = [
       else if (args.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: args.itemCode } })
       else if (args.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: args.itemCode } })
       if (!item) return { text: `${args.itemType} ${args.itemCode} not found` }
-      const finYear = '26-27'
+      const finYear = await activeFinYear()
       const isPcs = args.itemType === 'accessory'
       const isAdd = args.action === 'add'
       return {

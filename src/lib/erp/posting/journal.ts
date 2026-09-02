@@ -3,6 +3,7 @@
 // tools.ts. No ledger effect (GL is out of M3 scope).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { JournalInput } from '../schemas/journal'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -13,7 +14,7 @@ export async function planJournal(args: JournalInput): Promise<DocPlanResult> {
     party = await db.party.findUnique({ where: { code: args.partyCode } })
     if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
   }
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
   const resolvedVoucherNo = await (async () => {
     const desired = args.voucherNo?.trim()
     if (desired) {

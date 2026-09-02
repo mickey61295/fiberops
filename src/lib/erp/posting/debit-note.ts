@@ -3,6 +3,7 @@
 // from tools.ts. No ledger effect (party AR is derived).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { DebitNoteInput } from '../schemas/debit-note'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -10,7 +11,7 @@ import { dateOrIstToday } from '@/lib/erp/dates'
 export async function planDebitNote(args: DebitNoteInput): Promise<DocPlanResult> {
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
   if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
   const resolvedNoteNo = await (async () => {
     const desired = args.noteNo?.trim()
     if (desired) {

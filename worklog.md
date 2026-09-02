@@ -1949,3 +1949,22 @@ Work Log:
 
 Stage Summary:
 - Remote fully synced at M43. Phase-6B: 7 of 11 batches shipped. Next: Module K (costing) or Module L (payroll) per remediation spec §16.
+---
+Task ID: m44-fy-hotfix
+Agent: main (Super Z)
+Task: Ship SPEC-M44 FY-01 — the fiscal-year single-source hotfix (STATE #47's suggested hotfix: 37 hardcoded '26-27' literals, time bomb 2027-04-01).
+
+Work Log:
+- Re-oriented on the M43 line: full gates green at start (1334 vitest / tsc src 0 / eval --static / context_check 604); restored the gremlin-deleted src/app/api/upload/route.ts + silenced a 755-file filemode sweep (git core.fileMode false — PITFALLS #39 discipline).
+- Environment: sandbox reset wiped .pat-token → commits stay LOCAL this session; push pending PAT re-supply. Regenerated the OPS-01 backup snapshot (python3 scripts/backup_db.py, integrity ok).
+- Verified evidence on the M43 line: 37 '26-27' in src (23 files); scripts/seed.ts FIN_YEAR literal; dev DB has exactly one ACTIVE FinYear row '26-27'; activeFinYear() existed in numbering.ts with a frozen fallback.
+- Wrote + froze SPEC-M44.md (1 FR, FY-01): default = the ACTIVE FinYear row (owner-managed at /admin/company); fallback = IST-date-derived code via pure fyCodeFor; explicit args.finYear wins; purchase-return inherits the GRN's FY; numbering per-FY reset explicitly OUT OF SCOPE.
+- scripts/patch_m44_fy.py (persisted, idempotent): replaced all ~24 posting literals across 16 services + tools.ts adjust_stock + context.ts catch + 3 schema describes + 2 tool docstrings; import extension/insertion per file; verification pass asserts zero surviving '26-27' in the posting layer.
+- numbering.ts: +fyCodeFor (pure Apr 1–Mar 31, century wrap) +fyCodeToday (IST) ; activeFinYear fallback = derived, never a literal. seed.ts: FIN_WINDOW/name derived from one ANCHOR_YEAR=2026 constant (demo dates are fixed 2026 — wall-clock derivation would desync it).
+- tests/pipeline/fy-hotfix-m44.test.ts NEW 11/11: fyCodeFor boundary matrix (incl. 99-00/00-01 wrap) + self-consistency (no literal pinned — the test is not itself a 2027 bomb) + active-row equivalence + no-active-row fallback w/ DB restore in finally + behavioral planExpense→runCommit stamps the ACTIVE code + explicit-args-win (plan-only) + source contracts (posting dir ENUMERATED, never hand-listed).
+- Gates: 1345/1345 vitest (1334+11) · tsc src 0 · eval --static PASS (m43-2026-09-02 unchanged) · context_check 604→606/606 NO DRIFT (2 new pins: posting-layer zero-literal + the 11-test file).
+- Docs: SPEC-M44.md frozen; STATE #48 + Last-verified header; context_check +2 pins; this entry.
+
+Stage Summary:
+- M44 SHIPPED (local commits): the FY default is decided in exactly ONE place — the owner activates 27-28 at /admin/company and every posting service follows with zero code changes. Zero schema/prompt/tool/menu change; PROMPT_VERSION stays m43.
+- Next: Module L payroll L-01 (wage reconciliation — the LAST structural P0, closes loop-closure #3) or Module K costing; PAY-08/PRC-09/PRG-02 owner decisions still open. PAT re-supply needed to push.

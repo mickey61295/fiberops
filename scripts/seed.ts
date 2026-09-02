@@ -3,7 +3,13 @@ import { PrismaClient } from '@prisma/client'
 
 const db = new PrismaClient()
 
-const FIN_YEAR = '26-27'
+// SPEC-M44 FY-01: no frozen '26-27' literal — the demo dataset is anchored to
+// FY 2026-27 (every demo doc date below is 2026), so the FY code and window
+// derive from ONE anchor constant instead of three magic values.
+const ANCHOR_YEAR = 2026
+const FY_START = new Date(`${ANCHOR_YEAR}-04-01`)
+const FY_END = new Date(`${ANCHOR_YEAR + 1}-03-31`)
+const FIN_YEAR = `${String(ANCHOR_YEAR % 100).padStart(2, '0')}-${String((ANCHOR_YEAR + 1) % 100).padStart(2, '0')}`
 
 async function main() {
   console.log('🌱 Seeding Fiberpro demo data...')
@@ -14,9 +20,9 @@ async function main() {
     update: {},
     create: {
       code: FIN_YEAR,
-      name: '2026-27',
-      start: new Date('2026-04-01'),
-      end: new Date('2027-03-31'),
+      name: `${ANCHOR_YEAR}-${String((ANCHOR_YEAR + 1) % 100).padStart(2, '0')}`,
+      start: FY_START,
+      end: FY_END,
       active: true,
     },
   })

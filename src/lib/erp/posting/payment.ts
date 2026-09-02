@@ -19,7 +19,7 @@
 //     rejected with guidance.
 
 import { db } from '@/lib/db'
-import { resolveDocNo } from '../numbering'
+import { resolveDocNo, activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PaymentInput } from '../schemas/payment'
 import type { WagePaymentInput } from '../schemas/payment-variants'
@@ -193,7 +193,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
     text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${allocated > 0 ? ` — allocates ${allocatedLines.join(', ')}${onAccount > 0 ? `, ₹${onAccount} on-account` : ''}` : ' (on-account)'}.`,
     summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${allocated > 0 ? ` | allocates ₹${allocated}${onAccount > 0 ? ` + ₹${onAccount} on-account` : ''}` : ' | on-account'}${args.reference ? ` | ref ${args.reference}` : ''}`,
     creates: [
-      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' } },
+      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' } },
       ...allocations.map((a) => ({ table: 'paymentAllocation', data: { paymentId: '<payment>', invoiceId: a.invoiceId ?? null, billId: a.billId ?? null, amount: a.amount } })),
     ],
     updates: statusUpdates,
@@ -206,7 +206,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
     async commit() {
       return await db.$transaction(async (tx) => {
         const pay = await tx.payment.create({
-          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: '26-27', direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' },
+          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' },
         })
         await tx.journal.create({
           data: {
@@ -214,7 +214,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
             voucherType: direction === 'in' ? 'receipt' : 'payment',
             partyId: party.id,
             date: payDate,
-            finYear: '26-27',
+            finYear: await activeFinYear(),
             debitAccount: direction === 'in' ? 'Cash/Bank' : party.name,
             creditAccount: direction === 'in' ? party.name : 'Cash/Bank',
             amount: args.amount,

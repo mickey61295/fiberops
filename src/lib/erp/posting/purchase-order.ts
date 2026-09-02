@@ -3,6 +3,7 @@
 // from tools.ts. No ledger effect; commit auto-submits an Approval row.
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PurchaseOrderInput } from '../schemas/purchase-order'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -13,7 +14,7 @@ export async function planPurchaseOrder(args: PurchaseOrderInput): Promise<DocPl
 
   const totalQty = args.lines.reduce((s, l) => s + l.qty, 0)
   const totalValue = args.lines.reduce((s, l) => s + l.qty * l.rate, 0)
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
 
   // Resolve item ids
   const linesResolved = await Promise.all(args.lines.map(async (l) => {

@@ -20,7 +20,7 @@
  */
 import { db } from '@/lib/db'
 import { istDateStr } from '@/lib/erp/dates'
-import { activeFinYear } from '@/lib/erp/numbering'
+import { activeFinYear, fyCodeToday } from '@/lib/erp/numbering'
 import { findItemByRoute, findGroupByRoutePrefix, findGroupByLanding } from '@/lib/erp/menu-registry'
 
 export interface ScreenContext {
@@ -60,7 +60,7 @@ export async function buildDynamicContext(
 ): Promise<string> {
   const today = istDateStr(new Date())
   const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date().getUTCDay()]
-  const fy = await activeFinYear().catch(() => '26-27')
+  const fy = await activeFinYear().catch(() => fyCodeToday())
   let godowns: { code: string; name: string }[] = []
   try {
     godowns = await db.godown.findMany({ select: { code: true, name: true }, orderBy: { code: 'asc' } })

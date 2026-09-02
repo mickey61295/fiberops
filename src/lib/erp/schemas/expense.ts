@@ -6,7 +6,7 @@ import { z } from 'zod'
 export const EXPENSE_SCHEMA = z.object({
   expNo: z.string().optional().describe('EXP-#### auto-assigned when omitted or colliding'),
   expDate: z.string().optional().describe('ISO date (default today)'),
-  finYear: z.string().optional().describe('Defaults to current 26-27'),
+  finYear: z.string().optional().describe('Defaults to the active financial year'),
   category: z.string().describe('fixed | stylewise | general | transport | other'),
   orderNo: z.string().optional().describe('Order no (stylewise expenses)'),
   partyCode: z.string().optional().describe('Paid-to party code'),
