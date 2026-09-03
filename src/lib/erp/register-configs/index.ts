@@ -16,6 +16,7 @@ import { productionStatusConfig } from './production-status'
 import { jobworkRegisterConfig } from './jobwork-register'
 import { jobworkerStatementConfig } from './jobworker-statement' // SPEC-M39 JWL-07
 import { operatorStatementConfig } from './operator-statement' // SPEC-M45 L-01
+import { payrollConfig } from './payroll' // SPEC-M46 L-02
 import { billsRegisterConfig } from './bills-register'
 import { supplierBillsConfig } from './supplier-bills'
 import { partyLedgerConfig } from './party-ledger'
@@ -53,6 +54,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   jobworkRegisterConfig,
   jobworkerStatementConfig, // SPEC-M39 (Phase-6B Batch 3) JWL-07
   operatorStatementConfig, // SPEC-M45 (Module L Batch 1) L-01
+  payrollConfig, // SPEC-M46 (Module L Batch 2) L-02
   billsRegisterConfig,
   supplierBillsConfig,
   partyLedgerConfig,

@@ -581,3 +581,29 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
   in isolation (this cost an hour: the failing test was doc-parity-m5b, not the file with
   the buggy afterAll). Symmetric rule for any paired rows created in one transaction:
   clean the PAIR, not the row (the pay-batch4 `JV-`/`CN-` deleteMany is the pattern).
+
+## #48 — M46: the upload-route gremlin struck AGAIN — and this time M45's commit shipped the deletion (restored same-session by the FIRST full-suite run)
+
+- **The M45 commit 87a4a3b deleted `src/app/api/upload/route.ts` from the repo.** The M44
+  session restored the file in the WORKTREE, all M45 gates ran green against the worktree
+  copy, but between the gate run and `git add -A` the gremlin deleted it AGAIN — and the
+  deletion was what got committed. `git log -- <path>` showed M45 as the last toucher;
+  `git ls-files` had no record — the tell. The worktree was "clean" because the deletion
+  was already IN the commit. The first full vitest of THIS session failed the whole
+  upload-route.test.ts file (module-not-found) — the red flag that caught it.
+- **The PITFALLS #39 discipline (`git status ' D '` check before `add -A`) catches a
+  worktree deletion but NOT a deletion already staged/committed.** The stronger invariant
+  is the SUITE: a full `npx vitest run` in EVERY session before commit — a file-level
+  import failure is unmissable. Second stronger check: `git ls-files | grep <critical
+  path>` for the handful of gremlin-magnet files (upload route, db.ts, middleware.ts).
+  Restored via `git show a7d8dd1:src/app/api/upload/route.ts` — the M44 blob (verbatim,
+  no edits). If your session's first full-suite run has a FILE-level FAIL with
+  `Cannot find module ... /src/app/api/upload/route` — check `git ls-files` FIRST,
+  it is this gremlin, not your code.
+- **Sandbox resets also silently delete untracked state the gates depend on** (same
+  session, two instances): `db/backups/` (OPS-01 snapshot — regenerate with
+  `python3 scripts/backup_db.py`) and `download/eval-routing-report.json` (context_check
+  pin "m10 routing eval report exists" — regenerate with
+  `node scripts/eval_routing.mjs --static`, which writes a static-only report). Treat
+  "X local artifacts missing" after any reset as EXPECTED, fix by regeneration, and
+  never "fix" the pin to 0 to make the check pass.

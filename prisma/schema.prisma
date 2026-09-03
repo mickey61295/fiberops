@@ -217,6 +217,18 @@ model Employee {
   party             Party?            @relation(fields: [partyId], references: [id])
   productionEntries ProductionEntry[]
   attendance        Attendance[] // SPEC-M20 (Gap D) — daily attendance rows
+  // SPEC-M46 L-05 — payout + payslip fields (additive-optional; UAN/aadhaar
+  // are stored as given but DISPLAYED MASKED — maskSecret(), never full)
+  joiningDate       DateTime?
+  designation       String?
+  bankName          String?
+  ifsc              String?
+  accountNo         String?
+  upi               String?
+  phone             String?
+  uan               String? // Universal Account Number (PF)
+  aadhaar           String? // masked on every surface
+  payrollLines      PayrollLine[]
 }
 
 model Yarn {
@@ -538,6 +550,48 @@ model StockTakeLine {
   countedKgs  Float?
   countedMtrs Float?
   countedPcs  Float?
+}
+
+// ============== PAYROLL (SPEC-M46 L-02) ==============
+// The payroll run: per period, one mode — piece (Σ ProductionEntry.amount,
+// the statement ground truth) or daily (weighted attendance × dailyWage,
+// 'half' = 0.5). lines freeze at plan time (numbers, partyId); commit posts
+// ONE journal PER LINE with partyId (Dr Production Wages | Staff Salaries /
+// Cr Wage Payable — the L-01 accounts) and the run goes terminal. PR-#### via
+// the numbering registry (model payrollRun).
+model PayrollRun {
+  id          String        @id @default(cuid())
+  runNo       String        @unique
+  mode        String // piece | daily
+  from        DateTime
+  to          DateTime
+  // draft -> committed (terminal); nothing posts at draft, a wrong draft has zero residue
+  status      String        @default("draft")
+  finYear     String
+  notes       String?
+  committedAt DateTime?
+  createdAt   DateTime      @default(now())
+  lines       PayrollLine[]
+
+  @@index([createdAt])
+}
+
+model PayrollLine {
+  id         String     @id @default(cuid())
+  runId      String
+  run        PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  // the employee-party the commit journal hits — frozen at run time
+  // (ensureEmployeeParty ran BEFORE lines froze, so never null on a created line)
+  partyId    String?
+  days       Float? // daily mode: weighted attendance days (present 1, half 0.5)
+  qty        Int? // piece mode: pcs produced in window
+  earned     Float @default(0)
+  advances   Float @default(0) // out-payments to the employee-party, payDate window
+  net        Float @default(0) // earned − advances (negative = recoverable, honest)
+
+  @@unique([runId, employeeId])
 }
 
 // ============== CUTTING ==============

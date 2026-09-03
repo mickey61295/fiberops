@@ -167,6 +167,6 @@ describe('SPEC-M20 §4 — agent tools', () => {
   })
 
   it('registry grew 222 → 226 (the two M20 tools)', () => {
-    expect(allTools.length).toBe(250) // M45 L-01: +get_operator_statement // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
+    expect(allTools.length).toBe(253) // M46 L-02: +create_payroll_run +commit_payroll_run +get_payroll_runs // M45 L-01: +get_operator_statement // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
   })
 })

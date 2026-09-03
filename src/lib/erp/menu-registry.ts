@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46'
 
 export interface MenuGroup {
   id: string
@@ -128,6 +128,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/costing/input', // Costing Input (M5 Wave B) — costing-input (variant of /costing/cost-sheet)
   '/hr/wages', // Production Wages (M5 Wave B) — production-wages (RG + wage-bill journal)
   '/hr/operator-statement', // Operator Statement (M45 L-01) — operator-statement (RG: earned − paid = owed)
+  '/hr/payroll', // Payroll Runs (M46 L-02) — payroll (RG + create door, PR-#### cycle)
+  '/hr/payroll/[id]', // Payroll run view (M46 L-02) — lines + commit + payslips
   '/hr/wage-payments', // Wage Payments (M5 Wave B) — wage-payments (variant of /accounts/payments)
   // M5 Wave C (SPEC-M5 §6 — approval gates; kind-filtered inbox views)
   '/accounts/bill-pass', // Bill Pass (M5 Wave C) — bill-pass (IN, kind=supplier_bill)
@@ -1143,6 +1145,14 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['get_operator_statement'], pendingTools: [],
     agentPrompt: 'How much do I still owe each operator?',
     notes: 'SPEC-M45 L-01 — the last structural P0: the 1:1 employee-party link + the reconciliation statement (all-time default; from/to window both legs)',
+  },
+  {
+    id: 'payroll', label: 'Payroll', groupId: 'hr', route: '/hr/payroll', arch: 'RG', phase: 'M46',
+    description: 'Payroll runs per period (piece|daily): lines per employee — earned, advances, net; commit posts the wage journals with partyIds; payslips print per line.',
+    legacyForms: [],
+    agentTools: ['get_payroll_runs', 'create_payroll_run', 'commit_payroll_run'], pendingTools: [],
+    agentPrompt: 'Create the August payroll run',
+    notes: 'SPEC-M46 L-02 — the run (PR-####) + payslip (NON_CONFIG print door); L-05 payout fields on the employee master (UAN/aadhaar masked). The operator statement stays L-01-frozen (piece-rate reconciliation)',
   },
   {
     id: 'wage-payments', label: 'Wage Payments', groupId: 'hr', route: '/hr/wage-payments', arch: 'DS', phase: 'M5',

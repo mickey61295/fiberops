@@ -14,12 +14,12 @@ import { PRINT_DOCS, getPrintDocTypes } from '@/lib/erp/print'
 import { DOC_CONFIGS } from '@/lib/erp/doc-configs'
 
 /** SPEC-M33 — print families whose door is NOT a doc-config docType. */
-const NON_CONFIG_DOORS = new Set(['bundle-labels', 'bundle-label', 'stock-take']) // M42: the count sheet rides the /inventory/stock-take/[id] view + DocPrintLink (not a doc-config family)
+const NON_CONFIG_DOORS = new Set(['bundle-labels', 'bundle-label', 'stock-take', 'payslip']) // M42: the count sheet rides the /inventory/stock-take/[id] view + DocPrintLink; M46: the payslip rides the /hr/payroll/[id] view + DocPrintLink + get_payroll_runs (not a doc-config family)
 
 describe('PRINT_DOC_BY_DOCTYPE (SPEC-M17 §2-D, SPEC-M18 §2-A1)', () => {
-  it('maps exactly the 21 printable families (M18 added order; M33 labels + M42 stock-take ride other doors)', () => {
+  it('maps exactly the 21 printable families (M18 added order; M33 labels + M42 stock-take + M46 payslip ride other doors)', () => {
     expect(Object.keys(PRINT_DOC_BY_DOCTYPE).length).toBe(21)
-    expect(getPrintDocTypes().length).toBe(24) // 21 + SPEC-M33 bundle-labels/bundle-label + M42 stock-take
+    expect(getPrintDocTypes().length).toBe(25) // 21 + SPEC-M33 bundle-labels/bundle-label + M42 stock-take + M46 payslip
     expect(PRINT_DOC_BY_DOCTYPE.order).toBe('order')
   })
 

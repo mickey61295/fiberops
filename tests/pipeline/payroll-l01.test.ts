@@ -247,7 +247,7 @@ describe('L-01 wiring + honest claims', () => {
   })
 
   it('PROMPT_VERSION bumped + the hr line carries the statement', () => {
-    expect(PROMPT_VERSION).toBe('m45-2026-09-02')
+    expect(PROMPT_VERSION).toBe('m46-2026-09-03')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_operator_statement')
   })

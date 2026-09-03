@@ -57,14 +57,15 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'despatch-register': '/dispatch/register', // SPEC-M41 PRC-05
   'waste-percent': '/inventory/waste-percent', // SPEC-M42 INV-05
   'operator-statement': '/hr/operator-statement', // SPEC-M45 L-01
+  'payroll': '/hr/payroll', // SPEC-M46 L-02
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement: exactly the 39 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement + M46 payroll: exactly the 40 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out', 'despatch-register',
       'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register', 'jobworker-statement',
-      'line-issue-register', 'lot-tracking', 'operator-statement', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'pcs-stock',
+      'line-issue-register', 'lot-tracking', 'operator-statement', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'payroll', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
       'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills', 'supplier-history', 'supplier-pending',
       'waste-percent', 'yarn-stock',
@@ -257,7 +258,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(250) // M45 L-01: +get_operator_statement // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take // 189 + M19-C ×33
+    expect(allTools.length).toBe(253) // M46 L-02: +create_payroll_run +commit_payroll_run +get_payroll_runs // M45 L-01: +get_operator_statement // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take // 189 + M19-C ×33
   })
 })
 

@@ -18,6 +18,7 @@ import { queryProductionStatus } from './production-status'
 import { queryJobwork } from './jobwork'
 import { queryJobworkerStatement } from './jobworker-statement' // SPEC-M39 JWL-07
 import { queryOperatorStatement } from './operator-statement' // SPEC-M45 L-01
+import { queryPayrollRuns } from './payroll' // SPEC-M46 L-02
 import { queryBillsRegister } from './bills'
 import { querySupplierBills } from './supplier-bills'
 import { queryPartyLedger } from './party-ledger'
@@ -55,6 +56,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'jobwork-register': queryJobwork,
   'jobworker-statement': queryJobworkerStatement, // SPEC-M39 JWL-07
   'operator-statement': queryOperatorStatement, // SPEC-M45 L-01
+  'payroll': queryPayrollRuns, // SPEC-M46 L-02
   'bills-register': queryBillsRegister,
   'supplier-bills': querySupplierBills,
   'party-ledger': queryPartyLedger,

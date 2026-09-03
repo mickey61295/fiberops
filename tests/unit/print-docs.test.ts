@@ -86,10 +86,10 @@ describe('M8 Wave A print docs (SPEC-M8 §6)', () => {
     await sw(db.party.deleteMany({ where: { id: partyId } }).catch(() => {}))
   })
 
-  it('registry has the 5 Wave-A docTypes (23 with Wave B + M18 order + M33 labels)', () => {
+  it('registry has the 5 Wave-A docTypes (24 with Wave B + M18 order + M33 labels + M46 payslip)', () => {
     const types = getPrintDocTypes()
     for (const t of ['dc', 'grn', 'invoice', 'payment', 'po']) expect(types).toContain(t)
-    expect(Object.keys(PRINT_DOCS)).toHaveLength(24) // 21 + SPEC-M33 bundle labels + M42 stock-take
+    expect(Object.keys(PRINT_DOCS)).toHaveLength(25) // 21 + SPEC-M33 bundle labels + M42 stock-take + M46 payslip
     expect(types).toContain('order')
   })
 

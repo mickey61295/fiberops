@@ -793,3 +793,97 @@ export async function fetchStockTakePrint(idOrNo: string): Promise<PrintDoc | nu
     ].filter((n): n is string => !!n),
   }
 }
+
+// ── payslip: one employee's line of a committed payroll run ───────────────
+// SPEC-M46 L-02/L-05. Resolves by PayrollLine.id (the run view links rows)
+// OR 'PR-####/EMP-####'. DRAFT runs return null → the route 404s — the
+// payslip is a payment instrument, numbers must be posted first. UAN and
+// aadhaar print MASKED (L-05 — full values never leave the master surfaces).
+
+/** L-05 — mask a stored secret, keeping the last `keep` chars visible. */
+export function maskTail(s: string, keep = 4): string {
+  const t = s.trim()
+  if (t.length <= keep) return 'XXXX'
+  const tail = t.slice(-keep)
+  if (t.length === 12) return `XXXX-XXXX-${tail}` // aadhaar display convention
+  return `XXXX${tail}`
+}
+
+export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null> {
+  const include = { run: true, employee: true }
+  let line = await db.payrollLine
+    .findUnique({ where: { id: idOrNo }, include })
+    .catch(() => null)
+  if (!line) {
+    // 'PR-####/EMP-####' composite form (agent door / deep links — arrives
+    // URL-encoded from the print route, safeDecode never throws)
+    const m = /^(.+?)\/(.+)$/.exec(safeDecode(idOrNo) ?? idOrNo)
+    if (m) {
+      const run = await db.payrollRun.findUnique({ where: { runNo: m[1] } }).catch(() => null)
+      const emp = run ? await db.employee.findUnique({ where: { code: m[2] } }).catch(() => null) : null
+      if (run && emp) {
+        line = await db.payrollLine
+          .findUnique({ where: { runId_employeeId: { runId: run.id, employeeId: emp.id } }, include })
+          .catch(() => null)
+      }
+    }
+  }
+  if (!line || line.run.status !== 'committed') return null
+
+  const { run, employee: emp } = line
+  const dept = emp.deptId ? await db.department.findUnique({ where: { id: emp.deptId }, select: { code: true } }).catch(() => null) : null
+  const period = `${d(run.from)} → ${d(run.to)}`
+  const phone = clean(emp.phone)
+
+  const basis =
+    run.mode === 'piece'
+      ? `${line.qty ?? 0} pcs produced (piece rate)`
+      : `${line.days ?? 0} days × ₹${emp.dailyWage}/day (half day = 0.5)`
+
+  const payTo = [
+    clean(emp.bankName) ? `Bank: ${emp.bankName} · A/C ${emp.accountNo ?? '—'} · IFSC ${emp.ifsc ?? '—'}` : null,
+    clean(emp.upi) ? `UPI: ${emp.upi}` : null,
+  ].filter((x): x is string => !!x)
+
+  return {
+    docType: 'payslip',
+    title: 'PAYSLIP',
+    docNo: run.runNo,
+    docDate: d(run.committedAt ?? run.createdAt),
+    party: {
+      label: 'Employee',
+      name: emp.name,
+      code: emp.code,
+      ...(phone ? { phone } : {}),
+    },
+    meta: [
+      ['Designation', clean(emp.designation) ?? '—'],
+      ['Department', dept?.code ?? '—'],
+      ['Joining date', emp.joiningDate ? d(emp.joiningDate) : '—'],
+      ['Pay period', period],
+      ['Pay basis', cap(run.mode)],
+      ['UAN', clean(emp.uan) ? maskTail(emp.uan!, 4) : '—'],
+      ['Aadhaar', clean(emp.aadhaar) ? maskTail(emp.aadhaar!, 4) : '—'],
+      ['Committed', run.committedAt ? d(run.committedAt) : '—'],
+    ],
+    lines: {
+      columns: [{ label: 'Component' }, { label: 'Basis' }, { label: 'Amount', align: 'right' }],
+      rows: [
+        ['Earnings', basis, inr(line.earned)],
+        ['Less: advances paid in period', 'payments to employee-party', inr(-line.advances)],
+      ],
+    },
+    totals: [['NET PAYABLE', inr(line.net)]],
+    amountWords: amountInWords(line.net),
+    signatures: ['Employee signature', `For ${await co()}`],
+    notes: [
+      ...(payTo.length ? payTo : []),
+      'Earnings are credited to the Wage Payable ledger by the run commit (wage journals reference this run).',
+      ...(line.net < 0 ? ['Net is negative — advance recovery; nothing is payable this period.'] : []),
+      ...(run.mode === 'piece'
+        ? ['Piece earnings are the same production-entry ground truth as the operator statement (L-01).']
+        : ['Daily earnings are weighted attendance days × dailyWage — the operator statement (piece-rate) does not carry them.']),
+      clean(run.notes),
+    ].filter((n): n is string => !!n),
+  }
+}

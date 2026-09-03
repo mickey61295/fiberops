@@ -27,6 +27,8 @@ const LABELS: Record<string, string> = {
   create_stock_take: 'Stock take',
   record_stock_counts: 'Record counts',
   advance_stock_take: 'Advance take',
+  create_payroll_run: 'Payroll run',
+  commit_payroll_run: 'Commit payroll',
   create_gate_entry: 'Gate entry',
   create_gate_pass: 'Gate pass',
   create_cut_order: 'Create cut order',
@@ -94,6 +96,7 @@ const LABELS: Record<string, string> = {
   receive_waste: 'Receive waste',
   post_attendance: 'Post attendance',
   list_attendance: 'Attendance day-book',
+  get_payroll_runs: 'Payroll runs',
 }
 
 /** The operator-facing label for a tool name. */
