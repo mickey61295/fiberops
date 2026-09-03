@@ -1949,3 +1949,25 @@ Work Log:
 
 Stage Summary:
 - Remote fully synced at M43. Phase-6B: 7 of 11 batches shipped. Next: Module K (costing) or Module L (payroll) per remediation spec §16.
+
+---
+Task ID: 42 (convergence + view-fix)
+Agent: main (Super Z)
+Task: User report — "View button in order page is not doing anything" — on a sandbox running the STALE pre-M40 lineage while origin/main had advanced to 06f31a8 (m43-push). The session summary's "SPEC-M40 §16 Batch 5 (PRC-01..09)" turned out to be ALREADY SHIPPED remotely as M41 (ea7a577, 8 PRC FRs, PRC-09 deferred §17-6) — plus M40/M42/M43 behind it.
+
+Work Log:
+- Reproduced FIRST (live browser at /orders): the View button's fetch worked (200), the inline detail Card rendered at y≈11,258px behind a 195-row table / 577px viewport — invisible below the fold, no scroll, no navigation. API healthy via curl (list + detail 200).
+- Root cause: M1-era OrdersView/ProcurementView/CuttingView used the inline-detail-below-the-list pattern, predating the canonical [id] doc-view routes that every other surface (jump bar M29, dashboard recent-docs, register rows M17, DocScreen done-card) navigates to.
+- SIXTH parallel-session race: local cbd7c91 (UUID auto-checkpoint that had DELETED src/app/api/upload/route.ts, breaking upload-route.test.ts — suite red on arrival, NOT a code regression) + my fix 75c022b, vs remote 06f31a8 carrying M40–M43 (Batch 4/5/6/7). Remote adopted per the m11-convergence precedent; local preserved on branch view-fix-alt; fix re-applied verbatim (remote never touched the 3 view files; remote still HAS the upload route so the local restore became moot).
+- Rebuild per the e77d5eb precedent: bun install (11 pkgs) + prisma generate (M40–M43 models: StockTake/StockTakeLine/OrderDelivery/PaymentAllocation) — db already carried the new schema + 209 orders (origin/main's committed db).
+- FIX orders-view.tsx: View → router.push(/orders/<id>) — the Order Hub, the SAME surface the jump bar + done-card land on; dead inline card + loadDetail/selected/detail removed; Eye icon.
+- FIX procurement-view.tsx: identical latent bug — View → router.push(/procurement/po/<id>); inline card removed.
+- FIX cutting-view.tsx: no [id] route for CutOrder — inline detail kept, scrollIntoView (ref + useEffect) so the click visibly responds (verified: scrollY 18927 → heading in-viewport).
+- OPS-01 environment artifact restored: python3 scripts/backup_db.py → snapshot custom-20260903-170624.db (integrity ok) — the ops-batch1 'backups directory' test needs one live snapshot per environment (same as the e77d5eb 'OPS-01 snapshot ... restored' note).
+- Gates on the CONVERGED tree: tsc src/ 0 · vitest 1334/1334 (ops-batch1 green after the snapshot; 2 consecutive full runs) · eval --static PASS (m43-2026-09-02, 241 registry tools) · context_check 604/604 NO DRIFT · dev server restarted · LIVE browser: /orders View → Order Hub at real id (with the new M43 Delivery-schedule section), /procurement View → PO view page at real id, /cutting card click → scrolled detail; zero console/page errors on fresh loads (one mid-edit HMR hydration warning investigated — pristine-tree control ALSO clean, dev-mode noise); screenshots download/view-fix-order-hub-converged.png + view-fix-po-converged.png.
+
+Stage Summary:
+- The "dead" View buttons are alive on the M43 tip: both list surfaces navigate to the canonical [id] doc-view pages, cutting detail scrolls into view. Zero schema/menu/route/tool churn (view-layer only; erp-views stays 35 — files edited, not added).
+- Convergence shipped: local main == origin/main 06f31a8 + the view fix as ONE clean commit; view-fix-alt branch preserves the pre-convergence local line (75c022b) for recovery.
+- Committed; NOT pushed — remote is PAT-free per protocol; a fresh PAT is needed (PITFALLS #8).
+- STATE next-actions unchanged from #47 (the M43 queue); the Phase-6B batches 4–7 are all in the tree.

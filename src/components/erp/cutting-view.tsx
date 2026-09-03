@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,9 @@ export function CuttingView() {
   const [cuts, setCuts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<any>(null)
+  // The inline detail card renders BELOW the card grid — with a long grid it
+  // lands out of view and the click looks dead. Scroll it into view instead.
+  const detailRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/erp?resource=cutting')
@@ -21,6 +24,12 @@ export function CuttingView() {
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (selected && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [selected])
 
   const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
 
@@ -60,22 +69,24 @@ export function CuttingView() {
       </div>
 
       {selected && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold">Cut Order: {selected.cutNo}</h3>
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>Close</Button>
-          </div>
-          <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Cut Bundles (with barcodes)</div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            {selected.bundles?.map((b: any) => (
-              <div key={b.id} className="border border-slate-200 rounded p-2 bg-slate-50">
-                <div className="font-mono font-bold text-[11px]">{b.bundleNo}</div>
-                <div className="font-mono text-[10px] text-slate-600">{b.barcode}</div>
-                <div className="text-[10px] mt-1">Qty: {b.qty} · {b.status}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        <div ref={detailRef}>
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold">Cut Order: {selected.cutNo}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>Close</Button>
+            </div>
+            <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Cut Bundles (with barcodes)</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              {selected.bundles?.map((b: any) => (
+                <div key={b.id} className="border border-slate-200 rounded p-2 bg-slate-50">
+                  <div className="font-mono font-bold text-[11px]">{b.bundleNo}</div>
+                  <div className="font-mono text-[10px] text-slate-600">{b.barcode}</div>
+                  <div className="text-[10px] mt-1">Qty: {b.qty} · {b.status}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   )

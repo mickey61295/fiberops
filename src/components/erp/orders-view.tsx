@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 
 const fmtINR = (n: number) => '₹' + (n || 0).toLocaleString('en-IN')
@@ -13,8 +14,7 @@ const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-IN', { 
 export function OrdersView() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [detail, setDetail] = useState<any>(null)
+  const router = useRouter()
 
   const load = () => {
     setLoading(true)
@@ -27,15 +27,13 @@ export function OrdersView() {
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/set-state-in-effect
 
-  const loadDetail = (id: string) => {
-    setSelected(id)
-    fetch(`/api/erp?resource=orders&id=${id}`)
-      .then((r) => r.json())
-      .then(setDetail)
-      .catch((e) => toast.error(e.message))
-  }
-
   const openAgent = () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }))
+
+  // View → the Order Hub (/orders/[id]) — the SAME detail surface the jump
+  // bar, the dashboard recent-docs and the post-commit 'View document' link
+  // land on. (The old inline detail card rendered ~11,000px below the fold
+  // behind a 195-row table — the button looked dead.)
+  const viewOrder = (id: string) => router.push(`/orders/${id}`)
 
   if (loading) return <div className="text-sm text-slate-500">Loading orders...</div>
 
@@ -75,7 +73,7 @@ export function OrdersView() {
                   <td className="px-3 py-2">{o.deliveryDate ? fmtDate(o.deliveryDate) : '-'}</td>
                   <td className="px-3 py-2"><Badge variant="outline" className="text-[10px]">{o.status}</Badge></td>
                   <td className="px-2 py-2">
-                    <Button size="sm" variant="ghost" onClick={() => loadDetail(o.id)}>View</Button>
+                    <Button size="sm" variant="ghost" onClick={() => viewOrder(o.id)}><Eye className="h-3.5 w-3.5 mr-1" />View</Button>
                   </td>
                 </tr>
               ))}
@@ -86,112 +84,6 @@ export function OrdersView() {
           </table>
         </div>
       </Card>
-
-      {selected && detail && (
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold">Order Detail: {detail.orderNo}</h3>
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>Close</Button>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <div className="text-xs text-slate-500">Buyer</div>
-              <div>{detail.buyer?.name}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500">Style</div>
-              <div className="font-mono">{detail.style?.styleNo} - {detail.style?.description}</div>
-            </div>
-            <div>
-              <div className="text-xs text-slate-500">Total</div>
-              <div>{detail.totalPcs} pcs · {fmtINR(detail.totalValue)}</div>
-            </div>
-          </div>
-          {detail.lines?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Order Matrix (style × colour × size)</div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border border-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="text-left px-2 py-1">Style</th>
-                      <th className="text-left px-2 py-1">Colour</th>
-                      <th className="text-left px-2 py-1">Size</th>
-                      <th className="text-right px-2 py-1">Qty</th>
-                      <th className="text-right px-2 py-1">Rate</th>
-                      <th className="text-right px-2 py-1">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.lines.map((l: any) => (
-                      <tr key={l.id} className="border-t border-slate-100">
-                        <td className="px-2 py-1 font-mono">{l.style?.styleNo}</td>
-                        <td className="px-2 py-1">{l.colour?.name || '-'}</td>
-                        <td className="px-2 py-1">{l.size?.name || '-'}</td>
-                        <td className="px-2 py-1 text-right">{l.qty}</td>
-                        <td className="px-2 py-1 text-right">₹{l.rate}</td>
-                        <td className="px-2 py-1 text-right">₹{(l.qty * l.rate).toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {detail.cutOrders?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Cut Orders</div>
-              <div className="text-xs space-y-1">
-                {detail.cutOrders.map((c: any) => (
-                  <div key={c.id} className="flex justify-between">
-                    <span className="font-mono">{c.cutNo}</span>
-                    <span>{c.totalPcs} pcs · {c.bundles?.length} bundles · {c.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {detail.productionEntries?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Recent Production</div>
-              <div className="text-xs space-y-1">
-                {detail.productionEntries.slice(0, 5).map((p: any) => (
-                  <div key={p.id} className="flex justify-between">
-                    <span>{fmtDate(p.prodDate)} · {p.department?.name} · {p.operator?.name}</span>
-                    <span>{p.qty} pcs</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {detail.salesInvoices?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Invoices</div>
-              <div className="text-xs space-y-1">
-                {detail.salesInvoices.map((i: any) => (
-                  <div key={i.id} className="flex justify-between">
-                    <span className="font-mono">{i.invoiceNo}</span>
-                    <span>{fmtINR(i.billAmount)} · {i.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {detail.costSheet?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs font-semibold uppercase text-slate-500 mb-2">Cost Sheet</div>
-              <div className="text-xs">
-                {detail.costSheet.map((c: any) => (
-                  <div key={c.id} className="flex justify-between">
-                    <span>v{c.version}</span>
-                    <span>Cost ₹{c.totalCost.toLocaleString('en-IN')} · Sell ₹{c.sellingPrice.toLocaleString('en-IN')}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Card>
-      )}
     </div>
   )
 }
