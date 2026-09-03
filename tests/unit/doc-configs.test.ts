@@ -219,7 +219,9 @@ describe('doc-configs — SPEC-M3 §7 contracts', () => {
     // form door never sets them), so the mirror rule skips them.
     // SPEC-M43 — 'deliveries' (order schedule: structured sub-doc; the Order
     // Hub editor + set_order_deliveries own it — the create form shows one grid)
-    const AGENT_ONLY_HOOK_KEYS = new Set(['requiresAck', 'reprocess', 'returnable', 'deliveries'])
+    // SPEC-M44 CST-02 — computeFromBom: the calculator's BOM pre-seed hook
+  // (agent door only; the form door's equivalent is typing source=bom lines)
+  const AGENT_ONLY_HOOK_KEYS = new Set(['requiresAck', 'reprocess', 'returnable', 'deliveries', 'computeFromBom'])
     for (const c of DOC_CONFIGS) {
       const shape = (c.schema as unknown as { shape?: Record<string, unknown> }).shape
       if (!shape) throw new Error(`${c.slug} schema must be a zod object`)

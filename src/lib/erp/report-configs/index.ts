@@ -419,7 +419,7 @@ export const REPORTS: ReportConfig[] = [
   },
   {
     slug: 'daily-unit-pnl', title: 'Daily Unit P&L', pack: 'costing-hr',
-    description: 'Per department per day: produced value, wages, margin. Expenses are period-level.',
+    description: 'Per department per day: produced value, wages, margin. Expenses + material consumption (at WAC) are period-level.',
     filters: [...f.dateRange, f.order],
     columns: [
       { name: 'dept', label: 'Dept' },

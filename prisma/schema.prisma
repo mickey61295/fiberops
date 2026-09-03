@@ -775,6 +775,24 @@ model Journal {
 
 
 // ============== COSTING ==============
+// SPEC-M44 CST-01 — the cost component library (legacy FrmPreCostingCompMas).
+// Cost-sheet heads QUOTE this library by code; category maps onto the sheet
+// heads; rate is the money denominator ("per kg", "per pc" — unit is display
+// text, NOT a stock UOM FK: cost heads are money, not physical quantities).
+model CostComponent {
+  id        String   @id @default(cuid())
+  code      String   @unique // CC-#### auto (master-service codePrefix)
+  name      String
+  category  String   @default("other") // fabric | trim | cm | washing | packing | overhead | other
+  unit      String? // display text ("per kg", "per pc")
+  rate      Float    @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  sheets    CostSheetLine[]
+
+  @@index([category])
+}
+
 model CostSheet {
   id            String   @id @default(cuid())
   orderId       String
@@ -791,6 +809,35 @@ model CostSheet {
   totalCost     Float    @default(0)
   sellingPrice  Float    @default(0)
   createdAt     DateTime @default(now())
+
+  // SPEC-M44 CST-02 — the calculator's line detail. Head totals DERIVE from
+  // these when present (the header floats stay the no-lines legacy path).
+  lines         CostSheetLine[]
+}
+
+// SPEC-M44 CST-02 — one computed cost-sheet line. source tells where the rate
+// came from (bom = BomLine.rate fallback bucket WAC; component = the library;
+  // manual = the operator); head is the sheet head the amount lands in
+// (inferred when blank: bom itemType / component category / default overheads).
+// componentId/itemType/itemId are resolved ids — codes are resolved at plan
+// time (PITFALLS #44: no code columns on reference tables).
+model CostSheetLine {
+  id           String       @id @default(cuid())
+  costSheetId  String
+  costSheet    CostSheet    @relation(fields: [costSheetId], references: [id], onDelete: Cascade)
+  head         String      @default("overheads") // fabric | trim | cm | washing | packing | overheads
+  source       String      @default("manual") // bom | component | manual
+  componentId  String?
+  component    CostComponent? @relation(fields: [componentId], references: [id])
+  itemType     String? // yarn | fabric | accessory (bom lines)
+  itemId       String?
+  qty          Float        @default(0)
+  rate         Float        @default(0)
+  amount       Float        @default(0)
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  @@index([costSheetId])
 }
 
 model Budget {

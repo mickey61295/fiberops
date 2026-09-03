@@ -748,6 +748,31 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    // SPEC-M44 CST-03 — est vs actual (one read service, both doors: this
+    // tool + the Order Hub cost-compare section — ADR-001)
+    name: 'get_order_cost',
+    description: 'Estimated vs actual cost comparison for one order by orderNo: the LATEST cost sheet heads vs the DERIVED actuals (CM = Σ production entry amounts, process = Σ jobwork billing, fabric = cut kg + JW-out kg at WAC, trim = JW-out pcs at WAC) with per-head deltas. Use to see whether an order is running over its costed estimate.',
+    domain: 'costing',
+    isWrite: false,
+    schema: z.object({ orderNo: z.string() }),
+    async execute(args) {
+      const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, select: { id: true } })
+      if (!order) return { text: `Order ${args.orderNo} not found` }
+      const { costComparison } = await import('@/lib/erp/registers/cost-compare')
+      const cmp = await costComparison(order.id)
+      if (!cmp) return { text: `Order ${args.orderNo} not found` }
+      const parts = cmp.deltas.map((d) =>
+        `${d.label}: est ${d.estimated != null ? `₹${Math.round(d.estimated).toLocaleString('en-IN')}` : '—'} · act ${d.actual != null ? `₹${Math.round(d.actual).toLocaleString('en-IN')}` : '—'}${d.delta != null ? ` · Δ ${d.delta >= 0 ? '+' : ''}${Math.round(d.delta).toLocaleString('en-IN')}` : ''}`)
+      const head = cmp.sheet
+        ? `est v${cmp.sheet.version}: total ₹${Math.round(cmp.sheet.totalCost).toLocaleString('en-IN')} · per-pc ₹${cmp.sheet.perPc.toFixed(2)} · margin ${cmp.sheet.marginPct}%`
+        : 'no cost sheet yet'
+      return {
+        text: `Order ${args.orderNo} — ${head}\n${parts.join('\n')}`,
+        json: cmp,
+      }
+    },
+  },
+  {
     name: 'get_budget_vs_actual',
     description: 'Get budget vs actual for one order by orderNo: PO commitments vs production cost. Use to see whether an order is running over budget.',
     domain: 'costing',
@@ -2166,6 +2191,8 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('count-group', 'Create a yarn count group master. code is optional — auto-assigned CG-#### if omitted or taken. Required: name. Optional: notes (counts in this group, e.g. 30s–40s).'),
   masterCreateTool('range-group', 'Create a size-range group master. code is optional — auto-assigned RG-#### if omitted or taken. Required: name.'),
   masterCreateTool('size-range', 'Create a size range pack (export packing, e.g. "104-110"). code is optional — auto-assigned RNG-#### if omitted or taken. Required: name. Optional: rangeGroupCode, sizes (CSV of size names).'),
+  // SPEC-M44 CST-01 — the cost component library (Module K)
+  masterCreateTool('cost-component', 'Create a cost component (the costing library — legacy FrmPreCostingCompMas). code is optional — auto-assigned CC-#### if omitted or taken. Required: name. Optional: category (fabric|trim|cm|washing|packing|overhead|other — the cost-sheet head it quotes into, default other), unit (display text, e.g. per kg), rate (the quoted ₹), active (default true).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -2211,10 +2238,24 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('count-group', 'Update an existing count group by code. All fields optional.'),
   masterUpdateTool('range-group', 'Update an existing range group by code. All fields optional.'),
   masterUpdateTool('size-range', 'Update an existing size range by code. All fields optional; rangeGroupCode resolves by code or name.'),
+  // SPEC-M44 CST-01 — the cost component library (Module K)
+  masterUpdateTool('cost-component', 'Update an existing cost component by code. Updatable: name, category, unit, rate, active.'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
 const masterNewListTools: AgentTool[] = [
+  {
+    // SPEC-M44 CST-01 — the cost component library (Module K)
+    name: 'list_cost_components',
+    description: 'List cost components (the costing library: code CC-####, name, category, unit, rate, active). Use to resolve a componentCode before building computed cost-sheet lines.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.costComponent.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} cost components`, json: rows }
+    },
+  },
   {
     name: 'list_size_groups',
     description: 'List size groups with their size names resolved (e.g. S-M-L, 92-98-104). Use to pick a group when a style runs a full size scale.',
@@ -3054,7 +3095,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_cost_sheet',
-    'Create / update a cost sheet for an order. version defaults to 1; if a sheet exists, the next version is auto-assigned. Required: orderNo. All cost fields optional — fabricCost, trimCost, cmCost, washingCost, packingCost, overheads, commissionPct, marginPct, sellingPrice.',
+    'Create / update a cost sheet for an order — now a CALCULATOR (SPEC-M44). version auto-increments per order. Required: orderNo. Three ways to build cost: (a) computeFromBom: true — pre-seeds lines from the order style BOM × order qty at BOM rates; (b) lines[] — computed cost lines {source: bom (itemType+itemCode, rate from BOM/WAC) | component (componentCode CC-####, rate from the library) | manual (amount or qty×rate), optional head (fabric|trim|cm|washing|packing|overheads, inferred when blank), qty, rate, amount}; (c) the legacy six header floats (fabricCost, trimCost, cmCost, washingCost, packingCost, overheads) — heads with lines ignore their header input. marginPct is COMPUTED ((selling − cost)/selling × 100). Optional: commissionPct, sellingPrice.',
     'costing',
     COST_SHEET_SCHEMA,
     planCostSheet,

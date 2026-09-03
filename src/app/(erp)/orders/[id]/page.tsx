@@ -21,10 +21,13 @@ import { DocViewActions } from '@/components/erp/doc-view-actions'
 import { ReconCard } from '@/components/erp/recon-card'
 import { despatchRecon } from '@/lib/erp/registers/recon'
 import { holidaysBeforeDelivery, workingDaysUntil } from '@/lib/erp/holidays' // SPEC-M28 warning + SPEC-M31 runway
-// SPEC-M43 PRG-01 — the delivery-schedule section (same planOrderDeliveries
+// SPEC-M44 CST-03 — the delivery-schedule section (same planOrderDeliveries
 // service as set_order_deliveries — ADR-001)
 import { DeliveryScheduleEditor } from './delivery-forms'
 import { setOrderDeliveriesAction } from './delivery-actions'
+// SPEC-M44 CST-03 — the est-vs-actual comparison (one read service, both
+// doors: this section + the get_order_cost agent tool)
+import { costComparison } from '@/lib/erp/registers/cost-compare'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,6 +171,13 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
   const totalRunwayDays = runway && order.deliveryDate
     ? Math.max(0, Math.round((new Date(new Date(order.deliveryDate).setHours(0, 0, 0, 0)).getTime() - new Date(new Date().setHours(0, 0, 0, 0)).getTime()) / 86_400_000)) + 1
     : 0
+
+  // SPEC-M44 CST-03 — est vs actual (silent when no sheet AND nothing
+  // derivable — the M28 discipline)
+  const costCompare = (order.costSheet ?? []).length > 0 || produced > 0
+    ? await costComparison(order.id)
+    : null
+  const hasAnyActual = costCompare?.actuals.some((a) => a.actual != null && a.actual !== 0) ?? false
 
   return (
     <div className="space-y-4">
@@ -720,6 +730,47 @@ export default async function OrderHubPage({ params }: { params: Promise<{ id: s
               ))}
             </tbody>
           </table>
+        )}
+        {/* SPEC-M44 CST-03 — est vs actual with deltas (the read service is
+            the SAME one get_order_cost delegates to — ADR-001). Silent when
+            neither a sheet nor any derivable actual exists. */}
+        {costCompare && (costCompare.sheet || hasAnyActual) && (
+          <div className="border-t border-slate-100 px-4 py-3" data-testid="cost-compare">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Estimated vs actual</span>
+              {costCompare.sheet && (
+                <span className="text-xs text-slate-500">
+                  est v{costCompare.sheet.version}: total {inr(costCompare.sheet.totalCost)} · per-pc ₹{costCompare.sheet.perPc.toLocaleString('en-IN', { maximumFractionDigits: 2 })} · margin {costCompare.sheet.marginPct}%
+                </span>
+              )}
+              <span className="flex-1" />
+              <span className="text-xs text-slate-500">{num(costCompare.producedPcs)} / {num(costCompare.totalPcs)} pcs produced</span>
+            </div>
+            <table className="mt-2 w-full text-sm">
+              <thead className="text-slate-500 text-xs uppercase">
+                <tr>
+                  <th className="text-left py-1 font-medium">Head</th>
+                  <th className="text-right py-1 font-medium">Estimated</th>
+                  <th className="text-right py-1 font-medium">Actual</th>
+                  <th className="text-right py-1 font-medium">Delta (est - act)</th>
+                  <th className="text-left py-1 pl-3 font-medium">Actual source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {costCompare.deltas.map((row) => (
+                  <tr key={row.head} className="border-t border-slate-100">
+                    <td className="py-1.5">{row.label}</td>
+                    <td className="py-1.5 text-right tabular-nums">{row.estimated != null ? inr(row.estimated) : '—'}</td>
+                    <td className="py-1.5 text-right tabular-nums">{row.actual != null ? inr(row.actual) : '—'}</td>
+                    <td className={`py-1.5 text-right tabular-nums ${row.delta == null ? 'text-slate-400' : row.delta >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                      {row.delta != null ? `${row.delta >= 0 ? '+' : ''}${Math.round(row.delta).toLocaleString('en-IN')}` : '—'}
+                    </td>
+                    <td className="py-1.5 pl-3 text-xs text-slate-400">{costCompare.actuals.find((a) => a.head === row.head)?.sourceNote ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </FamilySection>
 

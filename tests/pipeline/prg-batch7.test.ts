@@ -404,8 +404,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
       expect(src('registers/program-status.ts')).toContain('PRG-04')
     })
 
-    it('the new tools are registered: 249 = 246 at M42 + the PRG trio', () => {
-      expect(allTools.length).toBe(249)
+    it('the new tools are registered: 249 at M43 + the M44 CST quartet behind it', () => {
+      expect(allTools.length).toBe(253) // M44 CST: +create/update/list_cost_component +get_order_cost
       expect(getTool('set_order_deliveries')?.isWrite).toBe(true)
       expect(getTool('set_order_deliveries')?.domain).toBe('orders')
       expect(getTool('correct_program_spec')?.isWrite).toBe(true)
@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m43-2026-09-02')
-      expect(PROMPT_VERSION.startsWith('m43')).toBe(true)
+      expect(PROMPT_VERSION).toBe('m44-2026-09-03')
+      expect(PROMPT_VERSION.startsWith('m44')).toBe(true) // M44 CST behind it
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

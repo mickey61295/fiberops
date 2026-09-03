@@ -33,11 +33,11 @@ const DISPLAY_KEYS: Record<string, string> = {
 }
 
 describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
-  it('has exactly 41 configs covering every schema master model (24 M2 + shift M5-D + 5 ADR-016 M6-B + 11 M19-C)', () => {
-    expect(MASTER_CONFIGS.length).toBe(41)
+  it('has exactly 42 configs covering every schema master model (24 M2 + shift M5-D + 5 ADR-016 M6-B + 11 M19-C + M44 cost-component)', () => {
+    expect(MASTER_CONFIGS.length).toBe(42)
     const delegates = MASTER_CONFIGS.map((c) => c.delegate)
     for (const d of EXPECTED_DELEGATES) expect(delegates).toContain(d)
-    expect(new Set(delegates).size).toBe(41)
+    expect(new Set(delegates).size).toBe(42)
   })
 
   it('has unique slugs, entities, and tool names', () => {
@@ -106,7 +106,7 @@ describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
     const catKeys = new Set(MASTER_CATEGORIES.map((c) => c.key))
     for (const c of MASTER_CONFIGS) expect(catKeys.has(c.category), `${c.slug} bad category`).toBe(true)
     const summed = MASTER_CATEGORIES.reduce((n, cat) => n + configsByCategory(cat.key).length, 0)
-    expect(summed).toBe(41)
+    expect(summed).toBe(42)
     expect(getMasterConfig('party')?.entity).toBe('party')
     expect(getMasterConfig('nope')).toBeUndefined()
   })

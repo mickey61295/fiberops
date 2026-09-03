@@ -561,3 +561,25 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
   another structured sub-doc, either give it a dedicated custom section (the stock-take
   precedent) or extend the skip set WITH a comment — never silently drop the field from the
   form layer.
+
+## #47 — M44 duet: codePrefix masters MUST declare the code field in fields[] (the form door submits the key), and db-push tables live in the WAL until checkpointed
+
+- **The form-door update key**: a master config with `codeField` + `codePrefix` (CC-####)
+  but WITHOUT a `code` entry in `fields[]` creates fine through the form (auto-assign needs
+  no input) and updates fine through the AGENT tool (the key rides the args) — but the
+  MasterTable EDIT SHEET submits its FormData as-is, and with no rendered code input the
+  update plan fails with `code: Invalid input: expected string, received undefined`,
+  surfaced only as a small red banner inside the sheet. The service-level parity test
+  ("form door (service) creates an equivalent record") calls planMasterUpdate DIRECTLY
+  with the key — it cannot catch a field the rendered form never posts. Only the LIVE
+  browser pass caught it (cost-component category stuck on 'other' across saves). Rule:
+  every codeField master declares the code field in fields[] (the mill/thread-type
+  pattern: `{name:'code', label:'Code', type:'text', description:'Optional — auto-assigned
+  XX-#### if omitted'}`); browser-verify the EDIT path of any new master, not just create.
+- **The vitest global-setup copy is main-file-only**: tests/setup/global-setup.ts does
+  `copyFileSync(custom.db → test.db)` — a WAL-mode database's recently-created TABLES live
+  in `custom.db-wal` until a checkpoint, so a schema pushed minutes earlier ("Your
+  database is now in sync") can be MISSING from the test copy (`The table main.CostComponent
+  does not exist`) while direct prisma/sqlite3 calls against custom.db succeed. Fix:
+  `PRAGMA wal_checkpoint(TRUNCATE)` on custom.db after every `prisma db push` (the M41
+  session's "db push + WAL checkpoint + generate" ritual — now written down as a rule).

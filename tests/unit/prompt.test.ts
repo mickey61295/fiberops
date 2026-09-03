@@ -77,7 +77,7 @@ describe('SPEC-M10 — the versioned agent system prompt', () => {
 
 describe('SPEC-M10 §2-C3 — tool description floor', () => {
   it('every registered tool description is concrete (≥ 40 chars)', () => {
-    expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take // count pin (M19-C: 189 + 33 completion-master tools)
+    expect(allTools.length).toBe(253) // M44 CST: +create/update/list_cost_component +get_order_cost // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take // count pin (M19-C: 189 + 33 completion-master tools)
     const short = allTools.filter((t) => t.description.length < 40)
     expect(short.map((t) => `${t.name} (${t.description.length})`)).toEqual([])
   })

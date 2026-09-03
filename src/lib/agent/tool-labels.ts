@@ -74,6 +74,9 @@ const LABELS: Record<string, string> = {
   create_expense: 'Create expense',
   get_cost_sheet: 'View cost sheet',
   get_budget_vs_actual: 'Budget vs actual',
+  // SPEC-M44 CST (Module K costing depth)
+  create_cost_component: 'Cost component',
+  get_order_cost: 'Order cost compare',
   create_lab_test: 'Lab test',
   list_test_parameters: 'Test parameters',
   pay_wages: 'Pay wages',

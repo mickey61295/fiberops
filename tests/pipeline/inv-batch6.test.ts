@@ -607,7 +607,7 @@ describe('INV Batch 6 — SPEC-M42 stock take & valuation unification', () => {
     })
 
     it('tool registry: 246 tools (243 at M41 + the stock-take trio)', () => {
-      expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements
+      expect(allTools.length).toBe(253) // M44 CST: +create/update/list_cost_component +get_order_cost // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements
       const names = allTools.map((t) => t.name)
       expect(names).toContain('create_stock_take')
       expect(names).toContain('record_stock_counts')

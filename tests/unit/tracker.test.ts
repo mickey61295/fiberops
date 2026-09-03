@@ -189,7 +189,7 @@ describe('M9 Live Tracker (SPEC-M9 §7)', () => {
   })
 
   it('get_live_activity tool: registered read tool over the same service (189 pin)', async () => {
-    expect(allTools.length).toBe(249) // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
+    expect(allTools.length).toBe(253) // M44 CST: +create/update/list_cost_component +get_order_cost // M43 PRG: +set_order_deliveries +correct_program_spec +propose_program_requirements // M42 INV: +create_stock_take +record_stock_counts +advance_stock_take (M39 JWL: +bill_jobwork +list_jobworker_statement)
     const tool = getTool('get_live_activity')
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(false)
