@@ -1,0 +1,59 @@
+merge: m47 — THE SIDE_QUEST MERGE — the branch's FY hotfix + wage reconciliation + payroll (5 commits) unified onto main's M44 costing line
+
+WHAT THE BRANCH SHIPPED (agent work on side_quest, built on the m43 tip while main advanced its own M44):
+- M44-FY (8410188+a7d8dd1): THE 2027-04-01 TIME BOMB DEFUSED — activeFinYear()
+  (numbering.ts) is the ONLY decider of the default financial year (the row the
+  owner marked ACTIVE at /admin/company, IST-derived fyCodeFor/fyCodeToday only
+  as the no-active-row fallback); all ~24 posting literals ('26-27') retired
+  across 16 services + adjust_stock + context.ts catch; seed.ts derives from one
+  ANCHOR_YEAR=2026; fy-hotfix-m44.test.ts 11/11 (boundary matrix + century wrap,
+  no literal pinned — the test is not itself a 2027 bomb).
+- M45 (439bcad+87a4a3b): THE LAST STRUCTURAL P0 CLOSED, loop-closure #3 GREEN —
+  Employee.partyId @unique 1:1 + ensureEmployeeParty hooked into the master
+  service CREATE commit (both doors) + backfill 10/10; per-operator production
+  bills stamp the journal partyId; THE OPERATOR STATEMENT register
+  /hr/operator-statement (+csv + get_operator_statement tool) — earned
+  (ProductionEntry) − paid (out-payments to the linked party) = owed; REAL BUG
+  fixed: party-ledger double-counted every receipt (companion JV journals AND
+  Payment legs — live CUS001 probe was −₹34M absurd vs true ≈ ₹4.3M) — the
+  journals term now counts voucherType journal|contra only.
+- M46 (6c1be98): PayrollRun PR-#### + PayrollLine + planPayrollRun /
+  planPayrollRunCommit (ONE wage journal PER LINE with partyId, V-#### minted
+  inside the tx; piece = Σ production entries, daily = weighted attendance ×
+  dailyWage — 'half' finally has a wage effect; advances = Σ out-payments in
+  window; piece-window overlap guard) + THE PAYSLIP print door (committed-only,
+  draft → 404; UAN/aadhaar MASKED; composite 'PR-####/EMP-####' ids) + Employee
+  L-05 payout fields (bank/IFSC/UPI/UAN/aadhaar — masked on surfaces) +
+  /hr/payroll register + [id] view + actions + create/commit_payroll_run +
+  get_payroll_runs (tools +4) + menu 140→142 + LIVE_ROUTES 175→178.
+
+MERGE MECHANICS (22 conflicts resolved):
+- db/custom.db: main's blob + prisma db push for +PayrollRun +PayrollLine +
+  Employee L-05 columns (WAL checkpointed) + backfill_employee_parties.ts 10/10
+  re-run on the main lineage.
+- SPEC-M44.md add/add collision: main keeps M44 (Module K costing); the branch's
+  FY hotfix spec preserved as SPEC-M44-FY-HOTFIX.md (NUMBERING NOTE inside).
+  M45/M46 were free on main and stand.
+- Test pins: tools 253→257 ×15 files + payroll/cst version pins → m47-2026-09-06
+  (cst-batch8, payroll-l01, payroll-l02); prg-batch7 startsWith('m47').
+- PROMPT_VERSION m47-2026-09-06 — the union of main's m44 §Costing rewrite and
+  the branch's m46 §1-HR line (both prompt sections verified present).
+- context_check.sh pins recomputed from the merged tree: tools 257
+  (inline 101 + factory 42+42 + docTool 72), models 90, menu 142, live routes
+  178, regcfg 30, regsvc 42 (+cost-compare), masters 42, schemas 45, posting 44,
+  print families 25; + m47 version pin; branch FY pins kept.
+- docs: STATE entries #48/#49/#50 from the branch renumbered #49/#50/#51 (main's
+  #48 = Module K costing); new STATE #52 (the merge); PITFALLS branch #47/#48
+  renumbered #48/#49; worklog both sides kept in sequence.
+
+GATES (merged tree, this session):
+- vitest 1420/1420 (70 files) — main 1355 + branch nets over the 1334 base
+- tsc: zero errors under src/ (scripts/ legacy errors pre-exist on main — 190
+  there, 199 here, all in dead cleanup scripts; the repo gate is src-scoped)
+- context_check 606/606 NO DRIFT
+- eval --static PASS (structure valid, regenerated report)
+- OPS-01 backup snapshot regenerated (fresh-clone casualty, per PITFALLS #49)
+
+Next per spec §12/§16: L-03 statutory (PF/ESI/PT/LWF), L-04 attendance depth,
+L-06 shiftWages (ADR-019), or Module M final accounts; PAY-08/PRC-09/PRG-02
+owner decisions open.
