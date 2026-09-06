@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.5 · 2026-09-06 · Build under test: `main @ fd96790` (M51 true double-entry posts; v1.5 adds the accounts cases AC-09..12 — the bank-linked receipt with its GL legs, the cash/bank honesty doors, the debit-note companion + the deduction truth, the expense settle path + the double-reverse probe — and updates AC-05 to the 20-row tree) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.6 · 2026-09-06 · Build under test: `main @ f68aa92` (M52 final-accounts reports; v1.6 adds the accounts cases AC-13..16 — the trial balance with the asserted Dr == Cr, the day-book with the cancel pair, the cash-book family with opening/closing + running balance, the P&L + balance sheet with the retained-earnings line, and THE GL DOCTRINE pair walkthrough) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
