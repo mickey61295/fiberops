@@ -5,18 +5,18 @@ module.exports = [
 
   // ================= SECTION 7 =================
   { h1: "7. Test Results Summary (Current Round)" },
-  { p: "The verification round performed on 2026-09-06 on main (commit cbe37b2 — the M48 statutory payroll batch plus the M49 attendance-depth batch: cross-midnight night shifts postable with real times (out earlier than in = the next-day end, the row stays on the start day), overtime configurable (attendance:ot — 2× multiplier, 8 h standard) and opt-in per daily run with the config + per-line results frozen at plan, earned gaining exactly the one OT term so statutory, the wage journals and both ledger loop-closures needed zero changes, and the OT surfaces — payslip OT row, run-view card, OT columns on the payroll + day-book registers) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables." },
+  { p: "The verification round performed on 2026-09-06 on main (commit 3df09b2 — the M50 chart-of-accounts batch: the Account master riding the M2 engine with a 19-row seeded standard tree, journal GL legs linked via debitAccountId/creditAccountId with the free strings kept as voucher detail, a one-time backfill that classified every legacy leg (exact name, then the party-type control, then a reported Suspense), and the hard invariant that no journal saves unlinked — every posting door resolves-or-refuses, the cancel mirrors swap the links, and the trial-balance substrate is asserted in tests) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables." },
   { table: {
     title: "Table 5: Verification results, 2026-09-06 round",
     headers: ["Check", "Result", "Detail"],
     widths: [30, 16, 54],
     rows: [
-      ["Vitest suite", "PASS", "72 files, 1466 tests passed in 43.7s (includes industry-chain, payroll L01/L02/L03/L04, FY hotfix, parity suites)"],
+      ["Vitest suite", "PASS", "73 files, 1491 tests passed in 45.6s (includes industry-chain, payroll L01/L02/L03/L04, accounts M-01, FY hotfix, parity suites)"],
       ["TypeScript (src)", "PASS", "Zero errors under src/; known legacy errors confined to scripts/ cleanup files"],
-      ["Context integrity", "PASS", "context_check.sh: 606/606 checks, NO DRIFT (the m49 PROMPT_VERSION pin; reset artifacts regenerated)"],
+      ["Context integrity", "PASS", "context_check.sh: 606/606 checks, NO DRIFT (the m50 PROMPT_VERSION pin; tools 261, masters 43, models 91)"],
       ["Agent routing (static)", "PASS", "eval_routing.mjs --static PASS (m50-2026-09-06)"],
-      ["Route smoke (live)", "PASS", "route_smoke_m49.sh: 32/32 — day-book OT Hrs + cross-midnight row · payroll OT ₹ + the OT checkbox · the seeded OT walkthrough with full revert; route_smoke_m48 re-basis covered by the shared services"],
-      ["Browser E2E (live)", "PASS", "OT run created through the form door (Overtime checkbox) → PR-0001 earned ₹2,600 = 1,600 base + 1,000 OT (5 h) → commit → journals verified in the database (V-0001 2,600 with partyId; ot cfg frozen {2, 8}; line otHours 5/otPay 1,000) → payslip OT row → day-book OT column → zero console errors → fully reverted"],
+      ["Route smoke (live)", "PASS", "route_smoke_m50.sh: 24/24 — the CoA master page + seeded rows · the journal register code chips (Cash/Bank · 1010, Acme Corp USA · 1110) · the voucher-view GL-legs line · the crafted ACC-9501 + V-9501 walkthrough with full revert; route_smoke_m48/m49 re-basis covered by the shared services"],
+      ["Browser E2E (live)", "PASS", "Account created through the /masters/account form (ACC-0001 auto-code) → journal V-0001 posted through the /accounts/journal form naming it (plan text: Dr Browser E2E CoA M50 [ACC-0001] / Cr Cash/Bank [1010]) → register chips + the GL-legs view line → database FKs verified (Dr → ACC-0001, Cr → 1010) → zero console errors → fully reverted"],
       ["Login (live)", "PASS", "admin@fiberpro.local authenticated via /api/auth/login; session payload correct"],
       ["Git state", "PASS", "Working tree clean; local main identical to origin/main; side_quest fully merged (0 unmerged commits)"],
     ],
@@ -53,7 +53,7 @@ module.exports = [
     widths: [40, 44, 16],
     rows: [
       ["Automated gates green", "Table 1 commands re-run on the build under test", "PASS (2026-09-06)"],
-      ["Start-to-end walkthrough (Section 4)", "All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked (HR now includes the statutory cases HR-05 through HR-08 and the M49 attendance-depth cases HR-09 through HR-11)", "Pending"],
+      ["Start-to-end walkthrough (Section 4)", "All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked (HR now includes the statutory cases HR-05 through HR-08 and the M49 attendance-depth cases HR-09 through HR-11; AC now includes the M50 chart-of-accounts cases AC-05 through AC-08)", "Pending"],
       ["Golden order flow (Section 5)", "GF-00 through GF-17 marked; net stock zero; invoice paid; ledger closed", "Pending"],
       ["Negative suite (Section 6)", "N-01 through N-10 marked; zero residue after each", "Pending"],
       ["side_quest merge regression (Appendix E)", "R-FY, R-WG, R-PR, R-CS case IDs marked; created documents reverted", "Pending"],
@@ -167,5 +167,5 @@ module.exports = [
     ["R-CS-03", "Open an order with production and jobwork history on the Order Hub; then ask the agent for the cost of that same order.", "The est-vs-actual section shows CM from production entries (rework excluded), process from jobwork values, and fabric and trim at WAC — a dash on heads that are not derivable, and the whole section stays silent when nothing is derivable; the agent answers from the same service with the same numbers."],
     ["R-CS-04", "Open /costing/daily-pnl for a date with activity.", "The Material (period, WAC) row values consumption at bucket WAC — never the leg rate — and the net margin is the four-term formula: produced minus wages minus expenses minus material."],
   ]},
-  { p: "Failure triage: a red case in group 15.1 or 15.2 means a side_quest fix regressed in the merge; a red case in group 15.4 means main's costing milestone regressed; all of them were green on their respective parent lines, so the merge commit (0da083e) is the first place to look. Every case in this appendix has an automated twin in the pipeline suite (fy-hotfix-m44, payroll-l01, payroll-l02, cst-batch8, and the party-ledger cases): if a manual case fails while its pipeline twin passes, suspect the UI wiring rather than the service, and file the defect with the case ID, the route, and the console output." },
+  { p: "Failure triage: a red case in group 15.1 or 15.2 means a side_quest fix regressed in the merge; a red case in group 15.4 means main's costing milestone regressed; all of them were green on their respective parent lines, so the merge commit (0da083e) is the first place to look. Every case in this appendix has an automated twin in the pipeline suite (fy-hotfix-m44, payroll-l01, payroll-l02, payroll-l03, payroll-l04, accounts-m01, cst-batch8, and the party-ledger cases): if a manual case fails while its pipeline twin passes, suspect the UI wiring rather than the service, and file the defect with the case ID, the route, and the console output." },
 ];

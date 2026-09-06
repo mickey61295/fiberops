@@ -2201,3 +2201,27 @@ Stage Summary:
 - M49 L-04 attendance depth IS ON REMOTE MAIN: cross-midnight attendance + configurable opt-in OT frozen per daily run, with the payslip/register/run-view/day-book surfaces, 19 new pipeline tests (1466 total), route smoke 32/32, browser E2E through the form door, and the manual-testing guide v1.3 (117 cases) with both twins.
 - Module L status: ONLY L-06 shiftWages remains (blocked on the ADR-019 owner decision). Phase-6B: 10 of 11 batches done.
 - side_quest: 0 unmerged commits since the m47 merge; retirement remains an owner call.
+---
+Task ID: m50
+Agent: main (Super Z)
+Task: Ship Module M Batch 1 — M-01 chart of accounts (SPEC-M50): Account master + seeded 19-row tree + journal GL FKs + one-time backfill + the no-unlinked guard + surfaces + tests + gates.
+
+Work Log:
+- Scope: L-06 shiftWages still ADR-019-blocked (owner decision, "do not invent a spec") → the unblocked next item per STATE #54: Module M final accounts, M-01 first (remediation spec §13).
+- Survey: journal creation is confined to 8 sites in 5 files (journal/payment/payroll/production-bill/cancel); string consumers = journal register + [id] view + Tally export; the M45 party-ledger formula reads partyId, NOT the strings (safe to link FKs); live db has 187 journals, all 'receipt: Cash/Bank → Acme Corp USA' (customer).
+- SPEC-M50 committed (f40112c): CA-01 master · CA-02 seeded tree · CA-03 FKs+backfill · CA-04 the guard · CA-05 surfaces · CA-06 tests; design: strings stay (voucher detail), FK = the GL classification; loud refusal not auto-create; party legs → type-aware controls; M-02/M-03/M-04/M-05 stay queued.
+- Schema: Account {code,name,type,parentId self-tree,active} + Journal debitAccountId/creditAccountId (models 90→91); db push + generate + WAL checkpoint + dev-server RESTART (PITFALLS #50 discipline).
+- lib/erp/coa.ts: COA_TREE (19 rows — every posting-layer name verbatim), seedCoa (idempotent), resolveAccountByRef/Pair (exact name OR code, case-sensitive), partyControlName, backfillLegPlan + backfillJournalLinks (the lib twin), unlinkedAccountError, accountLabel.
+- Master engine: master-configs/account.ts (ACC-#### auto-code, parentCode self-FK via the master-service OVERRIDES account→parentId/parentName/parent) + MASTER_CONFIGS 42→43 + tools create_account/update_account/list_accounts (258→261).
+- Guard wiring: planJournal resolve-or-refuse (plan + in-commit re-resolve); payment door 'Cash/Bank' + party-type control (direction-aware, in-tx); payroll J1/J2 wage account + Wage Payable + head payableAccounts (coaMissing pre-plan refusal, codes in the plan text); production-bill likewise; cancel mirrors SWAP the FKs / resolve like the payment door.
+- Surfaces: journal register + [id] code chips ('Cash/Bank · 1010', the GL-legs line); schemas/journal.ts + create_journal docstring; prompt §Accounting + §Masters; PROMPT_VERSION m50-2026-09-06.
+- Migration: scripts/seed_coa.ts + scripts/backfill_coa.ts (standalone, the M45/M49 precedent) ran on the live db — 187 rows / 374 legs linked (187 exact-name + 187 party-control, 0 suspense), idempotent re-run zero; seed.ts gains the same tree + a backfill pass for fresh dbs.
+- Tests: accounts-m01.test.ts NEW 22/22 (tree/resolver/guard/doors/cancel-swap/backfill/TB assert/wiring) + parity auto +2; same-commit pins: 258→261 ×18, 42→43 ×3, m49→m50 ×10, doc-parity 'Cash'→'Cash/Bank', doc-configs 'Freight Expense'/'Cash'→CoA names.
+- Gates: 1491 vitest (73 files) · tsc src 0 · context_check 606/606 NO DRIFT (pins recomputed) · eval --static PASS (m50, registry 253) · route_smoke_m50 NEW 24/24 LIVE · browser E2E through BOTH form doors (account ACC-0001 → journal V-0001 → chips + GL-legs line → DB-verified FKs → zero console errors → reverted; 3 screenshots).
+- Docs: STATE #55, MANUAL-TESTING v1.4 (121 cases: AC-05..08; §7 → 3df09b2; twins regenerated — postcheck 9/9, PDF 55 pages text-verified), this worklog.
+- Commits: 3df09b2 feat + docs commit (this one). PAT push PENDING — no token in the environment (the user supplied it inline in prior sessions).
+
+Stage Summary:
+- M50 M-01 SHIPPED: every journal leg classifies to an Account; the strings stay as voucher detail; no journal saves unlinked (resolve-or-refuse at all 8 create sites, cancel mirrors swap the links); the trial-balance substrate (both FKs + ΣDr==ΣCr by account) is asserted.
+- Module M queue: M-02 true double-entry posts, M-03 final-accounts reports, M-04 Tally both sides, M-05 expense heads. Module L: only L-06 (ADR-019 owner decision).
+- 2 local commits pending push — PAT re-supply needed (push protocol: inline URL only, full-history token audit before/after, ls-remote verify, worklog push-entry).
