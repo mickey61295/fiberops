@@ -595,6 +595,11 @@ export function DocScreen({
                       )}
                     </>
                   )}
+                  {/* SPEC-M51 M-02 (DE-06) — the optional field hint (the GL-leg
+                      fields carry the default + the credit-side rule) */}
+                  {f.description && (
+                    <div className="mt-1 text-[10px] leading-snug text-slate-400">{f.description}</div>
+                  )}
                 </div>
               ))}
             </div>

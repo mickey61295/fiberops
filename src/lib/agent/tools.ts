@@ -2126,7 +2126,7 @@ const docTools: AgentTool[] = [
   ),
   docTool(
     'create_expense',
-    'Record an expense (EXP-#### auto). Required: category (fixed|stylewise|general|transport|other), amount. stylewise requires orderNo. Optional: expDate, finYear, partyCode (paid-to), narration, status (default recorded).',
+    'Record an expense (EXP-#### auto). Required: category (fixed|stylewise|general|transport|other), amount. stylewise requires orderNo. Optional: expDate, finYear, partyCode (paid-to), narration, status (default recorded), glAccount (GL debit leg — exact account name or code; default transport → Freight [5020], else Other Expenses [5120]). SPEC-M51: also writes the companion journal JV-EXP-#### classifying the expense — Dr the GL account / Cr Sundry Creditors [2100] with a party (the payable shows in the party ledger; settle with record_payment out — nets to 0) or Cr Cash/Bank [1010] without one.',
     'costing',
     EXPENSE_SCHEMA,
     planExpense,
@@ -3197,7 +3197,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_debit_note',
-    'Raise a debit note against a party. noteNo is optional — auto-assigned DN-#### if omitted or taken. Required: noteType (acc|fabric|yarn|pcs|comm), partyCode, amount. Optional: reason.',
+    'Raise a debit note against a party — a DEDUCTION from the buyer\'s outstanding (the bills register + party ledger net it). noteNo is optional — auto-assigned DN-#### if omitted or taken. Required: noteType (acc|fabric|yarn|pcs|comm), partyCode, amount. Optional: reason, date, debitAccount (GL debit leg — exact account name or code, default Sales [4010]). SPEC-M51: also writes the companion journal JV-DN-#### — Dr debitAccount / Cr the party-type control (Sundry Debtors [1110] for customers); cancel via cancel_debit_note flips both + a CN- contra.',
     'accounting',
     DEBIT_NOTE_SCHEMA,
     planDebitNote,
@@ -3402,7 +3402,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'record_payment',
-    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out) against a supplier bill. voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). M40/PAY-01 FIFO allocations: with invoiceNo/billNo the payment allocates to that document (capped at outstanding); without one it walks the party\'s open invoices/bills oldest-first; the unallocated remainder stays ON-ACCOUNT (labeled party credit). Invoice/bill status derives from Σ allocations — two receipts that together cover the bill settle it. Out-payments attach supplier bills via billNo (must be passed); cross-direction tags are rejected with guidance. Required: partyCode, amount, direction. Optional: invoiceNo (in only), billNo (out only), orderNo, mode (cash|bank|cheque|rtgs|neft|upi), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher.',
+    'Record a payment: buyer collection (direction=in) against a sales invoice, or supplier payment (direction=out) against a supplier bill. voucherNo auto-assigned RCP-#### (in) / PMT-#### (out). M40/PAY-01 FIFO allocations: with invoiceNo/billNo the payment allocates to that document (capped at outstanding); without one it walks the party\'s open invoices/bills oldest-first; the unallocated remainder stays ON-ACCOUNT (labeled party credit). Invoice/bill status derives from Σ allocations — two receipts that together cover the bill settle it. Out-payments attach supplier bills via billNo (must be passed); cross-direction tags are rejected with guidance. Required: partyCode, amount, direction. Optional: invoiceNo (in only), billNo (out only), orderNo, mode (cash|bank|cheque|rtgs|neft|upi), bankAccountNo (with a bank mode — the GL cash leg becomes that bank\'s linked account via its glAccount on the bank master; mode cash ignores it, noting so), reference (UTR/cheque no), payDate, notes. Also writes a receipt/payment journal voucher (SPEC-M51: the mode-aware cash/bank GL leg).',
     'accounting',
     PAYMENT_SCHEMA,
     planPayment,

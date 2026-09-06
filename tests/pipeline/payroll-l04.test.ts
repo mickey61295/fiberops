@@ -433,7 +433,7 @@ describe('L-04 wiring + source pins', () => {
   })
 
   it('prompt m49 + the HR line carries the OT door; the config door hint', () => {
-    expect(PROMPT_VERSION).toBe('m50-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m51-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('ot: true on DAILY runs')
     expect(prompt).toContain('cross-midnight')

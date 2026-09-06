@@ -48,6 +48,9 @@ export interface DocField {
   label: string
   type: DocFieldType
   required?: boolean
+  /** SPEC-M51 M-02 (DE-06) — one-line hint rendered under the control (the
+   *  GL-leg fields carry the default account + the credit-side rule) */
+  description?: string
   /** master slug for type 'picker' (W4): 'buyer' | 'style' | … */
   picker?: string
   /** ERRATUM 1 — master record field the picker emits (default: codeField ?? titleField) */

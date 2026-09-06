@@ -356,7 +356,7 @@ describe('CHAT-11 — prompt formatting contract', () => {
 
   it('PROMPT_VERSION is bumped (m42 — the stock take/valuation rewrite)', () => {
     // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
-    expect(PROMPT_VERSION).toBe('m50-2026-09-06') // M50 M-01 chart of accounts on the M49 line
+    expect(PROMPT_VERSION).toBe('m51-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
   })
 })
 

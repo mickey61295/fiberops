@@ -1,9 +1,11 @@
 /* SPEC-M50 M-01 (CA-02) — seed the chart of accounts into db/custom.db
- * (the same 19-row tree scripts/seed.ts plants for fresh databases and
+ * (the same tree scripts/seed.ts plants for fresh databases and
  * src/lib/erp/coa.ts COA_TREE owns — standalone scripts can't import the
  * src module's @/ aliases, so the tree is mirrored here; pinned by
  * tests/pipeline/accounts-m01.test.ts). Idempotent — safe to re-run:
  * upsert by code, update {} (a human edit to name/type is kept).
+ * SPEC-M51 M-02 — gained the 20th row: 5120 Other Expenses (the expense
+ * door's default debit leg for non-transport categories).
  *
  * Run:  node scripts/seed_coa.ts
  */
@@ -30,6 +32,7 @@ const COA: Array<[string, string, string, string | null]> = [
   ['5020', 'Freight', 'expense', '5000'],
   ['5100', 'Indirect Expenses', 'expense', null],
   ['5110', 'Staff Salaries', 'expense', '5100'],
+  ['5120', 'Other Expenses', 'expense', '5100'],
   ['9000', 'Suspense Account', 'equity', null],
 ]
 
@@ -45,7 +48,7 @@ async function main() {
     ids.set(code, acc.id)
   }
   const count = await db.account.count()
-  console.log(`✅ CoA seeded: ${count} accounts (19-row standard tree; re-runs are no-ops)`)
+  console.log(`✅ CoA seeded: ${count} accounts (20-row standard tree; re-runs are no-ops)`)
   const journalUnlinked = await db.journal.count({ where: { OR: [{ debitAccountId: null }, { creditAccountId: null }] } })
   if (journalUnlinked > 0) {
     console.log(`   ${journalUnlinked} journal row(s) still unlinked — run scripts/backfill_coa.ts`)

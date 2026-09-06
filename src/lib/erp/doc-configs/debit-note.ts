@@ -24,6 +24,9 @@ export const debitNoteConfig: DocConfig = {
     ] },
     { name: 'partyCode', label: 'Party', type: 'picker', picker: 'party', required: true, colSpan: 1 },
     { name: 'amount', label: 'Amount (₹)', type: 'number', required: true, colSpan: 1 },
+    // SPEC-M51 M-02 (DE-02) — the GL debit leg; the credit side is the
+    // party-type control. Default Sales [4010] (a material deduction).
+    { name: 'debitAccount', label: 'GL Debit Account', type: 'text', colSpan: 1, description: 'Optional — exact Account name or code (default Sales [4010]); the credit leg is the party control (Sundry Debtors for customers)' },
     { name: 'date', label: 'Date', type: 'date', colSpan: 1 },
     { name: 'reason', label: 'Reason', type: 'textarea', colSpan: 2 },
   ],

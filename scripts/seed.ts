@@ -556,11 +556,13 @@ async function main() {
     },
   }).catch(() => {})
 
-  // ── SPEC-M50 M-01 — the chart of accounts (the 19-row seeded standard
+  // ── SPEC-M50 M-01 — the chart of accounts (the 20-row seeded standard
   // tree, mirroring src/lib/erp/coa.ts COA_TREE — pinned by
   // tests/pipeline/accounts-m01.test.ts; standalone scripts can't import the
   // src module's @/ aliases). Idempotent upsert by code. Every journal this
-  // seed writes gets its GL links from the backfill pass below. ──
+  // seed writes gets its GL links from the backfill pass below.
+  // SPEC-M51 M-02 (DE-03) gained the 20th row: 5120 Other Expenses — the
+  // expense door's default debit leg for non-transport categories. ──
   const COA: Array<[string, string, string, string | null]> = [
     ['1000', 'Cash & Bank', 'asset', null],
     ['1010', 'Cash/Bank', 'asset', '1000'],
@@ -580,6 +582,7 @@ async function main() {
     ['5020', 'Freight', 'expense', '5000'],
     ['5100', 'Indirect Expenses', 'expense', null],
     ['5110', 'Staff Salaries', 'expense', '5100'],
+    ['5120', 'Other Expenses', 'expense', '5100'],
     ['9000', 'Suspense Account', 'equity', null],
   ]
   const accIds = new Map<string, string>()

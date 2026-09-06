@@ -29,6 +29,10 @@ export const expenseConfig: DocConfig = {
     { name: 'orderNo', label: 'Order No (stylewise)', type: 'text', colSpan: 1 },
     { name: 'partyCode', label: 'Paid To (party)', type: 'picker', picker: 'party', colSpan: 1 },
     { name: 'amount', label: 'Amount (₹)', type: 'number', required: true, colSpan: 1 },
+    // SPEC-M51 M-02 (DE-03) — the GL debit leg (default by category:
+    // transport → Freight [5020], else Other Expenses [5120]); credit leg =
+    // Sundry Creditors with a party (settle via record_payment), else Cash/Bank.
+    { name: 'glAccount', label: 'GL Expense Account', type: 'text', colSpan: 1, description: 'Optional — exact Account name or code (default: transport → Freight, else Other Expenses); a paid-to party credits Sundry Creditors, otherwise Cash/Bank' },
     { name: 'status', label: 'Status', type: 'select', colSpan: 1, options: [
       { value: 'recorded', label: 'Recorded' },
       { value: 'settled', label: 'Settled' },

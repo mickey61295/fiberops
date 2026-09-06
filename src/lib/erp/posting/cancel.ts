@@ -200,6 +200,14 @@ export async function planCancelJournal(args: CancelJournalInput): Promise<DocPl
   if (!journal) return { ok: false, error: `Journal ${args.voucherNo} not found` }
   if (journal.status !== 'active') return { ok: false, error: `Journal ${args.voucherNo} is already cancelled` }
   if (journal.voucherNo.startsWith('JV-')) {
+    // SPEC-M51 M-02 — companions now come from three doors; the guard names
+    // the RIGHT one (the doc owns its companion).
+    if (journal.voucherNo.startsWith('JV-DN-')) {
+      return { ok: false, error: `${journal.voucherNo} is a debit note's companion voucher — cancel the NOTE (cancel_debit_note with its DN-#### number) and the companion flips + its contra follows` }
+    }
+    if (journal.voucherNo.startsWith('JV-EXP-')) {
+      return { ok: false, error: `${journal.voucherNo} is an expense's companion voucher — cancel the EXPENSE (cancel_expense with its EXP-#### number) and the companion flips + its contra follows` }
+    }
     return { ok: false, error: `${journal.voucherNo} is a payment's companion voucher — cancel the PAYMENT (cancel_payment with its RCP-/PMT- number) and the companion follows via its contra` }
   }
   if (journal.voucherNo.startsWith('CN-')) {
@@ -252,15 +260,44 @@ export async function planCancelDebitNote(args: CancelDebitNoteInput): Promise<D
   const note = await db.debitNote.findUnique({ where: { noteNo: args.noteNo } })
   if (!note) return { ok: false, error: `Debit note ${args.noteNo} not found` }
   if (note.status === 'cancelled') return { ok: false, error: `Debit note ${args.noteNo} is already cancelled` }
+  // SPEC-M51 M-02 (DE-05) — post-M51 notes carry a companion journal
+  // (JV-{noteNo}, the GL legs); cancelling the note flips BOTH rows and a
+  // CN- contra mirrors the legs (strings + FKs swapped — the M50 swap
+  // doctrine). Legacy notes (no companion) keep the honest status flip.
+  const companion = await db.journal.findUnique({ where: { voucherNo: `JV-${note.noteNo}` } }).catch(() => null)
+  const contraNo = `CN-JV-${note.noteNo}`
+  const contraExists = companion ? await db.journal.findUnique({ where: { voucherNo: contraNo } }).catch(() => null) : null
+  if (contraExists) return { ok: false, error: `Contra ${contraNo} already exists — ${args.noteNo} is already reversed` }
+  const contraData = companion ? {
+    voucherNo: contraNo, voucherType: 'contra', partyId: companion.partyId, date: new Date(), finYear: companion.finYear,
+    debitAccount: companion.creditAccount, creditAccount: companion.debitAccount,
+    debitAccountId: companion.creditAccountId, creditAccountId: companion.debitAccountId, // swapped — the M50 doctrine
+    amount: companion.amount,
+    narration: `Contra: cancel debit note ${note.noteNo}${args.reason ? ' — ' + args.reason : ''}`,
+  } : null
   return {
     ok: true,
     text: `Proposed cancellation of debit note ${args.noteNo} (₹${note.amount}).`,
-    summary: `Cancel debit note ${args.noteNo} | ${note.noteType} | ₹${note.amount} | reason: ${args.reason || 'not specified'}`,
-    updates: [{ table: 'debitNote', id: note.id, data: { status: 'cancelled' } }],
-    sideEffects: ['Party AR/AP effect of the note reverses (the note itself posts no ledger legs — honest claim)', 'The original row stays for audit'],
+    summary: `Cancel debit note ${args.noteNo} | ${note.noteType} | ₹${note.amount} | reason: ${args.reason || 'not specified'}${companion ? ` | companion ${companion.voucherNo} + contra ${contraNo}` : ' | no companion (legacy note — status flip only)'}`,
+    updates: [
+      { table: 'debitNote', id: note.id, data: { status: 'cancelled' } },
+      ...(companion ? [{ table: 'journal', id: companion.id, data: { status: 'cancelled' } }] : []),
+    ],
+    ...(contraData ? { creates: [{ table: 'journal', data: contraData }] } : {}),
+    sideEffects: [
+      'Party outstanding effect of the note reverses — the deduction leaves the party ledger + bills register (cancelled notes are excluded)',
+      companion ? `Companion journal ${companion.voucherNo} flips cancelled + contra ${contraNo} mirrors the GL legs (audit preserved — nothing is deleted)` : 'Legacy note — no ledger legs were ever posted, the status flip is the whole reversal (honest claim)',
+      'The original row stays for audit',
+    ],
     async commit() {
-      await db.debitNote.update({ where: { id: note.id }, data: { status: 'cancelled', reason: args.reason ?? note.reason } })
-      return { id: note.id, status: 'cancelled' }
+      return await db.$transaction(async (tx) => {
+        await tx.debitNote.update({ where: { id: note.id }, data: { status: 'cancelled', reason: args.reason ?? note.reason } })
+        if (companion) {
+          await tx.journal.update({ where: { id: companion.id }, data: { status: 'cancelled' } })
+          await tx.journal.create({ data: contraData! })
+        }
+        return { id: note.id, status: 'cancelled', companion: companion?.voucherNo, contra: companion ? contraNo : undefined }
+      })
     },
   }
 }
@@ -270,15 +307,47 @@ export async function planCancelExpense(args: CancelExpenseInput): Promise<DocPl
   if (!exp) return { ok: false, error: `Expense ${args.expNo} not found` }
   if (exp.status === 'cancelled') return { ok: false, error: `Expense ${args.expNo} is already cancelled` }
   if (exp.status === 'settled') return { ok: false, error: `Expense ${args.expNo} is settled — reversal is a journal entry, not a cancel` }
+  // SPEC-M51 M-02 (DE-05) — post-M51 expenses carry a companion journal
+  // (JV-{expNo}); the cancel flips BOTH + a CN- contra mirrors the legs.
+  // The companion flip is REQUIRED for the sub-ledger: a party expense's
+  // companion (voucherType 'journal' + partyId) counts in the party ledger's
+  // − journals term — leaving it active would keep the payable alive.
+  const companion = await db.journal.findUnique({ where: { voucherNo: `JV-${exp.expNo}` } }).catch(() => null)
+  const contraNo = `CN-JV-${exp.expNo}`
+  const contraExists = companion ? await db.journal.findUnique({ where: { voucherNo: contraNo } }).catch(() => null) : null
+  if (contraExists) return { ok: false, error: `Contra ${contraNo} already exists — ${args.expNo} is already reversed` }
+  const contraData = companion ? {
+    voucherNo: contraNo, voucherType: 'contra', partyId: companion.partyId, date: new Date(), finYear: companion.finYear,
+    debitAccount: companion.creditAccount, creditAccount: companion.debitAccount,
+    debitAccountId: companion.creditAccountId, creditAccountId: companion.debitAccountId, // swapped
+    amount: companion.amount,
+    narration: `Contra: cancel expense ${exp.expNo}${args.reason ? ' — ' + args.reason : ''}`,
+  } : null
   return {
     ok: true,
     text: `Proposed cancellation of expense ${args.expNo} (₹${exp.amount}).`,
-    summary: `Cancel expense ${args.expNo} | ${exp.category} | ₹${exp.amount} | reason: ${args.reason || 'not specified'}`,
-    updates: [{ table: 'expense', id: exp.id, data: { status: 'cancelled' } }],
-    sideEffects: ['Expense leaves the cost reports (cancelled rows are excluded)', 'The original row stays for audit'],
+    summary: `Cancel expense ${args.expNo} | ${exp.category} | ₹${exp.amount} | reason: ${args.reason || 'not specified'}${companion ? ` | companion ${companion.voucherNo} + contra ${contraNo}` : ' | no companion (legacy expense — status flip only)'}`,
+    updates: [
+      { table: 'expense', id: exp.id, data: { status: 'cancelled' } },
+      ...(companion ? [{ table: 'journal', id: companion.id, data: { status: 'cancelled' } }] : []),
+    ],
+    ...(contraData ? { creates: [{ table: 'journal', data: contraData }] } : {}),
+    sideEffects: [
+      'Expense leaves the cost reports (cancelled rows are excluded)',
+      ...(companion
+        ? [`Companion journal ${companion.voucherNo} flips cancelled + contra ${contraNo} mirrors the GL legs${companion.partyId ? ' — the party payable re-opens (the ledger stops counting the cancelled companion)' : ''} (audit preserved)`]
+        : ['Legacy expense — no ledger legs were ever posted (honest claim)']),
+      'The original row stays for audit',
+    ],
     async commit() {
-      await db.expense.update({ where: { id: exp.id }, data: { status: 'cancelled', narration: `${exp.narration ?? ''}${args.reason ? ' | cancelled: ' + args.reason : ''}`.trim() || null } })
-      return { id: exp.id, status: 'cancelled' }
+      return await db.$transaction(async (tx) => {
+        await tx.expense.update({ where: { id: exp.id }, data: { status: 'cancelled', narration: `${exp.narration ?? ''}${args.reason ? ' | cancelled: ' + args.reason : ''}`.trim() || null } })
+        if (companion) {
+          await tx.journal.update({ where: { id: companion.id }, data: { status: 'cancelled' } })
+          await tx.journal.create({ data: contraData! })
+        }
+        return { id: exp.id, status: 'cancelled', companion: companion?.voucherNo, contra: companion ? contraNo : undefined }
+      })
     },
   }
 }

@@ -21,6 +21,13 @@ export async function queryBillsRegister(q: RegisterQuery): Promise<RegisterResu
   // ledger + outstanding summary already exclude them — three screens, one
   // balance).
   const invoiceWhere = q.status ? { ...where, status: q.status } : { ...where, status: { not: 'cancelled' } }
+  // SPEC-M51 M-02 (DE-04) — the honesty filters: a CANCELLED receipt/payment
+  // leaves the day-book (the collected column + totals must not carry it —
+  // the party ledger + outstanding summary already exclude it: three screens,
+  // one balance), and a CANCELLED debit note leaves the deductions (the
+  // HFX-03 doctrine extended from invoices to notes).
+  const dnWhere = { ...where, status: { not: 'cancelled' } }
+  const payWhere = { ...where, status: 'active' }
 
   const [invoices, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({
@@ -30,14 +37,16 @@ export async function queryBillsRegister(q: RegisterQuery): Promise<RegisterResu
       take: 1000,
     }),
     db.debitNote.findMany({
-      where,
+      where: dnWhere,
       include: { party: true },
       orderBy: { date: 'desc' },
       take: 1000,
     }),
-    // payments settle invoices of the (filtered) parties — plain invoiceId FK
+    // payments settle invoices of the (filtered) parties — plain invoiceId FK.
+    // Cancelled vouchers are excluded (DE-04 — the contra is the audit trail,
+    // the day-book carries live money only).
     db.payment.findMany({
-      where,
+      where: payWhere,
       include: { party: true },
       orderBy: { payDate: 'desc' },
       take: 1000,

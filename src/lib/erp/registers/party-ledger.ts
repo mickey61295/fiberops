@@ -30,18 +30,25 @@ export async function getPartyLedgerSummary(partyId: string): Promise<PartyLedge
   // HFX-03 (Phase-6B Batch 0) — cancelled invoices are NOT billed: the
   // outstanding-summary/bills-register convention (`status: { not: 'cancelled' }`)
   // so all three money screens agree after a cancel.
+  // SPEC-M51 M-02 (DE-04) — the double-reverse fix: cancelled payments leave
+  // the received/paid terms (status 'active'), and the journals term counts
+  // MANUAL journals only (voucherType 'journal', status 'active') — CONTRAS
+  // NEVER count: every contra is the mirror of a row that stops counting
+  // (payment-cancel excludes the payment, journal-cancel flips the original,
+  // the DN/expense cancels flip their companions). Counting a cancelled
+  // receipt AND its contra double-reversed the AR (probe: invoice ₹1,000 →
+  // receipt ₹1,000 → cancel → ledger −1,000 instead of the re-opened +1,000).
   const [invoices, journals, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({ where: { partyId, status: { not: 'cancelled' } } }),
-    // SPEC-M45 L-01 — the journals term counts MANUAL journals + CONTRA legs
-    // only ('journal' | 'contra'). The planPayment companions ('receipt' /
-    // 'payment' voucherTypes, the JV-* shadow rows) are the SAME cash the
-    // Payment rows already count (− received / + paid) — counting both
-    // double-subtracted every receipt ever posted (CUS001 live probe:
-    // formula balance −34M against a true AR ≈ ₹4.3M). The wage bill
-    // (voucherType 'journal', partyId) is the leg this term exists for.
-    db.journal.findMany({ where: { partyId, voucherType: { in: ['journal', 'contra'] } } }),
-    db.debitNote.findMany({ where: { partyId } }),
-    db.payment.findMany({ where: { partyId } }),
+    // SPEC-M45 L-01 — the journals term counts MANUAL journals only. The
+    // planPayment companions ('receipt'/'payment' voucherTypes) are the SAME
+    // cash the Payment rows already count; the contras are reversals of rows
+    // excluded by the status filters above. The wage bill + the party-expense
+    // companion (voucherType 'journal', partyId, SPEC-M51 DE-03) are the legs
+    // this term exists for.
+    db.journal.findMany({ where: { partyId, voucherType: 'journal', status: 'active' } }),
+    db.debitNote.findMany({ where: { partyId, status: { not: 'cancelled' } } }),
+    db.payment.findMany({ where: { partyId, status: 'active' } }),
   ])
   const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
   const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
@@ -81,11 +88,14 @@ export async function queryPartyLedger(q: RegisterQuery): Promise<RegisterResult
   if (partyIds.length === 0) return { rows: [], summary: 'No parties match.', count: 0 }
 
   // HFX-03 — cancelled invoices excluded here too (see getPartyLedgerSummary).
+  // SPEC-M51 DE-04 — the double-reverse fix applies to the aggregate path as
+  // well: active payments only, manual ACTIVE journals only (contras never
+  // count), non-cancelled debit notes only.
   const [invoices, journals, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({ where: { partyId: { in: partyIds }, status: { not: 'cancelled' } }, select: { partyId: true, billAmount: true } }),
-    db.journal.findMany({ where: { partyId: { in: partyIds }, voucherType: { in: ['journal', 'contra'] } }, select: { partyId: true, amount: true } }),
-    db.debitNote.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
-    db.payment.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true, direction: true } }),
+    db.journal.findMany({ where: { partyId: { in: partyIds }, voucherType: 'journal', status: 'active' }, select: { partyId: true, amount: true } }),
+    db.debitNote.findMany({ where: { partyId: { in: partyIds }, status: { not: 'cancelled' } }, select: { partyId: true, amount: true } }),
+    db.payment.findMany({ where: { partyId: { in: partyIds }, status: 'active' }, select: { partyId: true, amount: true, direction: true } }),
   ])
 
   const agg = new Map<string, { billed: number; debit: number; journals: number; received: number; paid: number }>()

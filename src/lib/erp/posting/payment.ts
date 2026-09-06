@@ -24,7 +24,7 @@ import type { DocPlanResult } from './types'
 import type { PaymentInput } from '../schemas/payment'
 import type { WagePaymentInput } from '../schemas/payment-variants'
 import { dateOrIstToday } from '@/lib/erp/dates'
-import { resolveAccountByRef, partyControlName } from '../coa'
+import { resolveAccountByRef, partyControlName, resolveCashLeg, accountLabel } from '../coa'
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -121,17 +121,20 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
   if (args.orderNo && !order) return { ok: false, error: `Order ${args.orderNo} not found` }
 
-  // SPEC-M50 M-01 (CA-04) — resolve the GL legs BEFORE the voucher: the
-  // cash leg is 'Cash/Bank' (the seeded catch-all; M-02 splits per mode),
-  // the party leg classifies to the party-type control (the partyId
-  // sub-ledger carries the real balance — M45; the FK is the GL grouping).
-  // A miss is a LOUD refusal — a journal never saves unlinked.
-  const cashAccount = await resolveAccountByRef('Cash/Bank')
+  // SPEC-M51 M-02 (CA-04 + DE-01) — resolve the GL legs BEFORE the voucher:
+  // the CASH leg comes from mode + the optional BankAccount (cash → the
+  // [1010] control; a bank mode + a linked bank → that bank's own GL account;
+  // unlinked → the control + a nag; no bank given → the control, exactly the
+  // M50 behavior — byte-compat), the party leg classifies to the party-type
+  // control (the partyId sub-ledger carries the real balance — M45; the FK
+  // is the GL grouping). A miss is a LOUD refusal — a journal never saves
+  // unlinked.
+  const cashLeg = await resolveCashLeg({ mode, bankAccountNo: (args as any).bankAccountNo })
+  if (!cashLeg.ok) return { ok: false, error: cashLeg.error }
   const controlName = partyControlName(party.partyType)
   const controlAccount = await resolveAccountByRef(controlName)
-  if (!cashAccount || !controlAccount) {
-    const miss = !cashAccount ? 'Cash/Bank' : controlName
-    return { ok: false, error: `Chart of accounts incomplete — account '${miss}' is missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); a journal cannot save unlinked accounts (SPEC-M50 M-01).` }
+  if (!controlAccount) {
+    return { ok: false, error: `Chart of accounts incomplete — account '${controlName}' is missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); a journal cannot save unlinked accounts (SPEC-M50 M-01).` }
   }
 
   const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
@@ -208,28 +211,30 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
     text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${allocated > 0 ? ` — allocates ${allocatedLines.join(', ')}${onAccount > 0 ? `, ₹${onAccount} on-account` : ''}` : ' (on-account)'}.`,
     summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${allocated > 0 ? ` | allocates ₹${allocated}${onAccount > 0 ? ` + ₹${onAccount} on-account` : ''}` : ' | on-account'}${args.reference ? ` | ref ${args.reference}` : ''}`,
     creates: [
-      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' } },
+      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, notes: args.notes, status: 'active' } },
       ...allocations.map((a) => ({ table: 'paymentAllocation', data: { paymentId: '<payment>', invoiceId: a.invoiceId ?? null, billId: a.billId ?? null, amount: a.amount } })),
     ],
     updates: statusUpdates,
     sideEffects: [
       direction === 'in' ? 'Party receivable reduces' : 'Party payable reduces',
       'Journal voucher written (receipt/payment)',
-      `GL legs classify to ${direction === 'in' ? `Cash/Bank [${cashAccount.code}] / ${controlName} [${controlAccount.code}]` : `${controlName} [${controlAccount.code}] / Cash/Bank [${cashAccount.code}]`} (the chart of accounts — SPEC-M50)`,
+      `GL legs classify to ${direction === 'in' ? `${accountLabel(cashLeg.account, 'Cash/Bank')} / ${accountLabel(controlAccount, controlName)}` : `${accountLabel(controlAccount, controlName)} / ${accountLabel(cashLeg.account, 'Cash/Bank')}`} (SPEC-M51 M-02 — ${cashLeg.via === 'bank' ? 'the bank account\'s own GL ledger' : cashLeg.via === 'control-fallback' ? 'the Cash/Bank control' : 'the Cash/Bank control'})`,
+      ...(cashLeg.note ? [cashLeg.note] : []),
       ...allocations.map((a) => `Allocation ₹${a.amount} → ${a.ref}${a.invoiceId ? ' (invoice status derives: partial/paid)' : ' (bill status derives: partial/paid)'}`),
       ...(onAccount > 0 ? [`₹${onAccount} stays ON-ACCOUNT (labeled party credit — PAY-01 overpayment rule)`] : []),
     ],
     async commit() {
       return await db.$transaction(async (tx) => {
         const pay = await tx.payment.create({
-          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' },
+          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, notes: args.notes, status: 'active' },
         })
-        // SPEC-M50 CA-04 — re-resolved INSIDE the tx (the plan resolved the
-        // same names; a deleted account between plan and commit aborts the
-        // payment rather than saving an unlinked journal).
-        const cashLeg = await resolveAccountByRef('Cash/Bank', tx)
+        // SPEC-M50 CA-04 + SPEC-M51 DE-01 — re-resolved INSIDE the tx (the
+        // plan resolved the same inputs; a deleted account between plan and
+        // commit aborts the payment rather than saving an unlinked journal).
+        const cashTx = await resolveCashLeg({ mode, bankAccountNo: (args as any).bankAccountNo }, tx)
+        if (!cashTx.ok) throw new Error(cashTx.error)
         const controlLeg = await resolveAccountByRef(partyControlName(party.partyType), tx)
-        if (!cashLeg || !controlLeg) throw new Error(`Chart of accounts incomplete — '${!cashLeg ? 'Cash/Bank' : partyControlName(party.partyType)}' is missing; a journal cannot save unlinked accounts (SPEC-M50 M-01)`)
+        if (!controlLeg) throw new Error(`Chart of accounts incomplete — '${partyControlName(party.partyType)}' is missing; a journal cannot save unlinked accounts (SPEC-M50 M-01)`)
         await tx.journal.create({
           data: {
             voucherNo: `JV-${voucherNo}`,
@@ -237,10 +242,10 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
             partyId: party.id,
             date: payDate,
             finYear: await activeFinYear(),
-            debitAccount: direction === 'in' ? 'Cash/Bank' : party.name,
-            creditAccount: direction === 'in' ? party.name : 'Cash/Bank',
-            debitAccountId: direction === 'in' ? cashLeg.id : controlLeg.id,
-            creditAccountId: direction === 'in' ? controlLeg.id : cashLeg.id,
+            debitAccount: direction === 'in' ? cashTx.account.name : party.name,
+            creditAccount: direction === 'in' ? party.name : cashTx.account.name,
+            debitAccountId: direction === 'in' ? cashTx.account.id : controlLeg.id,
+            creditAccountId: direction === 'in' ? controlLeg.id : cashTx.account.id,
             amount: args.amount,
             narration: `${direction === 'in' ? 'Collection' : 'Payment'} ${voucherNo}${invoice ? ' against ' + invoice.invoiceNo : ''}${bill ? ' against ' + bill.billNo : ''}${allocatedLines.length ? ' alloc: ' + allocatedLines.join(', ') : ''}${onAccount > 0 ? ` (+₹${onAccount} on-account)` : ''}${args.reference ? ' ref ' + args.reference : ''}`,
           },

@@ -1135,6 +1135,12 @@ model Payment {
   finYear     String
   amount      Float     @default(0)
   mode        String    @default("bank") // cash | bank | cheque | rtgs | neft | upi
+  // SPEC-M51 M-02 (DE-01) — the bank account this money moved through (set when
+  // the input carries bankAccountNo and it resolves to an active row; audit +
+  // the cancel mirror re-resolution). The GL leg comes from mode + the bank's
+  // glAccountCode preference (lib/erp/coa.ts resolveCashLeg).
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
   reference   String? // cheque/UTR no
   notes       String?
   status      String    @default("active") // SPEC-M40 PAY-06 — active | cancelled (contra journal + allocations reversedAt)
@@ -1437,6 +1443,12 @@ model BankAccount {
   accountType String? // current | savings | cc | od
   upi         String?
   active      Boolean @default(true)
+  // SPEC-M51 M-02 (DE-01) — the GL account CODE this bank posts to (e.g. '1011').
+  // A preference, NOT an FK: resolved at post time through the CA-04 resolver;
+  // unlinked/stale codes fall back to the Cash/Bank control [1010] + a nag in
+  // the payment plan text (payments must never block on CoA richness).
+  glAccountCode String?
+  payments    Payment[]
 }
 
 // Legacy FrmMill — knitting/dyeing mills (first-class parties in job-work towns).

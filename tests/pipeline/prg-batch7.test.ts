@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m50-2026-09-06') // M50 M-01 chart of accounts on the M49 line
-      expect(PROMPT_VERSION.startsWith('m50')).toBe(true) // M50 = M-01 chart of accounts
+      expect(PROMPT_VERSION).toBe('m51-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
+      expect(PROMPT_VERSION.startsWith('m51')).toBe(true) // M51 = M-02 true double-entry posts on the M50 CoA line
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

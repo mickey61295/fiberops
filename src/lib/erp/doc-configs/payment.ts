@@ -39,6 +39,9 @@ export const paymentConfig: DocConfig = {
       { value: 'neft', label: 'NEFT' },
       { value: 'upi', label: 'UPI' },
     ] },
+    // SPEC-M51 M-02 (DE-01) — with a bank mode, the GL leg becomes this bank's
+    // linked account (its glAccount on the bank master); cash ignores it.
+    { name: 'bankAccountNo', label: 'Bank Account (GL leg)', type: 'picker', picker: 'bank-account', colSpan: 1, description: 'Optional — with a bank mode the journal posts to this bank\'s linked GL account; without one it posts to the Cash/Bank control' },
     { name: 'reference', label: 'Reference (UTR / cheque no)', type: 'text', colSpan: 2 },
     { name: 'payDate', label: 'Pay Date', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },

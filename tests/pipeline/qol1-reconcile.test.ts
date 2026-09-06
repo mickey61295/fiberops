@@ -149,7 +149,7 @@ describe('D-15 — the ghost tool is gone (prompt↔registry sync)', () => {
   })
 
   it('PROMPT_VERSION bumped for the semantic change (m<milestone>.<rev> scheme)', () => {
-    expect(PROMPT_VERSION).toBe('m50-2026-09-06') // M50 M-01 chart of accounts on the M49 line
+    expect(PROMPT_VERSION).toBe('m51-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
   })
 })
 

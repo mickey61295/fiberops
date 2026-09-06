@@ -1,7 +1,8 @@
 /**
  * Accounts M-01 (SPEC-M50, Module M Batch 1) — the chart of accounts:
- *   - seedCoa idempotence + the 19-row tree shape (parents resolve, the
- *     8 posting-layer names verbatim, unique codes, the 5 types)
+ *   - seedCoa idempotence + the 20-row tree shape (parents resolve, the
+ *     9 posting-layer names verbatim — SPEC-M51 added Other Expenses, unique
+ *     codes, the 5 types)
  *   - resolveAccountByRef by NAME and by CODE (exact, case-sensitive; a
  *     near-miss is a miss) + partyControlName (customer/supplier/employee/
  *     both → Sundry Debtors/Sundry Creditors/Wage Payable/Suspense)
@@ -27,7 +28,7 @@
  *     assert pins the M-03 grouping key)
  *   - WIRING PINS: schema fields, tools 261 (+create/update/list_account —
  *     the factory + the list door), masters 43 (account config), the
- *     master-service self-FK OVERRIDES, PROMPT_VERSION m50, docstrings,
+ *     master-service self-FK OVERRIDES, PROMPT_VERSION m51, docstrings,
  *     the seed + standalone scripts, the journal register code chips
  * Windows: own voucher-no namespace (M50-*), one attendance day (today-3),
  * the production window is default (30 days) scoped to OUR operator only.
@@ -131,16 +132,16 @@ afterAll(async () => {
 })
 
 describe('SPEC-M50 CA-02 — the seeded tree', () => {
-  it('seedCoa is idempotent and plants the 19-row standard tree', async () => {
+  it('seedCoa is idempotent and plants the 20-row standard tree', async () => {
     const ids1 = await seedCoa(db)
     const ids2 = await seedCoa(db)
-    expect(ids1.size).toBe(19)
+    expect(ids1.size).toBe(20)
     expect([...ids1.values()].every((id) => id.length > 0)).toBe(true)
     for (const code of ids1.keys()) expect(ids2.get(code)).toBe(ids1.get(code)) // re-run = same rows
     const rows = await db.account.findMany({ include: { parent: true } })
-    expect(rows.length).toBe(19)
-    expect(new Set(rows.map((r) => r.code)).size).toBe(19)
-    expect(new Set(rows.map((r) => r.name)).size).toBe(19) // names are the join key — unique
+    expect(rows.length).toBe(20)
+    expect(new Set(rows.map((r) => r.code)).size).toBe(20)
+    expect(new Set(rows.map((r) => r.name)).size).toBe(20) // names are the join key — unique
     const byCode = new Map(rows.map((r) => [r.code, r]))
     expect(byCode.get('1010')!.parent?.code).toBe('1000')
     expect(byCode.get('1110')!.parent?.code).toBe('1100')
@@ -149,6 +150,7 @@ describe('SPEC-M50 CA-02 — the seeded tree', () => {
     expect(byCode.get('4010')!.parent?.code).toBe('4000')
     expect(byCode.get('5010')!.parent?.code).toBe('5000')
     expect(byCode.get('5110')!.parent?.code).toBe('5100')
+    expect(byCode.get('5120')!.parent?.code).toBe('5100') // SPEC-M51 DE-03 — the expense catch-all
     expect(byCode.get('1000')!.parent).toBeNull() // groups are roots
   })
 
@@ -158,6 +160,7 @@ describe('SPEC-M50 CA-02 — the seeded tree', () => {
       'Cash/Bank', 'Production Wages', 'Staff Salaries', 'Wage Payable',
       'PF Payable', 'ESI Payable', 'PT Payable', 'LWF Payable',
       'Sundry Debtors', 'Sundry Creditors', 'Sales', 'Freight', 'Suspense Account',
+      'Other Expenses',
     ]) expect(names.has(n), `missing posting name ${n}`).toBe(true)
     const types = new Set(COA_TREE.map((r) => r.type))
     expect([...types].sort()).toEqual(['asset', 'equity', 'expense', 'income', 'liability'])
@@ -441,8 +444,8 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
     expect(cfg!.fields.some((f) => f.name === 'parentCode' && f.refEntity === 'account')).toBe(true)
   })
 
-  it('PROMPT_VERSION m50 + the accounts line names the CoA doors', () => {
-    expect(PROMPT_VERSION).toBe('m50-2026-09-06')
+  it('PROMPT_VERSION m51 + the accounts line names the CoA doors', () => {
+    expect(PROMPT_VERSION).toBe('m51-2026-09-06')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('chart of accounts')
     expect(prompt).toContain('create_account')

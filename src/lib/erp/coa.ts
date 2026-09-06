@@ -1,16 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // SPEC-M50 M-01 — the chart of accounts library.
-//   COA_TREE   the seeded standard tree (19 rows, 2 levels, 5 types) — every
+//   COA_TREE   the seeded standard tree (20 rows, 2 levels, 5 types) — every
 //              name the posting layer writes is here VERBATIM so the guard
 //              (CA-04) always resolves: 'Cash/Bank', 'Production Wages',
-//              'Staff Salaries', 'Wage Payable', 'PF/ESI/PT/LWF Payable'.
+//              'Staff Salaries', 'Wage Payable', 'PF/ESI/PT/LWF Payable',
+//              'Freight', and (SPEC-M51 M-02) 'Other Expenses' — the
+//              expense door's default debit leg.
 //   seedCoa    idempotent upsert-by-code (re-runs are no-ops) — called by
 //              scripts/seed.ts, scripts/seed_coa.ts, and tests.
 //   resolveAccountByRef / resolveAccountPair — exact name OR exact code,
 //   never fuzzy: a near-miss is a miss (loud, not lucky).
 //   partyControlName — the GL control for a party-name journal leg: the
 //   partyId sub-ledger carries the real balance (M45); the FK is only the
-//   classical grouping. Mode-aware cash/bank legs are M-02, NOT this batch.
+//   classical grouping.
+//   resolveCashLeg (SPEC-M51 M-02 DE-01) — the mode-aware cash/bank leg:
+//   mode 'cash' → the Cash/Bank control; a bank mode + a linked BankAccount
+//   → that bank's own GL account; unlinked → the control + a NAG; no bank
+//   given → the control, byte-identical to the M50 behavior.
 
 import { db } from '@/lib/db'
 
@@ -45,6 +51,9 @@ export const COA_TREE: CoaRow[] = [
   { code: '5020', name: 'Freight', type: 'expense', parentCode: '5000' },
   { code: '5100', name: 'Indirect Expenses', type: 'expense' },
   { code: '5110', name: 'Staff Salaries', type: 'expense', parentCode: '5100' },
+  // SPEC-M51 M-02 (DE-03) — the expense door's default debit leg for every
+  // category but transport (M-05's expense-head master later refines this).
+  { code: '5120', name: 'Other Expenses', type: 'expense', parentCode: '5100' },
   { code: '9000', name: 'Suspense Account', type: 'equity' },
 ]
 
@@ -118,6 +127,81 @@ export function unlinkedAccountError(missing: string[]): string {
 /** Label helper for plan texts: 'Production Wages [5010]'. */
 export function accountLabel(acc: ResolvedAccount | null, fallback: string): string {
   return acc ? `${acc.name} [${acc.code}]` : fallback
+}
+
+// ───────────── SPEC-M51 M-02 (DE-01) — the mode-aware cash/bank leg ─────────────
+
+export interface CashLegResolution {
+  ok: true
+  /** The GL leg the money moves through (always a linked Account row). */
+  account: ResolvedAccount
+  /** How the leg was chosen — named in the plan text. */
+  via: 'cash' | 'bank' | 'control' | 'control-fallback'
+  /** The resolved BankAccount (set whenever bankAccountNo was given + resolved). */
+  bankAccount?: { id: string; accountNo: string; bankName: string | null }
+  /** The honest note for the plan text (cash-ignores-bank / the fallback nag). */
+  note?: string
+}
+
+export type CashLegResult = CashLegResolution | { ok: false; error: string }
+
+/** DE-01 — resolve the cash/bank GL leg from the payment mode + the optional
+ *  BankAccount. NEVER blocks on CoA richness: the fallback is still a linked
+ *  leg (the [1010] control), so the CA-04 invariant holds; only an UNKNOWN
+ *  bankAccountNo (an explicit reference, like an unknown partyCode) refuses.
+ *  Callers: the payment plan + commit (identically — they must agree) and the
+ *  payment-cancel mirror (legacy rows without a companion journal). */
+export async function resolveCashLeg(
+  opts: { mode?: string | null; bankAccountNo?: string | null },
+  client: any = db,
+): Promise<CashLegResult> {
+  const mode = (opts.mode ?? '').trim().toLowerCase()
+  const bankAccountNo = opts.bankAccountNo?.trim() || null
+
+  const control = await resolveAccountByRef('Cash/Bank', client)
+  if (!control) {
+    return { ok: false, error: "Chart of accounts incomplete — account 'Cash/Bank' is missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); a journal cannot save unlinked accounts (SPEC-M50 M-01)." }
+  }
+
+  // cash mode: ALWAYS the control. A bankAccountNo alongside is NOT silently
+  // ignored — the note says so (the plan text carries it).
+  if (mode === 'cash') {
+    return {
+      ok: true, account: control, via: 'cash',
+      ...(bankAccountNo ? { note: "mode 'cash' — the bank account is not used for the GL leg (posted to Cash/Bank [1010])" } : {}),
+    }
+  }
+
+  // bank-ish mode (bank | cheque | rtgs | neft | upi | anything not 'cash')
+  // without an explicit bank account: the control — byte-identical to the
+  // M50 behavior (pinned — payments without bankAccountNo never move).
+  if (!bankAccountNo) return { ok: true, account: control, via: 'control' }
+
+  // an explicit bank reference: an unknown/inactive account is a LOUD error
+  // (the same discipline as an unknown partyCode — the caller asked for it).
+  const ba = await client.bankAccount.findFirst({
+    where: { accountNo: bankAccountNo },
+    select: { id: true, accountNo: true, active: true, glAccountCode: true, bank: { select: { name: true } } },
+  })
+  if (!ba || !ba.active) {
+    return { ok: false, error: `Bank account '${bankAccountNo}' not found${ba ? ' (inactive — reactivate it on /masters/bank-account)' : ''}. Create it first (create_bank_account or /masters/bank-account), or drop bankAccountNo to post to the Cash/Bank control.` }
+  }
+
+  const bankName = (ba as any).bank?.name ?? null
+  const bankAccount = { id: ba.id, accountNo: ba.accountNo, bankName }
+
+  // the GL preference: a code (or name) resolved through CA-04. Unlinked or
+  // stale → the control + THE NAG (payments must flow; the plan text names
+  // the bank and the fix — never a silent miscategorization).
+  const preferred = ba.glAccountCode?.trim()
+  if (preferred) {
+    const leg = await resolveAccountByRef(preferred, client)
+    if (leg) return { ok: true, account: leg, via: 'bank', bankAccount }
+  }
+  return {
+    ok: true, account: control, via: 'control-fallback', bankAccount,
+    note: `bank ${bankName ?? ''} ${ba.accountNo} has no linked GL account — posting to the Cash/Bank control [${control.code}]; link one on the bank account master (glAccount) or create_account, then re-post for a per-bank leg`,
+  }
 }
 
 /** Backfill one journal leg (CA-03 order): exact name → party-type control →
