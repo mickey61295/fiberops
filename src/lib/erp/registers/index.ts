@@ -42,6 +42,10 @@ import { queryAttendance } from './attendance'
 import { queryDespatchRegister } from './despatch' // SPEC-M41 PRC-05
 import { queryWastePercent } from './waste-percent' // SPEC-M42 INV-05
 import { queryStatutoryRegister } from './statutory' // SPEC-M48 L-03
+import { queryTrialBalance } from './trial-balance' // SPEC-M52 M-03
+import { queryDayBook } from './day-book' // SPEC-M52 M-03
+import { queryCashBook } from './cash-book' // SPEC-M52 M-03
+import { queryFinalAccounts } from './final-accounts' // SPEC-M52 M-03
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -85,6 +89,10 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'despatch-register': queryDespatchRegister, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
   'waste-percent': queryWastePercent, // SPEC-M42 (Phase-6B Batch 6) INV-05 — waste % KPI
   'statutory': queryStatutoryRegister, // SPEC-M48 (Module L Batch 3) L-03 — statutory remittance register
+  'trial-balance': queryTrialBalance, // SPEC-M52 (Module M Batch 3) M-03 — the asserted Dr == Cr account summary
+  'day-book': queryDayBook, // SPEC-M52 M-03 — the chronological GL voucher register
+  'cash-book': queryCashBook, // SPEC-M52 M-03 — the 1010-family day-book with running balance
+  'final-accounts': queryFinalAccounts, // SPEC-M52 M-03 — P&L + balance sheet on accountActivity
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

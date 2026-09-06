@@ -417,8 +417,8 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
     expect(Math.abs(sumDr - sumCr)).toBeLessThan(0.01) // balanced by construction — the GROUPING key is M-03's TB
   })
 
-  it('tools: 261 with create/update/list_account (factory + list door)', async () => {
-    expect(allTools.length).toBe(261)
+  it('tools: 265 with create/update/list_account (factory + list door) + the M52 report quartet', async () => {
+    expect(allTools.length).toBe(265)
     const create = getTool('create_account')
     expect(create).toBeDefined()
     expect(create!.isWrite).toBe(true)
@@ -445,7 +445,7 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
   })
 
   it('PROMPT_VERSION m51 + the accounts line names the CoA doors', () => {
-    expect(PROMPT_VERSION).toBe('m51-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m52-2026-09-06')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('chart of accounts')
     expect(prompt).toContain('create_account')

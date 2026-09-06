@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52'
 
 export interface MenuGroup {
   id: string
@@ -101,6 +101,10 @@ export const LIVE_ROUTES = new Set<string>([
   '/accounts/bills-register', // Bills Register (M4 Wave B) — bills-register
   '/accounts/supplier-bills', // Supplier Bill Register (M4 Wave B) — supplier-bill-register
   '/accounts/party-ledger', // Party Ledger (M4 Wave B) — party-ledger
+  '/accounts/trial-balance', // Trial Balance (M52 M-03) — trial-balance (RG: per-account Dr/Cr, Dr == Cr asserted)
+  '/accounts/day-book', // Day Book (M52 M-03) — day-book (RG: chronological GL vouchers, all types + statuses)
+  '/accounts/cash-book', // Cash Book (M52 M-03) — cash-book (RG: the 1010 family, opening/closing + running)
+  '/accounts/final-accounts', // Final Accounts (M52 M-03) — final-accounts (RG: P&L + balance sheet, Δ asserted)
   '/costing/budget-vs-actual', // Budget vs Actual (M4 Wave B) — budget-vs-actual
   '/approvals/audit', // Approval Audit Trail (M4 Wave B) — approval-audit-trail
   '/orders/status', // Order Status Board (M4 Wave C) — order-status-board
@@ -1055,6 +1059,38 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: [],
     agentTools: ['create_journal'], pendingTools: [],
     agentPrompt: 'I want to pass a journal entry',
+  },
+  {
+    id: 'trial-balance', label: 'Trial Balance', groupId: 'accounts', route: '/accounts/trial-balance', arch: 'RG', phase: 'M52',
+    description: 'Per account: debit Σ, credit Σ, net + side for the window — Dr == Cr asserted (every journal row counts, all statuses).',
+    legacyForms: [],
+    agentTools: ['get_trial_balance'], pendingTools: [],
+    agentPrompt: 'Show the trial balance — is it balanced?',
+    notes: 'SPEC-M52 M-03 — THE GL DOCTRINE: the status flag is sub-ledger truth-ownership, the contra row IS the GL reversal; unlinked rows (null FK) are reported, never dropped',
+  },
+  {
+    id: 'day-book', label: 'Day Book', groupId: 'accounts', route: '/accounts/day-book', arch: 'RG', phase: 'M52',
+    description: 'Chronological GL voucher register — every journal row (all types, all statuses): Dr [code] / Cr [code], party, amount, narration.',
+    legacyForms: [],
+    agentTools: ['get_day_book'], pendingTools: [],
+    agentPrompt: 'Show the day book for this month',
+    notes: 'SPEC-M52 M-03 — a cancelled voucher renders its badge and its CN- contra sits right under it: the audit visible, the net honest',
+  },
+  {
+    id: 'cash-book', label: 'Cash Book', groupId: 'accounts', route: '/accounts/cash-book', arch: 'RG', phase: 'M52',
+    description: 'The cash & bank family (1010 + per-bank accounts): opening, inflow/outflow, running balance, closing.',
+    legacyForms: [],
+    agentTools: ['get_cash_book'], pendingTools: [],
+    agentPrompt: 'Show the cash book with opening and closing balance',
+    notes: 'SPEC-M52 M-03 — the family is CoA topology (1010 + its children), not code-prefix guessing',
+  },
+  {
+    id: 'final-accounts', label: 'Final Accounts', groupId: 'accounts', route: '/accounts/final-accounts', arch: 'RG', phase: 'M52',
+    description: 'P&L (income − expenses = net) and balance sheet (assets vs liabilities + equity + retained earnings) — Δ asserted 0.',
+    legacyForms: ['Sp_DailyUnitPANDL'], // the legacy daily-unit P&L stored proc — a classified non-form (the ancestor concept)
+    agentTools: ['get_final_accounts'], pendingTools: [],
+    agentPrompt: 'Show the P&L for this year',
+    notes: 'SPEC-M52 M-03 — the BS balance is structural given Dr == Cr; the retained-earnings line = the window P&L',
   },
   {
     id: 'production-bills', label: 'Production Bills (piece-rate)', groupId: 'accounts', route: '/accounts/production-bills', arch: 'DS', phase: 'M5',

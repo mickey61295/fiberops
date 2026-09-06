@@ -26,6 +26,10 @@ import { queryWages } from '@/lib/erp/registers/wages'
 import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
 import { queryStatutoryRegister } from '@/lib/erp/registers/statutory' // SPEC-M48 L-03
+import { queryTrialBalance } from '@/lib/erp/registers/trial-balance' // SPEC-M52 M-03
+import { queryDayBook } from '@/lib/erp/registers/day-book' // SPEC-M52 M-03
+import { queryCashBook } from '@/lib/erp/registers/cash-book' // SPEC-M52 M-03
+import { queryFinalAccounts } from '@/lib/erp/registers/final-accounts' // SPEC-M52 M-03
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -1243,6 +1247,118 @@ const readTools: AgentTool[] = [
           employee: r.employee, employer: r.employer, total: r.total,
           authority: r.authority, pending: r.pending, committed: r.committed,
           view: r.href,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_trial_balance',
+    description: 'Trial balance (SPEC-M52 M-03): one row per account — debit Σ, credit Σ, net + side (Dr/Cr), for a date window (default all time). Dr == Cr is ASSERTED (structural — every journal row counts regardless of status: the contra row is the GL reversal, so cancels net to zero). Unlinked rows (null account FK — pre-backfill residue) are reported, never dropped. Use this to answer "are the books balanced" and per-account GL balances. Optional: from/to (YYYY-MM-DD), take (max account rows, default 100).',
+    domain: 'accounts',
+    isWrite: false,
+    schema: z.object({
+      from: z.string().optional().describe('Window start YYYY-MM-DD.'),
+      to: z.string().optional().describe('Window end YYYY-MM-DD.'),
+      take: z.number().optional().describe('Max account rows (default 100, cap 500).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M52 M-03 register service — the same read path
+      // the /accounts/trial-balance screen uses.
+      const res = await queryTrialBalance({
+        from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: Math.max(1, Math.min(500, Math.floor(args.take ?? 100))), page: 1,
+      })
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.summary}${truncated ? ` (showing first ${(res.rows as any[]).length} of ${res.count} accounts)` : ''}`,
+        json: res.rows.map((r) => ({
+          code: r.code, account: r.account, type: r.type,
+          debit: r.dr, credit: r.cr, net: r.net, side: r.side,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_day_book',
+    description: 'Day book (SPEC-M52 M-03): the chronological GL voucher register — EVERY journal row (all voucherTypes receipt|payment|journal|contra|debit-note, all statuses: a cancelled voucher + its CN- contra sit together and net). Columns: date, voucher, Dr account [code], Cr account [code], party, amount, narration, status. Optional: type (the voucherType filter, blank = all), from/to (YYYY-MM-DD), q (voucher/narration/account contains), take (default 20, cap 200).',
+    domain: 'accounts',
+    isWrite: false,
+    schema: z.object({
+      type: z.enum(['receipt', 'payment', 'journal', 'contra', 'debit-note']).optional().describe('VoucherType filter.'),
+      from: z.string().optional().describe('Window start YYYY-MM-DD.'),
+      to: z.string().optional().describe('Window end YYYY-MM-DD.'),
+      q: z.string().optional().describe('Voucher / narration / account contains.'),
+      take: z.number().optional().describe('Max rows (default 20, cap 200).'),
+    }),
+    async execute(args) {
+      const res = await queryDayBook({
+        variant: args.type, q: args.q,
+        from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: Math.max(1, Math.min(200, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.summary}${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}`,
+        json: res.rows.map((r) => ({
+          date: r.date, voucher: r.voucher, type: r.type,
+          dr: r.dr, cr: r.cr, party: r.party, amount: r.amount,
+          narration: r.narration, status: r.status, view: r.href,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_cash_book',
+    description: 'Cash book (SPEC-M52 M-03): the cash & bank family (the 1010 Cash/Bank control + its per-bank GL children) with opening balance, per-voucher inflow/outflow (the other account as particulars), running balance, closing. Cancels net via their CN- contras. Use this to answer "what is the cash/bank balance now" and the movement trail. Optional: account (a family code like 1010 or a bank row under it; blank = the whole family), from/to (YYYY-MM-DD), take (default 50, cap 200).',
+    domain: 'accounts',
+    isWrite: false,
+    schema: z.object({
+      account: z.string().optional().describe('A family account code (1010 or a bank row); blank = whole family.'),
+      from: z.string().optional().describe('Window start YYYY-MM-DD (opening = family net before this).'),
+      to: z.string().optional().describe('Window end YYYY-MM-DD.'),
+      take: z.number().optional().describe('Max rows (default 50, cap 200).'),
+    }),
+    async execute(args) {
+      const res = await queryCashBook({
+        variant: args.account,
+        from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: Math.max(1, Math.min(200, Math.floor(args.take ?? 50))), page: 1,
+      })
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.summary}${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}`,
+        json: res.rows.map((r) => ({
+          date: r.date, voucher: r.voucher, particulars: r.particulars,
+          inflow: r.inflow, outflow: r.outflow, balance: r.balance,
+          status: r.status, view: r.href,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_final_accounts',
+    description: 'Final accounts (SPEC-M52 M-03): the minimal P&L + balance sheet. statement "pl" = income accounts − expense accounts = net profit/loss; statement "bs" = assets vs liabilities + equity + the window\'s P&L as retained earnings (Δ asserted 0 — structural from Dr == Cr). Same window semantics as the trial balance. Optional: statement (pl|bs, default pl), from/to (YYYY-MM-DD).',
+    domain: 'accounts',
+    isWrite: false,
+    schema: z.object({
+      statement: z.enum(['pl', 'bs']).optional().describe('pl = P&L (default), bs = balance sheet.'),
+      from: z.string().optional().describe('Window start YYYY-MM-DD.'),
+      to: z.string().optional().describe('Window end YYYY-MM-DD.'),
+    }),
+    async execute(args) {
+      const res = await queryFinalAccounts({
+        variant: args.statement,
+        from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: 500, page: 1,
+      })
+      return {
+        text: res.summary,
+        json: res.rows.map((r) => ({
+          code: r.code, account: r.account, head: r.head, amount: r.amount,
         })),
       }
     },

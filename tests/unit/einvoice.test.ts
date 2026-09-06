@@ -135,7 +135,7 @@ describe('SPEC-M23 §2 — planGenerateIrn (guards + thresholds + commit)', () =
     expect(tool).toBeTruthy()
     expect(tool!.isWrite).toBe(true)
     expect(tool!.domain).toBe('accounting')
-    expect(allTools.length).toBe(261) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(265) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 })
 

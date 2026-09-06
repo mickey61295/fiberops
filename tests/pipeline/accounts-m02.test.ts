@@ -588,7 +588,7 @@ describe('SPEC-M51 DE-05/DE-06 — wiring pins + the TB assert', () => {
     expect(tools).toContain('bankAccountNo (with a bank mode')
     expect(tools).toContain('DEDUCTION from the buyer') // the corrected claim (escaped \' in source — match before it)
     expect(tools).toContain('glAccount (GL debit leg')
-    expect(PROMPT_VERSION).toBe('m51-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m52-2026-09-06')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('SPEC-M51 true double-entry')
     expect(prompt).toContain('Other Expenses [5120]')

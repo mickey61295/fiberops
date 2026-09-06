@@ -40,6 +40,10 @@ import { attendanceConfig } from './attendance'
 import { despatchRegisterConfig } from './despatch-register' // SPEC-M41 PRC-05
 import { wastePercentConfig } from './waste-percent' // SPEC-M42 INV-05
 import { statutoryConfig } from './statutory' // SPEC-M48 L-03
+import { trialBalanceConfig } from './trial-balance' // SPEC-M52 M-03
+import { dayBookConfig } from './day-book' // SPEC-M52 M-03
+import { cashBookConfig } from './cash-book' // SPEC-M52 M-03
+import { finalAccountsConfig } from './final-accounts' // SPEC-M52 M-03
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -83,6 +87,10 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   despatchRegisterConfig, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
   wastePercentConfig, // SPEC-M42 (Phase-6B Batch 6) INV-05 — waste % KPI
   statutoryConfig, // SPEC-M48 (Module L Batch 3) L-03 — statutory remittance register
+  trialBalanceConfig, // SPEC-M52 (Module M Batch 3) M-03 — trial balance
+  dayBookConfig, // SPEC-M52 M-03 — the GL day-book
+  cashBookConfig, // SPEC-M52 M-03 — the cash family book
+  finalAccountsConfig, // SPEC-M52 M-03 — P&L + balance sheet
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {
