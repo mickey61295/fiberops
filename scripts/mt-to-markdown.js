@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.6 · 2026-09-06 · Build under test: `main @ f68aa92` (M52 final-accounts reports; v1.6 adds the accounts cases AC-13..16 — the trial balance with the asserted Dr == Cr, the day-book with the cancel pair, the cash-book family with opening/closing + running balance, the P&L + balance sheet with the retained-earnings line, and THE GL DOCTRINE pair walkthrough) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.7 · 2026-09-07 · Build under test: `main @ 43fc765` (M53 Tally both sides; v1.7 adds the export cases AC-17..20 — the both-sides counts grid + the doctrine notes + the JSON download, COUNTED ONCE + the purchase side + the exclusion doors, THE EXPORT DOCTRINE PAIR (a reversed receipt exports with its CN- reversal, net zero), and the GST split ledgers + the agent door) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
