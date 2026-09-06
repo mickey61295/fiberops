@@ -1,7 +1,7 @@
 # FiberOps ERP — Manual Testing Guide
 
 > Start-to-end application walkthrough and order-flow end-to-end test plan.
-> Version 1.2 · 2026-09-06 · Build under test: `main @ fb0e949` (M48 statutory payroll; v1.2 adds the HR statutory cases HR-05..08, a docs-only change) · Environment: development (`http://localhost:3000`)
+> Version 1.3 · 2026-09-06 · Build under test: `main @ cbe37b2` (M49 attendance depth; v1.3 adds the HR attendance-depth cases HR-09..11 — cross-midnight, the OT walkthrough, the payslip honesty — a docs-only change) · Environment: development (`http://localhost:3000`)
 > Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).
 
 ## Test Overview
@@ -275,13 +275,16 @@ This section walks the application module by module. Execute the cases in order;
 | ID | How to Perform | Expected Result / Acceptance Criteria |
 |---|---|---|
 | **HR-01** | Open /hr/employees. | The employee master table renders with the L05 fields (designation, joining date, masked bank identifiers). |
-| **HR-02** | Open /hr/attendance and /hr/shifts. | Attendance register renders with day filters; shifts master renders. |
+| **HR-02** | Open /hr/attendance and /hr/shifts. | Attendance register renders with day filters and the OT Hrs column (M49: hours beyond the per-day standard on present rows — informational, paid only on ot: true runs); shifts master renders. |
 | **HR-03** | Open /hr/wages and /hr/wage-payments. | Wages register shows production-derived earnings; wage payments shows out-payments with party linkage. |
 | **HR-04** | Open /hr/operator-statement, /hr/payroll, and any payroll run view /hr/payroll/[id]. | The operator statement shows earned minus paid minus statutory deductions equals owed per operator (the Deducted column appears when statutory runs exist); the payroll register lists runs (PR-####) with a Deductions column; a run view shows lines, commit banner, journals, payslip links, and the statutory frozen-rates card when the run was created with statutory on. |
 | **HR-05** | Open /admin/options and scroll to the Payroll Statutory section; also open /hr/statutory. | The options page lists the payroll:statutory configuration row (the PF/ESI/PT/LWF rate JSON, editable). The statutory register at /hr/statutory renders one row per committed statutory run and head with the employee share, employer share, authority party, and the PENDING remittance per authority in the summary line; its csv export is the challan data. |
 | **HR-06** | Statutory walkthrough (form door): ensure operator E005 has two present attendance days in a fresh window; at /hr/payroll create a daily run over that window WITH the Statutory checkbox checked; open the run view and commit it. | The plan and run show deductions PF 192 + ESI 12 = 204 on earned 1,600, net 1,396 (seeded default rates: PF 12/12, ESI 0.75/3.25). The run view shows the statutory card (frozen rates) and the Deducted column. After commit the journals audit table lists the employee journal of 1,396 (not the full 1,600) PLUS the head journals to PF Payable and ESI Payable against the EPFO and ESIC authority parties (384 and 64). |
 | **HR-07** | Open E005's payslip from the run view; then pay the net 1,396 at /hr/wage-payments (or the agent pay_wages); reopen /hr/operator-statement. | The payslip shows the Less: PF (employee) and Less: ESI (employee) rows, NET PAYABLE 1,396, and the employer-share note (PF 192 + ESI 52 — a cost, not deducted). After paying the net, the statement's owed for E005 is 0 — the deducted 204 is remitted to the authorities, NOT owed to the operator. |
 | **HR-08** | Open /hr/statutory; record a payment of 384 to party EPFO (direction out, /accounts/payments or the agent record_payment); reopen /hr/statutory and EPFO's party ledger; then revert the created run, its journals, the payment, and the attendance rows. | Before remittance the register's pending column and summary show PF EPFO 384. After the payment, EPFO's party ledger balance returns to exactly 0 and the register shows PF pending 0 — the ledger IS the remittance tracker. After reverting, no statutory rows remain for the test run. |
+| **HR-09** | Cross-midnight (M49): ask the agent to post attendance for E005 with inTime 22:00 and outTime 06:00 (status present); open /hr/attendance and widen From/To to cover the day; re-post the same day with outTime 08:00 to correct it. | The night shift is ACCEPTED (out earlier than in = the shift ends the next day — the row stays on the START day, no second row). The register shows In 22:00 · Out 06:00 · Hrs 8 · OT Hrs 0. Re-posting CORRECTS the same row (upsert) to Hrs 10 · OT Hrs 2. An entry with outTime EQUAL to inTime is rejected with the 0-hour error. |
+| **HR-10** | Overtime walkthrough (M49, form door): give E005 two present attendance days with hours — 22:00→08:00 (10 h) and 06:00→17:00 (11 h); at /hr/payroll create a daily run over that window with the Overtime checkbox checked (leave Statutory unchecked); open the run view and commit it. | The run shows earned 2,600 = 1,600 base (2 days × ₹800) + 1,000 OT (5 h beyond the 8 h standard at the 2× multiplier — the plan text says 'incl. OT ₹1,000 (5 h beyond the per-day standard at 2×)'). The run view carries the Overtime frozen-config card (multiplier 2×, standard 8 h, 5 h, ₹1,000) and the OT ₹ column. After commit, the journals table lists the wage journal of the full 2,600 with E005's party — OT flows inside earned, so pay_wages the net still closes the employee ledger to exactly 0. Creating the same run with mode piece and the OT checkbox on is refused with the daily-only error. |
+| **HR-11** | Open E005's payslip from the HR-10 run view; also create the same daily run WITHOUT the Overtime checkbox (fresh window or after reverting); then revert the run, its journal, and the attendance rows. | The payslip shows the Earnings row at the BASE 1,600 (earned minus OT), the Overtime row '5 h beyond the 8h standard × 2× the hourly rate' at 1,000, and NET PAYABLE 2,600 plus the OT note. The OT-off run pays M46 arithmetic exactly (earned = days × dailyWage, no OT fields) and its plan text NAGS that the window carries OT-able hours — legacy nets never silently change. After reverting, no rows remain for the test run. |
 
 ### Quality & Lab (QA)
 
@@ -486,18 +489,18 @@ Additionally, while executing any negative case, watch the browser console: erro
 
 ## Test Results Summary (Current Round)
 
-The verification round performed on 2026-09-06 on main (commit fb0e949 — the M47 side_quest merge plus the M48 statutory payroll batch: PF/ESI/PT/LWF with configurable rates frozen per run, the journal split that keeps the employee ledger closing to zero while the authority parties track pending remittance, the statutory register with its challan-data csv, and the payslip deduction rows) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables.
+The verification round performed on 2026-09-06 on main (commit cbe37b2 — the M48 statutory payroll batch plus the M49 attendance-depth batch: cross-midnight night shifts postable with real times (out earlier than in = the next-day end, the row stays on the start day), overtime configurable (attendance:ot — 2× multiplier, 8 h standard) and opt-in per daily run with the config + per-line results frozen at plan, earned gaining exactly the one OT term so statutory, the wage journals and both ledger loop-closures needed zero changes, and the OT surfaces — payslip OT row, run-view card, OT columns on the payroll + day-book registers) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables.
 
 **Verification results, 2026-09-06 round**
 
 | Check | Result | Detail |
 |---|---|---|
-| Vitest suite | PASS | 71 files, 1447 tests passed in 40.4s (includes industry-chain, payroll L01/L02/L03, FY hotfix, parity suites) |
+| Vitest suite | PASS | 72 files, 1466 tests passed in 43.7s (includes industry-chain, payroll L01/L02/L03/L04, FY hotfix, parity suites) |
 | TypeScript (src) | PASS | Zero errors under src/; known legacy errors confined to scripts/ cleanup files |
-| Context integrity | PASS | context_check.sh: 606/606 checks, NO DRIFT |
-| Agent routing (static) | PASS | eval_routing.mjs --static PASS (m48-2026-09-06) |
-| Route smoke (live) | PASS | route_smoke_m48.sh: 45/45 — statutory register + csv + the seeded statutory walkthrough with full revert |
-| Browser E2E (live) | PASS | Statutory run created through the form door (checkbox) → commit → journals verified in the database (employee 1,396 + EPFO 384 + ESIC 64) → payslip deduction rows → live pending register → zero console errors → fully reverted |
+| Context integrity | PASS | context_check.sh: 606/606 checks, NO DRIFT (the m49 PROMPT_VERSION pin; reset artifacts regenerated) |
+| Agent routing (static) | PASS | eval_routing.mjs --static PASS (m49-2026-09-06) |
+| Route smoke (live) | PASS | route_smoke_m49.sh: 32/32 — day-book OT Hrs + cross-midnight row · payroll OT ₹ + the OT checkbox · the seeded OT walkthrough with full revert; route_smoke_m48 re-basis covered by the shared services |
+| Browser E2E (live) | PASS | OT run created through the form door (Overtime checkbox) → PR-0001 earned ₹2,600 = 1,600 base + 1,000 OT (5 h) → commit → journals verified in the database (V-0001 2,600 with partyId; ot cfg frozen {2, 8}; line otHours 5/otPay 1,000) → payslip OT row → day-book OT column → zero console errors → fully reverted |
 | Login (live) | PASS | admin@fiberpro.local authenticated via /api/auth/login; session payload correct |
 | Git state | PASS | Working tree clean; local main identical to origin/main; side_quest fully merged (0 unmerged commits) |
 
@@ -507,7 +510,7 @@ The seeded database state at verification time: 209 orders, 190 sales invoices, 
 
 No new defects were found during this verification round. The single observation is a known, documented condition rather than a defect: legacy cleanup scripts under scripts/ reference retired Prisma models (bill, billPass) and therefore fail strict type checking. They are outside the src/ gate, are not part of the build, and are scheduled for archival in a future housekeeping change. No action is required for the manual suite.
 
-Historical defects relevant to a tester's expectations, all fixed and pinned by regression tests: the fiscal-year 2027 time bomb (all numbering now derives from the active FinYear row — creating and activating 27-28 at /admin/company is the entire rollover procedure); the party-ledger double count (companion journals no longer double-subtract receipts); the payroll double-commit and draft-payslip guards; and the upload-route gremlin restored after the M44 sandbox incident. If any of these behaviors regress, the corresponding pipeline test (fy-hotfix, payroll-l01/l02/l03, party-ledger cases) will fail before a manual tester reaches them.
+Historical defects relevant to a tester's expectations, all fixed and pinned by regression tests: the fiscal-year 2027 time bomb (all numbering now derives from the active FinYear row — creating and activating 27-28 at /admin/company is the entire rollover procedure); the party-ledger double count (companion journals no longer double-subtract receipts); the payroll double-commit and draft-payslip guards; and the upload-route gremlin restored after the M44 sandbox incident. If any of these behaviors regress, the corresponding pipeline test (fy-hotfix, payroll-l01/l02/l03/l04, party-ledger cases) will fail before a manual tester reaches them.
 
 ## Risk Assessment and Outstanding Items
 
@@ -532,7 +535,7 @@ Verdict for the 2026-09-06 verification round: PASS. The merged main branch (inc
 | Item | Evidence Required | Status |
 |---|---|---|
 | Automated gates green | Table 1 commands re-run on the build under test | PASS (2026-09-06) |
-| Start-to-end walkthrough (Section 4) | All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked (HR now includes the statutory cases HR-05 through HR-08) | Pending |
+| Start-to-end walkthrough (Section 4) | All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked (HR now includes the statutory cases HR-05 through HR-08 and the M49 attendance-depth cases HR-09 through HR-11) | Pending |
 | Golden order flow (Section 5) | GF-00 through GF-17 marked; net stock zero; invoice paid; ledger closed | Pending |
 | Negative suite (Section 6) | N-01 through N-10 marked; zero residue after each | Pending |
 | side_quest merge regression (Appendix E) | R-FY, R-WG, R-PR, R-CS case IDs marked; created documents reverted | Pending |

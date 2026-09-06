@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.2 · 2026-09-06 · Build under test: `main @ fb0e949` (M48 statutory payroll; v1.2 adds the HR statutory cases HR-05..08, a docs-only change) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.3 · 2026-09-06 · Build under test: `main @ cbe37b2` (M49 attendance depth; v1.3 adds the HR attendance-depth cases HR-09..11 — cross-midnight, the OT walkthrough, the payslip honesty — a docs-only change) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
