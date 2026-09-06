@@ -556,6 +556,68 @@ async function main() {
     },
   }).catch(() => {})
 
+  // ── SPEC-M50 M-01 — the chart of accounts (the 19-row seeded standard
+  // tree, mirroring src/lib/erp/coa.ts COA_TREE — pinned by
+  // tests/pipeline/accounts-m01.test.ts; standalone scripts can't import the
+  // src module's @/ aliases). Idempotent upsert by code. Every journal this
+  // seed writes gets its GL links from the backfill pass below. ──
+  const COA: Array<[string, string, string, string | null]> = [
+    ['1000', 'Cash & Bank', 'asset', null],
+    ['1010', 'Cash/Bank', 'asset', '1000'],
+    ['1100', 'Current Assets', 'asset', null],
+    ['1110', 'Sundry Debtors', 'asset', '1100'],
+    ['2000', 'Current Liabilities', 'liability', null],
+    ['2100', 'Sundry Creditors', 'liability', '2000'],
+    ['2200', 'Wage Payable', 'liability', '2000'],
+    ['2210', 'PF Payable', 'liability', '2000'],
+    ['2220', 'ESI Payable', 'liability', '2000'],
+    ['2230', 'PT Payable', 'liability', '2000'],
+    ['2240', 'LWF Payable', 'liability', '2000'],
+    ['4000', 'Income', 'income', null],
+    ['4010', 'Sales', 'income', '4000'],
+    ['5000', 'Direct Expenses', 'expense', null],
+    ['5010', 'Production Wages', 'expense', '5000'],
+    ['5020', 'Freight', 'expense', '5000'],
+    ['5100', 'Indirect Expenses', 'expense', null],
+    ['5110', 'Staff Salaries', 'expense', '5100'],
+    ['9000', 'Suspense Account', 'equity', null],
+  ]
+  const accIds = new Map<string, string>()
+  for (const [code, name, type, parent] of [...COA].sort((a, b) => (a[3] ? 1 : 0) - (b[3] ? 1 : 0))) {
+    const acc = await db.account.upsert({
+      where: { code },
+      update: {},
+      create: { code, name, type, parentId: parent ? accIds.get(parent) ?? null : null, active: true },
+    })
+    accIds.set(code, acc.id)
+  }
+
+  // ── SPEC-M50 CA-03 — backfill the GL links on every journal this seed
+  // wrote (exact-name → the leg EQUALS the row's party name → party-type
+  // control → Suspense, reported).
+  const byName = new Map(COA.map(([code, name]) => [name, code]))
+  const partyIds = [...new Set((await db.payment.findMany({ select: { partyId: true } })).map((p: any) => p.partyId).filter(Boolean))]
+  const parties = partyIds.length ? await db.party.findMany({ where: { id: { in: partyIds } }, select: { id: true, name: true, partyType: true } }) : []
+  const partyById = new Map(parties.map((p: any) => [p.id, p]))
+  const legTarget = (leg: string, partyId: string | null): string | null => {
+    const exact = byName.get(leg)
+    if (exact) return accIds.get(exact) ?? null
+    const party = partyId ? partyById.get(partyId) : undefined
+    if (party && party.name === leg) {
+      const control = party.partyType === 'customer' ? 'Sundry Debtors' : party.partyType === 'supplier' ? 'Sundry Creditors' : party.partyType === 'employee' ? 'Wage Payable' : 'Suspense Account'
+      return accIds.get(control) ?? null
+    }
+    return accIds.get('9000') ?? null
+  }
+  const journals = await db.journal.findMany({ select: { id: true, debitAccount: true, creditAccount: true, debitAccountId: true, creditAccountId: true, partyId: true } })
+  for (const j of journals) {
+    const debit = j.debitAccountId ?? legTarget(j.debitAccount, j.partyId)
+    const credit = j.creditAccountId ?? legTarget(j.creditAccount, j.partyId)
+    if (debit !== j.debitAccountId || credit !== j.creditAccountId) {
+      await db.journal.update({ where: { id: j.id }, data: { debitAccountId: debit, creditAccountId: credit } })
+    }
+  }
+
   console.log('✅ Seed complete')
   console.log('   Orders:', Object.keys(orders).length)
   console.log('   POs:', Object.keys(pos).length)

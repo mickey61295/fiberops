@@ -116,7 +116,7 @@ describe('SPEC-M42 INV-05 — planWasteReceipt (the waste identity)', () => {
   })
 
   it('registry grew 224 → 246 (receive_waste + the M42 stock-take trio)', () => {
-    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(261) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 
   it('the base service + its tool stay untouched (the manual ADJ- door is separate from the waste door)', () => {

@@ -24,6 +24,7 @@ import type { DocPlanResult } from './types'
 import type { PaymentInput } from '../schemas/payment'
 import type { WagePaymentInput } from '../schemas/payment-variants'
 import { dateOrIstToday } from '@/lib/erp/dates'
+import { resolveAccountByRef, partyControlName } from '../coa'
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -119,6 +120,20 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   const mode = args.mode || 'bank'
   const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
   if (args.orderNo && !order) return { ok: false, error: `Order ${args.orderNo} not found` }
+
+  // SPEC-M50 M-01 (CA-04) — resolve the GL legs BEFORE the voucher: the
+  // cash leg is 'Cash/Bank' (the seeded catch-all; M-02 splits per mode),
+  // the party leg classifies to the party-type control (the partyId
+  // sub-ledger carries the real balance — M45; the FK is the GL grouping).
+  // A miss is a LOUD refusal — a journal never saves unlinked.
+  const cashAccount = await resolveAccountByRef('Cash/Bank')
+  const controlName = partyControlName(party.partyType)
+  const controlAccount = await resolveAccountByRef(controlName)
+  if (!cashAccount || !controlAccount) {
+    const miss = !cashAccount ? 'Cash/Bank' : controlName
+    return { ok: false, error: `Chart of accounts incomplete — account '${miss}' is missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); a journal cannot save unlinked accounts (SPEC-M50 M-01).` }
+  }
+
   const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
   const payDate = dateOrIstToday(args.payDate)
 
@@ -200,6 +215,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
     sideEffects: [
       direction === 'in' ? 'Party receivable reduces' : 'Party payable reduces',
       'Journal voucher written (receipt/payment)',
+      `GL legs classify to ${direction === 'in' ? `Cash/Bank [${cashAccount.code}] / ${controlName} [${controlAccount.code}]` : `${controlName} [${controlAccount.code}] / Cash/Bank [${cashAccount.code}]`} (the chart of accounts — SPEC-M50)`,
       ...allocations.map((a) => `Allocation ₹${a.amount} → ${a.ref}${a.invoiceId ? ' (invoice status derives: partial/paid)' : ' (bill status derives: partial/paid)'}`),
       ...(onAccount > 0 ? [`₹${onAccount} stays ON-ACCOUNT (labeled party credit — PAY-01 overpayment rule)`] : []),
     ],
@@ -208,6 +224,12 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
         const pay = await tx.payment.create({
           data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, reference: args.reference, notes: args.notes, status: 'active' },
         })
+        // SPEC-M50 CA-04 — re-resolved INSIDE the tx (the plan resolved the
+        // same names; a deleted account between plan and commit aborts the
+        // payment rather than saving an unlinked journal).
+        const cashLeg = await resolveAccountByRef('Cash/Bank', tx)
+        const controlLeg = await resolveAccountByRef(partyControlName(party.partyType), tx)
+        if (!cashLeg || !controlLeg) throw new Error(`Chart of accounts incomplete — '${!cashLeg ? 'Cash/Bank' : partyControlName(party.partyType)}' is missing; a journal cannot save unlinked accounts (SPEC-M50 M-01)`)
         await tx.journal.create({
           data: {
             voucherNo: `JV-${voucherNo}`,
@@ -217,6 +239,8 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
             finYear: await activeFinYear(),
             debitAccount: direction === 'in' ? 'Cash/Bank' : party.name,
             creditAccount: direction === 'in' ? party.name : 'Cash/Bank',
+            debitAccountId: direction === 'in' ? cashLeg.id : controlLeg.id,
+            creditAccountId: direction === 'in' ? controlLeg.id : cashLeg.id,
             amount: args.amount,
             narration: `${direction === 'in' ? 'Collection' : 'Payment'} ${voucherNo}${invoice ? ' against ' + invoice.invoiceNo : ''}${bill ? ' against ' + bill.billNo : ''}${allocatedLines.length ? ' alloc: ' + allocatedLines.join(', ') : ''}${onAccount > 0 ? ` (+₹${onAccount} on-account)` : ''}${args.reference ? ' ref ' + args.reference : ''}`,
           },

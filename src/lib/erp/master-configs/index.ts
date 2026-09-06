@@ -44,6 +44,7 @@ import { countGroupConfig } from './count-group'
 import { rangeGroupConfig } from './range-group'
 import { sizeRangeConfig } from './size-range'
 import { costComponentConfig } from './cost-component'
+import { accountConfig } from './account'
 
 export const MASTER_CONFIGS: MasterConfig[] = [
   partyConfig,
@@ -92,6 +93,8 @@ export const MASTER_CONFIGS: MasterConfig[] = [
   sizeRangeConfig,
   // SPEC-M44 CST-01 — the cost component library (Module K costing depth)
   costComponentConfig,
+  // SPEC-M50 M-01 — the chart of accounts (Module M final accounts)
+  accountConfig,
 ]
 
 export const MASTER_CATEGORIES: Array<{ key: MasterCategory; label: string; blurb: string }> = [

@@ -14,7 +14,7 @@ module.exports = [
       ["Vitest suite", "PASS", "72 files, 1466 tests passed in 43.7s (includes industry-chain, payroll L01/L02/L03/L04, FY hotfix, parity suites)"],
       ["TypeScript (src)", "PASS", "Zero errors under src/; known legacy errors confined to scripts/ cleanup files"],
       ["Context integrity", "PASS", "context_check.sh: 606/606 checks, NO DRIFT (the m49 PROMPT_VERSION pin; reset artifacts regenerated)"],
-      ["Agent routing (static)", "PASS", "eval_routing.mjs --static PASS (m49-2026-09-06)"],
+      ["Agent routing (static)", "PASS", "eval_routing.mjs --static PASS (m50-2026-09-06)"],
       ["Route smoke (live)", "PASS", "route_smoke_m49.sh: 32/32 — day-book OT Hrs + cross-midnight row · payroll OT ₹ + the OT checkbox · the seeded OT walkthrough with full revert; route_smoke_m48 re-basis covered by the shared services"],
       ["Browser E2E (live)", "PASS", "OT run created through the form door (Overtime checkbox) → PR-0001 earned ₹2,600 = 1,600 base + 1,000 OT (5 h) → commit → journals verified in the database (V-0001 2,600 with partyId; ot cfg frozen {2, 8}; line otHours 5/otPay 1,000) → payslip OT row → day-book OT column → zero console errors → fully reverted"],
       ["Login (live)", "PASS", "admin@fiberpro.local authenticated via /api/auth/login; session payload correct"],

@@ -418,7 +418,7 @@ describe('L-04 wiring + source pins', () => {
     expect(postDesc).toContain('CROSS-MIDNIGHT')
     const listDesc = allTools.find((t: any) => t.name === 'list_attendance')!.description
     expect(listDesc).toContain('OT hours')
-    expect(allTools.length).toBe(258) // depth, not width — no new tools
+    expect(allTools.length).toBe(261) // + M50 M-01 create/update/list_account
     expect(src('src/app/(erp)/hr/payroll/actions.ts')).toContain("fd.get('ot')")
     expect(src('src/app/(erp)/hr/payroll/page.tsx')).toContain('name="ot"')
   })
@@ -433,7 +433,7 @@ describe('L-04 wiring + source pins', () => {
   })
 
   it('prompt m49 + the HR line carries the OT door; the config door hint', () => {
-    expect(PROMPT_VERSION).toBe('m49-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m50-2026-09-06')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('ot: true on DAILY runs')
     expect(prompt).toContain('cross-midnight')

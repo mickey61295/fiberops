@@ -405,7 +405,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('the new tools are registered: 258 = 249 at M43 + the M44 CST quartet + the M45/M46 payroll quartet (side_quest)', () => {
-      expect(allTools.length).toBe(258) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
+      expect(allTools.length).toBe(261) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
       expect(getTool('set_order_deliveries')?.isWrite).toBe(true)
       expect(getTool('set_order_deliveries')?.domain).toBe('orders')
       expect(getTool('correct_program_spec')?.isWrite).toBe(true)
@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m49-2026-09-06') // M49 L-04 attendance depth (cross-midnight + OT) on the M48 line
-      expect(PROMPT_VERSION.startsWith('m49')).toBe(true) // M49 = L-04 attendance depth on the M48 line
+      expect(PROMPT_VERSION).toBe('m50-2026-09-06') // M50 M-01 chart of accounts on the M49 line
+      expect(PROMPT_VERSION.startsWith('m50')).toBe(true) // M50 = M-01 chart of accounts
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

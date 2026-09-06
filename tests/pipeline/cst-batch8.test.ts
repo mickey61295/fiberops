@@ -121,7 +121,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
 
   // ──────────────────────────────────────────────────────────────────────
   describe('CST-01 — the cost component library', () => {
-    it('create_cost_component auto-codes CC-#### and the masters registry carries 42 configs', async () => {
+    it('create_cost_component auto-codes CC-#### and the masters registry carries 43 configs', async () => {
       const tool = getTool('create_cost_component')!
       expect(tool).toBeTruthy()
       expect(tool.isWrite).toBe(true)
@@ -130,7 +130,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
       const code = (res.plan!.creates![0].data as any).code
       expect(code).toMatch(/^CC-\d{4}$/)
       expect((res.plan!.creates![0].data as any).rate).toBe(3)
-      expect(MASTER_CONFIGS.length).toBe(42) // 41 + cost-component
+      expect(MASTER_CONFIGS.length).toBe(43) // 41 + cost-component + account (SPEC-M50)
       expect(MASTER_CONFIGS.find((c) => c.slug === 'cost-component')?.legacyForms).toContain('FrmPreCostingCompMas')
     })
 
@@ -441,7 +441,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
   // ──────────────────────────────────────────────────────────────────────
   describe('the batch surface — tools, prompt, spec', () => {
     it('the new tools are registered: 253 = 249 at M43 + cost-component ×3 + get_order_cost', () => {
-      expect(allTools.length).toBe(258) // M44 CST + M45/M46 payroll quartet (m47 merge) + M48 L-03 +get_statutory_register
+      expect(allTools.length).toBe(261) // M44 CST + M45/M46 payroll quartet (m47 merge) + M48 L-03 +get_statutory_register
       expect(allTools.map((t) => t.name)).toContain('create_cost_component')
       expect(allTools.map((t) => t.name)).toContain('update_cost_component')
       expect(allTools.map((t) => t.name)).toContain('list_cost_components')
@@ -449,7 +449,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
     })
 
     it('PROMPT_VERSION + the costing prompt section (M44)', () => {
-      expect(PROMPT_VERSION).toBe('m49-2026-09-06') // M49 L-04 attendance depth (cross-midnight + OT) on the M48 line
+      expect(PROMPT_VERSION).toBe('m50-2026-09-06') // M50 M-01 chart of accounts on the M49 line
       const prompt = src('../agent/prompt.ts')
       expect(prompt).toContain('create_cost_component')
       expect(prompt).toContain('get_order_cost')

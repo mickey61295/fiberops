@@ -23,6 +23,7 @@ import { activeFinYear, resolveDocNo } from '../numbering'
 import { docKeyViolation } from './ledger'
 import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
 import { resolveStatutoryConfig, computeStatutory, ensureStatutoryParties, normalizeStatutory, STATUTORY_HEADS, type StatutoryConfig } from '../statutory' // SPEC-M48 L-03
+import { resolveAccountByRef, type ResolvedAccount } from '../coa' // SPEC-M50 M-01
 import { resolveOtConfig, computeOtDay, type OtConfig } from '../overtime' // SPEC-M49 L-04
 import { endOfUtcDay } from '@/lib/erp/dates'
 import type { DocPlanResult } from './types'
@@ -353,6 +354,27 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
   const payable = run.lines.filter((l) => l.earned > 0)
   const debitAccount = run.mode === 'piece' ? 'Production Wages' : 'Staff Salaries'
   const period = `${run.from.toISOString().slice(0, 10)} → ${run.to.toISOString().slice(0, 10)}`
+  const statutoryOn = run.statutory != null
+
+  // SPEC-M50 M-01 (CA-04) — resolve the journal legs against the chart of
+  // accounts BEFORE the plan: the wage expense account, Wage Payable, and
+  // (on a statutory run) every head's payableAccount. A miss is a LOUD
+  // refusal — the commit never saves an unlinked journal.
+  const wageAcc = await resolveAccountByRef(debitAccount)
+  const wagePayableAcc = await resolveAccountByRef('Wage Payable')
+  const headAccs = new Map<string, ResolvedAccount>()
+  for (const h of STATUTORY_HEADS) {
+    if (!statutoryOn) break
+    const acc = await resolveAccountByRef(h.payableAccount)
+    if (acc) headAccs.set(h.key, acc)
+  }
+  const coaMissing: string[] = []
+  if (!wageAcc) coaMissing.push(debitAccount)
+  if (!wagePayableAcc) coaMissing.push('Wage Payable')
+  if (statutoryOn) for (const h of STATUTORY_HEADS) if (!headAccs.get(h.key) && run.lines.some((l) => (h.key === 'pf' ? l.pf + l.pfEmployer : h.key === 'esi' ? l.esi + l.esiEmployer : h.key === 'pt' ? l.pt : h.key === 'lwf' ? l.lwf : 0) > 0)) coaMissing.push(h.payableAccount)
+  if (coaMissing.length) {
+    return { ok: false, error: `Chart of accounts incomplete — ${coaMissing.join(', ')} missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); a journal cannot save unlinked accounts (SPEC-M50 M-01).` }
+  }
 
   // ── SPEC-M48 L-03 — the statutory split ──
   // run.statutory (the FROZEN config) non-null ⇒ this is a statutory run:
@@ -363,7 +385,6 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
   //   authority party, amount = employee + employer share — wage expense
   //   totals Σ earned + Σ employer shares, and the authority's party ledger
   //   becomes the remittance tracker (loop-closure #4)
-  const statutoryOn = run.statutory != null
   const journals = payable
     .map((l) => {
       const emp = empById.get(l.employeeId)
@@ -411,20 +432,27 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
   const totalDeductions = statutoryOn ? run.lines.reduce((s, l) => s + l.deductions, 0) : 0
 
   const notes = [run.notes, args.notes?.trim()].filter(Boolean).join(' · ') || null
+  const debitLabel = `${debitAccount} [${wageAcc!.code}]`
+  const wagePayableLabel = `Wage Payable [${wagePayableAcc!.code}]`
 
   return {
     ok: true,
-    text: `Committing payroll run ${run.runNo}: ${journals.length} wage journal${journals.length === 1 ? '' : 's'} (V-####, Dr ${debitAccount} / Cr Wage Payable, one per line with its partyId${statutoryOn ? ', amount = earned − deductions' : ''}) totalling ${inr(totalJournal)}${statutoryOn ? ` + ${headJournals.length} statutory journal${headJournals.length === 1 ? '' : 's'} totalling ${inr(totalHeads)} (deductions ${inr(totalDeductions)} + employer shares)` : ''}; the run becomes terminal. Net ${inr(run.lines.reduce((s, l) => s + l.net, 0))} is then payable via pay_wages.`,
+    text: `Committing payroll run ${run.runNo}: ${journals.length} wage journal${journals.length === 1 ? '' : 's'} (V-####, Dr ${debitLabel} / Cr ${wagePayableLabel}, one per line with its partyId${statutoryOn ? ', amount = earned − deductions' : ''}) totalling ${inr(totalJournal)}${statutoryOn ? ` + ${headJournals.length} statutory journal${headJournals.length === 1 ? '' : 's'} totalling ${inr(totalHeads)} (deductions ${inr(totalDeductions)} + employer shares)` : ''}; the run becomes terminal. Net ${inr(run.lines.reduce((s, l) => s + l.net, 0))} is then payable via pay_wages.`,
     summary: `Payroll commit | ${run.runNo} | draft → committed | ${journals.length} wage journals${statutoryOn ? ` + ${headJournals.length} statutory` : ''} | ${inr(totalJournal + totalHeads)}`,
     updates: [{ table: 'payrollRun', id: run.id, data: { status: 'committed', committedAt: new Date(), ...(args.notes?.trim() ? { notes: notes ?? undefined } : {}) } }],
     sideEffects: [
-      ...journals.map((j) => `Journal V-#### · Dr ${debitAccount} / Cr Wage Payable · ${inr(j.amount)} · party stamped (${j.employee})`),
-      ...headJournals.map((j) => `Journal V-#### · Dr ${debitAccount} / Cr ${j.head.payableAccount} · ${j.head.label} employee ${inr(j.employee)} + employer ${inr(j.employer)} · party ${j.head.partyCode} (remittance pending in its ledger)`),
+      ...journals.map((j) => `Journal V-#### · Dr ${debitLabel} / Cr ${wagePayableLabel} · ${inr(j.amount)} · party stamped (${j.employee})`),
+      ...headJournals.map((j) => `Journal V-#### · Dr ${debitLabel} / Cr ${j.head.payableAccount} [${headAccs.get(j.head.key)!.code}] · ${j.head.label} employee ${inr(j.employee)} + employer ${inr(j.employer)} · party ${j.head.partyCode} (remittance pending in its ledger)`),
       'Wage Payable grows by the run total' + (statutoryOn ? '; the statutory payables (PF/ESI/PT/LWF) grow by the head journals — remit via payments to the authority parties' : '') + '; every line employee-party is credited in the ledger',
       'Payslips become printable (draft runs refuse — numbers must be posted first)',
     ],
     async commit() {
       return db.$transaction(async (tx) => {
+        // SPEC-M50 CA-04 — re-resolve INSIDE the tx; a deleted account between
+        // plan and commit aborts the run commit, never saves an unlinked journal.
+        const wageLeg = await resolveAccountByRef(debitAccount, tx)
+        const payableLeg = await resolveAccountByRef('Wage Payable', tx)
+        if (!wageLeg || !payableLeg) throw new Error(`Chart of accounts incomplete — '${!wageLeg ? debitAccount : 'Wage Payable'}' is missing (SPEC-M50 M-01)`)
         const posted: string[] = []
         for (const j of journals) {
           const voucherNo = await nextVoucherNo(tx)
@@ -434,6 +462,7 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
               date: new Date(), finYear: run.finYear,
               partyId: j.partyId,
               debitAccount, creditAccount: 'Wage Payable',
+              debitAccountId: wageLeg.id, creditAccountId: payableLeg.id,
               amount: j.amount, narration: j.narration,
             },
           })
@@ -441,12 +470,15 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
         }
         for (const j of headJournals) {
           const voucherNo = await nextVoucherNo(tx)
+          const headLeg = await resolveAccountByRef(j.head.payableAccount, tx)
+          if (!headLeg) throw new Error(`Chart of accounts incomplete — '${j.head.payableAccount}' is missing (SPEC-M50 M-01)`)
           await tx.journal.create({
             data: {
               voucherNo, voucherType: 'journal',
               date: new Date(), finYear: run.finYear,
               partyId: j.partyId,
               debitAccount, creditAccount: j.head.payableAccount,
+              debitAccountId: wageLeg.id, creditAccountId: headLeg.id,
               amount: j.amount, narration: j.narration,
             },
           })

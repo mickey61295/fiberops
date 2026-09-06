@@ -2290,6 +2290,8 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('size-range', 'Create a size range pack (export packing, e.g. "104-110"). code is optional — auto-assigned RNG-#### if omitted or taken. Required: name. Optional: rangeGroupCode, sizes (CSV of size names).'),
   // SPEC-M44 CST-01 — the cost component library (Module K)
   masterCreateTool('cost-component', 'Create a cost component (the costing library — legacy FrmPreCostingCompMas). code is optional — auto-assigned CC-#### if omitted or taken. Required: name. Optional: category (fabric|trim|cm|washing|packing|overhead|other — the cost-sheet head it quotes into, default other), unit (display text, e.g. per kg), rate (the quoted ₹), active (default true).'),
+  // SPEC-M50 M-01 — the chart of accounts (Module M)
+  masterCreateTool('account', 'Create a chart-of-accounts account. code is optional — auto-assigned ACC-#### if omitted or taken (the seeded standard tree uses numeric codes: 1010 Cash/Bank, 1110 Sundry Debtors, 2100 Sundry Creditors, 2200 Wage Payable, 4010 Sales, 5010 Production Wages, 5110 Staff Salaries, 9000 Suspense Account). Required: name, type (asset|liability|income|expense|equity). Optional: parentCode (an account code or name), active (default true). Journal legs resolve by exact name OR code — create the account here FIRST, then create_journal.'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -2337,10 +2339,27 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('size-range', 'Update an existing size range by code. All fields optional; rangeGroupCode resolves by code or name.'),
   // SPEC-M44 CST-01 — the cost component library (Module K)
   masterUpdateTool('cost-component', 'Update an existing cost component by code. Updatable: name, category, unit, rate, active.'),
+  // SPEC-M50 M-01 — the chart of accounts (Module M)
+  masterUpdateTool('account', 'Update an existing chart-of-accounts account by code. Updatable: name, type (asset|liability|income|expense|equity), parentCode, active.'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
 const masterNewListTools: AgentTool[] = [
+  {
+    // SPEC-M50 M-01 — the chart of accounts (Module M)
+    name: 'list_accounts',
+    description: 'List chart-of-accounts accounts (code, name, type, parent code, active). Use to resolve an account name or code before create_journal — journal legs resolve by EXACT name or code, unknown legs are refused.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.account.findMany({ include: { parent: true }, orderBy: { code: 'asc' } })
+      return {
+        text: `${rows.length} accounts`,
+        json: rows.map((a: any) => ({ code: a.code, name: a.name, type: a.type, parentCode: a.parent?.code ?? null, active: a.active })),
+      }
+    },
+  },
   {
     // SPEC-M44 CST-01 — the cost component library (Module K)
     name: 'list_cost_components',
@@ -3185,7 +3204,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_journal',
-    'Post a journal voucher (receipt | payment | contra | journal). voucherNo is optional — auto-assigned V-#### if omitted or taken. Required: voucherType, debitAccount, creditAccount, amount. Optional: partyCode, narration, date.',
+    'Post a journal voucher (receipt | payment | contra | journal). voucherNo is optional — auto-assigned V-#### if omitted or taken. Required: voucherType, debitAccount, creditAccount, amount. Optional: partyCode, narration, date. SPEC-M50: debitAccount/creditAccount resolve against the chart of accounts by EXACT name or code (e.g. "Production Wages" or "5010", "Wage Payable" or "2200") — unknown legs are REFUSED; create the account first (create_account) or browse the chart (list_accounts). Payment/receipt/payroll/production-bill vouchers resolve their legs automatically.',
     'accounting',
     JOURNAL_SCHEMA,
     planJournal,

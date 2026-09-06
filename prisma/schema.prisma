@@ -837,21 +837,57 @@ model SupplierBillLine {
   amount    Float
 }
 
+// ============== CHART OF ACCOUNTS ==============
+// SPEC-M50 M-01 — the Account master (CoA). Every journal leg resolves to an
+// Account row (debitAccountId/creditAccountId below); the free strings stay
+// as the voucher's detail text — the FK is the GL classification M-03's
+// trial balance groups by. Self-parent tree; type is the 5-way classical
+// split. Seeded by lib/erp/coa.ts COA_TREE (19 rows, names the posting
+// layer writes verbatim) — scripts/seed_coa.ts + scripts/backfill_coa.ts
+// migrate the live db.
+model Account {
+  id        String    @id @default(cuid())
+  code      String    @unique // '1010' seeded block; user rows auto-code ACC-####
+  name      String
+  type      String // asset | liability | income | expense | equity
+  parentId  String?
+  parent    Account?  @relation("AccountTree", fields: [parentId], references: [id])
+  children  Account[] @relation("AccountTree")
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  journalsDebit  Journal[] @relation("JournalDebitAccount")
+  journalsCredit Journal[] @relation("JournalCreditAccount")
+
+  @@index([type])
+  @@index([parentId])
+}
+
 model Journal {
-  id            String   @id @default(cuid())
-  voucherNo     String   @unique
-  voucherType   String // receipt | payment | contra | journal
-  partyId       String?
-  party         Party?   @relation(fields: [partyId], references: [id])
-  date          DateTime @default(now())
-  finYear       String
-  debitAccount  String
-  creditAccount String
-  amount        Float    @default(0)
-  narration     String?
-  status        String   @default("active") // SPEC-M40 PAY-06 — active | cancelled (a CN- mirror row preserves the audit)
-  createdAt     DateTime @default(now())
+  id             String    @id @default(cuid())
+  voucherNo      String    @unique
+  voucherType    String // receipt | payment | contra | journal
+  partyId        String?
+  party          Party?    @relation(fields: [partyId], references: [id])
+  date           DateTime  @default(now())
+  finYear        String
+  debitAccount   String // the voucher's DETAIL text (audit) — the GL link is debitAccountId
+  creditAccount  String
+  // SPEC-M50 M-01 CA-03/CA-04 — the CoA links. Optional in schema (the
+  // backfill migrates legacy rows); the posting layer REFUSES unlinked —
+  // "a journal cannot save an unlinked account" is enforced at the 8 create
+  // sites + asserted by tests (accounts-m01: every active row carries both).
+  debitAccountId  String?
+  debitAccountRef Account? @relation("JournalDebitAccount", fields: [debitAccountId], references: [id])
+  creditAccountId String?
+  creditAccountRef Account? @relation("JournalCreditAccount", fields: [creditAccountId], references: [id])
+  amount         Float     @default(0)
+  narration      String?
+  status         String    @default("active") // SPEC-M40 PAY-06 — active | cancelled (a CN- mirror row preserves the audit)
+  createdAt      DateTime  @default(now())
   @@index([createdAt])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
 }
 
 

@@ -102,7 +102,7 @@ describe('approval actor on commits (SPEC-M7 Wave B)', () => {
   })
 
   it('the tool registry still exposes every tool with the widened execute signature', () => {
-    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(261) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
     for (const t of allTools) {
       expect(typeof t.execute).toBe('function')
     }

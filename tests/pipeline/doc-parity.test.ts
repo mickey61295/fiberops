@@ -456,7 +456,8 @@ describe('doc form↔agent parity (SPEC-M3 §13)', () => {
   })
 
   it('16. create_journal — both doors, identical voucher', async () => {
-    const base = { voucherType: 'journal', debitAccount: 'Freight', creditAccount: 'Cash', amount: 250, partyCode: SUPPLIER }
+    // SPEC-M50: both legs resolve against the CoA (Freight 5020 / Cash-Bank 1010)
+    const base = { voucherType: 'journal', debitAccount: 'Freight', creditAccount: 'Cash/Bank', amount: 250, partyCode: SUPPLIER }
     const { a, b } = await runBoth('create_journal', planJournal,
       { voucherNo: vA, ...base }, { voucherNo: vB, ...base })
     expect(a.committed.voucherNo).toBe(vA)

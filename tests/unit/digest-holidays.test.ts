@@ -88,7 +88,7 @@ describe('SPEC-M35 — the get_daily_digest tool (the restored Phase-4.5 promise
     expect(tool).toBeDefined()
     expect(tool!.domain).toBe('reports')
     expect(tool!.isWrite).toBe(false)
-    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(261) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 
   it('returns the briefing text + section counts + shutdown rows', async () => {

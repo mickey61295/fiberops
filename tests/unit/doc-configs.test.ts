@@ -805,8 +805,8 @@ describe('form-door integration — Wave D accounts + inventory ops (ADR-001 thr
       header: {
         voucherNo: vNo,
         voucherType: 'journal',
-        debitAccount: 'Freight Expense',
-        creditAccount: 'Cash',
+        debitAccount: 'Freight', // SPEC-M50: legs resolve against the CoA (Freight 5020)
+        creditAccount: 'Cash/Bank', // 1010 — unknown legs are refused
         amount: '2500.75',
         partyCode: CUSTOMER,
         narration: 'Wave D form-door test',

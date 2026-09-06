@@ -22,6 +22,7 @@ const FK_COLUMN_OVERRIDES: Record<string, string> = {
   'user-group': 'userGroupId', // ADR-016 (M6-B): slug has a hyphen, column is camelCase
   'machine-category': 'machineCategoryId', // SPEC-M19 §3 Wave C
   'range-group': 'rangeGroupId', // SPEC-M19 §3 Wave C
+  account: 'parentId', // SPEC-M50 M-01 — self-FK: the parent IS an account
 }
 
 /** flattened display key per refEntity (listColumns / searchFields use these) */
@@ -34,6 +35,7 @@ const DISPLAY_KEYS: Record<string, string> = {
   'user-group': 'userGroupName', // ADR-016 (M6-B)
   'machine-category': 'machineCategoryName', // SPEC-M19 §3 Wave C
   'range-group': 'rangeGroupName', // SPEC-M19 §3 Wave C
+  account: 'parentName', // SPEC-M50 M-01
 }
 
 /** Prisma relation field name per refEntity (for include) — default refEntity */
@@ -42,6 +44,7 @@ const RELATION_OVERRIDES: Record<string, string> = {
   'user-group': 'userGroup', // ADR-016 (M6-B)
   'machine-category': 'machineCategory', // SPEC-M19 §3 Wave C
   'range-group': 'rangeGroup', // SPEC-M19 §3 Wave C
+  account: 'parent', // SPEC-M50 M-01 — the Prisma relation on Account
 }
 
 /** entities whose titleField is ALSO unique (SPEC-M2 ERRATUM 3) */

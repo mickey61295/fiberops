@@ -13,6 +13,7 @@
 //     status flips with guards (settled/actuals block)
 
 import { db } from '@/lib/db'
+import { resolveAccountByRef, partyControlName } from '../coa' // SPEC-M50 M-01
 import type { DocPlanResult } from './types'
 import type { CancelOrderInput, CancelPoInput, CancelInvoiceInput } from '../schemas/cancel'
 import type { CancelPaymentInput, CancelJournalInput, CancelDebitNoteInput, CancelExpenseInput, CancelBudgetInput } from '../schemas/cancel'
@@ -129,6 +130,23 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
   const contraDebitAccount = journal ? journal.creditAccount : pay.direction === 'in' ? (party?.name ?? 'Party') : 'Cash/Bank'
   const contraCreditAccount = journal ? journal.debitAccount : pay.direction === 'in' ? 'Cash/Bank' : (party?.name ?? 'Party')
 
+  // SPEC-M50 M-01 (CA-04) — the contra's GL legs: the original journal's FKs
+  // SWAPPED when the companion exists; a legacy payment (no companion)
+  // resolves exactly the way the payment door does — 'Cash/Bank' + the
+  // party-type control. A miss is a LOUD refusal (the contra is a journal).
+  let contraDebitId: string | null = journal?.creditAccountId ?? null
+  let contraCreditId: string | null = journal?.debitAccountId ?? null
+  if (!journal) {
+    const cashLeg = await resolveAccountByRef('Cash/Bank')
+    const controlLeg = await resolveAccountByRef(partyControlName(party?.partyType))
+    if (!cashLeg || !controlLeg) {
+      const miss = !cashLeg ? 'Cash/Bank' : partyControlName(party?.partyType)
+      return { ok: false, error: `Chart of accounts incomplete — account '${miss}' is missing. Seed it (scripts/seed_coa.ts) or create it (create_account / /masters/account); the contra journal cannot save unlinked (SPEC-M50 M-01).` }
+    }
+    contraDebitId = pay.direction === 'in' ? controlLeg.id : cashLeg.id
+    contraCreditId = pay.direction === 'in' ? cashLeg.id : controlLeg.id
+  }
+
   return {
     ok: true,
     text: `Proposed cancellation of payment ${args.voucherNo} (₹${pay.amount}${allocated > 0 ? `, ₹${allocated} allocated` : ''}) — contra ${contraNo} mirrors the legs.`,
@@ -138,7 +156,7 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
         table: 'journal',
         data: {
           voucherNo: contraNo, voucherType: 'contra', partyId: pay.partyId, date: new Date(), finYear: pay.finYear,
-          debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, amount: pay.amount,
+          debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, debitAccountId: contraDebitId, creditAccountId: contraCreditId, amount: pay.amount,
           narration: `Contra: cancel ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
         },
       },
@@ -161,7 +179,7 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
         await tx.journal.create({
           data: {
             voucherNo: contraNo, voucherType: 'contra', partyId: pay.partyId, date: new Date(), finYear: pay.finYear,
-            debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, amount: pay.amount,
+            debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, debitAccountId: contraDebitId, creditAccountId: contraCreditId, amount: pay.amount,
             narration: `Contra: cancel ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
           },
         })
@@ -200,7 +218,9 @@ export async function planCancelJournal(args: CancelJournalInput): Promise<DocPl
         table: 'journal',
         data: {
           voucherNo: mirrorNo, voucherType: 'contra', partyId: journal.partyId, date: new Date(), finYear: journal.finYear,
-          debitAccount: journal.creditAccount, creditAccount: journal.debitAccount, amount: journal.amount,
+          debitAccount: journal.creditAccount, creditAccount: journal.debitAccount,
+          debitAccountId: journal.creditAccountId, creditAccountId: journal.debitAccountId, // SPEC-M50 — the FKs swap with the strings
+          amount: journal.amount,
           narration: `Contra: cancel ${journal.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
         },
       },
@@ -216,7 +236,9 @@ export async function planCancelJournal(args: CancelJournalInput): Promise<DocPl
         const mirror = await tx.journal.create({
           data: {
             voucherNo: mirrorNo, voucherType: 'contra', partyId: journal.partyId, date: new Date(), finYear: journal.finYear,
-            debitAccount: journal.creditAccount, creditAccount: journal.debitAccount, amount: journal.amount,
+            debitAccount: journal.creditAccount, creditAccount: journal.debitAccount,
+            debitAccountId: journal.creditAccountId, creditAccountId: journal.debitAccountId, // SPEC-M50 — swapped
+            amount: journal.amount,
             narration: `Contra: cancel ${journal.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
           },
         })
