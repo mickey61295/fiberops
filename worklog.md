@@ -2186,3 +2186,18 @@ Stage Summary:
 - M49 SHIPPED: attendance depth end-to-end — night shifts postable with real times (the row on the start day), OT configurable + opt-in per daily run + frozen, earned gains exactly one term so statutory/journals/loop-closures needed zero changes (proven: pay_wages the net → employee ledger 0 with OT inside).
 - Module L remaining: ONLY L-06 shiftWages (blocked on the ADR-019 owner decision). Phase-6B: 10 of 11 batches done.
 - Commit follows this entry; MANUAL-TESTING v1.3 (the OT cases) + PAT push follow.
+---
+Task ID: m49-push
+Agent: main (Super Z)
+Task: Push the M49 L-04 batch (a9112e1 spec + cbe37b2 feat + 5aba006 docs v1.3) to origin/main with the user's PAT, closing the session.
+
+Work Log:
+- Pre-push token audit: full-history exact-token search (all refs) + working-tree grep = ZERO occurrences.
+- Pre-push state re-verified on the pushed tree: context_check 606/606 NO DRIFT · eval --static PASS (m49, registry 250) · the vitest/tsc gates ran green on cbe37b2 (1466/1466, src 0) and 5aba006 is docs+scripts only.
+- Push: origin/main b221901..5aba006 (PAT-supplied inline URL, never stored).
+- Remote verified via ls-remote + fetch: local main == origin/main at 5aba006; working tree clean.
+
+Stage Summary:
+- M49 L-04 attendance depth IS ON REMOTE MAIN: cross-midnight attendance + configurable opt-in OT frozen per daily run, with the payslip/register/run-view/day-book surfaces, 19 new pipeline tests (1466 total), route smoke 32/32, browser E2E through the form door, and the manual-testing guide v1.3 (117 cases) with both twins.
+- Module L status: ONLY L-06 shiftWages remains (blocked on the ADR-019 owner decision). Phase-6B: 10 of 11 batches done.
+- side_quest: 0 unmerged commits since the m47 merge; retirement remains an owner call.
