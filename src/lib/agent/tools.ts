@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from '@/lib/db'
+import { activeFinYear } from '@/lib/erp/numbering'
 
 // ============== Agent Tool Registry ==============
 // Each tool has: name, description, parameters (zod), execute function.
@@ -22,6 +23,8 @@ import { queryLots } from '@/lib/erp/registers/lots'
 import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
+import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
+import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -69,6 +72,8 @@ import { PURCHASE_RETURN_SCHEMA } from '@/lib/erp/schemas/purchase-return' // SP
 import { planPurchaseReturn } from '@/lib/erp/posting/purchase-return' // SPEC-M41 PRC-03
 import { STOCK_TAKE_SCHEMA, STOCK_COUNT_SCHEMA, STOCK_TAKE_ADVANCE_SCHEMA } from '@/lib/erp/schemas/stock-take' // SPEC-M42 INV-01
 import { planStockTake, planStockTakeCount, planStockTakeAdvance } from '@/lib/erp/posting/stock-take' // SPEC-M42 INV-01
+import { PAYROLL_RUN_SCHEMA, PAYROLL_RUN_COMMIT_SCHEMA } from '@/lib/erp/schemas/payroll' // SPEC-M46 L-02
+import { planPayrollRun, planPayrollRunCommit } from '@/lib/erp/posting/payroll' // SPEC-M46 L-02
 import { INVOICE_SCHEMA } from '@/lib/erp/schemas/invoice'
 import { COMMERCIAL_INVOICE_SCHEMA } from '@/lib/erp/schemas/commercial-invoice'
 import { SUPPLIER_ORDER_SCHEMA } from '@/lib/erp/schemas/supplier-order'
@@ -1151,6 +1156,67 @@ const readTools: AgentTool[] = [
     },
   },
   {
+    name: 'get_operator_statement',
+    description: 'Operator wage statement (reconciliation): per operator — earned (Σ piece-rate production entries), paid (Σ wage payments to the 1:1 employee-party), owed = earned − paid. Optional filters: q (operator code/name), party (employee-party code), from/to (ISO dates — earned windows by production date, paid by payment date; default all-time). Use this to answer "how much do I still owe operator X"; pay wages with pay_wages.',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      q: z.string().optional().describe('Operator code or name contains.'),
+      party: z.string().optional().describe('Employee-party code filter.'),
+      from: z.string().optional().describe('Window start (ISO date) — applies to both legs on their own dates.'),
+      to: z.string().optional().describe('Window end (ISO date).'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M45 L-01 register service — the same read path
+      // the /hr/operator-statement screen uses.
+      const res = await queryOperatorStatement({
+        q: args.q, party: args.party, from: args.from ? new Date(args.from) : undefined,
+        to: args.to ? new Date(args.to) : undefined,
+        limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const owed = (res.totals ?? []).find((t) => t.label === 'Owed ₹')?.value ?? 0
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} operators with wage activity — ₹${Math.round(Number(owed)).toLocaleString('en-IN')} still owed${truncated ? ` (showing first ${(res.rows as any[]).length} — pass q to narrow)` : ''}`,
+        json: res.rows.map((r) => ({
+          operator: r.operator, code: r.code, dept: r.dept, party: r.party,
+          entries: r.entries, qty: r.qty, earned: r.earned, paid: r.paid, owed: r.owed,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_payroll_runs',
+    description: 'Payroll runs (PR-####): per period, mode piece|daily, lines per employee with earned/advances/net, lifecycle draft|committed. Optional filters: mode (piece|daily), status (draft|committed), q (run no). Payslips print per committed line; pay the net with pay_wages (the employee-party ledger closes to 0).',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      mode: z.enum(['piece', 'daily']).optional().describe('Filter by earning basis.'),
+      status: z.enum(['draft', 'committed']).optional().describe('Filter by lifecycle state.'),
+      q: z.string().optional().describe('Run no contains.'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M46 L-02 register service — the same read path
+      // the /hr/payroll screen uses.
+      const res = await queryPayrollRuns({
+        variant: args.mode, status: args.status, q: args.q,
+        limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const net = (res.totals ?? []).find((t) => t.label === 'Net ₹')?.value ?? 0
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} payroll runs — net payable ₹${Math.round(Number(net)).toLocaleString('en-IN')}${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}`,
+        json: res.rows.map((r) => ({
+          runNo: r.runNo, mode: r.mode, period: r.period, lines: r.lines,
+          earned: r.earned, advances: r.advances, net: r.net, status: r.status, committed: r.committed,
+          view: `/hr/payroll/${r.id}`,
+        })),
+      }
+    },
+  },
+  {
     name: 'list_seasons',
     description: 'List season masters (code, name, start/end dates). Use to resolve a season before order or style entry.',
     domain: 'masters',
@@ -1879,7 +1945,7 @@ function docTool(
 const docTools: AgentTool[] = [
   docTool(
     'create_order',
-    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to current 26-27; use e.g. "24-25" for historical documents), buyerPoRef (the buyer\'s own PO reference, stored first-class), orderType (export|domestic|trading, default export), deliveries (array of {qty, date, notes} — the multi-shipment schedule; ONE order, many dates, never split the order over delivery dates), per-line styleNo (multi-style — needs the multi_style_orders flag; blank = header style), notes.',
+    'Create a sales order with header + line matrix. orderNo is optional — if omitted or already taken, the next free SO-#### is auto-assigned (pass the buyer\'s own PO number when ingesting buyer POs). Required: buyerCode, styleNo, deliveryDate, lines (array of {colourName, sizeName, qty, rate}). Optional: orderDate, finYear (defaults to the active financial year; use e.g. "24-25" for historical documents), buyerPoRef (the buyer\'s own PO reference, stored first-class), orderType (export|domestic|trading, default export), deliveries (array of {qty, date, notes} — the multi-shipment schedule; ONE order, many dates, never split the order over delivery dates), per-line styleNo (multi-style — needs the multi_style_orders flag; blank = header style), notes.',
     'orders',
     ORDER_SCHEMA,
     planOrder,
@@ -1929,7 +1995,7 @@ const docTools: AgentTool[] = [
   // ── M5 Wave A (SPEC-M5 §8) ──
   docTool(
     'create_budget',
-    'Create a budget (order-level or department-level) with per-work lines. Required: amount (total; 0 lets the service use the line sum) + lines (array of {amount, workId?, actualAmount?}). Provide orderNo OR deptCode (at least one). Optional: finYear (defaults 26-27), notes.',
+    'Create a budget (order-level or department-level) with per-work lines. Required: amount (total; 0 lets the service use the line sum) + lines (array of {amount, workId?, actualAmount?}). Provide orderNo OR deptCode (at least one). Optional: finYear (defaults to the active financial year), notes.',
     'costing',
     BUDGET_SCHEMA,
     planBudget,
@@ -2156,7 +2222,7 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('accessory', 'Create an accessory master (zipper, button, label, etc). code is optional — auto-assigned A-#### if omitted or taken. Required: name, uomCode. Optional: category, rate.'),
   masterCreateTool('godown', 'Create a godown (warehouse). code is optional — auto-assigned G#### if omitted or taken. Required: name. Optional: location.'),
   masterCreateTool('department', 'Create a department / process. code is optional — auto-assigned D#### if omitted or taken. Required: name. Optional: orderSno, isProcess.'),
-  masterCreateTool('employee', 'Create an employee master. code is optional — auto-assigned EMP-#### if omitted or taken. Required: name. Optional: deptCode, role (operator|supervisor|helper), pieceRate, dailyWage, active.'),
+  masterCreateTool('employee', 'Create an employee master. code is optional — auto-assigned EMP-#### if omitted or taken. Required: name. Optional: deptCode, role (operator|supervisor|helper|staff), pieceRate, dailyWage, active, joiningDate, designation, phone, bankName, ifsc, accountNo, upi, uan, aadhaar (payout fields — UAN/aadhaar print MASKED on payslips).'),
   masterCreateTool('colour', 'Create a colour master. Required: name, code (e.g. RED, BLK, NAV). If colour exists, returns it.'),
   masterCreateTool('size', 'Create a size master. Required: name (e.g. S, M, L, XL, 32, 34). Optional: sort order.'),
   masterCreateTool('uom', 'Create a unit of measure master. Required: name (KGS, MTR, PCS, BAG), code (matching). If exists, returns it.'),
@@ -2912,7 +2978,7 @@ const writeTools: AgentTool[] = [
       else if (args.itemType === 'fabric') item = await db.fabric.findUnique({ where: { code: args.itemCode } })
       else if (args.itemType === 'accessory') item = await db.accessory.findUnique({ where: { code: args.itemCode } })
       if (!item) return { text: `${args.itemType} ${args.itemCode} not found` }
-      const finYear = '26-27'
+      const finYear = await activeFinYear()
       const isPcs = args.itemType === 'accessory'
       const isAdd = args.action === 'add'
       return {
@@ -3348,6 +3414,21 @@ const writeTools: AgentTool[] = [
     'inventory',
     STOCK_TAKE_ADVANCE_SCHEMA,
     planStockTakeAdvance,
+  ),
+  // SPEC-M46 (Module L Batch 2) — the payroll run + payslip (L-02)
+  docTool(
+    'create_payroll_run',
+    'Create a payroll run (L-02): runNo auto-assigned PR-####, per period, ONE mode. piece = Σ production-entry earnings per operator (the statement ground truth); daily = weighted attendance (present 1, half 0.5) × dailyWage. Lines freeze at creation: per employee — days/qty, earned, advances (Σ out-payments to the employee-party in the window), net = earned − advances; every employee auto-linked to its 1:1 party. Status starts draft. Then commit via commit_payroll_run (posts the wage journals, makes payslips printable). A piece run whose window overlaps a COMMITTED piece run refuses (double-credit guard). Required: mode, from, to (ISO dates). Optional: notes.',
+    'hr',
+    PAYROLL_RUN_SCHEMA,
+    planPayrollRun,
+  ),
+  docTool(
+    'commit_payroll_run',
+    'Commit a payroll run (L-02): draft → committed (terminal). Posts ONE wage journal PER LINE with its employee-party id — Dr Production Wages (piece) / Dr Staff Salaries (daily) / Cr Wage Payable, amount = earned (full, not net) — so paying the net afterwards via pay_wages closes the employee-party ledger to exactly 0. Payslips become printable per line. Required: runNo. Optional: notes.',
+    'hr',
+    PAYROLL_RUN_COMMIT_SCHEMA,
+    planPayrollRunCommit,
   ),
 ]
 

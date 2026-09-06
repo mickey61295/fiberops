@@ -6,12 +6,13 @@
 // Document-only — W6 (§10) shows the despatch recon on the view.
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { PackingListInput } from '../schemas/packing-list'
 import { dateOrIstToday } from '@/lib/erp/dates'
 
 export async function planPackingList(args: PackingListInput): Promise<DocPlanResult> {
-  const finYear = args.finYear?.trim() || '26-27'
+  const finYear = args.finYear?.trim() || await activeFinYear()
   const status = args.status?.trim() || 'draft'
   if (status !== 'draft' && status !== 'confirmed') {
     return { ok: false, error: `status must be draft | confirmed (got '${status}')` }

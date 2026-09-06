@@ -6,6 +6,7 @@
 // cash-side book).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { ExpenseInput } from '../schemas/expense'
 import { dateOrIstToday } from '@/lib/erp/dates'
@@ -14,7 +15,7 @@ const CATEGORIES = ['fixed', 'stylewise', 'general', 'transport', 'other']
 const STATUSES = ['recorded', 'settled']
 
 export async function planExpense(args: ExpenseInput): Promise<DocPlanResult> {
-  const finYear = args.finYear?.trim() || '26-27'
+  const finYear = args.finYear?.trim() || await activeFinYear()
   if (!CATEGORIES.includes(args.category)) {
     return { ok: false, error: `category must be one of ${CATEGORIES.join(' | ')} (got '${args.category}')` }
   }

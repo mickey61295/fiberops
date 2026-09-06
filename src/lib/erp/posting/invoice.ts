@@ -6,6 +6,7 @@
 // (VERBATIM rule); the sibling shares the number space INV-####.
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import type { DocPlanResult } from './types'
 import type { InvoiceInput } from '../schemas/invoice'
 import type { CommercialInvoiceInput } from '../schemas/commercial-invoice'
@@ -29,7 +30,7 @@ export async function planInvoice(args: InvoiceInput): Promise<DocPlanResult> {
   if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
   if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
   const gstAmt = (args.taxableValue * args.gstRate) / 100
   const billAmount = args.taxableValue + gstAmt
   const cgstRate = args.gstType === 'cgst_sgst' ? args.gstRate / 2 : 0
@@ -94,7 +95,7 @@ export async function planExportInvoice(args: CommercialInvoiceInput): Promise<D
   if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
   const party = await db.party.findUnique({ where: { code: args.partyCode } })
   if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
 
   const gstType = args.gstType?.trim() || 'igst'
   const gstRate = args.gstRate ?? 0

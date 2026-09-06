@@ -9,6 +9,7 @@
 // unit acknowledges it at /dispatch/unit-transfer-ack (acknowledge_unit_transfer).
 
 import { db } from '@/lib/db'
+import { activeFinYear } from '../numbering'
 import { postLedger, docKeyViolation } from './ledger'
 import type { DocPlanResult } from './types'
 import type { TransferInput } from '../schemas/transfer'
@@ -222,7 +223,7 @@ export async function planReadyToCut(args: ReadyToCutInput): Promise<DocPlanResu
             data: {
               txnType: 'ready_to_cut_in', itemType, itemId: item.id,
               godownId: fromGodown.id, deptId: cutDept.id, orderId: order?.id ?? null,
-              docNo, docDate, finYear: '26-27',
+              docNo, docDate, finYear: await activeFinYear(),
               inKgs: args.qty, rate: item.rate, notes,
             },
           })

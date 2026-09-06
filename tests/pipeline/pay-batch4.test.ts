@@ -445,8 +445,12 @@ describe('PAY Batch 4 — SPEC-M40 money integrity', () => {
 
   it('#3 wages: earn ₹1,000 → pay ₹600 → the operator statement shows ₹400 owed', async () => {
     // the operator earns ₹1,000 (production entry, qty × rate)
+    // SPEC-M45 L-01: the 1:1 employee-party link is REAL now — the wages
+    // register resolves paid through Employee.partyId (the M40 code-matching
+    // interim retired); the fixture links like the master door would.
     const dept = await db.department.findUniqueOrThrow({ where: { code: 'D4' } })
-    const emp = await db.employee.create({ data: { code: EMP, name: `M40 Operator ${TS}`, deptId: dept.id, role: 'operator', pieceRate: 10 } })
+    const empParty = await db.party.findUniqueOrThrow({ where: { code: EMP } })
+    const emp = await db.employee.create({ data: { code: EMP, name: `M40 Operator ${TS}`, deptId: dept.id, role: 'operator', pieceRate: 10, partyId: empParty.id } })
     await db.productionEntry.create({ data: { orderId, deptId: dept.id, prodDate: new Date(), operatorId: emp.id, qty: 100, rate: 10, amount: 1000 } })
     // ₹600 paid via the agent door (pay_wages)
     const tool = getTool('pay_wages')!

@@ -11,7 +11,7 @@ export const PACKING_LIST_SCHEMA = z.object({
   orderNo: z.string().optional(),
   buyerCode: z.string().optional(),
   packDate: z.string().optional().describe('ISO date (default today)'),
-  finYear: z.string().optional().describe('Defaults to current 26-27'),
+  finYear: z.string().optional().describe('Defaults to the active financial year'),
   totalCartons: z.number().min(0).optional().describe('Defaults to distinct cartonNo count'),
   totalPcs: z.number().min(0).optional().describe('Defaults to Σ line qty'),
   netKgs: z.number().min(0).optional().describe('Defaults to Σ line netKgs'),

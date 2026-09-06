@@ -26,6 +26,7 @@ import {
   fetchLineIssuePrint,
   fetchLabTestPrint,
   fetchStockTakePrint, // SPEC-M42 INV-01 — the count sheet
+  fetchPayslipPrint, // SPEC-M46 L-02 — the payslip (per line of a committed run)
 } from './fetchers-b'
 
 export const PRINT_DOCS: Record<string, PrintFetcher> = {
@@ -57,6 +58,8 @@ export const PRINT_DOCS: Record<string, PrintFetcher> = {
   'lab-test': fetchLabTestPrint,
   // SPEC-M42 INV-01 — the stock-take count sheet
   'stock-take': fetchStockTakePrint,
+  // SPEC-M46 L-02 — the payslip (NON_CONFIG door: run view + DocPrintLink + get_payroll_runs)
+  payslip: fetchPayslipPrint,
 }
 
 export function getPrintDocTypes(): string[] {

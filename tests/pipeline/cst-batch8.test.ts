@@ -441,7 +441,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
   // ──────────────────────────────────────────────────────────────────────
   describe('the batch surface — tools, prompt, spec', () => {
     it('the new tools are registered: 253 = 249 at M43 + cost-component ×3 + get_order_cost', () => {
-      expect(allTools.length).toBe(253) // M44 CST: +create/update/list_cost_component +get_order_cost
+      expect(allTools.length).toBe(257) // M44 CST: +create/update/list_cost_component +get_order_cost + the M45/M46 payroll quartet (m47 merge)
       expect(allTools.map((t) => t.name)).toContain('create_cost_component')
       expect(allTools.map((t) => t.name)).toContain('update_cost_component')
       expect(allTools.map((t) => t.name)).toContain('list_cost_components')
@@ -449,7 +449,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
     })
 
     it('PROMPT_VERSION + the costing prompt section (M44)', () => {
-      expect(PROMPT_VERSION).toBe('m44-2026-09-03')
+      expect(PROMPT_VERSION).toBe('m47-2026-09-06') // m47 = the side_quest merge (m44 costing + m46 payroll lines)
       const prompt = src('../agent/prompt.ts')
       expect(prompt).toContain('create_cost_component')
       expect(prompt).toContain('get_order_cost')

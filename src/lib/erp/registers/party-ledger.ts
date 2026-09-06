@@ -32,7 +32,14 @@ export async function getPartyLedgerSummary(partyId: string): Promise<PartyLedge
   // so all three money screens agree after a cancel.
   const [invoices, journals, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({ where: { partyId, status: { not: 'cancelled' } } }),
-    db.journal.findMany({ where: { partyId } }),
+    // SPEC-M45 L-01 — the journals term counts MANUAL journals + CONTRA legs
+    // only ('journal' | 'contra'). The planPayment companions ('receipt' /
+    // 'payment' voucherTypes, the JV-* shadow rows) are the SAME cash the
+    // Payment rows already count (− received / + paid) — counting both
+    // double-subtracted every receipt ever posted (CUS001 live probe:
+    // formula balance −34M against a true AR ≈ ₹4.3M). The wage bill
+    // (voucherType 'journal', partyId) is the leg this term exists for.
+    db.journal.findMany({ where: { partyId, voucherType: { in: ['journal', 'contra'] } } }),
     db.debitNote.findMany({ where: { partyId } }),
     db.payment.findMany({ where: { partyId } }),
   ])
@@ -76,7 +83,7 @@ export async function queryPartyLedger(q: RegisterQuery): Promise<RegisterResult
   // HFX-03 — cancelled invoices excluded here too (see getPartyLedgerSummary).
   const [invoices, journals, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({ where: { partyId: { in: partyIds }, status: { not: 'cancelled' } }, select: { partyId: true, billAmount: true } }),
-    db.journal.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
+    db.journal.findMany({ where: { partyId: { in: partyIds }, voucherType: { in: ['journal', 'contra'] } }, select: { partyId: true, amount: true } }),
     db.debitNote.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
     db.payment.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true, direction: true } }),
   ])

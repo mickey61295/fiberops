@@ -2010,3 +2010,63 @@ Stage Summary:
 - Module K COMPLETE — the cost sheet is now a calculator (component library + BOM quotes + computed margin — the honest-claims liar retired), est-vs-actual is a live read model on the Order Hub + get_order_cost, and the daily P&L carries the material leg at WAC.
 - Phase-6B scoreboard: batches 0–7 + Module K shipped (10 of 11 units); remaining: Module L payroll (L-01..06 — the last structural P0) and Module M final accounts.
 - Next per STATE #48: Module L or M; PAY-08/PRC-09/PRG-02/AM-1 owner decisions still open. PAT on file (.pat-token) for the push.
+---
+Task ID: m44-fy-hotfix
+Agent: main (Super Z)
+Task: Ship SPEC-M44 FY-01 — the fiscal-year single-source hotfix (STATE #47's suggested hotfix: 37 hardcoded '26-27' literals, time bomb 2027-04-01).
+
+Work Log:
+- Re-oriented on the M43 line: full gates green at start (1334 vitest / tsc src 0 / eval --static / context_check 604); restored the gremlin-deleted src/app/api/upload/route.ts + silenced a 755-file filemode sweep (git core.fileMode false — PITFALLS #39 discipline).
+- Environment: sandbox reset wiped .pat-token → commits stay LOCAL this session; push pending PAT re-supply. Regenerated the OPS-01 backup snapshot (python3 scripts/backup_db.py, integrity ok).
+- Verified evidence on the M43 line: 37 '26-27' in src (23 files); scripts/seed.ts FIN_YEAR literal; dev DB has exactly one ACTIVE FinYear row '26-27'; activeFinYear() existed in numbering.ts with a frozen fallback.
+- Wrote + froze SPEC-M44.md (1 FR, FY-01): default = the ACTIVE FinYear row (owner-managed at /admin/company); fallback = IST-date-derived code via pure fyCodeFor; explicit args.finYear wins; purchase-return inherits the GRN's FY; numbering per-FY reset explicitly OUT OF SCOPE.
+- scripts/patch_m44_fy.py (persisted, idempotent): replaced all ~24 posting literals across 16 services + tools.ts adjust_stock + context.ts catch + 3 schema describes + 2 tool docstrings; import extension/insertion per file; verification pass asserts zero surviving '26-27' in the posting layer.
+- numbering.ts: +fyCodeFor (pure Apr 1–Mar 31, century wrap) +fyCodeToday (IST) ; activeFinYear fallback = derived, never a literal. seed.ts: FIN_WINDOW/name derived from one ANCHOR_YEAR=2026 constant (demo dates are fixed 2026 — wall-clock derivation would desync it).
+- tests/pipeline/fy-hotfix-m44.test.ts NEW 11/11: fyCodeFor boundary matrix (incl. 99-00/00-01 wrap) + self-consistency (no literal pinned — the test is not itself a 2027 bomb) + active-row equivalence + no-active-row fallback w/ DB restore in finally + behavioral planExpense→runCommit stamps the ACTIVE code + explicit-args-win (plan-only) + source contracts (posting dir ENUMERATED, never hand-listed).
+- Gates: 1345/1345 vitest (1334+11) · tsc src 0 · eval --static PASS (m43-2026-09-02 unchanged) · context_check 604→606/606 NO DRIFT (2 new pins: posting-layer zero-literal + the 11-test file).
+- Docs: SPEC-M44.md frozen; STATE #48 + Last-verified header; context_check +2 pins; this entry.
+
+Stage Summary:
+- M44 SHIPPED (local commits): the FY default is decided in exactly ONE place — the owner activates 27-28 at /admin/company and every posting service follows with zero code changes. Zero schema/prompt/tool/menu change; PROMPT_VERSION stays m43.
+- Next: Module L payroll L-01 (wage reconciliation — the LAST structural P0, closes loop-closure #3) or Module K costing; PAY-08/PRC-09/PRG-02 owner decisions still open. PAT re-supply needed to push.
+---
+Task ID: m45-l01
+Agent: main (Super Z)
+Task: Ship SPEC-M45 — Module L Batch 1, L-01 wage reconciliation (the LAST structural P0 of the consolidated gap register; closes loop-closure #3).
+
+Work Log:
+- Scoped from PHASE-6B-REMEDIATION-SPEC §12: verified planProductionBill posts journal WITHOUT partyId, pay_wages posts Payment+companion WITH it, Employee has no partyId, no statement surface exists.
+- Wrote + froze SPEC-M45.md (L-01 only; L-02..06 documented OUT — payroll is 1–1.5 batches per the spec).
+- Schema: Employee.partyId @unique + Party.employee back-relation (db push). ensureEmployeeParty (posting/employee-party.ts, find-or-create + link, idempotent, clash-throws) hooked into master-service's CREATE commit (the finYear-invariant seam — BOTH doors); sideEffects declares the linkage pre-approval. scripts/backfill_employee_parties.ts run: 10/10 linked.
+- planProductionBill: operatorCode → resolve/ensure party → journal partyId (per-operator bills hit the party ledger; aggregate bills honest about being party-less).
+- THE OPERATOR STATEMENT: registers/operator-statement.ts (earned Σ ProductionEntry.amount − paid Σ out-payments to the linked party = owed; all-time default; both legs windowed on their own dates; zero-activity silent; unlinked honest '—') + register-config + registers/index wiring + /hr/operator-statement page + csv + menu 140→141 + LIVE_ROUTES 175→176 + get_operator_statement read tool (tools 249→250) + PROMPT_VERSION m45-2026-09-02 (§1 HR line).
+- The M40 wages-register paid/owed interim retired: resolves through Employee.partyId now (code-matching was the pre-link guess); pay-batch4's fixture updated to link (the M45 truth).
+- REAL BUG the gates caught (§2-0): party-ledger double-counted every receipt — companion JV journals counted in −journals while the Payment legs counted the same cash (live probe CUS001: formula −₹34.0M vs true AR ≈ ₹4.3M). Fixed: journals term counts voucherType journal|contra only. The wage loop now closes in the ledger (bill + payment, companion excluded).
+- PITFALLS #47 duet: (1) WAL sidecar vs raw copy — globalSetup copies -wal now; checkpointed custom.db after db push (the M45 test db initially shipped a column short); (2) deleting a Payment without its JV companion orphans the number — my payroll afterAll did that and killed doc-parity-m5b's parallel commit (fixed: delete the JV-CN pair with the payment, the pay-batch4 pattern).
+- Tests: payroll-l01.test.ts NEW 15/15 (auto-link + idempotence + LOOP-CLOSURE #3 GREEN: entry → bill(partyId) → payment → owed 0 + ledger agreement + wages-register agreement + unlinked honesty + independent windows + wiring/source pins). Inherited pins ~23 spots same-commit (tools 250 ×15 files, menu 141 ×3, regcfg 39 + slug list + ROUTE_BY_SLUG, PROMPT_VERSION ×3).
+- Gates: 1365/1365 vitest (68 files) · tsc src 0 · eval --static PASS (m45-2026-09-02, registry 242) · context_check 606/606 NO DRIFT (7 pins) · route_smoke_m45 NEW 20/20 LIVE (columns + LIVE arithmetic invariant on E001 ₹21,85,920 + csv + q/party filters + 10/10 backfill) · browser E2E: /hr/operator-statement renders the full table, ZERO console errors (download/m45-operator-statement.png).
+- Docs: SPEC-M45 frozen, STATE #49 + header, PITFALLS #47, this entry.
+
+Stage Summary:
+- M45 SHIPPED (local): the last structural P0 closed — operator wage statements exist at /hr/operator-statement, chat-reachable via get_operator_statement, backed by the real 1:1 employee-party link, with the party-ledger receipt double-count fixed as a bonus. All Phase-6B P0 seams (1–6) are now CLOSED.
+- Remaining: L-02 PayrollRun+Payslip, L-03 statutory, L-04 attendance depth, L-05 payout fields, L-06 shiftWages; Module K costing; Module M final accounts; owner decisions PAY-08/PRC-09/PRG-02. PUSH PENDING: sandbox reset wiped .pat-token — re-supply to push m44+m45 (4 commits).
+
+---
+Task ID: m46-payroll-l02
+Agent: main (Super Z)
+Task: Ship SPEC-M46 — Module L Batch 2: PayrollRun + Payslip (L-02 + L-05, Phase-6B remediation spec §12), continuing from the verified M45 boundary.
+
+Work Log:
+- Resumed at the M45 local boundary (HEAD 87a4a3b, 2 unpushed milestones, worktree clean, NO PAT — push pending re-supply). Scoped SPEC-M46 from spec §12: L-02 full + L-05 full (the payslip is the first consumer of the payout fields); L-03/L-04/L-06 documented OUT (next batch). Spec-first: docs/CONTEXT/specs/SPEC-M46.md frozen before code.
+- Schema: PayrollRun {PR-####, mode piece|daily, from/to, draft→committed terminal, finYear} + PayrollLine {employeeId, partyId frozen-at-plan, days?/qty?, earned, advances, net, @@unique([runId, employeeId])} + Employee L-05 columns (joiningDate/designation/bankName/ifsc/accountNo/upi/phone/uan/aadhaar). db push + WAL checkpointed (PITFALLS #47 discipline) + prisma generate.
+- posting/payroll.ts: planPayrollRun (piece = Σ ProductionEntry.amount per operator prodDate-window; daily = weighted attendance present 1/half 0.5 × dailyWage; advances = Σ active out-payments to the 1:1 employee-party payDate-window; ensureEmployeeParty BEFORE lines freeze; piece-overlap guard vs COMMITTED piece runs 'double-credit'; wage-0 employees NAMED) + planPayrollRunCommit (one Journal PER LINE with partyId, V-#### minted INSIDE the tx (nextAdjNo pattern), Dr Production Wages|Staff Salaries / Cr Wage Payable, amount = FULL earned — ledger closes to 0 when the net is paid: −earned + advances + net = 0).
+- Payslip print: PRINT_DOCS 'payslip' (NON_CONFIG door — the count-sheet precedent): PayrollLine.id OR 'PR-####/EMP-####' (safeDecode — %2F arrives undecoded, caught live by route_smoke); committed-only (draft → 404); L-05 meta with UAN/aadhaar MASKED (maskTail, 12-char → XXXX-XXXX-tail4); NET PAYABLE + amountInWords + pay-to block.
+- Surfaces: registers/payroll.ts (groupBy sums, variant=mode/status/q) + register-config 'payroll' + REGISTER_SERVICES + /hr/payroll (RegisterScreen + PayrollForm create door) + /hr/payroll/[id] (lines + commit banner + journals audit table by narration + payslip DocPrintLinks) + actions (runCommit, entity payroll_run) + csv twin + menu 141→142 + LIVE_ROUTES 176→178 + tools +3 (create_payroll_run / commit_payroll_run docTools + get_payroll_runs read tool → 253) + employee master-config 9 fields + Designation/Joined list columns (tools auto-extend) + PROMPT_VERSION m46-2026-09-03 (§1 HR line).
+- ENVIRONMENT REPAIRS (PITFALLS #48): the M45 commit had SHIPPED the upload-route gremlin deletion (git ls-files had no record; the FIRST full-suite run failed upload-route.test.ts file-level) — restored verbatim from the M44 blob a7d8dd1; sandbox-reset casualties regenerated (db/backups OPS-01 snapshot; download/eval-routing-report.json static-only).
+- Tests: payroll-l02.test.ts NEW 29/29 — the §12 walkthrough (2 present + 1 half + 1 absent = 2.5 days × ₹500 → run → journal partyId → payslip masked + composite → pay_wages → LEDGER 0) + advances (pre-pay 300 in-window → net 1200, journal 1500, ledger 0) + piece statement-agreement (statement earned stays 1000, L-01 frozen) + the guard matrix + register + L-05 round-trip + wiring/source pins. Inherited pins ~24 spots same-commit (tools ×15, menu ×4, print 25 ×3 + NON_CONFIG, regcfg 40, versions ×4, per-config ×5).
+- Gates: 1399/1399 vitest (69 files) · tsc src 0 · eval --static PASS (m46, registry 245) · context_check 606/606 NO DRIFT (14 pins bumped same-commit) · route_smoke_m46 NEW 42/42 LIVE (register + csv + filters + seeded committed-run walkthrough + payslip 200 + draft/unknown 404 + full revert + L-05 master columns) · browser E2E: PR-0001 created through the FORM (daily, E005 2 days × ₹800) → commit → DB-verified journal V-0001 partyId Dr Staff Salaries ₹1,600 → payslip page → ZERO console errors → fully reverted (screenshots m46-payroll-register/m46-payroll-run-view/m46-payslip-print).
+
+Stage Summary:
+- M46 SHIPPED (local): the payroll run + payslip — attendance×dailyWage ('half' = 0.5) and piece earnings both flow through ONE auditable document, advances net against earned, commit posts per-line wage journals with partyIds, and the payslip prints with L-05 payout fields masked where sensitive.
+- Module L remaining: L-03 statutory, L-04 attendance depth, L-06 shiftWages (ADR-019). Phase-6B: 8 of 11 batches done.
+- PUSH PENDING: 6 local commits (m44 + m45 + m46) — PAT re-supply required.

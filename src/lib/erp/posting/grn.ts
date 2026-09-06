@@ -16,7 +16,7 @@
 
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
-import { resolveDocNo } from '../numbering'
+import { resolveDocNo, activeFinYear } from '../numbering'
 import { getFlag } from '../flags'
 import type { DocPlanResult } from './types'
 import type { GrnInput, GrnLineInput } from '../schemas/grn'
@@ -116,7 +116,7 @@ export async function planGrn(args: GrnInput): Promise<DocPlanResult> {
   }
   const actualQty = lineInputs.reduce((s, l) => s + l.qty, 0)
   const totalValue = lineInputs.reduce((s, l) => s + l.qty * l.rate, 0)
-  const finYear = '26-27'
+  const finYear = await activeFinYear()
 
   // PRC-01 — PO status from ALL-lines coverage math (the header-qty
   // comparison retired): received when EVERY line is fully covered,
@@ -274,7 +274,7 @@ export async function planJobworkPcsReturn(args: JobworkPcsReturnInput): Promise
     text: `Proposed jobwork pcs return ${retNo}: ${args.qty} pcs of ${order.orderNo} back to ${party.name}.`,
     summary: `Jobwork pcs return ${retNo} | order ${order.orderNo} | ${args.qty} pcs | to ${party.name} | out of ${godown.code} | ${notes}`,
     creates: [
-      { table: 'grn', data: { grnNo: retNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate: retDate, finYear: '26-27', totalQty: args.qty, totalValue: 0 } },
+      { table: 'grn', data: { grnNo: retNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate: retDate, finYear: await activeFinYear(), totalQty: args.qty, totalValue: 0 } },
       { table: 'grnLine', data: { itemType: 'pcs', itemId: order.id, qty: args.qty, rate: 0, amount: 0 } },
       { table: 'stockLedger', data: { txnType: 'process_delivery', itemType: 'pcs', itemId: order.id, godownId: godown.id, docNo: retNo, docDate: retDate, outPcs: args.qty, partyId: party.id, notes } },
     ],
@@ -287,7 +287,7 @@ export async function planJobworkPcsReturn(args: JobworkPcsReturnInput): Promise
         const grn = await tx.gRN.create({
           data: {
             grnNo: retNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
-            grnDate: retDate, finYear: '26-27', totalQty: args.qty, totalValue: 0,
+            grnDate: retDate, finYear: await activeFinYear(), totalQty: args.qty, totalValue: 0,
             lines: { create: { itemType: 'pcs', itemId: order.id, qty: args.qty, rate: 0, amount: 0 } },
           },
         })
@@ -341,7 +341,7 @@ export async function planMultiProcessGrn(args: MultiProcessGrnInput): Promise<D
     text: `Proposed multi-process GRN ${grnNo}: ${resolved.length} component lines, ${totalQty} units back to ${party.name}.`,
     summary: `Multi-process GRN ${grnNo} | ${party.name} | ${resolved.length} lines | ${totalQty} units | out of ${godown.code} | ₹${totalValue}`,
     creates: [
-      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: '26-27', partyDcRef: notes, totalQty, totalValue } },
+      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: await activeFinYear(), partyDcRef: notes, totalQty, totalValue } },
       ...resolved.map((l) => ({ table: 'grnLine', data: { itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate } })),
       ...resolved.map((l) => ({
         table: 'stockLedger',
@@ -357,7 +357,7 @@ export async function planMultiProcessGrn(args: MultiProcessGrnInput): Promise<D
         const grn = await tx.gRN.create({
           data: {
             grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
-            grnDate, finYear: '26-27', partyDcRef: notes, totalQty, totalValue,
+            grnDate, finYear: await activeFinYear(), partyDcRef: notes, totalQty, totalValue,
             lines: { create: resolved.map((l) => ({ itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate })) },
           },
         })
@@ -451,7 +451,7 @@ export async function planDcReturn(args: DcReturnInput): Promise<DocPlanResult> 
     text: `Proposed DC return ${grnNo}: ${totalQty} units back from ${party.name} against ${dcRef} (${newReturned}/${dc.totalQty} returned).`,
     summary: `DC return ${grnNo} | against ${dcRef} | ${party.name} | ${resolved.length} lines | ${totalQty} units | into ${godown.code} | ₹${totalValue} | DC → ${newStatus}`,
     creates: [
-      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: '26-27', docNo: dcRef, partyDcRef: notes, totalQty, totalValue } },
+      { table: 'grn', data: { grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id, grnDate, finYear: await activeFinYear(), docNo: dcRef, partyDcRef: notes, totalQty, totalValue } },
       ...resolved.map((l) => ({ table: 'grnLine', data: { itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate } })),
       ...resolved.map((l) => ({
         table: 'stockLedger',
@@ -477,7 +477,7 @@ export async function planDcReturn(args: DcReturnInput): Promise<DocPlanResult> 
         const grn = await tx.gRN.create({
           data: {
             grnNo, grnType: 'process_return', partyId: party.id, godownId: godown.id,
-            grnDate, finYear: '26-27', docNo: dcRef, partyDcRef: notes, totalQty, totalValue,
+            grnDate, finYear: await activeFinYear(), docNo: dcRef, partyDcRef: notes, totalQty, totalValue,
             lines: { create: resolved.map((l) => ({ itemType: l.itemType, itemId: l.itemId, qty: l.qty, rate: l.rate, amount: l.qty * l.rate })) },
           },
         })
