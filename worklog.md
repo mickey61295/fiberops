@@ -2309,3 +2309,18 @@ Stage Summary:
 - Counts: tools 266, menu 147, routes 183, models 91 (zero schema), PROMPT_VERSION m53-2026-09-06; 1580 vitest.
 - Module M queue: ONLY M-05 expense heads remains. Module L: L-06 (ADR-019 owner decision). Open owner decisions: §17-1 backup target, §17-2 G3 yard, §17-3 PDC lifecycle, §17-4 Tally XML, §17-5 multi-style, §17-6 cumulative DC, §17-7 SalesInvoiceLine, §17-8 final-accounts scope confirm.
 - Push pending at wrap (PAT re-supplied this session — inline URL protocol).
+---
+Task ID: m53-push
+Agent: main (Super Z)
+Task: Push the M53 batch (0771972 spec + 43fc765 feat + 5814579 docs v1.7) to origin/main with the user's PAT.
+
+Work Log:
+- Pre-push gates re-verified on the pushed tree: context_check 606/606 NO DRIFT · eval --static PASS (m53, registry 258) · 5814579 confirmed docs+scripts only (the 1580/1580 vitest + tsc src 0 gates ran green on 43fc765).
+- Pre-push token audit: full-history exact-token search (all refs) + working-tree grep = ZERO occurrences; PAT used via inline URL only, never stored.
+- Push: origin/main 37466c4..5814579.
+- Post-push verification: ls-remote + fetch → local main == origin/main == 581457929f1dc5c628ae04a90b21f115a28cf6e1 · ahead-count 0 · working tree clean · token re-audit clean.
+
+Stage Summary:
+- M53 M-04 IS ON REMOTE MAIN: the Tally JSON export is both-sides, counted-once (the live double-count fixed), cancel-honest (cancels export with their reversals, net zero), GST-split, warning-honest — plus get_tally_export (tools 266), MANUAL-TESTING v1.7 (133 cases), and STATE #57/#58.
+- Repo fully synced: zero local commits pending; dev server running on :3000.
+- Remaining queue: Module M-05 (expense heads — the LAST Module M item); L-06 shiftWages blocked on ADR-019; owner decisions open: §17-1 backup target, §17-2 G3 yard, §17-3 PDC lifecycle, §17-4 Tally XML, §17-5 multi-style, §17-6 cumulative DC, §17-7 SalesInvoiceLine, §17-8 final-accounts scope confirm.
