@@ -2121,3 +2121,19 @@ Stage Summary:
 - The manual testing guide is now complete for the side_quest validation purpose: the 16-case Appendix E gives every merged fix a reproduce-the-bug → confirm-fixed → confirm-happy-path case with an automated pipeline twin named for triage.
 - Repo hygiene restored: local main re-converged with the pushed line, the 1.4GB nested clone and its gitlink gone, session scripts under proper commit messages.
 - Push pending: 2 local commits (b688972 scripts chore + this docs commit) need the PAT re-supplied.
+---
+Task ID: m47-docs-push
+Agent: main (Super Z)
+Task: User re-supplied the PAT ("Continue. github_pat_...") — push the 2 local commits left pending by the sandbox reset (b688972 session-scripts chore + 7993d9c MANUAL-TESTING v1.1 / Appendix E), closing out the side_quest thread: merge → regression suite → push.
+
+Work Log:
+- Re-oriented from the context summary: the summary's "pending merge / pending TC-13" steps were stale — git + worklog established the m47 merge (0da083e), the merged-tree verification (1420/1420 vitest, tsc src 0, context 606 NO DRIFT), and the 94-case manual guide v1.0 were already on origin/main (6a96d24); only b688972 + 7993d9c awaited the PAT.
+- Token audit re-run pre-push: full-history exact-token search (all refs) + working-tree grep = ZERO occurrences; the only 'github_pat_' strings in history are prose mentions of the audit protocol itself in prior worklog entries.
+- Gates re-run on the exact tree being pushed (post-sandbox-reset insurance): context_check.sh 606/606 NO DRIFT · eval_routing.mjs --static PASS (m47-2026-09-06) · src/prisma/tests untouched by both commits (git diff --stat vs 6a96d24: scripts/ + docs/MANUAL-TESTING.md + worklog.md only) so the 1420-vitest base carries over unchanged from the 60a87bc verification.
+- Push: origin/main 6a96d24..7993d9c (PAT-supplied inline URL); remote verified via ls-remote + fetch → local main == origin/main at 7993d9c.
+- Committed this push-entry and pushed it (this commit).
+
+Stage Summary:
+- THE SIDE_QUEST THREAD IS FULLY CLOSED ON REMOTE MAIN: merged (FY hotfix + wage reconciliation + payroll unified with M44 costing) · all gates green on the merged tree · the manual-testing guide v1.1 with the 16-case Appendix E regression suite (R-FY/R-WG/R-PR/R-CS) is pushed as the TC-13-equivalent human validation for every merged fix.
+- Deliverables: repo docs/MANUAL-TESTING.md (110 cases) + download/FiberOps-Manual-Testing-Guide.docx (51-page formal twin, postcheck 9/9).
+- Remote main: 7993d9c (+ this push-entry). side_quest: 0 unmerged commits, branch can be retired at owner's discretion.
