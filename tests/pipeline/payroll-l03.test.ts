@@ -528,7 +528,7 @@ describe('L-03 statutory register + wiring', () => {
     expect(tool).toBeTruthy()
     expect((tool as any).domain).toBe('hr')
     expect((tool as any).isWrite).toBe(false)
-    expect(allTools.length).toBe(265)
+    expect(allTools.length).toBe(266)
     // create_payroll_run carries the statutory param; commit docstring honest
     const createDesc = allTools.find((t: any) => t.name === 'create_payroll_run')!.description
     expect(createDesc).toContain('statutory: true')
@@ -536,7 +536,7 @@ describe('L-03 statutory register + wiring', () => {
   })
 
   it('PROMPT_VERSION m48 + the HR line carries the statutory door', () => {
-    expect(PROMPT_VERSION).toBe('m52-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
+    expect(PROMPT_VERSION).toBe('m53-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_statutory_register')
     expect(prompt).toContain('statutory: true')

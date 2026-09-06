@@ -405,7 +405,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('the new tools are registered: 258 = 249 at M43 + the M44 CST quartet + the M45/M46 payroll quartet (side_quest)', () => {
-      expect(allTools.length).toBe(265) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
+      expect(allTools.length).toBe(266) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
       expect(getTool('set_order_deliveries')?.isWrite).toBe(true)
       expect(getTool('set_order_deliveries')?.domain).toBe('orders')
       expect(getTool('correct_program_spec')?.isWrite).toBe(true)
@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m52-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
-      expect(PROMPT_VERSION.startsWith('m52')).toBe(true) // M52 = M-03 final-accounts reports on the M51 double-entry line
+      expect(PROMPT_VERSION).toBe('m53-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
+      expect(PROMPT_VERSION.startsWith('m53')).toBe(true) // M53 = M-04 Tally both sides (the export doctrine) on the M52 line
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

@@ -30,6 +30,7 @@ import { queryTrialBalance } from '@/lib/erp/registers/trial-balance' // SPEC-M5
 import { queryDayBook } from '@/lib/erp/registers/day-book' // SPEC-M52 M-03
 import { queryCashBook } from '@/lib/erp/registers/cash-book' // SPEC-M52 M-03
 import { queryFinalAccounts } from '@/lib/erp/registers/final-accounts' // SPEC-M52 M-03
+import { buildTallyExport } from '@/lib/erp/registers/tally' // SPEC-M53 M-04
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -1360,6 +1361,41 @@ const readTools: AgentTool[] = [
         json: res.rows.map((r) => ({
           code: r.code, account: r.account, head: r.head, amount: r.amount,
         })),
+      }
+    },
+  },
+  {
+    name: 'get_tally_export',
+    description: 'Tally JSON export preview (SPEC-M53 M-04, "Tally both sides"): the window\'s money documents shaped Tally-import-ready — sales, purchases, receipts, payments, credit notes, journals AND reversals, counted once (JV- companions never double-export; a cancelled transaction rides its CN- reversal and nets zero). GST splits as Output/Input CGST/SGST/IGST ledgers. Full JSON downloads at /api/tally?from=&to=; this door returns counts + warnings + the first 20 vouchers with ledger lines. Tally XML is decision §17-4 (pending the owner) — JSON stands. Optional: from/to (YYYY-MM-DD, default last 30 days).',
+    domain: 'accounts',
+    isWrite: false,
+    schema: z.object({
+      from: z.string().optional().describe('Window start YYYY-MM-DD (default to − 30 days).'),
+      to: z.string().optional().describe('Window end YYYY-MM-DD (default today).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M53 M-04 export service — the same read path
+      // the /accounts/tally-export screen + /api/tally download use.
+      const to = args.to ? new Date(args.to) : new Date()
+      const from = args.from ? new Date(args.from) : new Date(to.getTime() - 30 * 24 * 3600 * 1000)
+      const res = await buildTallyExport(from, to)
+      const c = res.counts
+      const lines = res.vouchers.slice(0, 20).map(
+        (v) => `${v.date} ${v.voucherType} ${v.voucherNo}${v.reversalOf ? ` (reversal of ${v.reversalOf})` : ''} — ${v.ledgerEntries.map((e) => `${e.isDebit ? 'Dr' : 'Cr'} ${e.ledger} ₹${Math.round(e.amount).toLocaleString('en-IN')}`).join(' · ')}`,
+      )
+      const shown = Math.min(20, res.vouchers.length)
+      return {
+        text: `Tally export ${res.fromDate}→${res.toDate}: ${res.vouchers.length} vouchers — ${c.sales} sales · ${c.purchases} purchases · ${c.receipts} receipts · ${c.payments} payments · ${c.creditNotes} credit notes · ${c.journals} journals · ${c.reversals} reversals${res.warnings.length ? ` · ${res.warnings.length} WARNING(S)` : ''}${shown ? `\n${lines.join('\n')}${res.vouchers.length > shown ? `\n… ${res.vouchers.length - shown} more (download /api/tally?from=${res.fromDate}&to=${res.toDate})` : ''}` : ''}`,
+        json: {
+          counts: c,
+          warnings: res.warnings,
+          vouchers: res.vouchers.slice(0, 20).map((v) => ({
+            date: v.date, type: v.voucherType, source: v.source,
+            voucherNo: v.voucherNo, party: v.party, amount: v.amount,
+            reversalOf: v.reversalOf, narration: v.narration,
+            ledgerEntries: v.ledgerEntries,
+          })),
+        },
       }
     },
   },

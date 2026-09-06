@@ -146,7 +146,7 @@ describe('SPEC-M19 §4-D3 — Tally JSON adapter', () => {
     await db.buyer.deleteMany({ where: { id: buyerId } })
   })
 
-  it('shapes Sales/Receipt/Payment/Journal vouchers with ledger entries; cancelled excluded', async () => {
+  it('shapes Sales/Receipt/Payment/Journal vouchers with ledger entries; cancelled excluded (SPEC-M53 pins)', async () => {
     const out = await buildTallyExport(new Date('2026-12-01'), new Date('2026-12-31'))
     const nos = out.vouchers.map((v) => v.voucherNo)
     expect(nos).toContain(`RGT19D-INV-${TS}`)
@@ -154,37 +154,65 @@ describe('SPEC-M19 §4-D3 — Tally JSON adapter', () => {
     expect(nos).toContain(`RGT19D-PMT-${TS}`)
     expect(nos).toContain(`RGT19D-JRN-${TS}`)
     expect(nos).not.toContain(`RGT19D-INVX-${TS}`) // cancelled
-    expect(out.counts).toEqual({ sales: 1, receipts: 1, payments: 1, journals: 1 })
+    expect(out.counts).toEqual({ sales: 1, purchases: 0, receipts: 1, payments: 1, creditNotes: 0, journals: 1, reversals: 0 })
 
     const inv = out.vouchers.find((v) => v.voucherNo === `RGT19D-INV-${TS}`)!
     expect(inv.voucherType).toBe('Sales')
+    expect(inv.source).toBe('invoice')
     expect(inv.amount).toBe(1050)
     const partyDr = inv.ledgerEntries.find((e) => e.isDebit)!
     expect(partyDr.ledger).toContain('RGT19D Party')
+    expect(partyDr.amount).toBe(1050)
     const salesCr = inv.ledgerEntries.find((e) => !e.isDebit && e.ledger.startsWith('Sales'))!
     expect(salesCr.amount).toBe(1000)
-    const gst = inv.ledgerEntries.find((e) => e.ledger === 'Output GST')!
-    expect(gst.amount).toBe(50) // 25 CGST + 25 SGST
+    // SPEC-M53 — the GST SPLIT replaces the single Output GST ledger
+    expect(inv.ledgerEntries.find((e) => e.ledger === 'Output GST')).toBeUndefined()
+    const cgst = inv.ledgerEntries.find((e) => e.ledger === 'Output CGST')!
+    expect(cgst.amount).toBe(25)
+    expect(cgst.isDebit).toBe(false)
+    const sgst = inv.ledgerEntries.find((e) => e.ledger === 'Output SGST')!
+    expect(sgst.amount).toBe(25)
+    expect(inv.ledgerEntries.filter((e) => e.ledger === 'Output IGST')).toHaveLength(0) // >0 only
 
     const rcp = out.vouchers.find((v) => v.voucherNo === `RGT19D-RCP-${TS}`)!
     expect(rcp.voucherType).toBe('Receipt')
-    expect(rcp.ledgerEntries.find((e) => e.isDebit)!.ledger).toBe('Bank')
+    // no companion journal (hand-crafted fixture) → the mode-aware fallback lands
+    // on the Cash/Bank control + a warning — never a guessed 'Bank' ledger
+    expect(rcp.ledgerEntries.find((e) => e.isDebit)!.ledger).toBe('Cash/Bank')
     expect(rcp.ledgerEntries.find((e) => !e.isDebit)!.ledger).toContain('RGT19D Party')
     expect(rcp.narration).toContain('UTR123')
+    expect(out.warnings.some((w) => w.includes(`RGT19D-RCP-${TS}`) && w.includes('no companion journal'))).toBe(true)
 
     const pmt = out.vouchers.find((v) => v.voucherNo === `RGT19D-PMT-${TS}`)!
     expect(pmt.voucherType).toBe('Payment')
     expect(pmt.ledgerEntries.find((e) => e.isDebit)!.ledger).toContain('RGT19D Party')
-    expect(pmt.ledgerEntries.find((e) => !e.isDebit)!.ledger).toBe('Cash')
+    expect(pmt.ledgerEntries.find((e) => !e.isDebit)!.ledger).toBe('Cash/Bank')
 
     const jrn = out.vouchers.find((v) => v.voucherNo === `RGT19D-JRN-${TS}`)!
     expect(jrn.voucherType).toBe('Journal')
+    expect(jrn.source).toBe('journal')
     expect(jrn.ledgerEntries.find((e) => e.isDebit)!.ledger).toBe('Round Off')
     expect(jrn.ledgerEntries.find((e) => !e.isDebit)!.ledger).toBe('Sales')
+
+    // every voucher balances (ΣDr == ΣCr — the SPEC-M53 assert)
+    for (const v of out.vouchers) {
+      const dr = v.ledgerEntries.filter((e) => e.isDebit).reduce((s, e) => s + e.amount, 0)
+      const cr = v.ledgerEntries.filter((e) => !e.isDebit).reduce((s, e) => s + e.amount, 0)
+      expect(Math.abs(dr - cr)).toBeLessThan(0.005)
+    }
   })
 
   it('window filters by date', async () => {
     const out = await buildTallyExport(new Date('2026-12-04'), new Date('2026-12-31'))
     expect(out.vouchers.map((v) => v.voucherNo)).toEqual([`RGT19D-JRN-${TS}`])
+  })
+
+  it('carries the doctrine notes (SPEC-M53) — incl. the honest JSON-only deferral', async () => {
+    const out = await buildTallyExport(new Date('2026-12-01'), new Date('2026-12-31'))
+    expect(out.notes.some((n) => n.includes('Counted once'))).toBe(true)
+    expect(out.notes.some((n) => n.includes('contra is the reversal') || n.includes('CN- contra is the reversal'))).toBe(true)
+    expect(out.notes.some((n) => n.includes('GST splits'))).toBe(true)
+    expect(out.notes.some((n) => n.includes('Tally XML'))).toBe(true)
+    expect(out.notes.length).toBeGreaterThanOrEqual(6)
   })
 })
