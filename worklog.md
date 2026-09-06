@@ -2087,3 +2087,19 @@ Stage Summary:
 - THE SIDE_QUEST MERGE SHIPPED ON MAIN: the branch's three milestones (FY single-source hotfix defusing the 2027-04-01 time bomb; wage reconciliation closing the last structural P0 with the operator statement + the party-ledger double-count fix; the payroll run + payslip with masked UAN/aadhaar) are now unified with main's Module K costing — 257 tools, 90 models, 142 menu items, PROMPT_VERSION m47-2026-09-06, STATE #52.
 - All 1420 tests green on the merged tree; remote main verified at 0da083e.
 - Next per spec §12/§16: L-03 statutory (PF/ESI/PT/LWF), L-04 attendance depth, L-06 shiftWages (ADR-019), Module M final accounts; PAY-08/PRC-09/PRG-02 owner decisions open.
+---
+Task ID: mt-guide (manual testing documentation + full re-verification)
+Agent: main (Super Z)
+Task: User requested, before continuing: a detailed manual-testing document — "I need to be able to test the app start to end. I need to be able to test an order flow end to end. Define how everything works and then define the acceptance criteria and steps to perform." Standing instruction from the same thread: test everything, commit everything, push to remote main.
+
+Work Log:
+- Re-verified the M47 merged tree (60a87bc) end to end: vitest 1420/1420 (70 files, 40.7s) · tsc 0 errors under src/ · context_check 606/606 NO DRIFT · eval --static PASS · live: admin login ok, all 17 module landing routes + 40+ sub-routes HTTP 200, /orders/register/csv streams, /api/auth/session returns admin payload. Git: worktree clean, local main == origin/main, side_quest 0 unmerged commits (merge already shipped).
+- Authored docs/MANUAL-TESTING.md (60.9KB markdown, 94 manual test cases): §2 how everything works (two-doors principle, masters/documents/registers, stock ledger + G1/G2/G3 godowns, gap-free FY-scoped numbering, 17-module map, 15-stage pipeline reference card) · §3 scope + environment + credentials (admin@fiberpro.local fixture) + MT- data conventions · §4 start-to-end module walkthrough (66 cases across AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG incl. the agent door) · §5 the golden order-flow E2E (GF-00..GF-17, computable expectations from industry-chain.test.ts: 1,000 ordered / 950 produced / 20 rejected / 930 despatched / ₹195,300 + 5% GST = ₹205,065 collected in full; net stock 0; invoice paid; party ledger closed; producedPct 95) · §6 negative suite (N-01..N-10 with zero-residue rule) · §7-§10 results/defects/risks/sign-off · appendices A-D (routes, number prefixes, print families, post-change regression).
+- Formal .docx twin via the docx skill: download/FiberOps-Manual-Testing-Guide.docx — 43 pages A4, R1 cover (DM-1 Deep Cyan, tech palette), 61-entry TOC (front matter / arabic body restart), postcheck 9/9 with 0 errors 0 warnings after aligning table-cell line spacing to 312; pdf-converted + text-verified (cover/TOC/body/last-page all correct).
+- Generation artifacts persisted (Script Persistence rule): scripts/mt-content-{a,b,c}.js (shared content DSL) + scripts/gen_manual_testing_docx.js (docx builder) + scripts/mt-to-markdown.js (repo doc from the SAME modules — content parity guaranteed) + scripts/patch_docx_pagenum.py (empty-pgNumType strip + footer PAGE field arabic MERGEFORMAT patch).
+- Committed docs/MANUAL-TESTING.md + this worklog entry; pushed origin/main with the PAT.
+
+Stage Summary:
+- Manual acceptance testing is now executable by a human with zero tribal knowledge: the guide encodes the 15-stage golden chain (asserted nightly by industry-chain.test.ts) as UI steps with per-stage acceptance criteria, plus a full read-surface walkthrough and a negative suite.
+- All automated gates re-verified green on the merged tree; no new defects; the legacy scripts/ tsc noise documented as known-and-out-of-gate.
+- The repo copy lives at docs/MANUAL-TESTING.md; the formal docx deliverable lives in download/ (gitignored by repo convention — same as eval reports).

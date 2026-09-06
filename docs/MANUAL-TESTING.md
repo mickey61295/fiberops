@@ -1,0 +1,603 @@
+# FiberOps ERP — Manual Testing Guide
+
+> Start-to-end application walkthrough and order-flow end-to-end test plan.
+> Version 1.0 · 2026-09-06 · Build under test: `main @ 60a87bc` (M47 side_quest merge) · Environment: development (`http://localhost:3000`)
+> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).
+
+## Test Overview
+
+This guide is the single source of truth for manually verifying the FiberOps ERP application from a cold start to a fully settled order. It serves three purposes. First, it explains how the system works end to end, so a tester understands what should happen before touching any screen. Second, it defines a start-to-end walkthrough of every module in the application, with concrete steps and acceptance criteria for each area. Third, it defines the golden order flow — the fifteen-stage Tirupur knitwear job-work pipeline from sales order to payment collection — as one continuous, repeatable end-to-end test with verifiable stock, ledger, and accounting assertions at every stage.
+
+The guide is written for a QA engineer or a developer performing acceptance testing on the development build. Every test case carries a unique identifier, a short list of steps to perform, and the expected result that must be observed before the case can be marked as passed. Cases are intentionally ordered: the module walkthrough (Section 4) verifies the read surfaces and navigation first, the order flow (Section 5) then exercises the full write chain, and the negative suite (Section 6) confirms that the system fails safely. A tester with no prior exposure to the legacy Fiberpro ERP can execute the full suite in approximately three to four hours.
+
+### Baseline Verification Status (Automated Gates)
+
+Before manual testing begins, the automated gates below must be green. They were last verified on 2026-09-06 against the merged main branch (commit 60a87bc, which contains the complete side_quest merge: the FY single-source hotfix, wage reconciliation, and the payroll module). If any gate fails, stop and report the failure before executing the manual suite.
+
+**Automated gates and their expected results**
+
+| Gate | Command | Expected Result |
+|---|---|---|
+| Unit / pipeline tests | npx vitest run (in fiberops/) | 70 files, 1420 tests, all passed |
+| Type safety (source) | npx tsc --noEmit (in fiberops/) | Zero errors under src/ |
+| Context integrity | bash scripts/context_check.sh | 606 checks passed, NO DRIFT |
+| Agent routing (static) | node scripts/eval_routing.mjs --static | PASS |
+| Live route smoke | curl each module route (Section 4) | HTTP 200 on all live routes |
+| Login smoke | POST /api/auth/login with admin fixture | ok:true with admin user payload |
+
+Note that tsc reports a small number of pre-existing errors in legacy cleanup scripts under scripts/ (for example cleanup_e2e_bills.ts, which references retired Prisma models). These are known, outside the src/ gate, and do not affect the running application. They should not be counted as failures for this test round.
+
+## How the System Works
+
+This section defines the mental model a tester needs. Read it once before executing the suite; refer back to it whenever an expected result in a later section seems surprising. Everything stated here is derived from the repository documentation (README, PLAN, docs/CONTEXT) and the shipped database.
+
+### Product Background and Architecture
+
+FiberOps is a modern web rebuild of Fiberpro, a VB.NET garment ERP used by Tirupur knitwear job-work exporters. The business it models is the full export chain: yarn is purchased, knitted into fabric, dyed (often at external jobworkers), cut into panels, sewn on production lines, finished, packed, despatched against export orders, invoiced, and finally collected. The application is a single-tenant Next.js 16 App Router application written in TypeScript with Tailwind CSS and shadcn/ui components on the front end, Prisma ORM over a SQLite database (db/custom.db, currently 90 models) on the back end, and a GLM-4.6-powered AI agent harness streamed over SSE.
+
+All business logic lives in one place: service functions under src/lib/erp/posting/ (44 services). The database is the source of truth; every stock-moving document writes a StockLedger row and updates CurrentStock buckets inside a single transaction. Documents are numbered gap-free by a fiscal-year-scoped numbering service. The active financial year is 26-27 (April 1 to March 31, Indian convention) and is derived from the active FinYear row at /admin/company, never from a frozen literal.
+
+### The Two-Doors Principle
+
+Every operation in the application is reachable through two doors, and both doors run the same service function. Door one is the working form: keyboard-first document screens built from a shared doc-config registry, with master pickers, line grids, and register lists. Door two is the AI agent: a chat panel (right side of the shell) through which the same operations can be requested in natural language. The agent never writes directly — it produces a plan card describing exactly what it intends to do, a human approves it, and only then does the commit function persist the change inside a transaction. This plan-approve-commit loop applies to every agent write, from creating an order to committing a payroll run.
+
+For a tester this has two consequences. First, any write performed through the chat must be verifiable in the corresponding form and register, and vice versa — the results must be identical because the service is shared. Second, a document ingestion path exists: attaching a buyer PO PDF in chat makes the agent extract text, propose missing masters, and then draft one order per document entity, with approvals at each phase. Coverage parity between the two doors is itself a test target (case AG-04).
+
+### Core Domain Concepts
+
+Three record families exist. Masters are reference entities (buyer, style, colour, size, party, yarn, fabric, godown, department, employee — 42 master configurations behind /masters). Documents are business transactions that reference masters and move stock or money. Registers are read-only projections over documents (order register, stock ledger, party ledger, production status, and so on), each with a CSV export and filter parameters. A tester mostly creates masters, walks documents through their lifecycle, and confirms registers reflect the truth.
+
+Documents are numbered automatically by a gap-free, fiscal-year-scoped numbering service. Leaving the number field blank lets the service assign the next value; entering an explicit value is honored for historical entries, with collision protection. The prefixes a tester will see are listed in Appendix B. The most common are SO- for sales orders, PO- for purchase orders, GRN- for goods receipts, CUT- for cut orders, JW- for jobwork despatch challans, DC- for piece despatch, INV- for invoices, V- for journal vouchers, and RCP- for payment receipts.
+
+Approval workflows gate a subset of writes. Purchase orders auto-submit a pending approval at commit; certain agent plans, godown transfers, and reprocess requests route through the approval inbox at /approvals, and every approval decision is written to the audit trail at /approvals/audit. User access is role-based: the admin sees everything, while users in groups see only the menu items their rights allow (matrix editable at /admin/menu-rights).
+
+### The Stock Ledger and the Posting Engine
+
+The stock ledger is the heart of the acceptance criteria in Section 5. Three godowns exist in the seeded database: G1 Main Store (holds yarn, fabric, and ready-to-cut pieces), G2 Finished Goods (holds good finished pieces), and G3 Jobworker Yard (material at external jobworkers). Every quantity move posts signed rows into StockLedger with a transaction type; the most important ones for the order flow are ready_to_cut_in (cut pieces enter G1), ready_to_cut_out (pieces leave G1 to a sewing line), production_in (good pieces enter G2), rejection_out (rejected pieces leave G2), and sales_delivery (despatched pieces leave G2).
+
+A single posting engine owns all stock writes; no other code path may write the stock tables. This means the manual tester can trust a simple invariant: whenever a document commits, every affected godown bucket changes exactly as described in the acceptance criteria, or the document fails atomically — a half-applied document cannot exist. If a stage ever appears to have committed without its stock effect, that is a critical defect, not a display quirk.
+
+### Module Map
+
+The navigation sidebar groups the application into 17 modules. The landing route of each group is listed below; every group was verified to render HTTP 200 on the build under test. Menu items beyond the landing route are covered by the walkthrough cases in Section 4.
+
+**The 17 module groups and their landing routes**
+
+| Group | Landing Route | What It Covers |
+|---|---|---|
+| Home | / | Dashboard KPIs, order status board, daily in/out |
+| Orders & Sales | /orders | Order sheets, Order Hub, registers, amendments, samples, enquiry |
+| Programs | /programs/new | Knitting/dyeing programs, propose-from-BOM, allotment, balances |
+| Procurement | /procurement | Purchase orders, GRNs, rate confirmations, supplier registers |
+| Inventory & Warehouse | /inventory | Stock by material, ledger, lots, rolls, transfers, stock-take |
+| Cutting & Panels | /cutting | Cut job orders, ready-to-cut, panel ops, fabric rejection |
+| Pieces (Finished Goods) | /pieces/despatch | Pcs despatch, receipt, transfer, stock, packing lists, shortage |
+| Production & Shopfloor | /production | Line issues, production entries, bundles, rework, line status |
+| Job Work | /jobwork/order | Jobwork DC out, receipt in, contracts, registers, statements |
+| Despatch & Logistics | /dispatch/dc | DCs, gate entry/pass, courier, loading, unit transfer ack |
+| Accounts & GST | /accounts | Invoices, debit notes, payments, journals, bills, HSN, Tally |
+| Costing & Budgets | /costing | Cost sheets, budgets, expenses, daily P&L, piece rates |
+| HR & Payroll | /hr | Employees, attendance, wages, wage payments, payroll, statements |
+| Quality & Lab | /quality/lab-tests | Lab tests, parameters, lot/reprocess approvals, non-return DCs |
+| Approvals & Workflow | /approvals | Cross-module approval inbox and audit trail |
+| Reports & Analytics | /reports | Report hub, packs, MIS dashboard, 30+ register reports |
+| Masters & Admin | /masters | 42 masters, users, menu rights, options, flags, audit |
+
+### Users, Roles, and Rights
+
+Authentication is email and password based, with session cookies set on login. The first-run bootstrap door (/api/auth/bootstrap) is only available while no user has a password; it is permanently closed on this database, so all user administration happens at /admin/users. The seeded administrator is Aslam Admin (admin@fiberpro.local). Restricted users belong to groups whose rights array lists the menu keys they may access; a restricted user with only the orders right can open /orders but is denied the accounts module. The seeded database also contains inactive guard users; an inactive account must be refused at login even with a correct password.
+
+Two logins are used throughout this guide: the admin fixture for the full walkthrough, and (for negative case N-05) any restricted user you create at /admin/users during the admin tests. Password changes are made at /admin/users or through the change-password flow in the topbar; the login page offers no self-service reset.
+
+### The Fifteen-Stage Order Flow Pipeline
+
+The golden flow models one export order through the whole factory. The stages, their documents, and their stock effects are summarized below. Section 5 walks every stage with concrete quantities and amounts; the table here is the reference card for the acceptance criteria. Quantities in the golden case: 1,000 pcs ordered, 950 produced good, 20 rejected, 930 despatched and invoiced, taxable value ₹195,300 plus 5% GST, collected in full.
+
+**The order flow pipeline and its stock effects**
+
+| # | Stage | Document / Number | Stock and Money Effect |
+|---|---|---|---|
+| 1 | Sales order | Order SO-#### | No stock move; order register row; order total 1,000 pcs |
+| 2 | Bill of materials | BOM | Planning only; per-style consumption (yarn 250 kg @ ₹320) |
+| 3 | Program | Program PGM-#### | Program balance rows (required vs actual kg) created |
+| 4 | Purchase order | PO-#### | No stock move; pending approval auto-submitted |
+| 5 | GRN (yarn in) | GRN-#### | Yarn enters G1 at the ordered rate; stock register row |
+| 6 | Jobwork out (fabric DC) | JW-#### | Fabric moves out to the jobworker (G3 exposure) |
+| 7 | Jobwork receipt in | GRN (process) | Processed fabric returns; jobwork balance reduces |
+| 8 | Cut order | CUT-#### | ready_to_cut_in: 1,000 pcs enter G1 |
+| 9 | Issue to line | LI-#### | ready_to_cut_out: 1,000 pcs leave G1 to sewing line L1 |
+| 10 | Production entry | PE row | production_in: 950 good pcs enter G2; wages accrue |
+| 11 | Rejection / rework | REJ-#### / rework row | rejection_out: 20 pcs leave G2; rework is document-only |
+| 12 | Despatch (pcs DC) | DC-#### | sales_delivery: 930 pcs leave G2; vehicle recorded |
+| 13 | Sales invoice | INV-#### | Books the despatch: ₹195,300 + 5% GST = ₹205,065 |
+| 14 | Cost sheet | CS-#### | Budget vs actual for the order; margin computed |
+| 15 | Collection | Receipt RCP-#### | Invoice settled to paid; party ledger closes to zero |
+
+At any point in the chain the agent can be asked what comes next (the suggest_next_step tool): it inspects the order and returns the next stage with a pre-filled argument skeleton, so the pipeline never dead-ends. After the final collection the same query reports the pipeline complete with a produced percentage (95% in the golden case — 950 good pcs of 1,000 ordered).
+
+## Test Scope and Environment
+
+### Scope
+
+The manual suite covers every live module surface (all 178 routes), the complete order flow write chain through both doors (forms and agent), print rendering for the 23 print families, CSV exports, approval routing, rights enforcement, and the failure modes listed in Section 6. Multi-company ledgers, government e-invoice filing, offline mobile sync, QR genealogy tracking, and production deployment hardening are out of scope for this round; they are either not built or explicitly parked in the project plan.
+
+### Environment Setup
+
+The application under test is the fiberops repository on the main branch, run in development mode. The database file db/custom.db ships pre-seeded with realistic data: 209 orders, 190 invoices, 187 payments, 184 programs, 190 cut orders, 6 jobwork orders, 8 purchase orders, 26 parties, and 1,183 stock ledger rows, with financial year 26-27 active. Two setup paths exist depending on whether the working copy already contains the database.
+
+1. Confirm Node.js 24+ and a package manager are available (node -v).
+2. cd into the fiberops repository checkout on the main branch.
+3. Install dependencies: npm install (or bun install).
+4. If db/custom.db is missing, apply the schema: npx prisma db push, then seed via the repository seed fixtures.
+5. Start the development server: npm run dev. The server listens on http://localhost:3000 and logs to dev.log.
+6. Verify the boot: curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/ must return 200, and dev.log must contain no startup errors.
+7. Open http://localhost:3000 in the browser; the login page must render with the FiberOps ERP heading.
+
+> The vitest suite never touches the development database: it copies custom.db to db/test.db per run. Manual testing, however, writes to the development database directly — see the data conventions below.
+
+### Login Credentials
+
+**Accounts used in this guide**
+
+| Account | Email | Password | Role |
+|---|---|---|---|
+| Administrator | admin@fiberpro.local | admin123 | admin — full rights |
+| Restricted (create in AD-03) | any new email | any 8+ chars | group with orders right only |
+
+If the admin password has been changed on your copy, reset it at /admin/users before starting the suite. Do not test on a database where the bootstrap door is open (a fresh, passwordless database); that state is only for first-run setup and is not covered here.
+
+### Test Data Conventions
+
+- Prefix every manually created artifact with MT- followed by the date (for example MT-0906-ORDER). This keeps manual residue identifiable and greppable in registers.
+- Never delete or edit the seeded masters (B001 Acme Corp USA, S-1001 Mens Round Neck T-Shirt, colours, sizes, parties, godowns G1-G3, departments D1-D6, line L1). The golden flow depends on them.
+- The golden order flow may be repeated any number of times; each run must use a fresh unique order number and leaves a settled, closed chain behind (all stock nets to zero at the end).
+- Record every failure with the case ID, the route, the browser console output (F12), and a screenshot. The project quality bar is zero browser console errors per page; any console error is a defect by definition.
+- Destructive experiments beyond the documented suite should be performed on a copy of the database, not on custom.db.
+
+## Start-to-End Application Walkthrough
+
+This section walks the application module by module. Execute the cases in order; each module assumes only the login from case AU-01 and the seeded data. The acceptance bar throughout: the page renders, data is present, navigation works, exports download, and the browser console shows no errors. Open the developer tools console (F12) before starting and keep it open for the whole suite.
+
+### Authentication (AU)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **AU-01** | Go to /login. Enter admin@fiberpro.local / admin123 and submit. | Login succeeds; the browser lands on the dashboard at / with the heading Welcome to Fiberpro ERP. The session API /api/auth/session returns the admin user. |
+| **AU-02** | Log out (topbar), then attempt login with the same email and a deliberately wrong password. | A red error card is shown, the URL stays on /login, and no session cookie is set. The 401 network log is expected and is not a defect. |
+| **AU-03** | Attempt login with a non-existent email and with an empty password field. | The form rejects the input with inline errors; no request side effects; the login page remains usable. |
+
+### Dashboard and Navigation (NA)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **NA-01** | On the dashboard, inspect KPI cards, the order status board, and the recent documents feed. | Numbers are non-zero and consistent with the seeded data (209 orders, 190 invoices). Recent documents link to their document views and open correctly. |
+| **NA-02** | Click each of the 17 sidebar groups; expand a few groups and open one menu item from each. | Every landing route loads with HTTP 200 and its expected heading; the active group highlights; no layout breakage or console errors. |
+| **NA-03** | Open the command palette (topbar search) and type an order number or a menu label. | Matching menu items and documents appear; selecting one navigates to the correct route. |
+| **NA-04** | Open the live tracker at /live and let it sit for 30 seconds. | The SSE stream connects without errors and renders live snapshot cards; the console shows no connection errors. |
+
+### Orders & Sales (OR)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **OR-01** | Open /orders. Inspect the list: order no, buyer, style, pcs, value, delivery, status. | Seeded orders (SO-1001 onwards, 209 rows / paged) render with correct columns and en-IN number formatting. |
+| **OR-02** | Open any order view /orders/[id] (the Order Hub). | The hub shows header fields, lines, the delivery schedule editor, family sections (BOM, programs, costing est-vs-actual), the chain bar, and lifecycle actions. All sections render without console errors. |
+| **OR-03** | Open /orders/register; apply the q filter with a known buyer and the orderType filter. | The register narrows correctly; clearing filters restores the full list; the CSV button downloads a file whose header row matches the on-screen columns. |
+| **OR-04** | Open /orders/in-hand, /orders/status, and /orders/enquiry. | All three boards render with rows; the status board shows per-order produced percentages; enquiry is the order-register alias with the same behavior. |
+
+### Programs (PR)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **PR-01** | Open /programs/new. Inspect the knitting spec fields (yarn, required kg, target date). | The form renders with master pickers; the doc cites the same service as the agent (ADR chip present). |
+| **PR-02** | Open /programs/propose and look up order SO-1001. | The BOM proposal screen proposes program requirements from the style BOM with quantity and wastage flags; the same tool chip is shown. |
+| **PR-03** | Open /programs/status and any program view /programs/[id]. | The status register shows the waterfall columns (PO'd, DC'd, GRN'd, Finished); the program view renders its spec and balance rows. |
+
+### Procurement (PC)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **PC-01** | Open /procurement/po and any PO view /procurement/po/[id]. | PO list with status badges; the view shows lines, rates, budget verdicts, and amendment history. |
+| **PC-02** | Open /procurement/grn and any GRN view. | GRN entry renders with PO linkage; the view shows received lines and stock effects. |
+| **PC-03** | Open /procurement/po/register, /procurement/supplier-pending, and /procurement/party-balance. | All registers render; supplier-pending lists open PO balances; party-balance shows per-party exposure with filters; each CSV downloads. |
+| **PC-04** | Open /procurement/rate-confirmation and /procurement/supplier-orders. | Both screens render with rows and filters without console errors. |
+
+### Inventory (IV)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **IV-01** | Open /inventory/stock and the material-specific tabs (yarn, fabric, accessory, general, itemwise). | Each tab renders bucket rows per godown with quantities and values; totals are consistent across tabs. |
+| **IV-02** | Open /inventory/ledger. Filter by transaction type (for example ready_to_cut_in) and by godown. | Ledger rows appear with in/out quantities and running context; filters narrow correctly; CSV downloads. |
+| **IV-03** | Open /inventory/lots, /inventory/rolls, and /inventory/io-history. | Lot tracking, roll tracking, and IO history screens render with seeded rows. |
+| **IV-04** | Open /inventory/register, /inventory/closing-stock, and /inventory/waste-percent. | All three registers render; closing-stock computes per-godown totals; waste-percent shows rejection analytics. |
+
+### Cutting & Panels (CU)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **CU-01** | Open /cutting/job-order and any cut order view /cutting/job-order/[id]. | The list shows cut orders (190 seeded) with order linkage; the view shows fabric issued, marker, plies, efficiency, and output pcs. |
+| **CU-02** | Open /cutting/ready-to-cut and /cutting/register. | Ready-to-cut shows G1 piece availability per order; the register lists cut history with CSV export. |
+| **CU-03** | Open /cutting/panel, /cutting/panel-production, /cutting/panel-excess, and /cutting/panel-rework. | All four panel screens render (variants of the job-order and production archetypes) with their specific fields, without console errors. |
+
+### Production & Shopfloor (PD)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **PD-01** | Open /production/issue and any line issue view. | Issue-to-line form renders with line and godown pickers; the view shows status (issued) and pcs. |
+| **PD-02** | Open /production/entry and any production entry view. | The entry form renders (dept, bundle, operator, qty, rate); the view shows wage amount and stock effect. |
+| **PD-03** | Open /production/register and /production/line-status, /production/line-output. | Registers render with filters; line-status shows per-line WIP; line-output shows daily output. |
+| **PD-04** | Open /production/bundles, /production/operations, /production/rework, /production/line-transfer. | All variant screens render without console errors. |
+
+### Job Work (JW)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **JW-01** | Open /jobwork/order and any jobwork DC view /jobwork/order/[id]. | The DC out form renders with jobworker picker and balance context; the view shows material lines and return status. |
+| **JW-02** | Open /jobwork/register and /jobwork/statement. | The register shows per-order/jobworker balances; the statement shows material out vs in per jobworker; CSV downloads. |
+| **JW-03** | Open /jobwork/contract, /jobwork/receipt, and /jobwork/pcs-return. | All three screens render with their pickers and forms without console errors. |
+
+### Pieces & Despatch (DP)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **DP-01** | Open /pieces/despatch and any DC view /pieces/despatch/[id]. | The despatch form renders with order linkage, vehicle, and lines; the view shows the DC with print link. |
+| **DP-02** | Open /pieces/stock and /pieces/orderwise. | Pcs stock shows per-order finished-goods buckets; orderwise shows per-order produced/despatched balances. |
+| **DP-03** | Open /pieces/packing-list and any packing list view. | The list and view render with carton lines and despatch reconciliation fields. |
+| **DP-04** | Open /pieces/rejection, /pieces/shortage, /pieces/finished-goods, /pieces/transfer, /pieces/receipt, and /pieces/gan. | All six screens render without console errors; rejection shows REJ- documents with action types. |
+
+### Despatch & Logistics (DL)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **DL-01** | Open /dispatch/dc and /dispatch/dc/process. | Both DC screens render; the process variant shows multi-stage despatch handling. |
+| **DL-02** | Open /dispatch/gate-entry and /dispatch/gate-pass; open any gate document view. | Gate in and gate out forms render; views show party, vehicle, and DC references. |
+| **DL-03** | Open /dispatch/courier, /dispatch/loading, /dispatch/dc-return, and /dispatch/unit-transfer-ack. | All four screens render without console errors. |
+| **DL-04** | Open /dispatch/register. | The despatch register renders with filters and CSV export. |
+
+### Accounts & GST (AC)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **AC-01** | Open /accounts/invoice and any invoice view; also /accounts/invoice/local and /accounts/invoice/piece. | The invoice list shows 190 seeded rows with status; the view shows lines, GST split, and settlement status; the local and piece variants render. |
+| **AC-02** | Open /accounts/payments and any payment view. | Payments list with direction badges (in/out); the view shows allocations to invoices and the companion journal voucher. |
+| **AC-03** | Open /accounts/party-ledger with party filter CUS001. | The ledger shows bills, receipts, and journals with a closing balance; the journals term counts journal and contra vouchers only (companion cash vouchers are not double-counted). |
+| **AC-04** | Open /accounts/journal, /accounts/debit-note, /accounts/bill (supplier bill), /accounts/bill-pass, /accounts/bills-register, /accounts/supplier-bills, /accounts/production-bills, /accounts/hsn-gst, /accounts/tally-export. | Every screen renders with rows or a working form; bill-pass shows TDS preview fields; tally-export shows the export action. |
+
+### Costing & Budgets (CS)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **CS-01** | Open /costing/cost-sheet and any cost sheet view. | The view shows cost heads, lines, computed per-pc cost, and the computed margin percentage (M44: margin is stored, not a claim). |
+| **CS-02** | Open /costing/budget, /costing/budget-vs-actual, /costing/input, /costing/piece-rate, and /costing/expenses. | All five screens render; budget-vs-actual shows order-level deltas; expenses shows expense documents. |
+| **CS-03** | Open /costing/daily-pnl. | The daily P&L renders produced value, wages, expenses, and the material leg with net margin. |
+
+### HR & Payroll (HR)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **HR-01** | Open /hr/employees. | The employee master table renders with the L05 fields (designation, joining date, masked bank identifiers). |
+| **HR-02** | Open /hr/attendance and /hr/shifts. | Attendance register renders with day filters; shifts master renders. |
+| **HR-03** | Open /hr/wages and /hr/wage-payments. | Wages register shows production-derived earnings; wage payments shows out-payments with party linkage. |
+| **HR-04** | Open /hr/operator-statement, /hr/payroll, and any payroll run view /hr/payroll/[id]. | The operator statement shows earned minus paid equals owed per operator; the payroll register lists runs (PR-####); a run view shows lines, commit banner, journals, and payslip links. |
+
+### Quality & Lab (QA)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **QA-01** | Open /quality/lab-tests and any lab test view; also /quality/parameters. | Lab test entry and view render with lot linkage; parameters master renders. |
+| **QA-02** | Open /quality/lot-approval, /quality/reprocess-approval, and /quality/non-return-dc. | All three approval screens render (kind-filtered inboxes) with pending/decided rows. |
+
+### Approvals, Reports, Masters & Admin (AD)
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **AP-01** | Open /approvals and /approvals/audit. | The approval inbox shows pending items by kind; the audit trail lists decisions with actor, tool, and timestamp; the audit CSV downloads. |
+| **RP-01** | Open /reports, /reports/packs, and /reports/mis; open one report runner page /reports/[slug] and /costing/daily-pnl. | The hub lists 30+ reports; packs group by domain; MIS dashboard renders charts; the runner renders rows with filters and CSV. |
+| **MS-01** | Open /masters; open the buyer, style, and party master screens; create one master of your choice (code MT-...). | The hub lists 42 configurations; each screen is a searchable table with create/edit; your master appears after save. |
+| **AD-01** | Open /admin/company. | Company profile and financial years render; FY 26-27 shows as active; the active-FY control is present. |
+| **AD-02** | Open /admin/users; create a user, set a password, deactivate it. | User CRUD works; the deactivated user is refused at login (ties into N-06). |
+| **AD-03** | Open /admin/menu-rights; grant the new users group only the orders right. | The rights matrix saves; a user in that group sees only the Orders group (ties into N-05). |
+| **AD-04** | Open /admin/options and /admin/settings. | Options (AppOption) and feature flags boards render; toggling a flag persists. |
+
+### The AI Agent Chat (AG)
+
+The agent panel opens from the topbar. It streams responses over SSE and shows plan cards for every write request. Plan cards list exactly what will be created or changed, confidence chips on ingested fields, and tolerance verdicts where budgets are involved. Nothing is committed until you press Approve on the card.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **AG-01** | Ask: list the last 5 orders with buyer and total pcs. | The agent answers with a table of real orders (SO-1001 upwards); no plan card is needed for a read. |
+| **AG-02** | Ask: what is the current stock of pieces for order SO-1001 by godown. | The agent calls the stock tools and reports G1/G2 buckets consistent with the pcs stock screen. |
+| **AG-03** | Ask: create an order for buyer B001, style S-1001, 100 Black M and 100 Black L at ₹210 each, delivery 2026-12-31, order number MT-0906-AGENT. | A plan card appears summarizing buyer, style, lines, totals, and numbering; approve it; the commit returns SO-style numbering (your explicit number honored). The order appears in /orders and /orders/register. |
+| **AG-04** | Open the order created by AG-03 in the Order Hub, then create one more order of the same shape through the /orders/new form. | Both doors produce identical structure and effects (same service); both orders appear in the register; the parity footer/chip cites the shared tool. |
+| **AG-05** | Attach a small buyer-PO PDF in chat and ask the agent to ingest it. | Extraction runs; the agent proposes missing masters with confidence chips; one order per document entity is drafted as a plan; approving persists them. |
+| **AG-06** | Ask: what should I do next for order MT-0906-AGENT. | The agent returns the next pipeline stage with a pre-filled argument skeleton (suggest_next_step); follow-up suggestions are consistent with the stage table in 2.7. |
+
+## End-to-End Order Flow Test (The Golden Chain)
+
+This is the centerpiece of the manual suite: one export order walked through the entire factory and settled in full. The chain mirrors the automated industry-chain E2E test (tests/pipeline/industry-chain.test.ts), which asserts stock-ledger effects at every hop; the manual run performs the same stages through the forms (with the agent as an alternative door) and verifies the same effects through the registers. Execute the stages in order — each stage's precondition is the previous stage's acceptance criteria.
+
+The golden quantities are fixed so the expected results are computable. Order 1,000 pcs (500 Black M + 500 Black L) at ₹210 per piece. Cut 1,000. Produce 950 good. Reject 20 (scrap). Rework 10 (document only). Despatch 930. Invoice ₹195,300 taxable plus 5% GST = ₹205,065. Collect ₹205,065 in full. If you vary the quantities, recompute the expectations with the same arithmetic — the invariants (net stock to zero, ledger closure to zero, invoice status paid) do not change.
+
+### Stage 0 — Test Data Preflight
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-00** | Confirm the seeded masters exist: buyer B001 (Acme Corp USA), style S-1001 (Mens Round Neck T-Shirt), colours Black, sizes M and L, party CUS001, yarn Y-30COT, godowns G1/G2, department D4 (Sewing), line L1, operator E001. Pick a unique order number MT-<date>-SO for the run. | All masters are present (they are seed data and must never be edited). The chosen order number does not exist in /orders/register. |
+
+If yarn Y-30COT is absent in your database (the yarn list may vary between copies), create it first at the yarn master screen with code Y-30COT and a 30s combed cotton description — the BOM stage references it by code.
+
+### Stage 1 — Sales Order (SO-####)
+
+Purpose: book the export order. Path: /orders/new (form) or the agent (AG-03 pattern). Fill the header: order number MT-<date>-SO (or blank for auto SO numbering), buyer B001, style S-1001, delivery date, order type Export. Lines: Black / M / 500 / 210 and Black / L / 500 / 210. Submit and confirm the commit.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-01** | Create the order with the two lines above; then open the Order Hub and the order register. | The order view shows totalPcs 1,000 and total value ₹2,10,000 (en-IN formatting). The register gains one row with status open. No stock effect exists yet — the stock ledger gains no row for the order. |
+
+### Stage 2 — Bill of Materials (BOM)
+
+Purpose: define the fabric recipe so programs and procurement can be proposed. Path: the BOM section of the Order Hub, or the agent with create_bom for style S-1001. Line: yarn Y-30COT, qty 250, rate 320.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-02** | Create the BOM line; reopen the Order Hub BOM section (or ask the agent for the style BOM). | The BOM shows one line of 250 kg at ₹320 (value ₹80,000). No stock effect. The propose-programs screen (PR-02) now proposes requirements from this BOM. |
+
+### Stage 3 — Knitting Program (PGM-####)
+
+Purpose: convert BOM requirement into a production program. Path: /programs/new or /programs/propose (propose pre-fills from the BOM). Fields: order MT-<date>-SO, stage knitting, yarn Y-30COT, required 250 kg, target date.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-03** | Create the program; open /programs/status with the order filter and the program view. | The program number matches PGM-####. The status register shows required 250 kg, actual 0, balance 250 kg. The ProgBalance row is created (agent query what is next confirms program state true). |
+
+### Stage 4 — Purchase Order (PO-####)
+
+Purpose: order the yarn from a supplier. Path: /procurement/po or the agent. Fields: supplier party (any seeded yarn supplier), lines yarn Y-30COT qty 250 rate 320, delivery date, godown G1.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-04** | Create the PO; open /procurement/po and the PO view; open the approval inbox. | The PO registers with number PO-#### and value ₹80,000. A pending approval for the PO appears in the inbox (auto-submitted at commit). No stock effect. If the PO exceeds budget tolerance a warn verdict is shown on the plan card (expected only when you deviate from the golden numbers). |
+
+### Stage 5 — GRN: Yarn Receipt (GRN-####)
+
+Purpose: receive the yarn into the main store. Path: /procurement/grn or the agent with receive_grn. Fields: against the PO, yarn Y-30COT qty 250 kg, rate 320, godown G1.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-05** | Receive the GRN; open /inventory/stock (yarn tab) and /inventory/register. | The stock register gains an IN row for 250 kg at G1. Current stock for Y-30COT at G1 increases by 250 kg valued at WAC. The PO balance reduces to zero (or shows received in full). |
+
+### Stage 6 — Jobwork Out: Fabric to Jobworker (JW-####)
+
+Purpose: send knitted fabric out for dyeing at an external jobworker. Path: /jobwork/order (DC out) or the agent with create_jobwork_order. Fields: jobworker party, process dyeing, material fabric with qty (kg), out godown G1, godown G3 as destination.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-06** | Create the jobwork DC; open /jobwork/register. | The DC registers as JW-####. The register shows material out (kg) with balance pending return for that jobworker. The jobworker exposure view (party balance) reflects the value at process. |
+
+### Stage 7 — Jobwork Receipt In
+
+Purpose: receive the dyed fabric back. Path: /jobwork/receipt (update-only form against the DC) or the agent with receive_jobwork. Fields: the DC number, received qty (kg), process rate.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-07** | Receive the fabric in; reopen /jobwork/register. | The jobwork balance reduces to zero (or to the unreceived remainder if you receive partially). Stock returns to G1 as processed fabric identity (process GRN IN row in the stock register). |
+
+### Stage 8 — Cut Order (CUT-####): Pieces Enter G1
+
+Purpose: cut fabric into ready-to-cut pieces. This is the first piece-bucket hop. Path: /cutting/job-order or the agent with create_cut_order. Fields: order MT-<date>-SO, fabric issued 250 kg, totalPcs 1,000, marker length 1.8, plies 80, efficiency 92, output godown G1.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-08** | Create the cut order; open /pieces/stock (or /inventory/stock pcs view) filtered to the order, and /inventory/ledger filtered to ready_to_cut_in. | The cut order registers as CUT-####. G1 pieces for the order equal exactly 1,000. The stock ledger gains a ready_to_cut_in row with inPcs 1,000. /cutting/ready-to-cut shows the order as available to issue. |
+
+### Stage 9 — Issue to Line (LI-####): Pieces Leave G1
+
+Purpose: move ready-to-cut pieces to the sewing line. Path: /production/issue or the agent with issue_to_line. Fields: order, line L1, qty 1,000, from G1.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-09** | Create the line issue; open the issue view and /pieces/stock for the order. | The issue registers as LI-#### with status issued. G1 pieces for the order drop to exactly 0. The stock ledger gains a ready_to_cut_out row with outPcs 1,000. The line WIP (production line status) shows 1,000 pcs on L1. |
+
+### Stage 10 — Production Entry: Good Pieces Enter G2
+
+Purpose: record sewing output with an operator (wages accrue per piece rate). Path: /production/entry or the agent with post_production_entry. Fields: order, dept D4, prod date today, bundle B1, operator E001, qty 950, rate 12.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-10** | Create the production entry; open /pieces/stock and /production/register for the order; open the operator statement for E001. | G2 pieces for the order equal exactly 950. The stock ledger gains a production_in row with inPcs 950. The production register shows the entry with wage amount ₹11,400 (950 × 12). The operator statement earned column for the window includes ₹11,400. |
+
+### Stage 11 — Rejection and Rework
+
+Purpose: account for damaged pieces and rework labor. Path: /pieces/rejection (agent post_rejection) for 20 pcs, type stitch_fault, action scrap, dept D4. Then /production/rework (agent post_rework) for 10 pcs, bundle RW1, operator E001, rate 8.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-11** | Create the rejection, then the rework entry; re-check /pieces/stock for the order. | The rejection registers as REJ-####; G2 pieces drop to exactly 930; the stock ledger gains a rejection_out row with outPcs 20. The rework entry is document-only: G2 remains 930 after it (no stock row), and the rework wage (10 × 8 = ₹80) appears in the operator statement window. |
+
+### Stage 12 — Packing List (optional but recommended)
+
+Purpose: pack the finished goods for despatch. Path: /pieces/packing-list or the agent. Fields: order, total 930 pcs with size-wise lines mirroring production (rounded realistically), pack type carton.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-12** | Create the packing list; open its view. | The packing list registers (PL-####) with carton lines; the despatch stage can reference it. No stock effect (despatch is the moving stage). |
+
+### Stage 13 — Pcs Despatch (DC-####): Pieces Leave G2
+
+Purpose: despatch the finished goods. Path: /pieces/despatch or the agent with create_pcs_despatch. Fields: order MT-<date>-SO, totalPcs 930, vehicle TN33BX1234, lines style S-1001 qty 930 rate 210, from G2.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-13** | Create the despatch DC; open /pieces/stock for the order and /dispatch/register. | The DC registers as DC-####. G2 pieces for the order drop to exactly 0 (net stock for the order is now zero across all godowns). The stock ledger gains a sales_delivery row with outPcs 930. The despatch register lists the DC with vehicle and destination. |
+
+### Stage 14 — Sales Invoice (INV-####)
+
+Purpose: book the despatch as a receivable. Path: /accounts/invoice or the agent with create_sales_invoice. Fields: order, party CUS001, bill type sales, totalQty 930, taxableValue 195,300 (930 × 210), gstRate 5, gstType cgst_sgst (local) or igst for an out-of-state party.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-14** | Create the invoice; open the invoice view and /accounts/bills-register. | The invoice registers as INV-#### with bill amount ₹205,065 (195,300 × 1.05) — GST auto-split sourced from the HSN master (CGST 2.5% + SGST 2.5% for a local party; IGST 5% for interstate). The bills register shows the open bill. Party balance for CUS001 increases by the bill amount. |
+
+### Stage 15 — Cost Sheet (CS-####)
+
+Purpose: record the order P&L. Path: /costing/cost-sheet or the agent with create_cost_sheet. Fields: order, fabric 80,000, trim 12,000, CM 11,400, washing 5,000, packing 4,000, overheads 6,000, selling price 195,300. Optionally add component lines from the cost-component library.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-15** | Create the cost sheet; open its view. | The cost sheet registers with total cost ₹1,18,400, per-pc cost ₹127.31 (on 930 despatched), and computed margin 39.35% ((195,300 − 118,400) / 195,300). The Order Hub est-vs-actual section shows the deltas against production and jobwork actuals (CM from production entries: 950 × 12 = ₹11,400 — note rework wages are excluded from the CM comparator). |
+
+### Stage 16 — Collection and Settlement (RCP-####)
+
+Purpose: collect the invoice in full and close the money loop. Path: /accounts/payments (direction in) or the agent with record_payment. Fields: party CUS001, amount 205,065, direction in, invoice INV-####, order, mode bank, reference UTR-MT-####.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-16** | Record the payment; open the payment view, the invoice view, and /accounts/party-ledger for CUS001. | The receipt registers as RCP-####. The payment view shows the allocation: ₹205,065 fully allocated, on-account 0. The invoice status flips to paid. The party ledger for CUS001 closes the receivable to zero for this chain (bills minus receipts). A companion receipt journal voucher (V-####) is written with the party linkage. |
+
+### Final Verification — Pipeline Complete
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **GF-17** | Ask the agent: what is next for order MT-<date>-SO. Verify the summary and the registers one last time. | The agent reports the pipeline complete with producedPct 95 (950 of 1,000). Net stock for the order across G1/G2 is zero. The order register row can be closed via /orders/close. The daily in/out register (/registers/daily-in-out) shows today's quantities for the stages executed. |
+
+If any stage failed its acceptance criteria, record the case ID (GF-##), the stage, the observed values, and a screenshot. Do not proceed past a failed stage for that order — later stages depend on the earlier stock states, and continuing produces misleading failures.
+
+## Negative and Edge-Case Tests
+
+The negative suite confirms the system fails safely: invalid input is rejected with clear messages, guarded operations are blocked or flagged, and no partial state is ever left behind. Each case below must end with zero residue — check the register where the document would have appeared and confirm nothing was created.
+
+| ID | How to Perform | Expected Result / Acceptance Criteria |
+|---|---|---|
+| **N-01** | On /orders/new, submit with buyer and style empty; then with qty 0 and a negative rate. | Zod validation errors render inline per field; no POST reaches the service; no order appears in the register. |
+| **N-02** | Ask the agent to create an order with an unknown buyer code (for example B-NOPE). | The agent responds honestly that the master does not exist and offers to create it; no plan card is committable; no order is created. |
+| **N-03** | Attempt to create two orders with the same explicit number (repeat the MT- order number). | The second create is refused with a duplicate-number error; numbering remains gap-free. Auto-numbering (blank field) never collides. |
+| **N-04** | Create a PO with a rate far over the budget (for example 10× the golden rate) through the agent. | The plan card shows the tolerance verdict (warn or block per flag configuration); a blocking verdict prevents commit; a warn verdict commits but is flagged and auditable. |
+| **N-05** | Log in as the restricted user created in AD-03; attempt to open /accounts and /hr directly by URL. | The restricted sidebar shows only Orders; direct URL access is denied (403 or redirect per the rights guard); the login session remains valid for permitted routes. |
+| **N-06** | Attempt login with a deactivated user (from AD-02). | Login is refused regardless of correct credentials; the error message does not leak whether the account exists. |
+| **N-07** | Record a payment larger than the open invoice amount (for example ₹210,000 against the ₹205,065 bill). | The allocation fills the invoice; the remainder is recorded explicitly as on-account (never silently dropped); the ledger balances remain consistent. |
+| **N-08** | Create a supplier bill 5% over the matched PO/GRN figures. | The three-way match verdict on the plan card flags the over-bill with a warning chip; commit proceeds only with acknowledgment; the bill-pass stage shows the verdict. |
+| **N-09** | Cancel a document that supports reversal (for example an invoice with no payment, or a purchase order before approval). | The cancel action writes compensating ledger entries restoring the exact prior state (G3 reversal); stock and party balance return to pre-document values; the register marks the document cancelled, not deleted. |
+| **N-10** | In the payroll flow, commit a payroll run twice, and attempt to print a payslip for a draft run. | The second commit is refused (double-commit guard); the draft payslip returns not-found (a payslip is a payment instrument — committed runs only); masked identifiers never expose full bank data. |
+
+Additionally, while executing any negative case, watch the browser console: error cards and validation messages are expected, but unhandled page errors or console exceptions are defects even on failure paths. The E2E precedent in this project treats zero console errors as the bar for negative flows too, with the intended 401/4xx responses explicitly allowed.
+
+## Test Results Summary (Current Round)
+
+The verification round performed on 2026-09-06 on the merged main branch (commit 60a87bc) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables.
+
+**Verification results, 2026-09-06 round**
+
+| Check | Result | Detail |
+|---|---|---|
+| Vitest suite | PASS | 70 files, 1420 tests passed in 40.7s (includes industry-chain, payroll, FY hotfix, parity suites) |
+| TypeScript (src) | PASS | Zero errors under src/; known legacy errors confined to scripts/ cleanup files |
+| Context integrity | PASS | context_check.sh: 606/606 checks, NO DRIFT |
+| Agent routing (static) | PASS | eval_routing.mjs --static PASS |
+| Login (live) | PASS | admin@fiberpro.local authenticated via /api/auth/login; session payload correct |
+| Module routes (live) | PASS | All 17 module landing routes plus 40+ sub-routes returned HTTP 200 |
+| CSV export (live) | PASS | /orders/register/csv returned a valid CSV stream |
+| Session API (live) | PASS | /api/auth/session returned the admin user with role and rights |
+| Git state | PASS | Working tree clean; local main identical to origin/main; side_quest fully merged (0 unmerged commits) |
+
+The seeded database state at verification time: 209 orders, 190 sales invoices, 187 payments, 184 programs, 190 cut orders, 8 purchase orders, 6 jobwork orders, 26 parties, 10 employees, 1,183 stock ledger rows, financial year 26-27 active, zero payroll runs. The data is a residue of prior test rounds and seed fixtures; it is realistic for read-surface verification and does not interfere with the golden flow, which creates its own fresh chain.
+
+## Defect Analysis and Known Issues
+
+No new defects were found during this verification round. The single observation is a known, documented condition rather than a defect: legacy cleanup scripts under scripts/ reference retired Prisma models (bill, billPass) and therefore fail strict type checking. They are outside the src/ gate, are not part of the build, and are scheduled for archival in a future housekeeping change. No action is required for the manual suite.
+
+Historical defects relevant to a tester's expectations, all fixed and pinned by regression tests: the fiscal-year 2027 time bomb (all numbering now derives from the active FinYear row — creating and activating 27-28 at /admin/company is the entire rollover procedure); the party-ledger double count (companion journals no longer double-subtract receipts); the payroll double-commit and draft-payslip guards; and the upload-route gremlin restored after the M44 sandbox incident. If any of these behaviors regress, the corresponding pipeline test (fy-hotfix, payroll-l01/l02, party-ledger cases) will fail before a manual tester reaches them.
+
+## Risk Assessment and Outstanding Items
+
+**Risks affecting manual test reliability**
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Development database drift from repeated manual runs | High | Low | MT- prefixes keep residue greppable; re-copy a pristine custom.db or run scripts/e2e_cleanup_devdb.ts when registers get noisy |
+| Agent tests depend on the GLM API being reachable | Medium | Medium | Form-door cases run independently; retry agent cases if the provider is rate-limited (the harness degrades gracefully) |
+| SQLite write contention under concurrent manual users | Low | Medium | Run the suite single-user; the engine serializes transactions, so this is a latency risk, not a correctness risk |
+| Numbering collisions with re-used explicit order numbers | Medium | Low | Always use a fresh MT-<date>- prefix; leave number fields blank to use auto numbering |
+| Console noise mistaken for defects in dev mode | Medium | Low | Only unhandled page errors and real console.error entries count; Fast Refresh preamble and DevTools notices are excluded by convention |
+
+Outstanding items for the next round, in priority order: execute the full manual suite (Sections 4-6) and record results against the case IDs; extend the browser E2E specs to cover the payroll UI paths that are currently service-tested only; archive the legacy cleanup scripts to retire the last tsc noise; and schedule the financial-year rollover drill (create and activate 27-28 on a database copy) as a rehearsal before 2027-04-01.
+
+## Test Conclusions and Sign-Off
+
+Verdict for the 2026-09-06 verification round: PASS. The merged main branch (including all side_quest work) is green on every automated gate, boots cleanly, serves every live route, and authenticates correctly. The application is ready for full manual acceptance testing using this guide. Sign-off requires a human tester to complete the walkthrough (Section 4), the golden chain (Section 5), and the negative suite (Section 6) with all cases passed or explicitly waived with reasons.
+
+**Sign-off checklist**
+
+| Item | Evidence Required | Status |
+|---|---|---|
+| Automated gates green | Table 1 commands re-run on the build under test | PASS (2026-09-06) |
+| Start-to-end walkthrough (Section 4) | All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked | Pending |
+| Golden order flow (Section 5) | GF-00 through GF-17 marked; net stock zero; invoice paid; ledger closed | Pending |
+| Negative suite (Section 6) | N-01 through N-10 marked; zero residue after each | Pending |
+| Defect log | Any failures filed with case ID, route, console output, screenshot | No open defects |
+| Data hygiene | MT- residue identified; no seed masters altered | Pending |
+
+## Appendix A — Route Reference for the Walkthrough
+
+The route reference lists the canonical entry points per module group. All routes below were live-verified (HTTP 200) on the build under test. Document views follow the pattern [list]/[id]; registers offer a sibling /csv route for export.
+
+**Key routes by module**
+
+| Module | List / Entry | Register | View |
+|---|---|---|---|
+| Orders | /orders, /orders/new | /orders/register, /orders/in-hand, /orders/status | /orders/[id] |
+| Programs | /programs/new, /programs/propose | /programs/status | /programs/[id] |
+| Procurement | /procurement/po, /procurement/grn | /procurement/po/register, supplier-pending, party-balance | /procurement/po/[id], grn/[id] |
+| Inventory | /inventory/stock (yarn, fabric, accessory, general, itemwise) | /inventory/ledger, register, lots, rolls, io-history, closing-stock | stock-take/[id] |
+| Cutting | /cutting/job-order, /cutting/panel | /cutting/register, ready-to-cut | /cutting/job-order/[id] |
+| Production | /production/issue, /production/entry, /production/rework | /production/register, line-status, line-output | issue/[id], entry/[id] |
+| Job Work | /jobwork/order, /jobwork/receipt, /jobwork/contract | /jobwork/register, statement | /jobwork/order/[id] |
+| Pieces | /pieces/despatch, receipt, transfer, packing-list, rejection, shortage | /pieces/stock, orderwise | despatch/[id], packing-list/[id] |
+| Despatch | /dispatch/dc, gate-entry, gate-pass, courier, loading | /dispatch/register | gate-entry/[id], gate-pass/[id] |
+| Accounts | /accounts/invoice (local, piece), payments, journal, bill, debit-note | bills-register, supplier-bills, party-ledger, hsn-gst, tally-export | invoice/[id], payments/[id] |
+| Costing | /costing/cost-sheet, budget, input, expenses, piece-rate | /costing/budget-vs-actual, daily-pnl | cost-sheet/[id], budget/[id], expenses/[id] |
+| HR | /hr/employees, attendance, wages, wage-payments, payroll, shifts | /hr/operator-statement, payroll | /hr/payroll/[id] |
+| Quality | /quality/lab-tests, parameters, lot-approval, reprocess-approval, non-return-dc | — | lab-tests/[id] |
+| Approvals | /approvals | /approvals/audit | — |
+| Reports | /reports, /reports/packs, /reports/mis | /reports/[slug], /registers/daily-in-out | — |
+| Masters & Admin | /masters, /admin/company, users, menu-rights, options, settings | /admin/audit | masters/[entity] |
+
+## Appendix B — Document Number Prefixes
+
+Numbers are fiscal-year scoped and gap-free. Leaving the number field blank on any form lets the numbering service assign the next value; explicit values are honored with collision protection. The prefixes a tester will encounter:
+
+**Document number prefixes**
+
+| Prefix | Document | Created At |
+|---|---|---|
+| SO- | Sales order | /orders/new |
+| PGM- | Production program | /programs/new |
+| PO- | Purchase order | /procurement/po |
+| GRN- | Goods receipt (purchase and process) | /procurement/grn, /jobwork/receipt |
+| JW- | Jobwork despatch challan (out) | /jobwork/order |
+| CUT- | Cut order | /cutting/job-order |
+| LI- | Line issue | /production/issue |
+| REJ- | Rejection entry | /pieces/rejection |
+| DC- | Piece despatch challan | /pieces/despatch |
+| PL- | Packing list | /pieces/packing-list |
+| INV- | Sales invoice | /accounts/invoice |
+| DN- | Debit note | /accounts/debit-note |
+| SB- | Supplier bill | /accounts/bill |
+| V- | Journal voucher (including wage and receipt companions) | /accounts/journal, services |
+| RCP- / PYT- | Payment receipt / payment voucher | /accounts/payments |
+| PR- | Payroll run | /hr/payroll |
+| CC- | Cost component (master) | /masters |
+
+## Appendix C — Print Documents
+
+Every document view exposes a print link that renders a dedicated print sheet at /print/[docType]/[id]. The mapped families on this build are: order, invoice, debit-note, payment, journal, purchase-order (po), grn, cost-sheet, budget, expense, cut-order, production-entry, line-issue, pcs-despatch, packing-list, rejection, gate-entry, gate-pass, jobwork dc, lab-test, sample, and payslip (payroll). Print acceptance during the walkthrough: the sheet renders with company header, document number, amount-in-words on money documents, and a barcode/QR where applicable; the browser print dialog produces a clean single document.
+
+## Appendix D — Post-Change Regression Checklist
+
+Run this checklist after any code change before re-running the full manual suite. It is the minimum bar the project itself uses between milestones, and takes roughly ten minutes.
+
+1. npx vitest run — 1420+ tests green (the count only grows).
+2. npx tsc --noEmit — zero errors under src/.
+3. bash scripts/context_check.sh — NO DRIFT.
+4. node scripts/eval_routing.mjs --static — PASS.
+5. Boot npm run dev; log in; hit the module landing routes (Table 2) — all 200.
+6. Spot-check one register CSV and one print sheet.
+7. Ask the agent one read question and one what's-next question — both answer correctly.
