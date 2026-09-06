@@ -2156,3 +2156,15 @@ Stage Summary:
 - M48 SHIPPED: statutory payroll end-to-end — configurable rates frozen per run, the journal split keeps loop-closure #3 (employee ledger 0) and opens loop-closure #4 (the authority party ledger IS the pending-remittance tracker), the register + csv are the challan data, the payslip shows the deductions, and the operator statement's "how much do I still owe X" stays 0 after statutory settlement.
 - Module L remaining: L-04 attendance depth, L-06 shiftWages (ADR-019). Phase-6B: 9 of 11 batches done.
 - Commit + push with the user's PAT follows this entry.
+---
+Task ID: mt-guide-v12
+Agent: main (Super Z)
+Task: Keep the manual-testing guide current with M48 — add the statutory walkthrough cases so a human pass validates the new L-03 surfaces (the same doc-keeping discipline as v1.1/Appendix E).
+
+Work Log:
+- mt-content-a.js §4.14: HR-04 expectation extended (statement owed formula + Deducted column + statutory card) and NEW cases HR-05..08 — the config door (/admin/options payroll group + /hr/statutory register + csv), the statutory walkthrough (E005 2 days × ₹800 → PF 192 + ESI 12 → net 1,396, commit → J1 1,396 + J2 384/64 to EPFO/ESIC), the payslip + statement honesty (owed 0 after net payment — the 204 is remitted, not owed), and the remittance closure (EPFO ledger → 0, pending → 0) with revert.
+- mt-content-c.js §7: the verification-round table updated to the fb0e949 build — 1447 vitest (71 files), route smoke 45/45, browser E2E row for the statutory form-door run; §8 pipeline-twin list gained payroll-l03; sign-off checklist names HR-05..08.
+- Version → 1.2, build ref → main @ fb0e949 in both generators (mt-to-markdown + gen_manual_testing_docx).
+- Twins regenerated from the shared modules (content parity): docs/MANUAL-TESTING.md (75,280 chars) + download/FiberOps-Manual-Testing-Guide.docx — full pipeline: patch_docx_pagenum.py (2 empty pgNumType stripped, 1 footer arabic MERGEFORMAT) + add_toc_placeholders --auto (66 bookmarks/TOC entries) + postcheck 9/9 (0 errors, 0 warnings) + LibreOffice PDF (52 pages) text-verified: HR-05..08 all present, statutory ×19, Version 1.2 + fb0e949 present.
+- Guide total: 114 cases (98 module/golden/negative + 16 Appendix-E regression).
+- Committed + pushed (this commit).

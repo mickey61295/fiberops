@@ -5,20 +5,19 @@ module.exports = [
 
   // ================= SECTION 7 =================
   { h1: "7. Test Results Summary (Current Round)" },
-  { p: "The verification round performed on 2026-09-06 on the merged main branch (commit 60a87bc) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables." },
+  { p: "The verification round performed on 2026-09-06 on main (commit fb0e949 — the M47 side_quest merge plus the M48 statutory payroll batch: PF/ESI/PT/LWF with configurable rates frozen per run, the journal split that keeps the employee ledger closing to zero while the authority parties track pending remittance, the statutory register with its challan-data csv, and the payslip deduction rows) covered the automated gates in full and the live route surface by direct request. The side_quest branch work — the fiscal-year single-source hotfix, the wage reconciliation loop closure, and the payroll run with payslips — is fully merged into main and pushed to the remote; the branch contributes no unmerged commits. Results are summarized below; manual execution of Sections 4-6 by a human tester remains the open work this guide enables." },
   { table: {
     title: "Table 5: Verification results, 2026-09-06 round",
     headers: ["Check", "Result", "Detail"],
     widths: [30, 16, 54],
     rows: [
-      ["Vitest suite", "PASS", "70 files, 1420 tests passed in 40.7s (includes industry-chain, payroll, FY hotfix, parity suites)"],
+      ["Vitest suite", "PASS", "71 files, 1447 tests passed in 40.4s (includes industry-chain, payroll L01/L02/L03, FY hotfix, parity suites)"],
       ["TypeScript (src)", "PASS", "Zero errors under src/; known legacy errors confined to scripts/ cleanup files"],
       ["Context integrity", "PASS", "context_check.sh: 606/606 checks, NO DRIFT"],
-      ["Agent routing (static)", "PASS", "eval_routing.mjs --static PASS"],
+      ["Agent routing (static)", "PASS", "eval_routing.mjs --static PASS (m48-2026-09-06)"],
+      ["Route smoke (live)", "PASS", "route_smoke_m48.sh: 45/45 — statutory register + csv + the seeded statutory walkthrough with full revert"],
+      ["Browser E2E (live)", "PASS", "Statutory run created through the form door (checkbox) → commit → journals verified in the database (employee 1,396 + EPFO 384 + ESIC 64) → payslip deduction rows → live pending register → zero console errors → fully reverted"],
       ["Login (live)", "PASS", "admin@fiberpro.local authenticated via /api/auth/login; session payload correct"],
-      ["Module routes (live)", "PASS", "All 17 module landing routes plus 40+ sub-routes returned HTTP 200"],
-      ["CSV export (live)", "PASS", "/orders/register/csv returned a valid CSV stream"],
-      ["Session API (live)", "PASS", "/api/auth/session returned the admin user with role and rights"],
       ["Git state", "PASS", "Working tree clean; local main identical to origin/main; side_quest fully merged (0 unmerged commits)"],
     ],
   }},
@@ -27,7 +26,7 @@ module.exports = [
   // ================= SECTION 8 =================
   { h1: "8. Defect Analysis and Known Issues" },
   { p: "No new defects were found during this verification round. The single observation is a known, documented condition rather than a defect: legacy cleanup scripts under scripts/ reference retired Prisma models (bill, billPass) and therefore fail strict type checking. They are outside the src/ gate, are not part of the build, and are scheduled for archival in a future housekeeping change. No action is required for the manual suite." },
-  { p: "Historical defects relevant to a tester's expectations, all fixed and pinned by regression tests: the fiscal-year 2027 time bomb (all numbering now derives from the active FinYear row — creating and activating 27-28 at /admin/company is the entire rollover procedure); the party-ledger double count (companion journals no longer double-subtract receipts); the payroll double-commit and draft-payslip guards; and the upload-route gremlin restored after the M44 sandbox incident. If any of these behaviors regress, the corresponding pipeline test (fy-hotfix, payroll-l01/l02, party-ledger cases) will fail before a manual tester reaches them." },
+  { p: "Historical defects relevant to a tester's expectations, all fixed and pinned by regression tests: the fiscal-year 2027 time bomb (all numbering now derives from the active FinYear row — creating and activating 27-28 at /admin/company is the entire rollover procedure); the party-ledger double count (companion journals no longer double-subtract receipts); the payroll double-commit and draft-payslip guards; and the upload-route gremlin restored after the M44 sandbox incident. If any of these behaviors regress, the corresponding pipeline test (fy-hotfix, payroll-l01/l02/l03, party-ledger cases) will fail before a manual tester reaches them." },
 
   // ================= SECTION 9 =================
   { h1: "9. Risk Assessment and Outstanding Items" },
@@ -54,7 +53,7 @@ module.exports = [
     widths: [40, 44, 16],
     rows: [
       ["Automated gates green", "Table 1 commands re-run on the build under test", "PASS (2026-09-06)"],
-      ["Start-to-end walkthrough (Section 4)", "All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked", "Pending"],
+      ["Start-to-end walkthrough (Section 4)", "All case IDs AU/NA/OR/PR/PC/IV/CU/PD/JW/DP/DL/AC/CS/HR/QA/AP/RP/MS/AD/AG marked (HR now includes the statutory cases HR-05 through HR-08)", "Pending"],
       ["Golden order flow (Section 5)", "GF-00 through GF-17 marked; net stock zero; invoice paid; ledger closed", "Pending"],
       ["Negative suite (Section 6)", "N-01 through N-10 marked; zero residue after each", "Pending"],
       ["side_quest merge regression (Appendix E)", "R-FY, R-WG, R-PR, R-CS case IDs marked; created documents reverted", "Pending"],
