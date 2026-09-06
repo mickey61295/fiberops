@@ -247,7 +247,7 @@ describe('L-01 wiring + honest claims', () => {
   })
 
   it('PROMPT_VERSION bumped + the hr line carries the statement', () => {
-    expect(PROMPT_VERSION).toBe('m47-2026-09-06') // m47 = the side_quest merge (m44 costing + m46 payroll lines)
+    expect(PROMPT_VERSION).toBe('m48-2026-09-06') // M48 L-03 statutory on the M47 merged line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_operator_statement')
   })

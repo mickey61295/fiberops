@@ -570,6 +570,10 @@ model PayrollRun {
   finYear     String
   notes       String?
   committedAt DateTime?
+  // SPEC-M48 L-03 — the FROZEN statutory config snapshot (rates applied at
+  // plan time; a later rate edit never moves a drafted run). null = statutory
+  // NOT applied on this run (the opt-out default — M46 nets byte-identical).
+  statutory   Json?
   createdAt   DateTime      @default(now())
   lines       PayrollLine[]
 
@@ -589,7 +593,17 @@ model PayrollLine {
   qty        Int? // piece mode: pcs produced in window
   earned     Float @default(0)
   advances   Float @default(0) // out-payments to the employee-party, payDate window
-  net        Float @default(0) // earned − advances (negative = recoverable, honest)
+  // SPEC-M48 L-03 — statutory deductions, employee share (deducted from net):
+  // pf + esi + pt + lwf; pfEmployer/esiEmployer are the EMPLOYER share (cost,
+  // not deducted — payslip note + register). All frozen at plan time.
+  pf         Float @default(0)
+  pfEmployer Float @default(0)
+  esi        Float @default(0)
+  esiEmployer Float @default(0)
+  pt         Float @default(0)
+  lwf        Float @default(0)
+  deductions Float @default(0) // = pf + esi + pt + lwf (the employee share total)
+  net        Float @default(0) // earned − advances − deductions (negative = recoverable, honest)
 
   @@unique([runId, employeeId])
 }

@@ -34,14 +34,16 @@ export default async function OptionsPage() {
           Key-value app options. The app reads <span className="font-mono text-xs">print.companyName / print.address /
           print.gstin</span> (every report + doc print header),{' '}
           <span className="font-mono text-xs">print.terms.invoice</span> (invoice print terms block — one line per
-          row, the frmTerms master) and <span className="font-mono text-xs">default.godownCode</span> (picker seed).
+          row, the frmTerms master), <span className="font-mono text-xs">default.godownCode</span> (picker seed) and{' '}
+          <span className="font-mono text-xs">payroll:statutory</span> (SPEC-M48 L-03 — the PF/ESI/PT/LWF rate JSON
+          payroll runs freeze when statutory: true is passed).
           Other keys are stored for the modules that will consume them.
         </p>
       </div>
 
-      {(['print', 'defaults', 'general'] as const).map((g) => {
+      {(['print', 'defaults', 'payroll', 'general'] as const).map((g) => {
         const groupRows = byGroup.get(g) ?? []
-        const label = g === 'print' ? 'Print Headers' : g === 'defaults' ? 'Defaults' : 'General'
+        const label = g === 'print' ? 'Print Headers' : g === 'defaults' ? 'Defaults' : g === 'payroll' ? 'Payroll Statutory' : 'General'
         return (
           <div key={g} id={g}>
             <h2 className="text-sm font-semibold text-slate-700 mb-2">

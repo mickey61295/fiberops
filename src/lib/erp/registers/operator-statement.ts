@@ -3,7 +3,10 @@
  * Phase-6B §12). THE wage reconciliation surface: per operator —
  *   earned = Σ ProductionEntry.amount  (prodDate window — piece-rate ground truth)
  *   paid   = Σ Payment direction-out to the 1:1 employee-party (payDate window)
- *   owed   = earned − paid
+ *   owed   = earned − paid − deducted   (SPEC-M48 L-03: − Σ statutory
+ *            employee-share deductions on the employee's COMMITTED piece-run
+ *            lines — remitted to authorities on the employee's behalf, so
+ *            they are not owed to the employee; window-overlap aware)
  * All-time by default (the "how much do I still owe operator X" question has
  * no natural window); from/to window BOTH legs independently on their own
  * date columns. The paid leg counts the same rows the party ledger counts, so
@@ -71,16 +74,38 @@ export async function queryOperatorStatement(q: RegisterQuery): Promise<Register
   const paidBy = new Map<string, number>()
   for (const p of payments) paidBy.set(p.partyId, (paidBy.get(p.partyId) ?? 0) + p.amount)
 
+  // SPEC-M48 L-03 — the statutory deduction leg: employee-share deductions on
+  // the employee's COMMITTED piece-run lines (daily-run deductions never touch
+  // this statement — it counts piece earnings only). Windowed by run-window ∩
+  // query-window (the same overlap rule the piece-run guard uses; all-time =
+  // every committed piece run).
+  const statWhere: any = { run: { mode: 'piece', status: 'committed' }, employeeId: { in: employees.map((e) => e.id) } }
+  if (q.from || q.to) {
+    // overlap = (run.to ≥ window.from) AND (run.from ≤ window.to); a
+    // single-sided window constrains only the present side
+    statWhere.run.AND = [
+      ...(q.from ? [{ to: { gte: q.from } }] : []),
+      ...(q.to ? [{ from: { lte: q.to } }] : []),
+    ]
+  }
+  const statLines = await db.payrollLine.findMany({
+    where: statWhere,
+    select: { employeeId: true, pf: true, esi: true, pt: true, lwf: true },
+  })
+  const deductedBy = new Map<string, number>()
+  for (const l of statLines) deductedBy.set(l.employeeId, (deductedBy.get(l.employeeId) ?? 0) + l.pf + l.esi + l.pt + l.lwf)
+
   // rows: employees with ANY activity in scope (earned or paid) — silence the
   // never-worked-never-paid noise, keep owed-from-before visible
   type Row = {
     id: string; href: string | null; code: string; operator: string; dept: string; party: string
-    entries: number; qty: number; earned: number; paid: number; owed: number
+    entries: number; qty: number; earned: number; paid: number; deducted: number; owed: number
   }
   const all: Row[] = []
   for (const e of employees) {
     const earned = Math.round((earnedBy.get(e.id)?.amount ?? 0) * 100) / 100
     const paid = e.partyId ? Math.round((paidBy.get(e.partyId) ?? 0) * 100) / 100 : 0
+    const deducted = Math.round((deductedBy.get(e.id) ?? 0) * 100) / 100
     if (earnedBy.get(e.id)?.entries === undefined && paid === 0) continue // zero activity
     all.push({
       id: e.id,
@@ -93,7 +118,8 @@ export async function queryOperatorStatement(q: RegisterQuery): Promise<Register
       qty: earnedBy.get(e.id)?.qty ?? 0,
       earned,
       paid,
-      owed: Math.round((earned - paid) * 100) / 100,
+      deducted,
+      owed: Math.round((earned - paid - deducted) * 100) / 100,
     })
   }
   all.sort((a, b) => b.owed - a.owed || b.earned - a.earned)
@@ -104,6 +130,7 @@ export async function queryOperatorStatement(q: RegisterQuery): Promise<Register
 
   const earned = Math.round(all.reduce((s, r) => s + r.earned, 0) * 100) / 100
   const paid = Math.round(all.reduce((s, r) => s + r.paid, 0) * 100) / 100
+  const deducted = Math.round(all.reduce((s, r) => s + r.deducted, 0) * 100) / 100
   const owed = Math.round(all.reduce((s, r) => s + r.owed, 0) * 100) / 100
   const window = q.from || q.to
     ? ` (${q.from ? q.from.toISOString().slice(0, 10) : '…'} → ${q.to ? q.to.toISOString().slice(0, 10) : '…'})`
@@ -116,7 +143,7 @@ export async function queryOperatorStatement(q: RegisterQuery): Promise<Register
       { label: 'Paid ₹', value: paid },
       { label: 'Owed ₹', value: owed },
     ],
-    summary: `${count} operators with wage activity${window} — earned ₹${earned.toLocaleString('en-IN')}, paid ₹${paid.toLocaleString('en-IN')}, owed ₹${owed.toLocaleString('en-IN')}`,
+    summary: `${count} operators with wage activity${window} — earned ₹${earned.toLocaleString('en-IN')}, paid ₹${paid.toLocaleString('en-IN')}${deducted ? `, statutory deducted ₹${deducted.toLocaleString('en-IN')}` : ''}, owed ₹${owed.toLocaleString('en-IN')}`,
     count,
   }
 }

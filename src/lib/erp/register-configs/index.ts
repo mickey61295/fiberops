@@ -39,6 +39,7 @@ import { auditLogConfig } from './audit-log'
 import { attendanceConfig } from './attendance'
 import { despatchRegisterConfig } from './despatch-register' // SPEC-M41 PRC-05
 import { wastePercentConfig } from './waste-percent' // SPEC-M42 INV-05
+import { statutoryConfig } from './statutory' // SPEC-M48 L-03
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -81,6 +82,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   attendanceConfig, // SPEC-M20 (Gap D) — attendance day-book
   despatchRegisterConfig, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
   wastePercentConfig, // SPEC-M42 (Phase-6B Batch 6) INV-05 — waste % KPI
+  statutoryConfig, // SPEC-M48 (Module L Batch 3) L-03 — statutory remittance register
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

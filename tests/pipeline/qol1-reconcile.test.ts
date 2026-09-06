@@ -149,7 +149,7 @@ describe('D-15 — the ghost tool is gone (prompt↔registry sync)', () => {
   })
 
   it('PROMPT_VERSION bumped for the semantic change (m<milestone>.<rev> scheme)', () => {
-    expect(PROMPT_VERSION).toBe('m47-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m48-2026-09-06') // M48 L-03 statutory on the M47 merged line
   })
 })
 
@@ -161,6 +161,6 @@ describe('reconcile bookkeeping', () => {
   })
 
   it('the registry count is unchanged by the reconcile (232 — no tools added/removed)', () => {
-    expect(allTools.length).toBe(257) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs
+    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 })

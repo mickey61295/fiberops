@@ -522,6 +522,26 @@ async function main() {
     if (!existing) await db.govtHoliday.create({ data: h }).catch(() => {})
   }
 
+  // ── SPEC-M48 L-03 — the statutory config row (safe defaults: the stable
+  // federal numbers ON — PF 12/12 with the ₹15,000 wage ceiling + ESI
+  // 0.75/3.25 up to ₹21,000 gross; the state-churning PT/LWF OFF with the
+  // fields ready for the owner's state numbers). Edit at /admin/options. ──
+  await db.appOption.upsert({
+    where: { key: 'payroll:statutory' },
+    update: {},
+    create: {
+      key: 'payroll:statutory',
+      value: JSON.stringify({
+        pf: { enabled: true, employeePct: 12, employerPct: 12, epsPct: 8.33, wageCeiling: 15000 },
+        esi: { enabled: true, employeePct: 0.75, employerPct: 3.25, grossLimit: 21000 },
+        pt: { enabled: false, amount: 0, grossThreshold: 0, state: '' },
+        lwf: { enabled: false, employee: 0, employer: 0, state: '' },
+      }),
+      group: 'payroll',
+      label: 'Statutory payroll rates (PF/ESI/PT/LWF) — applied when a payroll run passes statutory: true; frozen on the run',
+    },
+  }).catch(() => {})
+
   console.log('✅ Seed complete')
   console.log('   Orders:', Object.keys(orders).length)
   console.log('   POs:', Object.keys(pos).length)

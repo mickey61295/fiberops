@@ -25,6 +25,7 @@ import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
 import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
+import { queryStatutoryRegister } from '@/lib/erp/registers/statutory' // SPEC-M48 L-03
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -1188,7 +1189,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_payroll_runs',
-    description: 'Payroll runs (PR-####): per period, mode piece|daily, lines per employee with earned/advances/net, lifecycle draft|committed. Optional filters: mode (piece|daily), status (draft|committed), q (run no). Payslips print per committed line; pay the net with pay_wages (the employee-party ledger closes to 0).',
+    description: 'Payroll runs (PR-####): per period, mode piece|daily, lines per employee with earned/advances/deductions/net, lifecycle draft|committed. Optional filters: mode (piece|daily), status (draft|committed), q (run no). Statutory runs (SPEC-M48) carry PF/ESI/PT/LWF deductions frozen on the run. Payslips print per committed line; pay the net with pay_wages (the employee-party ledger closes to 0).',
     domain: 'hr',
     isWrite: false,
     schema: z.object({
@@ -1210,8 +1211,38 @@ const readTools: AgentTool[] = [
         text: `${res.count} payroll runs — net payable ₹${Math.round(Number(net)).toLocaleString('en-IN')}${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}`,
         json: res.rows.map((r) => ({
           runNo: r.runNo, mode: r.mode, period: r.period, lines: r.lines,
-          earned: r.earned, advances: r.advances, net: r.net, status: r.status, committed: r.committed,
+          earned: r.earned, advances: r.advances, deductions: r.deductions, net: r.net, status: r.status, committed: r.committed,
           view: `/hr/payroll/${r.id}`,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_statutory_register',
+    description: 'Statutory remittance register (SPEC-M48 L-03): one row per COMMITTED payroll run × head — PF/ESI/PT/LWF employee share (deducted from wages), employer share (cost, not deducted), total, the authority party and its PENDING remittance (party-ledger ground truth). The csv twin (/hr/statutory/csv) is the challan data export. Optional filters: head (pf|esi|pt|lwf), q (run no). Use this to answer "how much PF/ESI do we still have to remit" — pay the authority party (EPFO/ESIC/PT-BOARD/LWF-BOARD) with the payment door to settle it.',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      head: z.enum(['pf', 'esi', 'pt', 'lwf']).optional().describe('Filter by statutory head.'),
+      q: z.string().optional().describe('Run no contains.'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M48 L-03 register service — the same read path
+      // the /hr/statutory screen uses.
+      const res = await queryStatutoryRegister({
+        variant: args.head, q: args.q,
+        limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const total = (res.totals ?? []).find((t) => t.label === 'Total ₹')?.value ?? 0
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} statutory rows — ₹${Math.round(Number(total)).toLocaleString('en-IN')} (employee + employer)${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}. ${res.summary}`,
+        json: res.rows.map((r) => ({
+          runNo: r.runNo, mode: r.mode, period: r.period, head: r.head,
+          employee: r.employee, employer: r.employer, total: r.total,
+          authority: r.authority, pending: r.pending, committed: r.committed,
+          view: r.href,
         })),
       }
     },
@@ -3418,14 +3449,14 @@ const writeTools: AgentTool[] = [
   // SPEC-M46 (Module L Batch 2) — the payroll run + payslip (L-02)
   docTool(
     'create_payroll_run',
-    'Create a payroll run (L-02): runNo auto-assigned PR-####, per period, ONE mode. piece = Σ production-entry earnings per operator (the statement ground truth); daily = weighted attendance (present 1, half 0.5) × dailyWage. Lines freeze at creation: per employee — days/qty, earned, advances (Σ out-payments to the employee-party in the window), net = earned − advances; every employee auto-linked to its 1:1 party. Status starts draft. Then commit via commit_payroll_run (posts the wage journals, makes payslips printable). A piece run whose window overlaps a COMMITTED piece run refuses (double-credit guard). Required: mode, from, to (ISO dates). Optional: notes.',
+    'Create a payroll run (L-02): runNo auto-assigned PR-####, per period, ONE mode. piece = Σ production-entry earnings per operator (the statement ground truth); daily = weighted attendance (present 1, half 0.5) × dailyWage. Lines freeze at creation: per employee — days/qty, earned, advances (Σ out-payments to the employee-party in the window), statutory deductions, net = earned − advances − deductions; every employee auto-linked to its 1:1 party. Optional statutory: true (SPEC-M48 L-03) applies the configured PF/ESI/PT/LWF rates — frozen on the run; ESI skips above the gross limit, PF wage caps at the ceiling, deductions never exceed the wage. Status starts draft. Then commit via commit_payroll_run (posts the wage journals, makes payslips printable). A piece run whose window overlaps a COMMITTED piece run refuses (double-credit guard). Required: mode, from, to (ISO dates). Optional: statutory, notes.',
     'hr',
     PAYROLL_RUN_SCHEMA,
     planPayrollRun,
   ),
   docTool(
     'commit_payroll_run',
-    'Commit a payroll run (L-02): draft → committed (terminal). Posts ONE wage journal PER LINE with its employee-party id — Dr Production Wages (piece) / Dr Staff Salaries (daily) / Cr Wage Payable, amount = earned (full, not net) — so paying the net afterwards via pay_wages closes the employee-party ledger to exactly 0. Payslips become printable per line. Required: runNo. Optional: notes.',
+    'Commit a payroll run (L-02): draft → committed (terminal). Posts ONE wage journal PER LINE with its employee-party id — Dr Production Wages (piece) / Dr Staff Salaries (daily) / Cr Wage Payable, amount = earned (full, not net; on statutory runs = earned − deductions, the statutory share never touches the employee-party ledger) — so paying the net afterwards via pay_wages closes the employee-party ledger to exactly 0. Statutory runs (SPEC-M48) also post ONE journal per head (PF/ESI/PT/LWF) to the authority party (EPFO/ESIC/…) — its party ledger tracks the pending remittance (see get_statutory_register). Payslips become printable per line. Required: runNo. Optional: notes.',
     'hr',
     PAYROLL_RUN_COMMIT_SCHEMA,
     planPayrollRunCommit,

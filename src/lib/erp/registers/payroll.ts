@@ -32,7 +32,7 @@ export async function queryPayrollRuns(q: RegisterQuery): Promise<RegisterResult
         by: ['runId'],
         where: { runId: { in: runIds } },
         _count: true,
-        _sum: { earned: true, advances: true, net: true },
+        _sum: { earned: true, advances: true, deductions: true, net: true },
       })
     : []
   const aggByRun = new Map(lineAggs.map((a) => [a.runId, a]))
@@ -48,6 +48,7 @@ export async function queryPayrollRuns(q: RegisterQuery): Promise<RegisterResult
       lines: a?._count ?? 0,
       earned: Math.round(a?._sum.earned ?? 0),
       advances: Math.round(a?._sum.advances ?? 0),
+      deductions: Math.round(a?._sum.deductions ?? 0),
       net: Math.round(a?._sum.net ?? 0),
       status: r.status,
       committed: r.committedAt ? r.committedAt.toISOString().slice(0, 10) : '—',
@@ -55,6 +56,7 @@ export async function queryPayrollRuns(q: RegisterQuery): Promise<RegisterResult
   })
 
   const earned = rows.reduce((s, r) => s + (r.earned as number), 0)
+  const deductions = rows.reduce((s, r) => s + (r.deductions as number), 0)
   const net = rows.reduce((s, r) => s + (r.net as number), 0)
   const committedCount = runs.filter((r) => r.status === 'committed').length
   return {
@@ -63,9 +65,10 @@ export async function queryPayrollRuns(q: RegisterQuery): Promise<RegisterResult
       { label: 'Runs', value: count },
       { label: 'Committed', value: committedCount },
       { label: 'Earned ₹', value: earned },
+      { label: 'Deductions ₹', value: deductions },
       { label: 'Net ₹', value: net },
     ],
-    summary: `${count} payroll run${count === 1 ? '' : 's'} (${committedCount} committed) — earned ₹${earned.toLocaleString('en-IN')}, net payable ₹${net.toLocaleString('en-IN')}`,
+    summary: `${count} payroll run${count === 1 ? '' : 's'} (${committedCount} committed) — earned ₹${earned.toLocaleString('en-IN')}${deductions ? `, statutory deductions ₹${deductions.toLocaleString('en-IN')}` : ''}, net payable ₹${net.toLocaleString('en-IN')}`,
     count,
   }
 }

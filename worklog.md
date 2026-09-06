@@ -2137,3 +2137,22 @@ Stage Summary:
 - THE SIDE_QUEST THREAD IS FULLY CLOSED ON REMOTE MAIN: merged (FY hotfix + wage reconciliation + payroll unified with M44 costing) · all gates green on the merged tree · the manual-testing guide v1.1 with the 16-case Appendix E regression suite (R-FY/R-WG/R-PR/R-CS) is pushed as the TC-13-equivalent human validation for every merged fix.
 - Deliverables: repo docs/MANUAL-TESTING.md (110 cases) + download/FiberOps-Manual-Testing-Guide.docx (51-page formal twin, postcheck 9/9).
 - Remote main: 7993d9c (+ this push-entry). side_quest: 0 unmerged commits, branch can be retired at owner's discretion.
+---
+Task ID: m48-statutory
+Agent: main (Super Z)
+Task: "Continue with next steps" — the next milestone per the Phase-6B remediation spec §12 / STATE #52: L-03 statutory payroll (PF/ESI/PT/LWF configurable rates on the run; deductions computed; statutory registers + challan data export).
+
+Work Log:
+- Wrote SPEC-M48 (4 FRs: ST-01 config, ST-02 opt-in deductions with ESI limit + PF ceiling + cap-at-earned, ST-03 the commit journal split + authority parties + loop-closure #4, ST-04 payslip + register + statement adjustment) — committed separately.
+- Schema: PayrollRun +statutory Json? (the frozen config snapshot) + PayrollLine +pf/pfEmployer/esi/esiEmployer/pt/lwf/deductions; prisma db push + WAL checkpoint + seed.ts gained the payroll:statutory AppOption row (safe defaults: PF/ESI ON, PT/LWF OFF — state law churns, machinery ships).
+- lib/erp/statutory.ts NEW: DEFAULT_STATUTORY + normalizeStatutory (never throws, wrong-typed fields fall back) + resolveStatutoryConfig + computeStatutory (pure) + STATUTORY_HEADS (register/journals/parties share ONE meta source) + ensureStatutoryParties (find-or-create EPFO/ESIC/PT-BOARD/LWF-BOARD).
+- posting/payroll.ts: plan gains the opt-in statutory flag (config FROZEN on the run; per-line deduction columns; capped lines NAMED; the nag when rates configured but not passed) + commit J1/J2 split (J1 = earned − deductions with partyId, skipped at 0; J2 per head to the authority parties; wage expense = Σ earned + Σ employer shares).
+- Surfaces: /hr/statutory register (+csv = challan data) + registers/register-configs statutory files; the payroll register + run view (Deducted column, statutory card, statutory journals in the audit table, remit note); payslip deduction rows only when > 0 (byte-compat off) + the employer-share note; operator statement owed = earned − paid − Σ committed piece-run deductions (window-overlap aware) + the Deducted column; admin options payroll group; create_payroll_run statutory param + docstrings; get_statutory_register read tool (tools 257→258); menu 142→143; LIVE_ROUTES 178→179; PROMPT_VERSION m48-2026-09-06.
+- Tests: payroll-l03.test.ts NEW 22/22 (hand-computed walkthrough: S1 1,250 → net 1,071; S2 22,500 → ESI skipped + PF on ceiling → net 20,480; S3 23 → pf 3 + lwf 20 = exactly the wage → J1 skipped; J2s 3,906/51/200/240; EPFO remittance closure; piece+statutory statement owed 0). Inherited pins: tools 257→258 ×17, menu 142→143 ×4, regcfg/regsvc/slug list, version m47→m48 ×7 — all same-commit.
+- REAL arithmetic catch during test authoring: a covered ₹23 wage's ESI EMPLOYER share rounds to ₹1 even though the employee take is 0 (employer shares compute independently of the cap) — honest, pinned; and the register's pending normalized the settled JS −0.
+- Gates: 1447/1447 vitest (71 files) · tsc src 0 · context_check 606/606 NO DRIFT · eval --static PASS (m48, registry 250) · route_smoke_m48 NEW 45/45 LIVE · browser E2E through the FORM door (checkbox → commit → DB-verified J1 1,396 + J2 384/64 → payslip rows → live pending → ZERO console errors) → fully reverted; screenshots m48-*.png.
+
+Stage Summary:
+- M48 SHIPPED: statutory payroll end-to-end — configurable rates frozen per run, the journal split keeps loop-closure #3 (employee ledger 0) and opens loop-closure #4 (the authority party ledger IS the pending-remittance tracker), the register + csv are the challan data, the payslip shows the deductions, and the operator statement's "how much do I still owe X" stays 0 after statutory settlement.
+- Module L remaining: L-04 attendance depth, L-06 shiftWages (ADR-019). Phase-6B: 9 of 11 batches done.
+- Commit + push with the user's PAT follows this entry.

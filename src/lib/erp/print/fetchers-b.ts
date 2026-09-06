@@ -845,6 +845,22 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
     clean(emp.upi) ? `UPI: ${emp.upi}` : null,
   ].filter((x): x is string => !!x)
 
+  // SPEC-M48 L-03 — statutory deduction rows (only when > 0: a statutory-off
+  // payslip is byte-identical to the M46 layout). Employer shares print as a
+  // NOTE (cost, not deducted). The frozen run config supplies the labels.
+  const stat = (line.run as any).statutory
+  const deductRows: [string, string, string][] = []
+  if (stat && (line.deductions ?? 0) > 0) {
+    if (line.pf > 0) deductRows.push(['Less: PF (employee)', `${stat.pf?.employeePct ?? 12}% of PF wage`, inr(-line.pf)])
+    if (line.esi > 0) deductRows.push(['Less: ESI (employee)', `${stat.esi?.employeePct ?? 0.75}% of gross`, inr(-line.esi)])
+    if (line.pt > 0) deductRows.push(['Less: Professional Tax', stat.pt?.state ? String(stat.pt.state) : 'state slab', inr(-line.pt)])
+    if (line.lwf > 0) deductRows.push(['Less: Labour Welfare Fund', stat.lwf?.state ? String(stat.lwf.state) : 'welfare fund', inr(-line.lwf)])
+  }
+  const employerNote =
+    stat && (line.pfEmployer > 0 || line.esiEmployer > 0)
+      ? `Employer adds (cost, NOT deducted from the employee): PF ₹${Math.round(line.pfEmployer).toLocaleString('en-IN')}${line.esiEmployer > 0 ? ` + ESI ₹${Math.round(line.esiEmployer).toLocaleString('en-IN')}` : ''} — remitted with the deducted shares.`
+      : null
+
   return {
     docType: 'payslip',
     title: 'PAYSLIP',
@@ -871,6 +887,7 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
       rows: [
         ['Earnings', basis, inr(line.earned)],
         ['Less: advances paid in period', 'payments to employee-party', inr(-line.advances)],
+        ...deductRows,
       ],
     },
     totals: [['NET PAYABLE', inr(line.net)]],
@@ -879,6 +896,7 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
     notes: [
       ...(payTo.length ? payTo : []),
       'Earnings are credited to the Wage Payable ledger by the run commit (wage journals reference this run).',
+      ...(employerNote ? [employerNote] : []),
       ...(line.net < 0 ? ['Net is negative — advance recovery; nothing is payable this period.'] : []),
       ...(run.mode === 'piece'
         ? ['Piece earnings are the same production-entry ground truth as the operator statement (L-01).']

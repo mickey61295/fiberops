@@ -41,6 +41,7 @@ import { queryAuditLog } from './audit-log'
 import { queryAttendance } from './attendance'
 import { queryDespatchRegister } from './despatch' // SPEC-M41 PRC-05
 import { queryWastePercent } from './waste-percent' // SPEC-M42 INV-05
+import { queryStatutoryRegister } from './statutory' // SPEC-M48 L-03
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -83,6 +84,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'attendance': queryAttendance, // SPEC-M20 (Gap D) — attendance day-book
   'despatch-register': queryDespatchRegister, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
   'waste-percent': queryWastePercent, // SPEC-M42 (Phase-6B Batch 6) INV-05 — waste % KPI
+  'statutory': queryStatutoryRegister, // SPEC-M48 (Module L Batch 3) L-03 — statutory remittance register
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

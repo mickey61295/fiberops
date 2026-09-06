@@ -58,16 +58,17 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'waste-percent': '/inventory/waste-percent', // SPEC-M42 INV-05
   'operator-statement': '/hr/operator-statement', // SPEC-M45 L-01
   'payroll': '/hr/payroll', // SPEC-M46 L-02
+  'statutory': '/hr/statutory', // SPEC-M48 L-03
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement + M46 payroll: exactly the 40 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement + M46 payroll + M48 statutory: exactly the 41 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out', 'despatch-register',
       'fabric-stock', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register', 'jobworker-statement',
       'line-issue-register', 'lot-tracking', 'operator-statement', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'payroll', 'pcs-stock',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
-      'rate-confirmation', 'stock-ledger', 'stock-register', 'supplier-bills', 'supplier-history', 'supplier-pending',
+      'rate-confirmation', 'statutory', 'stock-ledger', 'stock-register', 'supplier-bills', 'supplier-history', 'supplier-pending',
       'waste-percent', 'yarn-stock',
     ])
   })
@@ -251,14 +252,14 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     }
   })
 
-  it('M5 Wave B tool doors: get_production_wages delegates to the wages register (142 total)', () => {
+  it('M5 Wave B tool doors: get_production_wages delegates to the wages register (143 total)', () => {
     const tool = getTool('get_production_wages')!
     expect(tool).toBeTruthy()
     expect(tool.isWrite).toBe(false)
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(257) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs
+    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 })
 

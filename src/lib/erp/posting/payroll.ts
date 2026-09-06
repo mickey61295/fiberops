@@ -22,6 +22,7 @@ import { db } from '@/lib/db'
 import { activeFinYear, resolveDocNo } from '../numbering'
 import { docKeyViolation } from './ledger'
 import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
+import { resolveStatutoryConfig, computeStatutory, ensureStatutoryParties, normalizeStatutory, STATUTORY_HEADS, type StatutoryConfig } from '../statutory' // SPEC-M48 L-03
 import { endOfUtcDay } from '@/lib/erp/dates'
 import type { DocPlanResult } from './types'
 import type { PayrollRunInput, PayrollRunCommitInput } from '../schemas/payroll'
@@ -141,31 +142,101 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
     return { ...l, advances, net: Math.round((l.earned - advances) * 100) / 100 }
   })
 
+  // ── SPEC-M48 L-03 — statutory deductions, OPT-IN per run ──
+  // When args.statutory: resolve the live config ONCE here, compute per line
+  // (pure), and FREEZE the config onto the run (a later rate edit never moves
+  // a drafted run). OFF (the default) = the M46 arithmetic byte-identical.
+  let statutoryCfg: StatutoryConfig | null = null
+  let statNotes: string[] = []
+  if (args.statutory) {
+    const { config, source } = await resolveStatutoryConfig()
+    statutoryCfg = config
+    if (source === 'default') statNotes.push('statutory config row missing/unparseable — safe defaults applied')
+    const anyHead = config.pf.enabled || config.esi.enabled || config.pt.enabled || config.lwf.enabled
+    if (!anyHead) statNotes.push('no statutory head enabled in the config — zero deductions will be computed')
+  } else {
+    // the nag: rates configured but the run didn't opt in — SAY it, don't
+    // silently compute legacy nets (discoverability without surprise)
+    const { config } = await resolveStatutoryConfig()
+    if (config.pf.enabled || config.esi.enabled || config.pt.enabled || config.lwf.enabled) {
+      statNotes.push('statutory rates are configured but NOT applied — pass statutory: true to deduct PF/ESI/PT/LWF')
+    }
+  }
+  const withStatutory = statutoryCfg
+    ? withAdvances.map((l) => {
+        const s = computeStatutory(l.earned, statutoryCfg!)
+        if (s.capped) statNotes.push(`${l.code} ${l.name}: deductions capped at earned (a head was clipped)`)
+        return {
+          ...l,
+          pf: s.pf, pfEmployer: s.pfEmployer, esi: s.esi, esiEmployer: s.esiEmployer, pt: s.pt, lwf: s.lwf,
+          deductions: s.deductions,
+          net: Math.round((l.earned - l.advances - s.deductions) * 100) / 100,
+        }
+      })
+    : withAdvances
+  const finalLines = withStatutory
+
   const runNo = await resolveDocNo('payrollRun', 'runNo', 'PR-')
   const finYear = await activeFinYear()
-  const totalEarned = withAdvances.reduce((s, l) => s + l.earned, 0)
-  const totalAdvances = withAdvances.reduce((s, l) => s + l.advances, 0)
-  const totalNet = withAdvances.reduce((s, l) => s + l.net, 0)
-  const negNet = withAdvances.filter((l) => l.net < 0).length
+  const totalEarned = finalLines.reduce((s, l) => s + l.earned, 0)
+  const totalAdvances = finalLines.reduce((s, l) => s + l.advances, 0)
+  const totalNet = finalLines.reduce((s, l) => s + l.net, 0)
+  const negNet = finalLines.filter((l) => l.net < 0).length
+  const totalDeductions = statutoryCfg ? finalLines.reduce((s, l) => s + (l as any).deductions, 0) : 0
+  const totalEmployer = statutoryCfg
+    ? finalLines.reduce((s, l) => s + (l as any).pfEmployer + (l as any).esiEmployer, 0)
+    : 0
+
+  // per-head totals over the run (the J2 spec — shared by sideEffects + the
+  // commit-time journals; lwf employer share derives from the FROZEN config:
+  // applies where the line's lwf head ran, i.e. line.lwf > 0)
+  const headTotals = STATUTORY_HEADS.map((h) => {
+    const employee = finalLines.reduce((s, l) => s + (l as any)[h.key], 0)
+    const employer =
+      h.key === 'pf'
+        ? finalLines.reduce((s, l) => s + (l as any).pfEmployer, 0)
+        : h.key === 'esi'
+          ? finalLines.reduce((s, l) => s + (l as any).esiEmployer, 0)
+          : h.key === 'lwf'
+            ? finalLines.reduce((s, l) => s + ((l as any).lwf > 0 ? (statutoryCfg as StatutoryConfig).lwf.employer : 0), 0)
+            : 0 // PT: no employer share
+    return { head: h, employee, employer, total: employee + employer }
+  }).filter((t) => t.total > 0)
+
+  const statText = statutoryCfg
+    ? ` — statutory deductions ${inr(totalDeductions)} (employee share; employer adds ${inr(totalEmployer + headTotals.filter((t) => t.head.key === 'lwf').reduce((s, t) => s + t.employer, 0))}, a cost, not deducted)`
+    : ''
+  const statNote = statNotes.length ? `. NOTE: ${statNotes.slice(0, 3).join('; ')}${statNotes.length > 3 ? ' …' : ''}` : ''
 
   return {
     ok: true,
-    text: `Proposed payroll run ${runNo} (${args.mode}, ${windowStr}): ${withAdvances.length} line${withAdvances.length === 1 ? '' : 's'} — earned ${inr(totalEarned)}, advances ${inr(totalAdvances)}, net ${inr(totalNet)}${negNet ? ` (${negNet} line(s) negative — over-advanced, recoverable)` : ''}${skippedZeroWage.length ? `. NOTE: ${skippedZeroWage.length} employee(s) skipped (attendance but dailyWage 0): ${skippedZeroWage.slice(0, 5).join(', ')}${skippedZeroWage.length > 5 ? ' …' : ''}` : ''}.`,
-    summary: `Payroll run | ${runNo} | ${args.mode} | ${windowStr} | ${withAdvances.length} lines | earned ${inr(totalEarned)} | advances ${inr(totalAdvances)} | net ${inr(totalNet)}`,
+    text: `Proposed payroll run ${runNo} (${args.mode}, ${windowStr}): ${finalLines.length} line${finalLines.length === 1 ? '' : 's'} — earned ${inr(totalEarned)}, advances ${inr(totalAdvances)}, net ${inr(totalNet)}${statText}${negNet ? ` (${negNet} line(s) negative — over-advanced, recoverable)` : ''}${statNote}${skippedZeroWage.length ? `. NOTE: ${skippedZeroWage.length} employee(s) skipped (attendance but dailyWage 0): ${skippedZeroWage.slice(0, 5).join(', ')}${skippedZeroWage.length > 5 ? ' …' : ''}` : ''}.`,
+    summary: `Payroll run | ${runNo} | ${args.mode} | ${windowStr} | ${finalLines.length} lines | earned ${inr(totalEarned)} | advances ${inr(totalAdvances)} | deductions ${inr(totalDeductions)} | net ${inr(totalNet)}`,
     creates: [
-      { table: 'payrollRun', data: { runNo, mode: args.mode, from, to, status: 'draft', finYear, notes: args.notes ?? null } },
-      ...withAdvances.map((l) => ({
+      { table: 'payrollRun', data: { runNo, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg } : {}), notes: args.notes ?? null } },
+      ...finalLines.map((l) => ({
         table: 'payrollLine',
         data: {
           runId: `(${runNo})`, employeeId: l.employeeId, partyId: l.partyId,
           ...(l.days != null ? { days: l.days } : {}), ...(l.qty != null ? { qty: l.qty } : {}),
-          earned: l.earned, advances: l.advances, net: l.net,
+          earned: l.earned, advances: l.advances,
+          ...(statutoryCfg
+            ? { pf: (l as any).pf, pfEmployer: (l as any).pfEmployer, esi: (l as any).esi, esiEmployer: (l as any).esiEmployer, pt: (l as any).pt, lwf: (l as any).lwf, deductions: (l as any).deductions }
+            : {}),
+          net: l.net,
         },
       })),
     ],
     sideEffects: [
-      'Lines freeze now — employee, party, days/qty, earned, advances, net (a later attendance edit does not move a drafted run)',
-      'Committing posts ONE wage journal PER LINE with partyId (Dr ' + (args.mode === 'piece' ? 'Production Wages' : 'Staff Salaries') + ' / Cr Wage Payable — the L-01 accounts) and the run goes terminal',
+      'Lines freeze now — employee, party, days/qty, earned, advances, deductions, net (a later attendance edit does not move a drafted run)' + (statutoryCfg ? ' — statutory rates are frozen on the run too' : ''),
+      'Committing posts ONE wage journal PER LINE with partyId (Dr ' + (args.mode === 'piece' ? 'Production Wages' : 'Staff Salaries') + ' / Cr Wage Payable — the L-01 accounts' + (statutoryCfg ? ', amount = earned − deductions (the statutory share never flows through the employee-party ledger)' : '') + ') and the run goes terminal',
+      ...(statutoryCfg
+        ? [
+            ...headTotals.map(
+              (t) => `Journal V-#### · Dr ${args.mode === 'piece' ? 'Production Wages' : 'Staff Salaries'} / Cr ${t.head.payableAccount} · ${t.head.label} employee ${inr(t.employee)} + employer ${inr(t.employer)} · party ${t.head.partyCode} (the remittance tracker — its ledger shows pending)`,
+            ),
+          ]
+        : []),
       'Paying the net via pay_wages afterwards closes the employee-party ledger to exactly 0',
       'The operator statement is UNAFFECTED (entry-based, L-01 frozen) — do not also post a production wage bill over the same window: both credit Wage Payable and the ledger would double-count',
     ],
@@ -173,16 +244,20 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
       return db.$transaction(async (tx) => {
         const runNoFinal = await resolveDocNo('payrollRun', 'runNo', 'PR-', runNo)
         const run = await tx.payrollRun.create({
-          data: { runNo: runNoFinal, mode: args.mode, from, to, status: 'draft', finYear, notes: args.notes ?? null },
+          data: { runNo: runNoFinal, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg as any } : {}), notes: args.notes ?? null },
         })
         await tx.payrollLine.createMany({
-          data: withAdvances.map((l) => ({
+          data: finalLines.map((l) => ({
             runId: run.id, employeeId: l.employeeId, partyId: l.partyId,
             ...(l.days != null ? { days: l.days } : {}), ...(l.qty != null ? { qty: l.qty } : {}),
-            earned: l.earned, advances: l.advances, net: l.net,
+            earned: l.earned, advances: l.advances,
+            ...(statutoryCfg
+              ? { pf: (l as any).pf, pfEmployer: (l as any).pfEmployer, esi: (l as any).esi, esiEmployer: (l as any).esiEmployer, pt: (l as any).pt, lwf: (l as any).lwf, deductions: (l as any).deductions }
+              : {}),
+            net: l.net,
           })),
         })
-        return { id: run.id, runNo: runNoFinal, status: run.status, lines: withAdvances.length, earned: totalEarned, advances: totalAdvances, net: totalNet }
+        return { id: run.id, runNo: runNoFinal, status: run.status, lines: finalLines.length, earned: totalEarned, advances: totalAdvances, deductions: totalDeductions, net: totalNet }
       }).catch((err: unknown) => {
         throw docKeyViolation(err, runNo) ?? err
       })
@@ -208,27 +283,74 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
   const payable = run.lines.filter((l) => l.earned > 0)
   const debitAccount = run.mode === 'piece' ? 'Production Wages' : 'Staff Salaries'
   const period = `${run.from.toISOString().slice(0, 10)} → ${run.to.toISOString().slice(0, 10)}`
-  const journals = payable.map((l) => {
-    const emp = empById.get(l.employeeId)
-    return {
-      partyId: l.partyId,
-      employee: `${emp?.code ?? l.employeeId} ${emp?.name ?? ''}`.trim(),
-      amount: l.earned,
-      narration: `Payroll run ${run.runNo} · ${run.mode} · ${emp?.code ?? l.employeeId} ${emp?.name ?? ''} · ${period}`,
-    }
-  })
+
+  // ── SPEC-M48 L-03 — the statutory split ──
+  // run.statutory (the FROZEN config) non-null ⇒ this is a statutory run:
+  //   J1 per line: Dr Wages / Cr Wage Payable, partyId, amount = earned −
+  //   employee deductions (the statutory share NEVER flows through the
+  //   employee-party ledger; skipped when the remainder is 0)
+  //   J2 per head (Σ>0): Dr Wages / Cr <Head> Payable, partyId = the
+  //   authority party, amount = employee + employer share — wage expense
+  //   totals Σ earned + Σ employer shares, and the authority's party ledger
+  //   becomes the remittance tracker (loop-closure #4)
+  const statutoryOn = run.statutory != null
+  const journals = payable
+    .map((l) => {
+      const emp = empById.get(l.employeeId)
+      const amount = statutoryOn ? Math.round((l.earned - l.deductions) * 100) / 100 : l.earned
+      if (!(amount > 0)) return null // fully-deducted line — nothing payable to the party
+      return {
+        partyId: l.partyId,
+        employee: `${emp?.code ?? l.employeeId} ${emp?.name ?? ''}`.trim(),
+        amount,
+        narration: `Payroll run ${run.runNo} · ${run.mode} · ${emp?.code ?? l.employeeId} ${emp?.name ?? ''} · ${period}`,
+      }
+    })
+    .filter((j): j is { partyId: string; employee: string; amount: number; narration: string } => j !== null)
+
+  // the J2 head journals — authority parties ensured HERE (plan time of the
+  // commit, outside the tx — the M46 pattern; ids frozen into the spec)
+  let headJournals: { head: (typeof STATUTORY_HEADS)[number]; partyId: string; employee: number; employer: number; amount: number; narration: string }[] = []
+  if (statutoryOn) {
+    const cfg = normalizeStatutory(run.statutory)
+    const parties = await ensureStatutoryParties()
+    headJournals = STATUTORY_HEADS.map((h) => {
+      const employee = run.lines.reduce((s, l) => s + (l as any)[h.key], 0)
+      const employer =
+        h.key === 'pf'
+          ? run.lines.reduce((s, l) => s + l.pfEmployer, 0)
+          : h.key === 'esi'
+            ? run.lines.reduce((s, l) => s + l.esiEmployer, 0)
+            : h.key === 'lwf'
+              ? run.lines.reduce((s, l) => s + (l.lwf > 0 ? cfg.lwf.employer : 0), 0)
+              : 0 // PT: no employer share
+      const amount = Math.round((employee + employer) * 100) / 100
+      if (!(amount > 0)) return null
+      const party = parties.get(h.key)!
+      return {
+        head: h,
+        partyId: party.id,
+        employee, employer, amount,
+        narration: `Payroll run ${run.runNo} · ${run.mode} · ${h.label} statutory · employee ${inr(employee)} + employer ${inr(employer)} · ${period}`,
+      }
+    }).filter((j): j is { head: (typeof STATUTORY_HEADS)[number]; partyId: string; employee: number; employer: number; amount: number; narration: string } => j !== null)
+  }
+
   const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
+  const totalHeads = headJournals.reduce((s, j) => s + j.amount, 0)
+  const totalDeductions = statutoryOn ? run.lines.reduce((s, l) => s + l.deductions, 0) : 0
 
   const notes = [run.notes, args.notes?.trim()].filter(Boolean).join(' · ') || null
 
   return {
     ok: true,
-    text: `Committing payroll run ${run.runNo}: ${journals.length} wage journal${journals.length === 1 ? '' : 's'} (V-####, Dr ${debitAccount} / Cr Wage Payable, one per line with its partyId) totalling ${inr(totalJournal)}; the run becomes terminal. Net ${inr(run.lines.reduce((s, l) => s + l.net, 0))} is then payable via pay_wages.`,
-    summary: `Payroll commit | ${run.runNo} | draft → committed | ${journals.length} journals | ${inr(totalJournal)}`,
+    text: `Committing payroll run ${run.runNo}: ${journals.length} wage journal${journals.length === 1 ? '' : 's'} (V-####, Dr ${debitAccount} / Cr Wage Payable, one per line with its partyId${statutoryOn ? ', amount = earned − deductions' : ''}) totalling ${inr(totalJournal)}${statutoryOn ? ` + ${headJournals.length} statutory journal${headJournals.length === 1 ? '' : 's'} totalling ${inr(totalHeads)} (deductions ${inr(totalDeductions)} + employer shares)` : ''}; the run becomes terminal. Net ${inr(run.lines.reduce((s, l) => s + l.net, 0))} is then payable via pay_wages.`,
+    summary: `Payroll commit | ${run.runNo} | draft → committed | ${journals.length} wage journals${statutoryOn ? ` + ${headJournals.length} statutory` : ''} | ${inr(totalJournal + totalHeads)}`,
     updates: [{ table: 'payrollRun', id: run.id, data: { status: 'committed', committedAt: new Date(), ...(args.notes?.trim() ? { notes: notes ?? undefined } : {}) } }],
     sideEffects: [
       ...journals.map((j) => `Journal V-#### · Dr ${debitAccount} / Cr Wage Payable · ${inr(j.amount)} · party stamped (${j.employee})`),
-      'Wage Payable grows by the run total; every line employee-party is credited in the ledger',
+      ...headJournals.map((j) => `Journal V-#### · Dr ${debitAccount} / Cr ${j.head.payableAccount} · ${j.head.label} employee ${inr(j.employee)} + employer ${inr(j.employer)} · party ${j.head.partyCode} (remittance pending in its ledger)`),
+      'Wage Payable grows by the run total' + (statutoryOn ? '; the statutory payables (PF/ESI/PT/LWF) grow by the head journals — remit via payments to the authority parties' : '') + '; every line employee-party is credited in the ledger',
       'Payslips become printable (draft runs refuse — numbers must be posted first)',
     ],
     async commit() {
@@ -247,11 +369,24 @@ export async function planPayrollRunCommit(args: PayrollRunCommitInput): Promise
           })
           posted.push(voucherNo)
         }
+        for (const j of headJournals) {
+          const voucherNo = await nextVoucherNo(tx)
+          await tx.journal.create({
+            data: {
+              voucherNo, voucherType: 'journal',
+              date: new Date(), finYear: run.finYear,
+              partyId: j.partyId,
+              debitAccount, creditAccount: j.head.payableAccount,
+              amount: j.amount, narration: j.narration,
+            },
+          })
+          posted.push(voucherNo)
+        }
         const updated = await tx.payrollRun.update({
           where: { id: run.id },
           data: { status: 'committed', committedAt: new Date(), ...(args.notes?.trim() ? { notes } : {}) },
         })
-        return { id: updated.id, runNo: updated.runNo, status: updated.status, journals: posted.length, voucherNos: posted, total: totalJournal }
+        return { id: updated.id, runNo: updated.runNo, status: updated.status, journals: posted.length, voucherNos: posted, total: totalJournal, statutoryJournals: headJournals.length, statutoryTotal: totalHeads }
       }).catch((err: unknown) => {
         throw docKeyViolation(err, run.runNo) ?? err
       })

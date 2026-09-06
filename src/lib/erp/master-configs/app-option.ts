@@ -21,8 +21,9 @@ export const appOptionConfig: MasterConfig = {
     { name: 'value', label: 'Value', type: 'text', required: true, description: 'The option value' },
     { name: 'group', label: 'Group', type: 'select', options: [
       { value: 'print', label: 'Print' }, { value: 'defaults', label: 'Defaults' },
+      { value: 'payroll', label: 'Payroll' },
       { value: 'general', label: 'General' },
-    ], defaultValue: 'general', description: 'Options group (print headers | defaults | general)' },
+    ], defaultValue: 'general', description: 'Options group (print headers | defaults | payroll statutory | general)' },
   ],
   createTool: 'create_app_option', updateTool: 'update_app_option', listTool: 'list_app_options',
   legacyForms: ['frmOptions', 'FrmOptionsPrint'],

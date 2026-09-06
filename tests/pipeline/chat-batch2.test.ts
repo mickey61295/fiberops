@@ -356,7 +356,7 @@ describe('CHAT-11 — prompt formatting contract', () => {
 
   it('PROMPT_VERSION is bumped (m42 — the stock take/valuation rewrite)', () => {
     // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
-    expect(PROMPT_VERSION).toBe('m47-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m48-2026-09-06') // M48 L-03 statutory on the M47 merged line
   })
 })
 
@@ -405,7 +405,7 @@ describe('CHAT-12 — chat polish sweep', () => {
   })
 
   it('tool count is 246 (243 at M41 + M42 INV: create_stock_take / record_stock_counts / advance_stock_take)', () => {
-    expect(allTools.length).toBe(257) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs
+    expect(allTools.length).toBe(258) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
     const names = allTools.map((t) => t.name)
     expect(names).toContain('bill_jobwork')
     expect(names).toContain('list_jobworker_statement')

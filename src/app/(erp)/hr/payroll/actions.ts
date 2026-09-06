@@ -21,6 +21,7 @@ export async function createPayrollRunAction(fd: FormData): Promise<LifecycleAct
     mode: String(fd.get('mode') ?? '').trim() as 'piece' | 'daily',
     from: String(fd.get('from') ?? '').trim(),
     to: String(fd.get('to') ?? '').trim(),
+    statutory: String(fd.get('statutory') ?? '') === 'on', // SPEC-M48 L-03 — opt-in checkbox
     notes: String(fd.get('notes') ?? '').trim() || undefined,
   })
   return commitPayrollPlan(plan, 'create')

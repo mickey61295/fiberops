@@ -73,6 +73,14 @@ export default async function PayrollPage({
             </div>
           </div>
           <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="statutory" className="h-4 w-4 rounded border-input" />
+              <span>
+                Statutory <span className="text-slate-400">— apply the configured PF/ESI/PT/LWF rates (frozen on the run; net = earned − advances − deductions; see /hr/statutory)</span>
+              </span>
+            </label>
+          </div>
+          <div className="sm:col-span-2">
             <label className="text-xs text-slate-500">Notes (optional)</label>
             <input name="notes" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" placeholder="Aug month salary — cutting dept" />
           </div>
