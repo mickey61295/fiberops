@@ -840,6 +840,21 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
       ? `${line.qty ?? 0} pcs produced (piece rate)`
       : `${line.days ?? 0} days × ₹${emp.dailyWage}/day (half day = 0.5)`
 
+  // SPEC-M49 L-04 — the OT EARNINGS row (only when otPay > 0: an OT-off
+  // payslip is byte-identical to the M46/M48 layout). Base = earned − otPay;
+  // the frozen run config supplies the multiplier + standard labels.
+  const otCfg = (line.run as any).ot
+  const otRows: [string, string, string][] =
+    (line.otPay ?? 0) > 0
+      ? [
+          [
+            'Overtime',
+            `${line.otHours ?? 0} h beyond the ${otCfg?.standardHours ?? 8}h standard × ${(otCfg?.otMultiplier ?? 2) + '×'} the hourly rate`,
+            inr(line.otPay),
+          ],
+        ]
+      : []
+
   const payTo = [
     clean(emp.bankName) ? `Bank: ${emp.bankName} · A/C ${emp.accountNo ?? '—'} · IFSC ${emp.ifsc ?? '—'}` : null,
     clean(emp.upi) ? `UPI: ${emp.upi}` : null,
@@ -885,7 +900,8 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
     lines: {
       columns: [{ label: 'Component' }, { label: 'Basis' }, { label: 'Amount', align: 'right' }],
       rows: [
-        ['Earnings', basis, inr(line.earned)],
+        ['Earnings', basis, inr(line.earned - (line.otPay ?? 0))],
+        ...otRows,
         ['Less: advances paid in period', 'payments to employee-party', inr(-line.advances)],
         ...deductRows,
       ],
@@ -900,7 +916,8 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
       ...(line.net < 0 ? ['Net is negative — advance recovery; nothing is payable this period.'] : []),
       ...(run.mode === 'piece'
         ? ['Piece earnings are the same production-entry ground truth as the operator statement (L-01).']
-        : ['Daily earnings are weighted attendance days × dailyWage — the operator statement (piece-rate) does not carry them.']),
+        : ['Daily earnings are weighted attendance days × dailyWage — the operator statement (piece-rate) does not carry them.']
+          .concat((line.otPay ?? 0) > 0 ? ['Overtime is paid on PRESENT days with hours beyond the per-day standard (the linked shift’s hours when set) at the multiplier frozen on this run.'] : [])),
       clean(run.notes),
     ].filter((n): n is string => !!n),
   }

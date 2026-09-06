@@ -574,6 +574,10 @@ model PayrollRun {
   // plan time; a later rate edit never moves a drafted run). null = statutory
   // NOT applied on this run (the opt-out default — M46 nets byte-identical).
   statutory   Json?
+  // SPEC-M49 L-04 — the FROZEN overtime config snapshot ({otMultiplier,
+  // standardHours} applied at plan time). null = OT NOT applied on this run
+  // (the opt-out default — legacy nets byte-identical). Daily runs only.
+  ot          Json?
   createdAt   DateTime      @default(now())
   lines       PayrollLine[]
 
@@ -603,6 +607,12 @@ model PayrollLine {
   pt         Float @default(0)
   lwf        Float @default(0)
   deductions Float @default(0) // = pf + esi + pt + lwf (the employee share total)
+  // SPEC-M49 L-04 — overtime, frozen at plan time (daily runs with ot: true):
+  // otHours = Σ per-present-day max(0, hours − per-day standard) (2dp);
+  // otPay = round(Σ otHours_day × dailyWage ÷ standard_day × otMultiplier).
+  // earned INCLUDES otPay (statutory + journals consume it unchanged).
+  otHours    Float @default(0)
+  otPay      Float @default(0)
   net        Float @default(0) // earned − advances − deductions (negative = recoverable, honest)
 
   @@unique([runId, employeeId])

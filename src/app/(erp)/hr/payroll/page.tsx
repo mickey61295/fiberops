@@ -81,6 +81,14 @@ export default async function PayrollPage({
             </label>
           </div>
           <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="ot" className="h-4 w-4 rounded border-input" />
+              <span>
+                Overtime <span className="text-slate-400">— daily runs only: pay hours beyond the per-day standard (linked shift hours, else the configured standard) at the configured multiplier — frozen on the run (SPEC-M49)</span>
+              </span>
+            </label>
+          </div>
+          <div className="sm:col-span-2">
             <label className="text-xs text-slate-500">Notes (optional)</label>
             <input name="notes" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" placeholder="Aug month salary — cutting dept" />
           </div>

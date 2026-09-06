@@ -23,6 +23,7 @@ import { activeFinYear, resolveDocNo } from '../numbering'
 import { docKeyViolation } from './ledger'
 import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
 import { resolveStatutoryConfig, computeStatutory, ensureStatutoryParties, normalizeStatutory, STATUTORY_HEADS, type StatutoryConfig } from '../statutory' // SPEC-M48 L-03
+import { resolveOtConfig, computeOtDay, type OtConfig } from '../overtime' // SPEC-M49 L-04
 import { endOfUtcDay } from '@/lib/erp/dates'
 import type { DocPlanResult } from './types'
 import type { PayrollRunInput, PayrollRunCommitInput } from '../schemas/payroll'
@@ -57,6 +58,13 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
   }
   const windowStr = `${args.from} → ${args.to}`
 
+  // SPEC-M49 L-04 — OT is a DAILY-run concept (attendance hours basis); a
+  // piece run has no attendance hours to pay OT on — a loud error, not a
+  // silent ignore (the agent might have meant a different door).
+  if (args.ot && args.mode !== 'daily') {
+    return { ok: false, error: 'ot: true is only valid on a DAILY run — piece runs pay production-entry earnings, not attendance hours. Re-run with mode daily or without ot.' }
+  }
+
   // the piece-run overlap guard: a committed piece run over an overlapping
   // window would double-credit the party ledger (statement stays honest —
   // it is entry-based — but the LEDGER would not). Daily runs are attendance-
@@ -74,9 +82,19 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
   const employees = await db.employee.findMany({ where: { active: true }, select: { id: true, code: true, name: true, dailyWage: true } })
   const empById = new Map(employees.map((e) => [e.id, e]))
 
-  type Line = { employeeId: string; code: string; name: string; partyId: string; days?: number; qty?: number; earned: number }
+  type Line = { employeeId: string; code: string; name: string; partyId: string; days?: number; qty?: number; otHours?: number; otPay?: number; earned: number }
   const lines: Line[] = []
   let skippedZeroWage: string[] = []
+  // SPEC-M49 L-04 — OT opt-in: resolve the config ONCE, compute per
+  // PRESENT day (pure), FREEZE the config onto the run. OFF = the M46
+  // arithmetic byte-identical + the nag when OT-able hours exist.
+  let otCfg: OtConfig | null = null
+  const otNotes: string[] = []
+  if (args.ot) {
+    const { config, source } = await resolveOtConfig()
+    otCfg = config
+    if (source === 'default') otNotes.push('OT config row missing/unparseable — safe defaults applied (2×, 8h standard)')
+  }
 
   if (args.mode === 'piece') {
     const entries = await db.productionEntry.findMany({
@@ -99,15 +117,54 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
     }
     lines.sort((a, b) => b.earned - a.earned)
   } else {
+    // SPEC-M49 L-04 — the daily basis gains the attendance HOURS + the
+    // linked shift (per-day standard). hours were stored since M20; OT is
+    // the first consumer. A linked shift's own hours are that day's standard
+    // (a 12h shift means 12h is the normal day); no shift → the frozen/
+    // live standardHours fallback.
     const att = await db.attendance.findMany({
       where: { attDate: { gte: from, lte: to } },
-      select: { employeeId: true, status: true },
+      select: { employeeId: true, status: true, hours: true, shiftId: true },
     })
+    const shiftIds = [...new Set(att.map((a) => a.shiftId).filter(Boolean))] as string[]
+    const shiftHoursById = new Map<string, number>()
+    if (shiftIds.length) {
+      const shifts = await db.shift.findMany({ where: { id: { in: shiftIds } }, select: { id: true, hours: true } })
+      for (const s of shifts) shiftHoursById.set(s.id, s.hours)
+    }
+    // the nag standard when OT is OFF (compare, don't pay); when ON the
+    // frozen config's standard IS the fallback — no second resolve
+    const stdFallback = otCfg?.standardHours ?? (await resolveOtConfig()).config.standardHours
+
     const daysBy = new Map<string, number>()
+    const otBy = new Map<string, { hours: number; pay: number }>()
+    let otAble = 0 // present rows with hours beyond the per-day standard (the nag basis)
     for (const a of att) {
-      const w = DAY_WEIGHT[a.status?.trim() || 'present'] ?? 1
-      if (!w) continue
-      daysBy.set(a.employeeId, (daysBy.get(a.employeeId) ?? 0) + w)
+      const status = a.status?.trim() || 'present'
+      const w = DAY_WEIGHT[status] ?? 1
+      if (w) daysBy.set(a.employeeId, (daysBy.get(a.employeeId) ?? 0) + w)
+      // AT-03 — OT accrues ONLY on present days with hours: a half day's
+      // part-wage is the weight, not the hours; absent/leave times are
+      // recorded but earn nothing
+      const hours = a.hours ?? 0
+      if (status !== 'present' || !(hours > 0)) continue
+      const shiftStd = a.shiftId ? (shiftHoursById.get(a.shiftId) ?? 0) : 0
+      const standard = shiftStd > 0 ? shiftStd : stdFallback
+      if (hours > standard) otAble++
+      if (!otCfg) continue
+      const emp = empById.get(a.employeeId)
+      if (!emp || !(emp.dailyWage > 0)) continue // no wage → no hourly rate (the zero-wage skip names them below)
+      const day = computeOtDay(hours, standard, emp.dailyWage, otCfg.otMultiplier)
+      if (day.otHours <= 0) continue
+      const acc = otBy.get(a.employeeId) ?? { hours: 0, pay: 0 }
+      acc.hours += day.otHours
+      acc.pay += day.otPay
+      otBy.set(a.employeeId, acc)
+    }
+    // the nag (the statutory pattern): OT-able hours exist but the run
+    // didn't opt in — SAY it, don't silently pay M46 nets
+    if (!args.ot && otAble > 0) {
+      otNotes.push(`${otAble} present day(s) in the window carry hours beyond the per-day standard — pass ot: true to pay overtime (frozen on the run)`)
     }
     const zeroWage: string[] = []
     for (const [employeeId, days] of daysBy) {
@@ -115,7 +172,12 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
       if (!emp) continue
       if (!(emp.dailyWage > 0)) { zeroWage.push(`${emp.code} ${emp.name}`); continue }
       const party = await ensureEmployeeParty(emp as any)
-      lines.push({ employeeId, code: emp.code, name: emp.name, partyId: party.id, days, earned: Math.round(days * emp.dailyWage) })
+      // OT freezes on the line with the rest: Σ per-day otHours (2dp) and
+      // the once-rounded Σ otPay — earned = round(days × wage) + otPay
+      const acc = otCfg ? otBy.get(employeeId) : undefined
+      const otHours = acc ? Math.round(acc.hours * 100) / 100 : 0
+      const otPay = acc ? Math.round(acc.pay) : 0
+      lines.push({ employeeId, code: emp.code, name: emp.name, partyId: party.id, days, otHours, otPay, earned: Math.round(days * emp.dailyWage) + otPay })
     }
     skippedZeroWage = zeroWage
     lines.sort((a, b) => b.earned - a.earned)
@@ -186,6 +248,10 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
   const totalEmployer = statutoryCfg
     ? finalLines.reduce((s, l) => s + (l as any).pfEmployer + (l as any).esiEmployer, 0)
     : 0
+  // SPEC-M49 L-04 — the OT run totals (plan text + returns; earned already
+  // includes otPay, so every consumer downstream is honest unchanged)
+  const totalOtPay = otCfg ? finalLines.reduce((s, l) => s + (l as any).otPay, 0) : 0
+  const totalOtHours = otCfg ? Math.round(finalLines.reduce((s, l) => s + (l as any).otHours, 0) * 100) / 100 : 0
 
   // per-head totals over the run (the J2 spec — shared by sideEffects + the
   // commit-time journals; lwf employer share derives from the FROZEN config:
@@ -206,14 +272,16 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
   const statText = statutoryCfg
     ? ` — statutory deductions ${inr(totalDeductions)} (employee share; employer adds ${inr(totalEmployer + headTotals.filter((t) => t.head.key === 'lwf').reduce((s, t) => s + t.employer, 0))}, a cost, not deducted)`
     : ''
-  const statNote = statNotes.length ? `. NOTE: ${statNotes.slice(0, 3).join('; ')}${statNotes.length > 3 ? ' …' : ''}` : ''
+  const otText = otCfg ? ` — incl. OT ${inr(totalOtPay)} (${totalOtHours} h beyond the per-day standard at ${otCfg.otMultiplier}×)` : ''
+  const allNotes = [...statNotes, ...otNotes]
+  const statNote = allNotes.length ? `. NOTE: ${allNotes.slice(0, 3).join('; ')}${allNotes.length > 3 ? ' …' : ''}` : ''
 
   return {
     ok: true,
-    text: `Proposed payroll run ${runNo} (${args.mode}, ${windowStr}): ${finalLines.length} line${finalLines.length === 1 ? '' : 's'} — earned ${inr(totalEarned)}, advances ${inr(totalAdvances)}, net ${inr(totalNet)}${statText}${negNet ? ` (${negNet} line(s) negative — over-advanced, recoverable)` : ''}${statNote}${skippedZeroWage.length ? `. NOTE: ${skippedZeroWage.length} employee(s) skipped (attendance but dailyWage 0): ${skippedZeroWage.slice(0, 5).join(', ')}${skippedZeroWage.length > 5 ? ' …' : ''}` : ''}.`,
+    text: `Proposed payroll run ${runNo} (${args.mode}, ${windowStr}): ${finalLines.length} line${finalLines.length === 1 ? '' : 's'} — earned ${inr(totalEarned)}${otText}, advances ${inr(totalAdvances)}, net ${inr(totalNet)}${statText}${negNet ? ` (${negNet} line(s) negative — over-advanced, recoverable)` : ''}${statNote}${skippedZeroWage.length ? `. NOTE: ${skippedZeroWage.length} employee(s) skipped (attendance but dailyWage 0): ${skippedZeroWage.slice(0, 5).join(', ')}${skippedZeroWage.length > 5 ? ' …' : ''}` : ''}.`,
     summary: `Payroll run | ${runNo} | ${args.mode} | ${windowStr} | ${finalLines.length} lines | earned ${inr(totalEarned)} | advances ${inr(totalAdvances)} | deductions ${inr(totalDeductions)} | net ${inr(totalNet)}`,
     creates: [
-      { table: 'payrollRun', data: { runNo, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg } : {}), notes: args.notes ?? null } },
+      { table: 'payrollRun', data: { runNo, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg } : {}), ...(otCfg ? { ot: otCfg } : {}), notes: args.notes ?? null } },
       ...finalLines.map((l) => ({
         table: 'payrollLine',
         data: {
@@ -223,12 +291,13 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
           ...(statutoryCfg
             ? { pf: (l as any).pf, pfEmployer: (l as any).pfEmployer, esi: (l as any).esi, esiEmployer: (l as any).esiEmployer, pt: (l as any).pt, lwf: (l as any).lwf, deductions: (l as any).deductions }
             : {}),
+          ...(otCfg ? { otHours: (l as any).otHours, otPay: (l as any).otPay } : {}),
           net: l.net,
         },
       })),
     ],
     sideEffects: [
-      'Lines freeze now — employee, party, days/qty, earned, advances, deductions, net (a later attendance edit does not move a drafted run)' + (statutoryCfg ? ' — statutory rates are frozen on the run too' : ''),
+      'Lines freeze now — employee, party, days/qty, earned, advances, deductions, net (a later attendance edit does not move a drafted run)' + (statutoryCfg ? ' — statutory rates are frozen on the run too' : '') + (otCfg ? ' — OT multiplier + standard hours are frozen on the run too' : ''),
       'Committing posts ONE wage journal PER LINE with partyId (Dr ' + (args.mode === 'piece' ? 'Production Wages' : 'Staff Salaries') + ' / Cr Wage Payable — the L-01 accounts' + (statutoryCfg ? ', amount = earned − deductions (the statutory share never flows through the employee-party ledger)' : '') + ') and the run goes terminal',
       ...(statutoryCfg
         ? [
@@ -244,7 +313,7 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
       return db.$transaction(async (tx) => {
         const runNoFinal = await resolveDocNo('payrollRun', 'runNo', 'PR-', runNo)
         const run = await tx.payrollRun.create({
-          data: { runNo: runNoFinal, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg as any } : {}), notes: args.notes ?? null },
+          data: { runNo: runNoFinal, mode: args.mode, from, to, status: 'draft', finYear, ...(statutoryCfg ? { statutory: statutoryCfg as any } : {}), ...(otCfg ? { ot: otCfg as any } : {}), notes: args.notes ?? null },
         })
         await tx.payrollLine.createMany({
           data: finalLines.map((l) => ({
@@ -254,10 +323,11 @@ export async function planPayrollRun(args: PayrollRunInput): Promise<DocPlanResu
             ...(statutoryCfg
               ? { pf: (l as any).pf, pfEmployer: (l as any).pfEmployer, esi: (l as any).esi, esiEmployer: (l as any).esiEmployer, pt: (l as any).pt, lwf: (l as any).lwf, deductions: (l as any).deductions }
               : {}),
+            ...(otCfg ? { otHours: (l as any).otHours, otPay: (l as any).otPay } : {}),
             net: l.net,
           })),
         })
-        return { id: run.id, runNo: runNoFinal, status: run.status, lines: finalLines.length, earned: totalEarned, advances: totalAdvances, deductions: totalDeductions, net: totalNet }
+        return { id: run.id, runNo: runNoFinal, status: run.status, lines: finalLines.length, earned: totalEarned, advances: totalAdvances, deductions: totalDeductions, ...(otCfg ? { otHours: totalOtHours, otPay: totalOtPay } : {}), net: totalNet }
       }).catch((err: unknown) => {
         throw docKeyViolation(err, runNo) ?? err
       })

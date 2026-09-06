@@ -464,7 +464,7 @@ describe('L-02 register + wiring', () => {
   })
 
   it('PROMPT_VERSION bumped + the HR line carries the payroll run', () => {
-    expect(PROMPT_VERSION).toBe('m48-2026-09-06') // M48 L-03 statutory on the M47 merged line
+    expect(PROMPT_VERSION).toBe('m49-2026-09-06') // M49 L-04 attendance depth (cross-midnight + OT) on the M48 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('create_payroll_run')
     expect(prompt).toContain('commit_payroll_run')

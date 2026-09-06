@@ -34,9 +34,11 @@ export default async function OptionsPage() {
           Key-value app options. The app reads <span className="font-mono text-xs">print.companyName / print.address /
           print.gstin</span> (every report + doc print header),{' '}
           <span className="font-mono text-xs">print.terms.invoice</span> (invoice print terms block — one line per
-          row, the frmTerms master), <span className="font-mono text-xs">default.godownCode</span> (picker seed) and{' '}
+          row, the frmTerms master), <span className="font-mono text-xs">default.godownCode</span> (picker seed),{' '}
           <span className="font-mono text-xs">payroll:statutory</span> (SPEC-M48 L-03 — the PF/ESI/PT/LWF rate JSON
-          payroll runs freeze when statutory: true is passed).
+          payroll runs freeze when statutory: true is passed) and{' '}
+          <span className="font-mono text-xs">attendance:ot</span> (SPEC-M49 L-04 — the overtime JSON {`{otMultiplier,
+          standardHours}`} daily runs freeze when ot: true is passed; a linked shift's own hours are that day's standard).
           Other keys are stored for the modules that will consume them.
         </p>
       </div>

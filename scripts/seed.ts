@@ -542,6 +542,20 @@ async function main() {
     },
   }).catch(() => {})
 
+  // ── SPEC-M49 L-04 — the overtime config row (safe defaults: the Factories
+  // Act §59 convention — 2× the ordinary rate, an ordinary 8h day; a linked
+  // shift's own hours are that day's standard). Edit at /admin/options. ──
+  await db.appOption.upsert({
+    where: { key: 'attendance:ot' },
+    update: {},
+    create: {
+      key: 'attendance:ot',
+      value: JSON.stringify({ otMultiplier: 2, standardHours: 8 }),
+      group: 'payroll',
+      label: 'Overtime (attendance depth) — applied when a DAILY payroll run passes ot: true: hours beyond the per-day standard × hourly rate × multiplier; frozen on the run',
+    },
+  }).catch(() => {})
+
   console.log('✅ Seed complete')
   console.log('   Orders:', Object.keys(orders).length)
   console.log('   POs:', Object.keys(pos).length)

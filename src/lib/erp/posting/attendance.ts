@@ -4,6 +4,11 @@
 // re-posting a day CORRECTS it, never duplicates. hours = out−in when both
 // times given, else the shift's hours, else null. Agent-door-only write (the
 // docTool plan→approve path; the approve door is already an audit door).
+// SPEC-M49 L-04 (AT-01) — CROSS-MIDNIGHT: outTime EARLIER than inTime = the
+// shift ends the NEXT calendar day (a 22:00→06:00 night shift); hours spans
+// the two days (+24h); the ROW stays on attDate (the start day) — no second
+// row is minted, the window semantics are unchanged. outTime == inTime is
+// still rejected (0h is not a shift).
 
 import { db } from '@/lib/db'
 import type { DocPlanResult } from './types'
@@ -18,6 +23,18 @@ function minutes(t: string): number {
   return h * 60 + m
 }
 
+/** The in→out span in minutes: out earlier than in = cross-midnight (+24h).
+ *  Callers guarantee inTime ≠ outTime (equal is rejected upstream). */
+function spanMinutes(inTime: string, outTime: string): number {
+  return (minutes(outTime) - minutes(inTime) + 1440) % 1440
+}
+
+/** hours from a validated in/out pair (cross-midnight aware, 2dp) — the ONE
+ *  derivation shared by the plan preview and the commit (they must agree). */
+function spanHours(inTime: string, outTime: string): number {
+  return Math.round((spanMinutes(inTime, outTime) / 60) * 100) / 100
+}
+
 export async function planAttendance(args: AttendanceInput): Promise<DocPlanResult> {
   if (!args.entries.length) {
     return { ok: false, error: 'At least one attendance entry is required' }
@@ -29,7 +46,8 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
   // `new Date(y, m, d)`, which off-by-oned the 00:00–05:29 IST window.
   const dayStart = istDayStart(attDate)
 
-  // validate entries first (statuses, times, out > in)
+  // validate entries first (statuses, times, equal-times; out < in = night)
+  let crossMidnight = 0
   for (const [i, e] of args.entries.entries()) {
     const status = e.status?.trim() || 'present'
     if (!STATUSES.includes(status)) {
@@ -37,9 +55,11 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
     }
     if (e.inTime && !validTime(e.inTime)) return { ok: false, error: `entries[${i}].inTime must be HH:MM (got '${e.inTime}')` }
     if (e.outTime && !validTime(e.outTime)) return { ok: false, error: `entries[${i}].outTime must be HH:MM (got '${e.outTime}')` }
-    if (e.inTime && e.outTime && minutes(e.outTime) <= minutes(e.inTime)) {
-      return { ok: false, error: `entries[${i}] outTime ${e.outTime} is not after inTime ${e.inTime}` }
+    // SPEC-M49 AT-01: out earlier than in = cross-midnight (VALID); equal = 0h (rejected)
+    if (e.inTime && e.outTime && minutes(e.outTime) === minutes(e.inTime)) {
+      return { ok: false, error: `entries[${i}] outTime ${e.outTime} equals inTime ${e.inTime} — a 0-hour shift is not a shift (outTime EARLIER than inTime = a cross-midnight night shift, which IS valid)` }
     }
+    if (e.inTime && e.outTime && minutes(e.outTime) < minutes(e.inTime)) crossMidnight++
   }
 
   // resolve employees + shifts (batch, id-maps)
@@ -74,7 +94,7 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
     const shift = e.shiftCode?.trim() ? shiftByCode.get(e.shiftCode.trim()) : undefined
     const status = e.status?.trim() || 'present'
     const hours = e.inTime && e.outTime
-      ? Math.round(((minutes(e.outTime) - minutes(e.inTime)) / 60) * 100) / 100
+      ? spanHours(e.inTime, e.outTime) // SPEC-M49 AT-01 — cross-midnight aware
       : shift?.hours ?? null
     const data = { status, shiftId: shift?.id ?? null, inTime: e.inTime ?? null, outTime: e.outTime ?? null, hours, notes: e.notes ?? null }
     const prior = existingByEmp.get(emp.id)
@@ -85,14 +105,18 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
 
   const day = dayStart.toISOString().slice(0, 10)
   const counts = STATUSES.map((s) => `${resolved.filter((r) => r.status === s).length} ${s}`).join(', ')
+  const night = crossMidnight ? ` | ${crossMidnight} cross-midnight` : '' // SPEC-M49 AT-01 — named in the plan text
 
   return {
     ok: true,
     text: `Proposed attendance for ${day}: ${resolved.length} employees (${counts}).`,
-    summary: `Post attendance ${day} | ${resolved.length} employees | ${counts}${creates.length ? ` | ${creates.length} new` : ''}${updates.length ? ` | ${updates.length} corrections` : ''}`,
+    summary: `Post attendance ${day} | ${resolved.length} employees | ${counts}${night}${creates.length ? ` | ${creates.length} new` : ''}${updates.length ? ` | ${updates.length} corrections` : ''}`,
     creates: creates.length ? creates : undefined,
     updates: updates.length ? updates : undefined,
-    sideEffects: ['Attendance day-book /hr/attendance shows the day (upsert — re-posting corrects)'],
+    sideEffects: [
+      'Attendance day-book /hr/attendance shows the day (upsert — re-posting corrects)',
+      ...(crossMidnight ? [`${crossMidnight} entry(ies) cross midnight — the row stays on the start day, hours span the two days (SPEC-M49 L-04)`] : []),
+    ],
     async commit() {
       const rows = await db.$transaction(
         resolved.map((r, i) => {
@@ -101,7 +125,7 @@ export async function planAttendance(args: AttendanceInput): Promise<DocPlanResu
           const shift = e.shiftCode?.trim() ? shiftByCode.get(e.shiftCode.trim()) : undefined
           const status = e.status?.trim() || 'present'
           const hours = e.inTime && e.outTime
-            ? Math.round(((minutes(e.outTime) - minutes(e.inTime)) / 60) * 100) / 100
+            ? spanHours(e.inTime, e.outTime) // the SAME derivation as the plan — they must agree
             : shift?.hours ?? null
           return db.attendance.upsert({
             where: { employeeId_attDate: { employeeId: emp.id, attDate: dayStart } },

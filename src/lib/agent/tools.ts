@@ -1103,7 +1103,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'list_attendance',
-    description: "Attendance day-book (one row per employee per day; default window = TODAY). Returns date, employee code/name, dept, shift, status (present|absent|half|leave), in/out times, hours + the four status totals. Optional: from, to (ISO dates), status, q (employee code/name or dept code). Post or correct a day with post_attendance.",
+    description: "Attendance day-book (one row per employee per day; default window = TODAY). Returns date, employee code/name, dept, shift, status (present|absent|half|leave), in/out times, hours, OT hours (present rows: hours beyond the per-day standard — linked shift hours else the configured standard; paid only when a daily payroll run passes ot: true) + the four status totals. Optional: from, to (ISO dates), status, q (employee code/name or dept code). Post or correct a day with post_attendance.",
     domain: 'hr',
     isWrite: false,
     schema: z.object({
@@ -2182,7 +2182,7 @@ const docTools: AgentTool[] = [
   ),
   docTool(
     'post_attendance',
-    'Post or CORRECT a day of attendance (batch, upsert — one row per employee per day; re-posting fixes, never duplicates). Required: entries [{employeeCode, status? (present|absent|half|leave, default present)}]. Optional: attDate (default today), per-entry shiftCode, inTime/outTime "HH:MM" (hours auto-derived), notes. Read it back with list_attendance.',
+    'Post or CORRECT a day of attendance (batch, upsert — one row per employee per day; re-posting fixes, never duplicates). Required: entries [{employeeCode, status? (present|absent|half|leave, default present)}]. Optional: attDate (default today), per-entry shiftCode, inTime/outTime "HH:MM" (hours auto-derived), notes. SPEC-M49 L-04: outTime EARLIER than inTime is a valid CROSS-MIDNIGHT night shift (22:00→06:00 — the row stays on the start day, hours span the two days); outTime == inTime is rejected. Read it back with list_attendance.',
     'hr',
     ATTENDANCE_SCHEMA,
     planAttendance,
@@ -3449,7 +3449,7 @@ const writeTools: AgentTool[] = [
   // SPEC-M46 (Module L Batch 2) — the payroll run + payslip (L-02)
   docTool(
     'create_payroll_run',
-    'Create a payroll run (L-02): runNo auto-assigned PR-####, per period, ONE mode. piece = Σ production-entry earnings per operator (the statement ground truth); daily = weighted attendance (present 1, half 0.5) × dailyWage. Lines freeze at creation: per employee — days/qty, earned, advances (Σ out-payments to the employee-party in the window), statutory deductions, net = earned − advances − deductions; every employee auto-linked to its 1:1 party. Optional statutory: true (SPEC-M48 L-03) applies the configured PF/ESI/PT/LWF rates — frozen on the run; ESI skips above the gross limit, PF wage caps at the ceiling, deductions never exceed the wage. Status starts draft. Then commit via commit_payroll_run (posts the wage journals, makes payslips printable). A piece run whose window overlaps a COMMITTED piece run refuses (double-credit guard). Required: mode, from, to (ISO dates). Optional: statutory, notes.',
+    'Create a payroll run (L-02): runNo auto-assigned PR-####, per period, ONE mode. piece = Σ production-entry earnings per operator (the statement ground truth); daily = weighted attendance (present 1, half 0.5) × dailyWage. Lines freeze at creation: per employee — days/qty, earned, advances (Σ out-payments to the employee-party in the window), statutory deductions, net = earned − advances − deductions; every employee auto-linked to its 1:1 party. Optional statutory: true (SPEC-M48 L-03) applies the configured PF/ESI/PT/LWF rates — frozen on the run; ESI skips above the gross limit, PF wage caps at the ceiling, deductions never exceed the wage. Optional ot: true (SPEC-M49 L-04, DAILY runs only) pays overtime — hours beyond the per-day standard (the linked shift\'s hours, else the configured standard) × the hourly rate (dailyWage ÷ standard) × the configured multiplier — frozen on the run, earned includes OT pay. Status starts draft. Then commit via commit_payroll_run (posts the wage journals, makes payslips printable). A piece run whose window overlaps a COMMITTED piece run refuses (double-credit guard). Required: mode, from, to (ISO dates). Optional: statutory, ot, notes.',
     'hr',
     PAYROLL_RUN_SCHEMA,
     planPayrollRun,

@@ -2168,3 +2168,21 @@ Work Log:
 - Twins regenerated from the shared modules (content parity): docs/MANUAL-TESTING.md (75,280 chars) + download/FiberOps-Manual-Testing-Guide.docx — full pipeline: patch_docx_pagenum.py (2 empty pgNumType stripped, 1 footer arabic MERGEFORMAT) + add_toc_placeholders --auto (66 bookmarks/TOC entries) + postcheck 9/9 (0 errors, 0 warnings) + LibreOffice PDF (52 pages) text-verified: HR-05..08 all present, statutory ×19, Version 1.2 + fb0e949 present.
 - Guide total: 114 cases (98 module/golden/negative + 16 Appendix-E regression).
 - Committed + pushed (this commit).
+---
+Task ID: m49-l04
+Agent: main (Super Z)
+Task: "Continue with next steps" (continued) → the next Module L batch per STATE #53's pointer: L-04 attendance depth (cross-midnight + OT). Server spun up first per the user's instruction.
+
+Work Log:
+- Re-oriented: local main == origin/main at b221901 (M48 statutory + MANUAL-TESTING v1.2 all pushed). Caught and restored a fresh gremlin deletion of src/app/api/upload/route.ts (PITFALLS #39 ' D ' check — pre-commit, zero residue). Dev server already running; verified /login 200.
+- Wrote SPEC-M49 (4 FRs: AT-01 cross-midnight, AT-02 the attendance:ot AppOption, AT-03 OT opt-in on daily runs with per-day shift-standard, AT-04 surfaces) — committed a9112e1.
+- Implementation: PayrollRun +ot Json? + PayrollLine +otHours/otPay (db push, WAL checkpointed); overtime.ts NEW (config + computeOtDay pure + never-throws resolve); posting/attendance.ts cross-midnight (spanHours shared by plan+commit, equal-times rejected, the count named in the plan text); posting/payroll.ts (ot flag, frozen snapshot, per-present-day OT, earned = round(days×wage)+otPay, piece+ot loud error, the nag); schemas/payroll +attendance; registers/attendance (+OT Hrs column + summary total); registers/payroll (+OT ₹ groupBy column); register-configs ×2; print/fetchers-b payslip OT row; run-view OT card + columns + freeze note; the form checkbox + actions flag; admin/options hint; tools docstrings ×3; prompt m49-2026-09-06; seed.ts + scripts/seed_ot_option.ts (the row seeded into the live dev db).
+- Tests: payroll-l04.test.ts NEW 19/19 (the walkthrough: night 8h/10h + 11h day → otHours 5, otPay 1,000, earned 3,400; +statutory PF 408/408 + ESI 26/111 → net 2,966 → J1 + J2 912/153 → pay_wages → ledger 0; byte-compat off; the freeze 2×→3×; registers; wiring). Inherited pins same-commit: PROMPT_VERSION m48→m49 ×8 files; M20 attendance unit pins → the cross-midnight contract.
+- A platform auto-commit (1af4594, UUID message, owner identity) captured mid-session work — verified it contained ONLY my L-04 files, soft-reset onto a9112e1 and squashed into the single feat commit (it was local-only, never pushed).
+- Gates: 1466/1466 vitest (72 files; 1447+19) · tsc src 0 · context_check 606/606 NO DRIFT (m49 pin; the sandbox-reset artifacts regenerated: db/backups snapshot via backup_db.py + the eval report via eval --static) · eval --static PASS (m49, registry 250) · route_smoke_m49 NEW 32/32 LIVE (caught PITFALLS #50 — the stale Prisma client in the running server; restarted, all green) · browser E2E through the FORM door: OT checkbox → PR-0001 earned ₹2,600 (1,600 + 1,000) → commit → DB-verified J1 2,600 + frozen ot cfg + line otHours 5/otPay 1,000 → payslip OT row → day-book OT column → ZERO console errors → fully reverted (screenshots download/m49-ot-run-view.png + m49-attendance-daybook.png).
+- STATE #54 + PITFALLS #50 appended.
+
+Stage Summary:
+- M49 SHIPPED: attendance depth end-to-end — night shifts postable with real times (the row on the start day), OT configurable + opt-in per daily run + frozen, earned gains exactly one term so statutory/journals/loop-closures needed zero changes (proven: pay_wages the net → employee ledger 0 with OT inside).
+- Module L remaining: ONLY L-06 shiftWages (blocked on the ADR-019 owner decision). Phase-6B: 10 of 11 batches done.
+- Commit follows this entry; MANUAL-TESTING v1.3 (the OT cases) + PAT push follow.

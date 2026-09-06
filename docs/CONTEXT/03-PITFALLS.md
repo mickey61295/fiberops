@@ -629,3 +629,20 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
   `node scripts/eval_routing.mjs --static`, which writes a static-only report). Treat
   "X local artifacts missing" after any reset as EXPECTED, fix by regeneration, and
   never "fix" the pin to 0 to make the check pass.
+## #50 — M49: a RUNNING dev server holds a STALE Prisma client after db push + generate — new columns read as `undefined`, silently
+
+The dev server booted at session start (10:05). Mid-session M49 ran
+`prisma db push` + `prisma generate` (PayrollRun.ot, PayrollLine.otHours/otPay).
+The server kept serving with the Prisma client it loaded at boot: the new
+columns did not exist in ITS query engine, so every read returned `undefined`
+for them — **no error, no 500, pages rendered happily with the OT card blank
+and the payslip missing its OT row**. route_smoke_m49 caught it as 9 silent
+FAILs (OT card / multiplier / OT column / freeze note / payslip OT row all
+missing while NET ₹2,200 still rendered — the old fields all worked).
+
+**The rule**: after ANY `prisma db push`/`generate` in a session where a dev
+server is already running, RESTART the server before any LIVE gate
+(route smoke / browser E2E). The vitest suite is immune (workers import the
+freshly generated client at boot). A live surface showing "missing" for a
+column the DB provably has (check with a raw prisma script first) is this
+pitfall, not a rendering bug.

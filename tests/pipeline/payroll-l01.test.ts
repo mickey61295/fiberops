@@ -247,7 +247,7 @@ describe('L-01 wiring + honest claims', () => {
   })
 
   it('PROMPT_VERSION bumped + the hr line carries the statement', () => {
-    expect(PROMPT_VERSION).toBe('m48-2026-09-06') // M48 L-03 statutory on the M47 merged line
+    expect(PROMPT_VERSION).toBe('m49-2026-09-06') // M49 L-04 attendance depth (cross-midnight + OT) on the M48 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_operator_statement')
   })

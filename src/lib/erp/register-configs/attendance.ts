@@ -28,6 +28,7 @@ export const attendanceConfig: RegisterConfig = {
     { name: 'inTime', label: 'In', mono: true },
     { name: 'outTime', label: 'Out', mono: true },
     { name: 'hours', label: 'Hrs', align: 'right', format: 'qty' },
+    { name: 'otHrs', label: 'OT Hrs', align: 'right', format: 'qty' },
   ],
   // read-tools-only chip contract (M19-B precedent) — post_attendance is the
   // write door; the register chips cite the READ tool.

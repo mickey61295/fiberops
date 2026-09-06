@@ -1,6 +1,8 @@
 // SPEC-M20 §3 — shared zod schema for post_attendance (batch day post) and
 // the list_attendance read tool. ONE row per employee per day — re-posting
 // corrects (upsert semantics), never duplicates.
+// SPEC-M49 L-04 — outTime EARLIER than inTime is a CROSS-MIDNIGHT night
+// shift (valid; hours spans +24h); outTime == inTime is rejected.
 import { z } from 'zod'
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -12,7 +14,7 @@ export const ATTENDANCE_SCHEMA = z.object({
     status: z.string().optional().describe('present | absent | half | leave (default present)'),
     shiftCode: z.string().optional().describe('Shift code for in/out hours fallback'),
     inTime: z.string().optional().describe('In time "HH:MM"'),
-    outTime: z.string().optional().describe('Out time "HH:MM" (must be after inTime)'),
+    outTime: z.string().optional().describe('Out time "HH:MM" — EARLIER than inTime = a cross-midnight night shift (valid); equal is rejected'),
     notes: z.string().optional(),
   })).min(1).describe('One entry per employee for the day'),
 })

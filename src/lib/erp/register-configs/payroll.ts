@@ -7,7 +7,7 @@ import type { RegisterConfig } from './types'
 export const payrollConfig: RegisterConfig = {
   slug: 'payroll',
   title: 'Payroll Runs',
-  description: 'Per period (piece|daily): lines per employee — earned, advances, statutory deductions, net; commit posts the wage journals with partyIds; payslips print per line. Statutory runs link to /hr/statutory.',
+  description: 'Per period (piece|daily): lines per employee — earned, advances, statutory deductions, OT pay, net; commit posts the wage journals with partyIds; payslips print per line. Statutory runs link to /hr/statutory.',
   filters: [
     { key: 'variant', label: 'Mode', type: 'select', options: [{ value: 'piece', label: 'Piece' }, { value: 'daily', label: 'Daily' }] },
     { key: 'status', label: 'Status', type: 'select', options: [{ value: 'draft', label: 'Draft' }, { value: 'committed', label: 'Committed' }] },
@@ -19,6 +19,7 @@ export const payrollConfig: RegisterConfig = {
     { name: 'period', label: 'Period' },
     { name: 'lines', label: 'Lines', align: 'right', format: 'int' },
     { name: 'earned', label: 'Earned ₹', align: 'right', format: 'inr' },
+    { name: 'ot', label: 'OT ₹', align: 'right', format: 'inr' },
     { name: 'advances', label: 'Advances ₹', align: 'right', format: 'inr' },
     { name: 'deductions', label: 'Deductions ₹', align: 'right', format: 'inr' },
     { name: 'net', label: 'Net ₹', align: 'right', format: 'inr' },

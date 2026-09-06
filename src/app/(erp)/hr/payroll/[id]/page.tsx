@@ -50,6 +50,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const totalDeductions = run.lines.reduce((s, l) => s + l.deductions, 0)
   const totalPfEmployer = run.lines.reduce((s, l) => s + l.pfEmployer, 0)
   const totalEsiEmployer = run.lines.reduce((s, l) => s + l.esiEmployer, 0)
+  // SPEC-M49 L-04 — the OT card/totals (0 on OT-off runs)
+  const ot = run.ot as any | null
+  const anyOt = run.lines.some((l) => l.otPay > 0)
+  const totalOtPay = run.lines.reduce((s, l) => s + l.otPay, 0)
+  const totalOtHours = Math.round(run.lines.reduce((s, l) => s + l.otHours, 0) * 100) / 100
   const period = `${run.from.toISOString().slice(0, 10)} → ${run.to.toISOString().slice(0, 10)}`
 
   return (
@@ -66,7 +71,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
         </div>
         <p className="text-sm text-slate-500 mt-0.5">
           {run.mode === 'piece' ? 'Piece — Σ production-entry earnings' : 'Daily — weighted attendance × dailyWage'} · {period} · {run.lines.length} line{run.lines.length === 1 ? '' : 's'} ·
-          earned ₹{Math.round(totalEarned).toLocaleString('en-IN')} · advances ₹{Math.round(totalAdvances).toLocaleString('en-IN')}{anyDeducted ? ` · deductions ₹${Math.round(totalDeductions).toLocaleString('en-IN')}` : ''} · net ₹{Math.round(totalNet).toLocaleString('en-IN')}
+          earned ₹{Math.round(totalEarned).toLocaleString('en-IN')}{anyOt ? ` (incl. OT ₹${Math.round(totalOtPay).toLocaleString('en-IN')} — ${totalOtHours} h)` : ''} · advances ₹{Math.round(totalAdvances).toLocaleString('en-IN')}{anyDeducted ? ` · deductions ₹${Math.round(totalDeductions).toLocaleString('en-IN')}` : ''} · net ₹{Math.round(totalNet).toLocaleString('en-IN')}
           {run.committedAt ? ` · committed ${run.committedAt.toISOString().slice(0, 10)}` : ''}
         </p>
         {run.notes && <p className="text-xs text-slate-400 mt-1">{run.notes}</p>
@@ -99,6 +104,32 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
         </div>
       )}
 
+      {ot && (
+        <div className="rounded-lg border bg-white shadow-sm">
+          <div className="border-b bg-slate-50/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Overtime (SPEC-M49 L-04) — multiplier + standard frozen on this run
+          </div>
+          <div className="grid gap-3 p-4 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="text-slate-500">Multiplier</div>
+              <div className="font-mono">{ot.otMultiplier ?? 2}× the hourly rate</div>
+            </div>
+            <div>
+              <div className="text-slate-500">Standard (no-shift fallback)</div>
+              <div className="font-mono">{ot.standardHours ?? 8} h — a linked shift's own hours are that day's standard</div>
+            </div>
+            <div>
+              <div className="text-slate-500">OT hours</div>
+              <div className="font-mono">{totalOtHours} h — PRESENT days only</div>
+            </div>
+            <div>
+              <div className="text-slate-500">OT pay</div>
+              <div className="font-mono">₹{Math.round(totalOtPay).toLocaleString('en-IN')} (included in earned)</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {run.status === 'draft' && (
         <PayrollForm
           action={commitPayrollRunAction}
@@ -126,8 +157,8 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-slate-50/80">
-              {['Employee', 'Dept', 'Basis', 'Party', 'Earned ₹', 'Advances ₹', ...(anyDeducted ? ['Deducted ₹'] : []), 'Net ₹', 'Payslip'].map((h) => (
-                <th key={h} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${['Earned ₹', 'Advances ₹', 'Deducted ₹', 'Net ₹'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
+              {['Employee', 'Dept', 'Basis', 'Party', 'Earned ₹', ...(anyOt ? ['OT ₹'] : []), 'Advances ₹', ...(anyDeducted ? ['Deducted ₹'] : []), 'Net ₹', 'Payslip'].map((h) => (
+                <th key={h} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${['Earned ₹', 'OT ₹', 'Advances ₹', 'Deducted ₹', 'Net ₹'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -146,6 +177,15 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                 </td>
                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{l.partyId ? (partyCodeById.get(l.partyId) ?? '—') : '—'}</td>
                 <td className="px-3 py-2 text-right font-mono">{l.earned.toLocaleString('en-IN')}</td>
+                {anyOt && (
+                  <td className="px-3 py-2 text-right font-mono text-slate-500">
+                    {l.otPay ? (
+                      <span title={`${l.otHours} h beyond the per-day standard (frozen on this run)`}>{Math.round(l.otPay).toLocaleString('en-IN')}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                )}
                 <td className="px-3 py-2 text-right font-mono text-slate-500">{l.advances ? l.advances.toLocaleString('en-IN') : '—'}</td>
                 {anyDeducted && (
                   <td className="px-3 py-2 text-right font-mono text-slate-500">
@@ -171,6 +211,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
             <tr className="border-t bg-slate-50/80 font-medium">
               <td className="px-3 py-2" colSpan={4}>Totals — {run.lines.length} lines</td>
               <td className="px-3 py-2 text-right font-mono">{Math.round(totalEarned).toLocaleString('en-IN')}</td>
+              {anyOt && <td className="px-3 py-2 text-right font-mono text-slate-500">{Math.round(totalOtPay).toLocaleString('en-IN')}</td>}
               <td className="px-3 py-2 text-right font-mono text-slate-500">{Math.round(totalAdvances).toLocaleString('en-IN')}</td>
               {anyDeducted && <td className="px-3 py-2 text-right font-mono text-slate-500">{Math.round(totalDeductions).toLocaleString('en-IN')}</td>}
               <td className="px-3 py-2 text-right font-mono">{Math.round(totalNet).toLocaleString('en-IN')}</td>
@@ -209,7 +250,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
       )}
 
       <p className="text-xs text-slate-400">
-        Lines froze at run creation (employee, party, days/qty, money{statutory ? ', statutory rates' : ''}) — later attendance, payment or rate edits do not move a drafted run.
+        Lines froze at run creation (employee, party, days/qty, money{statutory ? ', statutory rates' : ''}{ot ? ', OT multiplier + standard hours' : ''}) — later attendance, payment or rate edits do not move a drafted run.
         {run.status === 'committed'
           ? ' Pay the net via Wage Payments (pay_wages) — the employee-party ledger closes to exactly 0.' + (statutory ? ' Remit the statutory shares via payments to the authority parties (EPFO/ESIC/…) — /hr/statutory shows the pending per authority.' : '')
           : ' Committing posts the wage journals and makes the run terminal.'}

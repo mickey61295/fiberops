@@ -536,7 +536,7 @@ describe('L-03 statutory register + wiring', () => {
   })
 
   it('PROMPT_VERSION m48 + the HR line carries the statutory door', () => {
-    expect(PROMPT_VERSION).toBe('m48-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m49-2026-09-06') // M49 L-04 attendance depth on the M48 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_statutory_register')
     expect(prompt).toContain('statutory: true')

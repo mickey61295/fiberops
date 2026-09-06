@@ -4,6 +4,9 @@
  * commit UPSERT semantics (one row per employee/day, re-post corrects), the
  * register service (rows + 4 status totals, filters, default window = today)
  * and the two agent tools' presence + wiring.
+ * SPEC-M49 L-04 (AT-01, same-commit update): outTime EARLIER than inTime is
+ * a VALID cross-midnight night shift (hours = out − in + 24h, the row stays
+ * on the start day); outTime == inTime is the rejection (0h is not a shift).
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { db } from '@/lib/db'
@@ -54,16 +57,21 @@ describe('SPEC-M20 §3 — planAttendance validation', () => {
     if (!res.ok) expect(res.error).toContain('NOPE-1')
   })
 
-  it('rejects invalid status and time shapes', async () => {
+  it('rejects invalid status and time shapes (equal in/out = 0h; cross-midnight is VALID now)', async () => {
     const bad = await planAttendance({ entries: [{ employeeCode: E1, status: 'holiday' }] })
     expect(bad.ok).toBe(false)
     const badTime = await planAttendance({ entries: [{ employeeCode: E1, inTime: '9am' }] })
     expect(badTime.ok).toBe(false)
-    const badOrder = await planAttendance({ entries: [{ employeeCode: E1, inTime: '14:00', outTime: '06:00' }] })
-    expect(badOrder.ok).toBe(false)
+    // SPEC-M49 AT-01 — the M20 rule 'out must be after in' is RETIRED: equal
+    // is the rejection (0h); 14:00→06:00 is a valid night shift (16h)
+    const zeroHours = await planAttendance({ entries: [{ employeeCode: E1, inTime: '06:00', outTime: '06:00' }] })
+    expect(zeroHours.ok).toBe(false)
+    if (!zeroHours.ok) expect(zeroHours.error).toContain('equals inTime')
+    const night = await planAttendance({ entries: [{ employeeCode: E1, inTime: '14:00', outTime: '06:00' }] })
+    expect(night.ok).toBe(true)
   })
 
-  it('hours: derived from in/out (rounded 2dp); shift fallback; null otherwise', async () => {
+  it('hours: derived from in/out (rounded 2dp); shift fallback; CROSS-MIDNIGHT spans +24h (AT-01)', async () => {
     const res = await planAttendance({
       attDate: DAY_KEY,
       entries: [
@@ -80,6 +88,25 @@ describe('SPEC-M20 §3 — planAttendance validation', () => {
       expect(e1?.data.hours).toBe(8.5)
       expect(e2?.data.hours).toBe(8)
       expect(e2?.data.shiftId).toBe(shiftId)
+    }
+    // the cross-midnight derivation — 22:00→06:00 = 8h; the row STAYS on the
+    // start day (attDate unchanged, no second row)
+    const night = await planAttendance({
+      attDate: DAY_KEY,
+      entries: [{ employeeCode: E1, inTime: '22:00', outTime: '06:00' }],
+    })
+    expect(night.ok).toBe(true)
+    if (night.ok) {
+      expect(night.summary).toContain('cross-midnight')
+      const row = night.updates?.find((u) => u.id) ?? night.creates?.find((c) => c.data.employeeId === e1Id)
+      expect(row?.data?.hours ?? (row as any)?.data?.hours).toBe(8)
+    }
+    // re-post corrects (upsert) — the corrected hours win
+    const fixed = await planAttendance({ attDate: DAY_KEY, entries: [{ employeeCode: E1, inTime: '22:00', outTime: '08:00' }] })
+    expect(fixed.ok).toBe(true)
+    if (fixed.ok) {
+      const row = fixed.updates?.find((u) => u.id) ?? fixed.creates?.find((c) => c.data.employeeId === e1Id)
+      expect((row as any)?.data?.hours).toBe(10)
     }
   })
 
