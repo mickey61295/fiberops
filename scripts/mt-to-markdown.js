@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.0 · 2026-09-06 · Build under test: `main @ 60a87bc` (M47 side_quest merge) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.1 · 2026-09-06 · Build under test: `main @ 60a87bc` (M47 side_quest merge; v1.1 adds Appendix E, a docs-only change) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
@@ -44,6 +44,6 @@ for (const b of blocks) {
 }
 
 const md = out.join("\n").replace(/\n{3,}/g, "\n\n");
-const DEST = "/home/z/my-project/fiberops/docs/MANUAL-TESTING.md";
+const DEST = "/home/z/my-project/docs/MANUAL-TESTING.md";
 fs.writeFileSync(DEST, md, "utf-8");
 console.log("WROTE " + DEST + " (" + md.length + " chars, " + tableNo + " reference tables)");

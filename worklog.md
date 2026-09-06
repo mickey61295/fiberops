@@ -2103,3 +2103,21 @@ Stage Summary:
 - Manual acceptance testing is now executable by a human with zero tribal knowledge: the guide encodes the 15-stage golden chain (asserted nightly by industry-chain.test.ts) as UI steps with per-stage acceptance criteria, plus a full read-surface walkthrough and a negative suite.
 - All automated gates re-verified green on the merged tree; no new defects; the legacy scripts/ tsc noise documented as known-and-out-of-gate.
 - The repo copy lives at docs/MANUAL-TESTING.md; the formal docx deliverable lives in download/ (gitignored by repo convention — same as eval reports).
+---
+Task ID: mt-regression-appendix-e
+Agent: main (Super Z)
+Task: Continue from the context break: reconcile the post-session git state, then fulfill the outstanding promise from the manual-testing thread — populate the guide with the side_quest-specific regression cases (the TC-13 equivalent) so a human pass directly validates the merged branch work.
+
+Work Log:
+- Re-oriented after the context reset: fetched origin (main 81a6a8b..6a96d24) and established that the previous session had ALREADY shipped and pushed both the m47 merge (0da083e, verified by ls-remote) and the 94-case manual testing guide (6a96d24: docs/MANUAL-TESTING.md + worklog mt-guide + the docx twin in download/). The conversation summary's "pending merge" next-step was stale.
+- Reconciled local main: the platform auto-commits (7e4c97b + af7b54b, owner identity, UUID messages) had diverged from the pushed line carrying a junk `fiberops` gitlink (mode 160000 nested fresh-clone, 1.4GB) — reset local main to origin/main 6a96d24, deleted the stale nested clone (disk 3.4G→2.0G), and re-committed the 10 session scripts cleanly as b688972 (mt-* doc generation + m47 merge-resolution artifacts; gitlink dropped).
+- Authored Appendix E — side_quest Merge Regression Suite (16 new cases, doc 94→110): R-FY-01..03 (active-FinYear stamp, the data-only 27-28 rollover drill, explicit-args-win), R-WG-01..04 (employee-party auto-link idempotence, statement math, per-operator bill partyId, the CUS001 party-ledger double-count probe ≈₹43 lakh not −₹3.4 crore), R-PR-01..05 (daily-run line math with wage-0-NAMED, per-line journals → ledger-0 loop closure, payslip committed-only+masked, piece overlap guard, L-05 round-trip), R-CS-01..04 (cost-component code-field edit bug, the 5,000×₹2.5 calculator walkthrough, Order Hub est-vs-actual + agent parity, daily-P&L WAC material row) + failure-triage paragraph (side_quest vs main-line split, pipeline-twin disambiguation) + the sign-off checklist row.
+- Fixed the mt-to-markdown.js DEST defect (it still wrote into the deleted nested clone path /home/z/my-project/fiberops/ → repointed to the working repo docs/); bumped the guide to Version 1.1 (build reference stays 60a87bc — v1.1 is docs-only).
+- Regenerated BOTH twins from the shared content modules (content parity): docs/MANUAL-TESTING.md (61,036→72,436 chars) + download/FiberOps-Manual-Testing-Guide.docx (51,253 bytes) with the full pipeline: patch_docx_pagenum.py (2 empty pgNumType stripped, 1 footer arabic MERGEFORMAT) + add_toc_placeholders.py --auto (66 bookmarks/TOC entries) + postcheck.py 9/9 (0 errors 0 warnings) + LibreOffice PDF convert text-verified (51 pages; all 16 case IDs + triage tail present; cover title/label/meta verified).
+- Gates on the changed tree: context_check 606/606 NO DRIFT · eval_routing --static PASS (m47-2026-09-06) · src/ prisma/ tests/ untouched (git diff --stat empty) so the 1420-vitest base carries over unchanged from the 60a87bc verification.
+- PAT state: .pat-token wiped by the sandbox reset — commit stays LOCAL pending PAT re-supply (the m47 merge + v1.0 docs are already on origin/main; only b688972 + this commit await the push).
+
+Stage Summary:
+- The manual testing guide is now complete for the side_quest validation purpose: the 16-case Appendix E gives every merged fix a reproduce-the-bug → confirm-fixed → confirm-happy-path case with an automated pipeline twin named for triage.
+- Repo hygiene restored: local main re-converged with the pushed line, the 1.4GB nested clone and its gitlink gone, session scripts under proper commit messages.
+- Push pending: 2 local commits (b688972 scripts chore + this docs commit) need the PAT re-supplied.
