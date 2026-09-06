@@ -2245,5 +2245,5 @@ Stage Summary:
 - M51 M-02 SHIPPED: the three money doors post true double-entry legs (payments resolve the cash/bank leg from mode + the BankAccount glAccountCode preference; DN + expense companions classify to the CoA; cancels mirror with swapped contras), the sub-ledger semantics preserved by voucherType design (debit-note OUTSIDE the ['journal'] filter, expenses with a party INSIDE it — record_payment settles to 0), and the money screens count honestly (active rows only, contras never — the double-reverse probe pinned in tests AND proven through the browser).
 - Counts UNCHANGED (tools 261, masters 43, models 91, menu 143, routes 179 — depth, not width); the CoA tree 19→20 (5120 Other Expenses); PROMPT_VERSION m51-2026-09-06.
 - Module M queue: M-03 final-accounts reports (the TB substrate + per-bank legs ready), M-04 Tally both sides, M-05 expense heads. Module L: only L-06 (ADR-019).
-- 3 local commits pending push (M50 feat + M50 docs + M51) — PAT re-supply needed (push protocol: inline URL only, full-history token audit, ls-remote verify, worklog push-entry).
+- 5 local commits pending push (M50 feat + M50 docs v1.4 + SPEC-M51 + M51 feat + M51 docs v1.5) — PAT re-supply needed (push protocol: inline URL only, full-history token audit, ls-remote verify, worklog push-entry).
 - MANUAL-TESTING v1.5 (the M51 cases) follows this commit.

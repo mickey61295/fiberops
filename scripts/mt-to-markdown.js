@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.4 · 2026-09-06 · Build under test: `main @ 3df09b2` (M50 chart of accounts; v1.4 adds the accounts cases AC-05..08 — the CoA master page, the journal code chips + GL-legs line, the unknown-account refusal, the create-through-form walkthrough — a docs-only change) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.5 · 2026-09-06 · Build under test: `main @ fd96790` (M51 true double-entry posts; v1.5 adds the accounts cases AC-09..12 — the bank-linked receipt with its GL legs, the cash/bank honesty doors, the debit-note companion + the deduction truth, the expense settle path + the double-reverse probe — and updates AC-05 to the 20-row tree) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 

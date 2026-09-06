@@ -301,9 +301,9 @@ const coverConfig = {
   subtitle: "Start-to-End Application Walkthrough and Order-Flow End-to-End Test Plan",
   englishLabel: "MANUAL TEST PLAN",
   metaLines: [
-    "Version 1.4 — 2026-09-06",
+    "Version 1.5 — 2026-09-06",
     "Repository: github.com/mickey61295/fiberops",
-    "Build under test: main @ 3df09b2 (M50 chart of accounts)",
+    "Build under test: main @ fd96790 (M51 true double-entry posts)",
     "Environment: Development — http://localhost:3000",
   ],
   footerLeft: "FiberOps ERP — Quality Assurance",
