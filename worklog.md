@@ -2247,3 +2247,42 @@ Stage Summary:
 - Module M queue: M-03 final-accounts reports (the TB substrate + per-bank legs ready), M-04 Tally both sides, M-05 expense heads. Module L: only L-06 (ADR-019).
 - 5 local commits pending push (M50 feat + M50 docs v1.4 + SPEC-M51 + M51 feat + M51 docs v1.5) — PAT re-supply needed (push protocol: inline URL only, full-history token audit, ls-remote verify, worklog push-entry).
 - MANUAL-TESTING v1.5 (the M51 cases) follows this commit.
+---
+Task ID: m52
+Agent: main (Super Z)
+Task: Ship Module M Batch 3 — M-03 final-accounts reports (SPEC-M52): trial balance + day-book + cash-book + final-accounts, THE GL DOCTRINE as the semantic core. (Retrospective entry — the session ended at the commit; this record is reconstructed from the f68aa92/fa68d90 commit messages.)
+
+Work Log:
+- Scope: the unblocked next item per STATE #56 — M-03 final-accounts reports (remediation spec §13), the FIRST consumer of the M50/M51 substrate. PURE READ SIDE: zero schema changes (91 models stand), zero posting changes.
+- SPEC-M52 committed (102c58f): THE GL DOCTRINE (every journal row counts in the GL regardless of status — the status flag is sub-ledger truth-ownership, the contra row IS the GL's reversal ⇒ ΣDr==ΣCr structural, every cancel nets to zero) · FA-01..FA-06.
+- FA-01 trial-balance: /accounts/trial-balance (+csv, get_trial_balance) — per-account Dr/Cr/net+side, the summary ASSERTS 'BALANCED (Dr == Cr asserted)' only when Δ=0, the unlinked honesty door (null-FK rows counted + reported, never silently dropped, excluded from both sides so the assert holds).
+- FA-02 day-book: /accounts/day-book (+csv, get_day_book) — the chronological GL voucher register, EVERY voucherType + EVERY status (a cancelled voucher renders its badge + its CN- contra sits under it), variant filter + q, Dr/Cr columns with resolved 'Name [code]' legs + UNLINKED marker.
+- FA-03 cash-book: /accounts/cash-book (+csv, get_cash_book) — the 1010 family via CoA TOPOLOGY (parentId, never code-prefix guessing), opening/inflow/outflow/running/closing, particulars = the OTHER leg, per-bank narrowing, not-in-family honest refusal.
+- FA-04 final-accounts: /accounts/final-accounts (+csv, get_final_accounts, variant pl|bs) — P&L (income netCr − expense netDr) + BS (assets vs liabilities+equity + the window's P&L as retained earnings, Δ asserted 0 — structural from Dr==Cr; accountActivity is the shared math with the TB, one derivation).
+- FA-05 wiring: 4 register services + 4 configs + 4 pages + 4 csv routes (one service both doors — ADR-001); menu 143→147, LIVE_ROUTES; tools 261→265 (accounts domain, read, windows + filters, assert lines in the tool text); prompt §Accounting + final-accounts + THE GL DOCTRINE line; PROMPT_VERSION m52-2026-09-06.
+- Tests: accounts-m03.test.ts NEW 18/18 — the 2099-06 fixture window (TB window math + the unlinked door + THE DOCTRINE pin (cancel → nets reverse, Δ stays 0) + the closed-period window UNCHANGED after cancel + day-book chronology/variant/q + the real-door cash receipt + THE PAYMENT-CANCEL PAIR + cash-book family/contra-netting + P&L 1600−650=950 + BS Δ0 + the all-time statements still close + wiring pins) + same-commit pin sweep (allTools 261→265 ×17 files, menu 143→147 ×4, register-configs 41→45 + ROUTE_BY_SLUG ×4, m51→m52 ×11, prg-batch7 startsWith m52, accounts-m01 265; legacy-aliases caught invented Frm* refs → honest fix; ops-batch1 backups snapshot regenerated post-reset).
+- Gates: 1561/1561 vitest (75 files; 1523+18+20 loop) · tsc src 0 · context_check 606/606 NO DRIFT (m52 pin; eval report regenerated) · eval --static PASS (m52, registry 257) · route_smoke_m52 NEW 45/45 LIVE (the live TB BALANCED at 187/187 rows 0 unlinked + both FA variants + the crafted today-window walkthrough + csv twins ×4 + the honest refusal doors + full revert) · browser E2E through the FORM door: the payments form (CUS001 ₹500 cash receipt) → plan GL legs → Approve → RCP-0188 on the day-book → Reverse → DB-verified (payment cancelled, JV-RCP-0188 ACTIVE + CN-RCP-0188 contra with swapped FKs, INV-0010 re-derived) → THE PAIR visible → the TB still BALANCED at 189 rows → zero console errors → fully reverted — 7 screenshots download/m52-*.png.
+- Docs: STATE #57 · MANUAL-TESTING v1.6 (129 cases: AC-13..16; §7 → f68aa92; twins regenerated — postcheck 9/9, LibreOffice PDF 62 pages text-verified) · commits 102c58f + f68aa92 + fa68d90.
+
+Stage Summary:
+- M52 M-03 SHIPPED: the four final-accounts reports ride the M50/M51 substrate with THE GL DOCTRINE as the read-side invariant — the TB asserts balance, the day-book shows every row honestly, the cash-book nets the 1010 family, the P&L/BS close structurally.
+- Counts: tools 265, masters 43, models 91, menu 147, routes 183; PROMPT_VERSION m52-2026-09-06; 1561 vitest.
+- Module M queue: M-04 Tally both sides, M-05 expense heads. Module L: only L-06 (ADR-019 owner decision).
+- 9 local commits pending push (M50 spec/feat/docs + SPEC-M51 + M51 feat/docs + SPEC-M52 + M52 feat/docs) — PAT re-supply needed.
+---
+Task ID: m52-push
+Agent: main (Super Z)
+Task: Push the 9 pending commits (M50/M51/M52 batches, 0d7bd3d..fa68d90) to origin/main with the user's re-supplied PAT, clearing the push backlog.
+
+Work Log:
+- Re-oriented after session resume: local main at fa68d90, working tree clean, no divergence (merge-base == origin/main 0d7bd3d) — a pure fast-forward of 9 commits.
+- Pre-push gates re-verified on the pushed tree: context_check 606/606 NO DRIFT · eval --static PASS (m52-2026-09-06, registry 257) · fa68d90 confirmed docs+scripts only (the 1561/1561 vitest + tsc src 0 gates ran green on f68aa92).
+- Pre-push token audit: full-history exact-token search (all refs) + working-tree grep = ZERO occurrences.
+- PAT auth validated via ls-remote BEFORE the push (remote main still 0d7bd3d).
+- Push: origin/main 0d7bd3d..fa68d90 (PAT-supplied inline URL, never stored in config or any file).
+- Post-push verification: ls-remote + fetch → local main == origin/main == fa68d90e2a60a98c5e7e8cfe8956c97f2cf5ee49 · ahead-count 0 · working tree clean · post-push tree token re-audit clean.
+
+Stage Summary:
+- M50 (chart of accounts), M51 (true double-entry posts), and M52 (final-accounts reports) ARE ALL ON REMOTE MAIN — Module M batches 1–3 shipped, plus MANUAL-TESTING v1.4/v1.5/v1.6 (121/125/129 cases) and STATE #55/#56/#57.
+- Repo fully synced: zero local commits pending; dev server running on :3000.
+- Remaining queue: Module M-04 (Tally both sides), M-05 (expense heads); Module L-06 shiftWages still blocked on the ADR-019 owner decision; side_quest retirement remains an owner call.
