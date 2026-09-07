@@ -1,5 +1,5 @@
-// SPEC-M2 §4 — the master config registry: 42 entities, one engine
-// (24 M2 masters + SPEC-M5 §7-D-32 shift + ADR-016 five + SPEC-M19 §3 Wave C eleven + SPEC-M44 cost-component).
+// SPEC-M2 §4 — the master config registry: 44 entities, one engine
+// (24 M2 masters + SPEC-M5 §7-D-32 shift + ADR-016 five + SPEC-M19 §3 Wave C eleven + SPEC-M44 cost-component + SPEC-M50 account + SPEC-M54 expense-head).
 import type { MasterConfig, MasterCategory } from './types'
 
 import { partyConfig } from './party'
@@ -45,6 +45,7 @@ import { rangeGroupConfig } from './range-group'
 import { sizeRangeConfig } from './size-range'
 import { costComponentConfig } from './cost-component'
 import { accountConfig } from './account'
+import { expenseHeadConfig } from './expense-head'
 
 export const MASTER_CONFIGS: MasterConfig[] = [
   partyConfig,
@@ -95,6 +96,8 @@ export const MASTER_CONFIGS: MasterConfig[] = [
   costComponentConfig,
   // SPEC-M50 M-01 — the chart of accounts (Module M final accounts)
   accountConfig,
+  // SPEC-M54 M-05 — the expense heads (legacy FrmMasExpenses port)
+  expenseHeadConfig,
 ]
 
 export const MASTER_CATEGORIES: Array<{ key: MasterCategory; label: string; blurb: string }> = [

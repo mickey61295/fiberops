@@ -49,7 +49,7 @@ export async function planBudget(args: BudgetInput): Promise<DocPlanResult> {
         data: { orderId, deptId, finYear, amount: total, lines: lineData },
       },
     ],
-    sideEffects: ['Budget appears in Budget vs Actual (order PO + production spend vs budget)'],
+    sideEffects: ['Budget appears in Budget vs Actual (order PO + production + expenses vs budget — SPEC-M54 M-05: the expense addend)'],
     async commit() {
       const budget = await db.budget.create({
         data: {

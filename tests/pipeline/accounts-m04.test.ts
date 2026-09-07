@@ -332,7 +332,7 @@ describe('accounts-m04 — the walkthrough (SPEC-M53 §4)', () => {
 
 describe('accounts-m04 — wiring (TL-05)', () => {
   it('get_tally_export: tools 265→266, accounts domain, read-only, the service twin', async () => {
-    expect(allTools.length).toBe(266)
+    expect(allTools.length).toBe(269)
     const t = getTool('get_tally_export')!
     expect(t.domain).toBe('accounts')
     expect(t.isWrite).toBe(false)
@@ -345,7 +345,7 @@ describe('accounts-m04 — wiring (TL-05)', () => {
   })
 
   it('prompt: PROMPT_VERSION m53 + the Tally line', () => {
-    expect(PROMPT_VERSION).toBe('m53-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m54-2026-09-07')
     const p = src('src/lib/agent/prompt.ts')
     expect(p).toContain('get_tally_export')
     expect(p).toContain('SPEC-M53 Tally both sides')
@@ -364,9 +364,9 @@ describe('accounts-m04 — wiring (TL-05)', () => {
     expect(page).toContain('§17-4')
   })
 
-  it('context_check pins: tools 266 + the m53 version check', () => {
+  it('context_check pins: tools 269 + the m54 version check', () => {
     const cc = src('scripts/context_check.sh')
-    expect(cc).toContain('"266"')
-    expect(cc).toContain("m53-2026-09-06")
+    expect(cc).toContain('"269"')
+    expect(cc).toContain("m54-2026-09-07")
   })
 })

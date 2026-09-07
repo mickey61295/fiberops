@@ -64,6 +64,7 @@ function inputFor(slug: string, v: string): Record<string, unknown> {
     case 'range-group': return { name: `M2E RangeGrp ${t}` }
     case 'cost-component': return { name: `M44 Comp ${t}`, category: 'packing', unit: 'per pc', rate: 3 } // SPEC-M44 CST-01
     case 'account': return { name: `M2E Account ${t}`, type: 'expense' } // SPEC-M50 M-01 — the CoA master (auto-code ACC-#### path)
+    case 'expense-head': return { name: `M2E Head ${t}`, category: 'transport', glAccount: '5020' } // SPEC-M54 M-05 (EH-01) — auto-code EXH-#### path
     case 'size-range': return { name: `M2E Range ${t}`, sizes: '104,110,116' }
     default: throw new Error(`no test input for ${slug}`)
   }

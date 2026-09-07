@@ -263,7 +263,7 @@ describe('delegated read tools — json SHAPES frozen (PITFALLS #25)', () => {
     expect(tool.domain).toBe('hr')
     expect(tool.schema.shape).toHaveProperty('order')
     expect(tool.schema.shape).toHaveProperty('q')
-    expect(allTools.length).toBe(266) // M52 M-03: 261 +get_trial_balance +get_day_book +get_cash_book +get_final_accounts // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(269) // M52 M-03: 261 +get_trial_balance +get_day_book +get_cash_book +get_final_accounts // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 })
 

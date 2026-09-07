@@ -50,6 +50,7 @@ const RELATION_OVERRIDES: Record<string, string> = {
 /** entities whose titleField is ALSO unique (SPEC-M2 ERRATUM 3) */
 const UNIQUE_TITLE_ENTITIES = new Set([
   'colour', 'merchandiser', 'part', 'component', 'design', 'size', 'sizeGroup',
+  'expense-head', // SPEC-M54 M-05 (EH-01) — ExpenseHead.name is unique (the door's natural key)
 ])
 
 export interface MasterPlan {

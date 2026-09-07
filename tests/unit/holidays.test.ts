@@ -230,7 +230,7 @@ describe('SPEC-M31 §2 — the agent tool (get_working_days)', () => {
     expect(t).toBeDefined()
     expect((t as any).isWrite).toBe(false)
     expect((t as any).domain).toBe('masters')
-    expect(allTools.length).toBe(266) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(269) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
   })
 
   it('window mode returns the breakdown against live fixtures', async () => {

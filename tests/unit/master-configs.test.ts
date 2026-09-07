@@ -18,6 +18,8 @@ const EXPECTED_DELEGATES = [
   'user', 'userGroup', 'appOption', 'hsn', 'testParameter', // SPEC-M6 §7-B (ADR-016 + ERRATUM #1)
   'bank', 'bankAccount', 'mill', 'machineCategory', 'machine', 'state', 'shade',
   'threadType', 'countGroup', 'rangeGroup', 'sizeRange', // SPEC-M19 §3 Wave C (ADR-019)
+  'costComponent', 'account', // SPEC-M44 CST-01 + SPEC-M50 M-01
+  'expenseHead', // SPEC-M54 M-05 (EH-01)
 ]
 
 /** flattened display keys derivable from ref fields (mirror of service logic) */
@@ -34,11 +36,11 @@ const DISPLAY_KEYS: Record<string, string> = {
 }
 
 describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
-  it('has exactly 43 configs covering every schema master model (24 M2 + shift M5-D + 5 ADR-016 M6-B + 11 M19-C + M44 cost-component + M50 account)', () => {
-    expect(MASTER_CONFIGS.length).toBe(43)
+  it('has exactly 44 configs covering every schema master model (24 M2 + shift M5-D + 5 ADR-016 M6-B + 11 M19-C + M44 cost-component + M50 account + M54 expense-head)', () => {
+    expect(MASTER_CONFIGS.length).toBe(44)
     const delegates = MASTER_CONFIGS.map((c) => c.delegate)
     for (const d of EXPECTED_DELEGATES) expect(delegates).toContain(d)
-    expect(new Set(delegates).size).toBe(43)
+    expect(new Set(delegates).size).toBe(44)
   })
 
   it('has unique slugs, entities, and tool names', () => {
@@ -107,7 +109,7 @@ describe('master configs — frozen contract (SPEC-M2 §11.1)', () => {
     const catKeys = new Set(MASTER_CATEGORIES.map((c) => c.key))
     for (const c of MASTER_CONFIGS) expect(catKeys.has(c.category), `${c.slug} bad category`).toBe(true)
     const summed = MASTER_CATEGORIES.reduce((n, cat) => n + configsByCategory(cat.key).length, 0)
-    expect(summed).toBe(43)
+    expect(summed).toBe(44)
     expect(getMasterConfig('party')?.entity).toBe('party')
     expect(getMasterConfig('nope')).toBeUndefined()
   })

@@ -14,9 +14,11 @@ export default async function ExpenseViewPage({ params }: { params: Promise<{ id
   const expense = await db.expense.findUnique({ where: { id } }).catch(() => null)
   if (!expense) notFound()
 
-  const [order, party] = await Promise.all([
+  const [order, party, head] = await Promise.all([
     expense.orderId ? db.order.findUnique({ where: { id: expense.orderId } }).catch(() => null) : null,
     expense.partyId ? db.party.findUnique({ where: { id: expense.partyId } }).catch(() => null) : null,
+    // SPEC-M54 M-05 (EH-02) — headId is a free FK col (PITFALLS #21)
+    expense.headId ? db.expenseHead.findUnique({ where: { id: expense.headId } }).catch(() => null) : null,
   ])
 
   return (
@@ -34,6 +36,10 @@ export default async function ExpenseViewPage({ params }: { params: Promise<{ id
           <div>
             <div className="text-xs uppercase tracking-wide text-slate-500">Category</div>
             <div className="font-medium capitalize">{expense.category}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500">Head</div>
+            <div className="font-medium">{head?.name ?? '—'}</div>
           </div>
           <div>
             <div className="text-xs uppercase tracking-wide text-slate-500">Order</div>

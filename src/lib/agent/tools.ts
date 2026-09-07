@@ -785,23 +785,25 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_budget_vs_actual',
-    description: 'Get budget vs actual for one order by orderNo: PO commitments vs production cost. Use to see whether an order is running over budget.',
+    description: 'Get budget vs actual for one order by orderNo: PO commitments + production cost + expenses vs budget. Use to see whether an order is running over budget.',
     domain: 'costing',
     isWrite: false,
     schema: z.object({ orderNo: z.string() }),
     async execute(args) {
       // Delegates to the shared register service (SPEC-M4 §5 row 15) — the same
-      // read path the /costing/budget-vs-actual screen uses. json shape frozen.
+      // read path the /costing/budget-vs-actual screen uses. json shape frozen
+      // (SPEC-M54 M-05 added actual.expenseSpend — additive, the M53
+      // additive-field precedent).
       const order = await db.order.findUnique({ where: { orderNo: args.orderNo }, select: { id: true } })
       if (!order) return { text: `Order ${args.orderNo} not found` }
       const r = await getOrderBudgetActual(order.id)
       if (!r) return { text: `Order ${args.orderNo} not found` }
       return {
-        text: `${args.orderNo}: budgeted=${r.budgeted}, actual=${r.actual}, variance=${r.variance}`,
+        text: `${args.orderNo}: budgeted=${r.budgeted}, actual=${r.actual} (PO ${r.poValue} + production ${r.prodCost} + expenses ${r.expenseSpend}), variance=${r.variance}`,
         json: {
           orderNo: args.orderNo,
           budget: { total: r.budgeted, poBudget: r.poValue, prodBudget: r.prodCost },
-          actual: { total: r.actual, poValue: r.poValue, prodCost: r.prodCost, shiftWages: r.shiftWages },
+          actual: { total: r.actual, poValue: r.poValue, prodCost: r.prodCost, expenseSpend: r.expenseSpend, shiftWages: r.shiftWages },
           variance: r.variance,
           pctVariance: r.budgeted ? (r.variance / r.budgeted) * 100 : 0,
         },
@@ -2278,7 +2280,7 @@ const docTools: AgentTool[] = [
   ),
   docTool(
     'create_expense',
-    'Record an expense (EXP-#### auto). Required: category (fixed|stylewise|general|transport|other), amount. stylewise requires orderNo. Optional: expDate, finYear, partyCode (paid-to), narration, status (default recorded), glAccount (GL debit leg — exact account name or code; default transport → Freight [5020], else Other Expenses [5120]). SPEC-M51: also writes the companion journal JV-EXP-#### classifying the expense — Dr the GL account / Cr Sundry Creditors [2100] with a party (the payable shows in the party ledger; settle with record_payment out — nets to 0) or Cr Cash/Bank [1010] without one.',
+    'Record an expense (EXP-#### auto). Required: amount + a category OR a head. category (fixed|stylewise|general|transport| other) when no head is given; stylewise requires orderNo. SPEC-M54 M-05: head — an ExpenseHead name or code (create_expense_head / list_expense_heads) — sets the category (overrides a directly-passed one) + the default GL debit leg (the head\'s glAccount, e.g. 5020 Freight; leg precedence: explicit glAccount > head\'s account > the category default — transport → Freight [5020], else Other Expenses [5120]; a stale head account falls back + a note, never blocks). Optional: expDate, finYear, partyCode (paid-to), narration, status (default recorded), glAccount. SPEC-M51: also writes the companion journal JV-EXP-#### classifying the expense — Dr the GL account / Cr Sundry Creditors [2100] with a party (the payable shows in the party ledger; settle with record_payment out — nets to 0) or Cr Cash/Bank [1010] without one. Order-linked expenses count in budget-vs-actual (the M-05 expense addend).',
     'costing',
     EXPENSE_SCHEMA,
     planExpense,
@@ -2444,6 +2446,8 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('cost-component', 'Create a cost component (the costing library — legacy FrmPreCostingCompMas). code is optional — auto-assigned CC-#### if omitted or taken. Required: name. Optional: category (fabric|trim|cm|washing|packing|overhead|other — the cost-sheet head it quotes into, default other), unit (display text, e.g. per kg), rate (the quoted ₹), active (default true).'),
   // SPEC-M50 M-01 — the chart of accounts (Module M)
   masterCreateTool('account', 'Create a chart-of-accounts account. code is optional — auto-assigned ACC-#### if omitted or taken (the seeded standard tree uses numeric codes: 1010 Cash/Bank, 1110 Sundry Debtors, 2100 Sundry Creditors, 2200 Wage Payable, 4010 Sales, 5010 Production Wages, 5110 Staff Salaries, 9000 Suspense Account). Required: name, type (asset|liability|income|expense|equity). Optional: parentCode (an account code or name), active (default true). Journal legs resolve by exact name OR code — create the account here FIRST, then create_journal.'),
+  // SPEC-M54 M-05 (EH-01) — the expense heads (legacy FrmMasExpenses port)
+  masterCreateTool('expense-head', 'Create an expense head (legacy FrmMasExpenses). code is optional — auto-assigned EXH-#### if omitted or taken. Required: name (unique — the natural key create_expense resolves by exact name or code), category (fixed|stylewise|general|transport|other — expenses under the head store it; stylewise requires the order on the expense door). Optional: glAccount (the default GL debit leg — an exact Account name or code, e.g. 5020 Freight; a stale value falls back to the category default with a note, never blocks), active (default true — inactive heads refuse new expenses).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -2493,6 +2497,8 @@ const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('cost-component', 'Update an existing cost component by code. Updatable: name, category, unit, rate, active.'),
   // SPEC-M50 M-01 — the chart of accounts (Module M)
   masterUpdateTool('account', 'Update an existing chart-of-accounts account by code. Updatable: name, type (asset|liability|income|expense|equity), parentCode, active.'),
+  // SPEC-M54 M-05 (EH-01) — the expense heads (legacy FrmMasExpenses port)
+  masterUpdateTool('expense-head', 'Update an existing expense head by code. Updatable: name, category (fixed|stylewise|general|transport|other), glAccount (the default GL debit leg — Account name or code), active.'),
 ]
 
 // new master LIST tools (SPEC-M2 §3 — entities that had no list tool)
@@ -2522,6 +2528,18 @@ const masterNewListTools: AgentTool[] = [
     async execute() {
       const rows = await db.costComponent.findMany({ orderBy: { code: 'asc' } })
       return { text: `${rows.length} cost components`, json: rows }
+    },
+  },
+  {
+    // SPEC-M54 M-05 (EH-01) — the expense heads (legacy FrmMasExpenses port)
+    name: 'list_expense_heads',
+    description: 'List expense heads (code EXH-####, name, category, glAccount, active). Use to resolve a head before create_expense — the head sets the category + the default GL debit leg.',
+    domain: 'masters',
+    isWrite: false,
+    schema: z.object({}),
+    async execute() {
+      const rows = await db.expenseHead.findMany({ orderBy: { code: 'asc' } })
+      return { text: `${rows.length} expense heads`, json: rows }
     },
   },
   {

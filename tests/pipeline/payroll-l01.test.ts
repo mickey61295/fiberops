@@ -247,7 +247,7 @@ describe('L-01 wiring + honest claims', () => {
   })
 
   it('PROMPT_VERSION bumped + the hr line carries the statement', () => {
-    expect(PROMPT_VERSION).toBe('m53-2026-09-06') // M51 M-02 true double-entry posts on the M50 line
+    expect(PROMPT_VERSION).toBe('m54-2026-09-07') // M51 M-02 true double-entry posts on the M50 line
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('get_operator_statement')
   })

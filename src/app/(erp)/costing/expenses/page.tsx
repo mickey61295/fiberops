@@ -16,17 +16,22 @@ export default async function ExpensesPage() {
     take: expenseConfig.recentCount ?? 20,
   })
   // orderId/partyId are free FK cols (PITFALLS #21) — id maps
+  // (SPEC-M54 M-05: headId joins the same pattern)
   const orderIds = [...new Set(recent.map((e) => e.orderId).filter((o): o is string => !!o))]
   const partyIds = [...new Set(recent.map((e) => e.partyId).filter((p): p is string => !!p))]
+  const headIds = [...new Set(recent.map((e) => e.headId).filter((h): h is string => !!h))]
   const orders = orderIds.length ? await db.order.findMany({ where: { id: { in: orderIds } }, select: { id: true, orderNo: true } }) : []
   const parties = partyIds.length ? await db.party.findMany({ where: { id: { in: partyIds } }, select: { id: true, name: true } }) : []
+  const heads = headIds.length ? await db.expenseHead.findMany({ where: { id: { in: headIds } }, select: { id: true, name: true } }) : []
   const orderBy = new Map(orders.map((o) => [o.id, o.orderNo]))
   const partyById = new Map(parties.map((p) => [p.id, p.name]))
+  const headById = new Map(heads.map((h) => [h.id, h.name]))
   const rows = recent.map((e) => ({
     id: e.id,
     cells: {
       expNo: e.expNo,
       category: e.category,
+      headName: e.headId ? headById.get(e.headId) ?? '—' : '—',
       orderNo: e.orderId ? orderBy.get(e.orderId) ?? '—' : '—',
       partyName: e.partyId ? partyById.get(e.partyId) ?? '—' : '—',
       amount: (e.amount || 0).toLocaleString('en-IN'),

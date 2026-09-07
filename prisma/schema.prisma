@@ -1319,6 +1319,10 @@ model LabTest {
 
 // Expense book (legacy FrmExpenses). Auto EXP-####. orderId/partyId are
 // free FK cols; stylewise expenses carry the order.
+// SPEC-M54 M-05 (EH-02): headId = the ExpenseHead the expense was booked
+// under (relation-less free FK, PITFALLS #21 — the page resolves via id-map);
+// category stays the stored truth every register reads (set from the head
+// when one is given).
 model Expense {
   id        String   @id @default(cuid())
   expNo     String   @unique
@@ -1327,11 +1331,29 @@ model Expense {
   category  String // fixed | stylewise | general | transport | other
   orderId   String?
   partyId   String?
+  headId    String? // SPEC-M54 M-05 — relation-less FK to ExpenseHead
   amount    Float    @default(0)
   narration String?
-  status    String   @default("recorded") // recorded | settled
+  status    String   @default("recorded") // recorded | settled | cancelled (M51 DE-05)
   createdAt DateTime @default(now())
   @@index([createdAt])
+}
+
+
+// Expense HEAD master (SPEC-M54 M-05 / EH-01 — legacy FrmMasExpenses port).
+// name is unique: it is the natural key create_expense resolves (code OR
+// name); glAccount is a PLAIN name-or-code preference (deliberately NOT an
+// FK — the BankAccount.glAccountCode pattern): the expense door falls back
+// to the M51 category default + an honest note when it is stale, never a
+// refusal (THE HEAD REFINES, NEVER BLOCKS).
+model ExpenseHead {
+  id        String   @id @default(cuid())
+  code      String   @unique // EXH-#### auto on user rows
+  name      String   @unique // the natural key the expense door resolves
+  category  String // fixed | stylewise | general | transport | other
+  glAccount String? // GL debit leg preference — exact Account name or code
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 

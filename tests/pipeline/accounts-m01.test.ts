@@ -418,7 +418,7 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
   })
 
   it('tools: 265 with create/update/list_account (factory + list door) + the M52 report quartet', async () => {
-    expect(allTools.length).toBe(266)
+    expect(allTools.length).toBe(269)
     const create = getTool('create_account')
     expect(create).toBeDefined()
     expect(create!.isWrite).toBe(true)
@@ -433,8 +433,8 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
     expect(json.find((a) => a.code === '2200')!.type).toBe('liability')
   })
 
-  it('masters: 43 configs with the account config riding the M2 engine', () => {
-    expect(MASTER_CONFIGS.length).toBe(43)
+  it('masters: 44 configs with the account config riding the M2 engine', () => {
+    expect(MASTER_CONFIGS.length).toBe(44)
     const cfg = getMasterConfig('account')
     expect(cfg).toBeDefined()
     expect(cfg!.createTool).toBe('create_account')
@@ -445,7 +445,7 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
   })
 
   it('PROMPT_VERSION m51 + the accounts line names the CoA doors', () => {
-    expect(PROMPT_VERSION).toBe('m53-2026-09-06')
+    expect(PROMPT_VERSION).toBe('m54-2026-09-07')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('chart of accounts')
     expect(prompt).toContain('create_account')
