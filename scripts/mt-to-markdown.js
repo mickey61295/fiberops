@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.7 · 2026-09-07 · Build under test: `main @ 43fc765` (M53 Tally both sides; v1.7 adds the export cases AC-17..20 — the both-sides counts grid + the doctrine notes + the JSON download, COUNTED ONCE + the purchase side + the exclusion doors, THE EXPORT DOCTRINE PAIR (a reversed receipt exports with its CN- reversal, net zero), and the GST split ledgers + the agent door) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.8 · 2026-09-07 · Build under test: `main @ 84ddfdf` (M54 expense heads — the LAST Module M item; v1.8 adds the expense-head cases AC-21..24 — the FrmMasExpenses master port, THE HEAD DRIVES THE EXPENSE FORM (category + the default GL leg from the head, precedence explicit > head > category default), the honesty doors (the stale-account fallback that never blocks, the unknown/inactive refusals), and THE BUDGET ADDEND (budget-vs-actual finally includes expenses)) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
