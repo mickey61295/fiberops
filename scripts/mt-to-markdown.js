@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.8 · 2026-09-07 · Build under test: `main @ 84ddfdf` (M54 expense heads — the LAST Module M item; v1.8 adds the expense-head cases AC-21..24 — the FrmMasExpenses master port, THE HEAD DRIVES THE EXPENSE FORM (category + the default GL leg from the head, precedence explicit > head > category default), the honesty doors (the stale-account fallback that never blocks, the unknown/inactive refusals), and THE BUDGET ADDEND (budget-vs-actual finally includes expenses)) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.9 · 2026-09-08 · Build under test: `main @ 68c5034` (M55 shift wages — the LAST Module L item: the remediation §13 queues are now ALL EMPTY; v1.9 adds the shift-wages cases HR-12..14 — the FrmProdShiftWagesReg register port (shift × day bill, the unassigned bucket), THE WAGE DOOR + THE BUDGET ADDEND (post_shift_wages: wage-only rows beyond piece rate, the four-way actual), and THE ATTRIBUTION DOOR (the Shift picker on the production form, unknown-shift refusals)) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 

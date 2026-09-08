@@ -232,3 +232,31 @@ creatable via BOTH doors; the masters hub is the single configuration surface
 DEFERRED (needs a ProductionEntry⇄Shift decision — no shiftId field; do not
 invent one without a spec). Test surface: 126 runtime parity tests loop all
 41 masters; route_smoke_m19c.sh 22/22.
+
+## ADR-019-A — Shift wages resolved: the ProductionEntry⇄Shift link (M55 L-06)
+
+Date: 2026-09-08 · Status: accepted · Spec: SPEC-M55 (L-06, remediation §13)
+
+ADR-019 froze the linkage ("no shiftId field; do not invent one without a
+spec"). SPEC-M55 is that spec; the owner's standing "continue" directive
+(2026-09-08, after the decision was surfaced in the queue report) delegated
+the recommended default. The decision:
+
+- **The link is `ProductionEntry.shiftId String?`** — a nullable FK to
+  Shift (+ the back-relation), matching the Attendance⇄Shift precedent
+  (M20) and the same-model deptId/operatorId precedent. Nullable keeps it
+  additive + reversible: pre-M55 rows land in the register's explicit
+  `unassigned` bucket, never a fabricated shift.
+- **`shiftWages` ≠ `amount`, pinned**: the column is shift-level wage cost
+  BEYOND piece rate (the legacy ProdShiftWages / post_shift_wages door —
+  fixed shift staff, shift incentives). Piece wages stay `amount` (inside
+  prodCost). Budget-vs-actual: actual = PO + prodCost + expenses +
+  Σ shiftWages — wage-only rows carry amount 0, so nothing double-counts
+  (the HFX-12 warning honored by construction; the Σ amount stand-in
+  retired).
+- **No GL leg at the door** — the wage journal rides the M46 payroll /
+  wage-bill flow, exactly as piece entries do.
+
+Consequence: the remediation §13 queues are ALL EMPTY (Module M + Module L
+complete); what remains is owner-decision territory (§17-1..§17-4). Test
+surface: hr-l06.test.ts 14/14 · route_smoke_m55 26/26 · 1618/1618 vitest.
