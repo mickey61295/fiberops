@@ -470,12 +470,14 @@ describe('PAY Batch 4 — SPEC-M40 money integrity', () => {
 
   // ───────────── PAY-08 deferral + status fleet honesty ─────────────
 
-  it('PAY-08: explicitly DEFERRED per §17-3 (the owner decision stays open — no dead columns)', () => {
+  it('PAY-08: RESOLVED per §17-3 (SPEC-M56 — the cheque lifecycle shipped, the column has its writers)', () => {
     const spec = readFileSync(join(process.cwd(), 'docs/CONTEXT/specs/SPEC-M40.md'), 'utf8')
-    expect(spec).toContain('DEFERRED per §17-3')
-    // no cheque-status column landed with the deferral (honest-claims rule)
+    expect(spec).toContain('DEFERRED per §17-3') // the M40 record stands — the deferral WAS the state until M56
+    const m56 = readFileSync(join(process.cwd(), 'docs/CONTEXT/specs/SPEC-M56.md'), 'utf8')
+    expect(m56).toContain('PAY-08')
+    // the column landed WITH its writers (issued at the payment door; cleared/bounced at the lifecycle doors)
     const schema = readFileSync(join(process.cwd(), 'prisma/schema.prisma'), 'utf8')
-    expect(schema).not.toContain('chequeStatus')
+    expect(schema).toContain('chequeStatus')
   })
 
   it('status fleets: every new state has a writer (honest-claims rule)', () => {

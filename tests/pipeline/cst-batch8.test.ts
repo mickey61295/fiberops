@@ -441,7 +441,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
   // ──────────────────────────────────────────────────────────────────────
   describe('the batch surface — tools, prompt, spec', () => {
     it('the new tools are registered: 253 = 249 at M43 + cost-component ×3 + get_order_cost', () => {
-      expect(allTools.length).toBe(271) // M44 CST + M45/M46 payroll quartet (m47 merge) + M48 L-03 +get_statutory_register
+      expect(allTools.length).toBe(274) // M44 CST + M45/M46 payroll quartet (m47 merge) + M48 L-03 +get_statutory_register
       expect(allTools.map((t) => t.name)).toContain('create_cost_component')
       expect(allTools.map((t) => t.name)).toContain('update_cost_component')
       expect(allTools.map((t) => t.name)).toContain('list_cost_components')
@@ -449,7 +449,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
     })
 
     it('PROMPT_VERSION + the costing prompt section (M44)', () => {
-      expect(PROMPT_VERSION).toBe('m55-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
+      expect(PROMPT_VERSION).toBe('m56-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
       const prompt = src('../agent/prompt.ts')
       expect(prompt).toContain('create_cost_component')
       expect(prompt).toContain('get_order_cost')

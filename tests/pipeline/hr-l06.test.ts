@@ -271,7 +271,7 @@ describe('L-06 the shift-wages register: shift × day grain', () => {
     const read = getTool('get_shift_wages')
     expect(read).toBeTruthy()
     expect((read as any).isWrite).toBe(false)
-    expect(allTools.length).toBe(271)
+    expect(allTools.length).toBe(274)
   })
 })
 
@@ -280,19 +280,19 @@ describe('L-06 the shift-wages register: shift × day grain', () => {
 // ─────────────────────────────────────────────────────────────
 describe('L-06 wiring pins', () => {
   it('PROMPT_VERSION m55 + the prompt names both tools', () => {
-    expect(PROMPT_VERSION).toBe('m55-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('post_shift_wages')
     expect(prompt).toContain('get_shift_wages')
   })
 
-  it('context_check pins: 271 / 148 / 184 / m55', () => {
+  it('context_check pins: 274 / 149 / 185 / m56', () => {
     const cc = src('scripts/context_check.sh')
-    expect(cc).toContain('"271"')
-    expect(cc).toContain('"148"')
-    expect(cc).toContain('"184"')
-    expect(cc).toContain('m55-2026-09-08')
-    expect(MENU_ITEMS.length).toBe(148)
+    expect(cc).toContain('"274"')
+    expect(cc).toContain('"149"')
+    expect(cc).toContain('"185"')
+    expect(cc).toContain('m56-2026-09-08')
+    expect(MENU_ITEMS.length).toBe(149)
   })
 
   it('schema: shiftId + the Shift back-relation (ADR-019-A)', () => {

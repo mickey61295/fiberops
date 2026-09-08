@@ -118,6 +118,19 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
   if (!party) return { ok: false, error: `Party ${args.partyCode} not found` }
   const direction = args.direction === 'out' ? 'out' : 'in'
   const mode = args.mode || 'bank'
+  // SPEC-M56 PAY-08 (PDC-02) — the physical cheque journey starts HERE:
+  // cheque-mode vouchers stamp chequeStatus 'issued' (with or without a
+  // chequeDate; other modes stay null — honest: only cheques journey). A
+  // given chequeDate on a non-cheque mode is NAMED as ignored below (the
+  // honest-nag pattern), never a silent drop.
+  const isCheque = mode === 'cheque'
+  let chequeDate: Date | null = null
+  if (args.chequeDate) {
+    chequeDate = new Date(args.chequeDate)
+    if (Number.isNaN(chequeDate.getTime())) {
+      return { ok: false, error: `Invalid chequeDate "${args.chequeDate}" — pass an ISO date (YYYY-MM-DD)` }
+    }
+  }
   const order = args.orderNo ? await db.order.findUnique({ where: { orderNo: args.orderNo } }) : null
   if (args.orderNo && !order) return { ok: false, error: `Order ${args.orderNo} not found` }
 
@@ -139,6 +152,8 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
 
   const voucherNo = await resolveDocNo('payment', 'voucherNo', direction === 'in' ? 'RCP-' : 'PMT-', args.voucherNo)
   const payDate = dateOrIstToday(args.payDate)
+  const postDated = !!(isCheque && chequeDate && chequeDate.getTime() > payDate.getTime())
+  const chequeStatus = isCheque ? 'issued' : null
 
   // ───────── PAY-02 — direction-correct invoice/bill links ─────────
   const invoice = args.invoiceNo ? await db.salesInvoice.findUnique({ where: { invoiceNo: args.invoiceNo } }) : null
@@ -208,10 +223,10 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
 
   return {
     ok: true,
-    text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${allocated > 0 ? ` — allocates ${allocatedLines.join(', ')}${onAccount > 0 ? `, ₹${onAccount} on-account` : ''}` : ' (on-account)'}.`,
-    summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${allocated > 0 ? ` | allocates ₹${allocated}${onAccount > 0 ? ` + ₹${onAccount} on-account` : ''}` : ' | on-account'}${args.reference ? ` | ref ${args.reference}` : ''}`,
+    text: `Proposed payment ${voucherNo}: ${direction === 'in' ? 'RECEIVE' : 'PAY'} ₹${args.amount} ${direction === 'in' ? 'from' : 'to'} ${party.name}${allocated > 0 ? ` — allocates ${allocatedLines.join(', ')}${onAccount > 0 ? `, ₹${onAccount} on-account` : ''}` : ' (on-account)'}.${isCheque ? ` Cheque ${args.reference ?? '—'} issued${postDated ? ` — POST-DATED, due ${chequeDate!.toISOString().slice(0, 10)}` : ''}; it appears in the PDC register until cleared or bounced.` : ''}`,
+    summary: `${direction === 'in' ? 'Receipt' : 'Payment'} ${voucherNo} | ${party.name} | ₹${args.amount} | ${mode}${allocated > 0 ? ` | allocates ₹${allocated}${onAccount > 0 ? ` + ₹${onAccount} on-account` : ''}` : ' | on-account'}${args.reference ? ` | ref ${args.reference}` : ''}${isCheque ? ` | cheque issued${postDated ? ` (PDC due ${chequeDate!.toISOString().slice(0, 10)})` : ''}` : ''}`,
     creates: [
-      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, notes: args.notes, status: 'active' } },
+      { table: 'payment', data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, chequeDate: isCheque ? chequeDate : null, chequeStatus, notes: args.notes, status: 'active' } },
       ...allocations.map((a) => ({ table: 'paymentAllocation', data: { paymentId: '<payment>', invoiceId: a.invoiceId ?? null, billId: a.billId ?? null, amount: a.amount } })),
     ],
     updates: statusUpdates,
@@ -222,11 +237,20 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
       ...(cashLeg.note ? [cashLeg.note] : []),
       ...allocations.map((a) => `Allocation ₹${a.amount} → ${a.ref}${a.invoiceId ? ' (invoice status derives: partial/paid)' : ' (bill status derives: partial/paid)'}`),
       ...(onAccount > 0 ? [`₹${onAccount} stays ON-ACCOUNT (labeled party credit — PAY-01 overpayment rule)`] : []),
+      ...(isCheque
+        ? [
+            `Cheque ${args.reference ?? '—'} starts its journey: ISSUED (appears in the /accounts/pdc PDC register until cleared or bounced — SPEC-M56)`,
+            ...(postDated ? [`POST-DATED — due ${chequeDate!.toISOString().slice(0, 10)} (the cheque date is after the voucher date; the register ages off it)`] : []),
+          ]
+        : []),
+      ...(!isCheque && args.chequeDate
+        ? [`chequeDate ${args.chequeDate} IGNORED — mode is '${mode}' (no cheque journey; pass mode=cheque to start one)`]
+        : []),
     ],
     async commit() {
       return await db.$transaction(async (tx) => {
         const pay = await tx.payment.create({
-          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, notes: args.notes, status: 'active' },
+          data: { voucherNo, partyId: party.id, orderId: order?.id, invoiceId: invoice?.id, payDate, finYear: await activeFinYear(), direction, amount: args.amount, mode, bankAccountId: cashLeg.bankAccount?.id ?? null, reference: args.reference, chequeDate: isCheque ? chequeDate : null, chequeStatus, notes: args.notes, status: 'active' },
         })
         // SPEC-M50 CA-04 + SPEC-M51 DE-01 — re-resolved INSIDE the tx (the
         // plan resolved the same inputs; a deleted account between plan and
@@ -262,7 +286,7 @@ export async function planPayment(args: PaymentInput): Promise<DocPlanResult> {
         const statuses: Record<string, string> = {}
         for (const id of invoiceIds) statuses[`INV:${id}`] = await recomputeInvoiceStatus(tx, id)
         for (const id of billIds) statuses[`SB:${id}`] = await recomputeBillStatus(tx, id)
-        return { id: pay.id, voucherNo: pay.voucherNo, allocated, onAccount, allocations, statuses }
+        return { id: pay.id, voucherNo: pay.voucherNo, allocated, onAccount, allocations, statuses, chequeStatus, chequeDate: chequeDate ?? null }
       })
     },
   }

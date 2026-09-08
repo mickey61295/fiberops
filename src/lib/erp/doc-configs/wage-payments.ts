@@ -36,6 +36,9 @@ export const wagePaymentsConfig: DocConfig = {
     { name: 'payDate', label: 'Pay Date', type: 'date', colSpan: 1 },
     { name: 'orderNo', label: 'Order No (optional)', type: 'text', colSpan: 1 },
     { name: 'reference', label: 'Reference (UTR / cheque no)', type: 'text', colSpan: 2 },
+    // SPEC-M56 PAY-08 (PDC-02) — inherited from the base PAYMENT_SCHEMA (the
+    // mirror rule): the cheque's own (post-)date, meaningful with mode=cheque.
+    { name: 'chequeDate', label: 'Cheque Date (mode=cheque)', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes (period / week)', type: 'textarea', colSpan: 2 },
   ],
   listColumns: [

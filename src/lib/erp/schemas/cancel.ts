@@ -54,3 +54,20 @@ export const CANCEL_BUDGET_SCHEMA = z.object({
   reason: z.string().optional(),
 })
 export type CancelBudgetInput = z.infer<typeof CANCEL_BUDGET_SCHEMA>
+
+// SPEC-M56 (PAY-08, §17-3 ADR-020) — the cheque lifecycle doors (PDC-03/04):
+// clear = the PHYSICAL confirmation stamp (no journal — the bank GL leg
+// posted at voucher time, M51 doctrine); bounce = the M40 CN- cancel
+// machinery + the 'bounced' stamp, in one transaction.
+export const CHEQUE_CLEAR_SCHEMA = z.object({
+  voucherNo: z.string().describe('RCP-#### / PMT-#### (a cheque-mode payment)'),
+  clearedOn: z.string().optional().describe('ISO date the bank confirmed the cheque (defaults to today)'),
+  notes: z.string().optional(),
+})
+export type ChequeClearInput = z.infer<typeof CHEQUE_CLEAR_SCHEMA>
+
+export const CHEQUE_BOUNCE_SCHEMA = z.object({
+  voucherNo: z.string().describe('RCP-#### / PMT-#### (a cheque-mode payment)'),
+  reason: z.string().optional().describe('why it bounced (e.g. "insufficient funds") — rides the CN- contra narration'),
+})
+export type ChequeBounceInput = z.infer<typeof CHEQUE_BOUNCE_SCHEMA>

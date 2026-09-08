@@ -47,6 +47,7 @@ import { queryTrialBalance } from './trial-balance' // SPEC-M52 M-03
 import { queryDayBook } from './day-book' // SPEC-M52 M-03
 import { queryCashBook } from './cash-book' // SPEC-M52 M-03
 import { queryFinalAccounts } from './final-accounts' // SPEC-M52 M-03
+import { queryPdc } from './pdc' // SPEC-M56 (PAY-08, §17-3 ADR-020)
 
 export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<RegisterResult>> = {
   'stock-ledger': queryStockLedger,
@@ -95,6 +96,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'day-book': queryDayBook, // SPEC-M52 M-03 — the chronological GL voucher register
   'cash-book': queryCashBook, // SPEC-M52 M-03 — the 1010-family day-book with running balance
   'final-accounts': queryFinalAccounts, // SPEC-M52 M-03 — P&L + balance sheet on accountActivity
+  'pdc': queryPdc, // SPEC-M56 (PAY-08 §17-3) PDC-05 — cheques in the field, aging off the cheque date
 }
 
 export type { RegisterQuery, RegisterResult, RegisterRow, RegisterTotal } from './types'

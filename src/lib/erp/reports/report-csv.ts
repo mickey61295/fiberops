@@ -41,16 +41,35 @@ export interface PrintHeader {
   upi?: string
 }
 
-/** Print header from AppOption print.* keys (SPEC-M6 §5). Degrades to null
- *  before ADR-016 lands (Wave B) or when no options are set. */
+/** Print header — SPEC-M56 PAY-08 (PDC-06): an ACTIVE BankAccount master row
+ *  WINS for the bank/remit-to fields (the master stops being dead data —
+ *  deep-dive §2.9; when a row exists its values are used ALONE, never mixed
+ *  with AppOptions from another account); the print.* AppOptions remain the
+ *  fallback when no master row exists (byte-compatible with pre-M56). Degrades
+ *  to null before ADR-016 lands (Wave B) or when no options are set. */
 export async function getPrintHeader(): Promise<PrintHeader | null> {
   try {
     const { db } = await import('@/lib/db')
+    let bank: { accountNo: string; branch: string | null; ifsc: string | null; upi: string | null; bank: { name: string } | null } | null = null
+    try {
+      bank = await (db as any).bankAccount.findFirst({
+        where: { active: true },
+        orderBy: { accountNo: 'asc' },
+        include: { bank: { select: { name: true } } },
+      })
+    } catch {
+      bank = null // table absent (pre-ADR-016 dev shapes) — AppOptions fallback
+    }
     const rows: { key: string; value: string }[] = await (db as any).appOption.findMany({ where: { group: 'print' } })
     const map = new Map<string, string>(rows.map((r: any) => [r.key as string, r.value as string]))
     const companyName = map.get('print.companyName')
     if (!companyName) return null
     const opt = (k: string) => map.get(k) || undefined
+    const bankName = bank ? (bank.bank?.name ?? undefined) : opt('print.bankName')
+    const bankBranch = bank ? (bank.branch ?? undefined) : opt('print.bankBranch')
+    const bankAcNo = bank ? bank.accountNo : opt('print.bankAcNo')
+    const bankIfsc = bank ? (bank.ifsc ?? undefined) : opt('print.bankIfsc')
+    const upi = bank ? (bank.upi ?? undefined) : opt('print.upi')
     return {
       companyName,
       address: opt('print.address'),
@@ -58,11 +77,11 @@ export async function getPrintHeader(): Promise<PrintHeader | null> {
       phone: opt('print.phone'),
       email: opt('print.email'),
       cin: opt('print.cin'),
-      bankName: opt('print.bankName'),
-      bankBranch: opt('print.bankBranch'),
-      bankAcNo: opt('print.bankAcNo'),
-      bankIfsc: opt('print.bankIfsc'),
-      upi: opt('print.upi'),
+      bankName,
+      bankBranch,
+      bankAcNo,
+      bankIfsc,
+      upi,
     }
   } catch {
     return null

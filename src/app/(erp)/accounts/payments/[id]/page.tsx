@@ -35,6 +35,7 @@ export default async function PaymentViewPage({ params }: { params: Promise<{ id
     orderNo: pay.order?.orderNo ?? '',
     mode: pay.mode,
     reference: pay.reference ?? '',
+    chequeDate: pay.chequeDate ? d(pay.chequeDate) : '',
     payDate: d(pay.payDate),
     notes: pay.notes ?? '',
   }
@@ -67,6 +68,14 @@ export default async function PaymentViewPage({ params }: { params: Promise<{ id
         {pay.order && (
           <> · order{' '}
             <Link href={`/orders/${pay.order.id}`} className="font-mono text-emerald-700 hover:underline">{pay.order.orderNo}</Link>
+          </>
+        )}
+        {/* SPEC-M56 PAY-08 (§17-3 ADR-020) — the physical cheque journey */}
+        {pay.chequeStatus && (
+          <> · cheque {pay.reference ?? '—'}: <span className="font-semibold">{pay.chequeStatus}</span>
+            {pay.chequeStatus === 'cleared' && pay.clearedAt ? ` (bank confirmed ${d(pay.clearedAt)})` : ''}
+            {pay.chequeStatus === 'issued' ? ' — in the field (see /accounts/pdc)' : ''}
+            {pay.chequeStatus === 'bounced' ? ` (reversed via CN-${pay.voucherNo})` : ''}
           </>
         )}
       </div>

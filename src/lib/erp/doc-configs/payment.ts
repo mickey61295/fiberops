@@ -43,6 +43,11 @@ export const paymentConfig: DocConfig = {
     // linked account (its glAccount on the bank master); cash ignores it.
     { name: 'bankAccountNo', label: 'Bank Account (GL leg)', type: 'picker', picker: 'bank-account', colSpan: 1, description: 'Optional — with a bank mode the journal posts to this bank\'s linked GL account; without one it posts to the Cash/Bank control' },
     { name: 'reference', label: 'Reference (UTR / cheque no)', type: 'text', colSpan: 2 },
+    // SPEC-M56 PAY-08 (PDC-02) — the cheque's own (post-)date; meaningful
+    // with mode=cheque (future dates are PDCs — the /accounts/pdc register
+    // ages off it; a date on another mode is named as ignored in the plan,
+    // never silently dropped).
+    { name: 'chequeDate', label: 'Cheque Date (mode=cheque)', type: 'date', colSpan: 1 },
     { name: 'payDate', label: 'Pay Date', type: 'date', colSpan: 1 },
     { name: 'notes', label: 'Notes', type: 'textarea', colSpan: 2 },
   ],

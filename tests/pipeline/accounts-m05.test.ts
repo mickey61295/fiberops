@@ -287,7 +287,7 @@ describe('Accounts M-05 (SPEC-M54) — expense heads', () => {
   // ───────── wiring pins ─────────
 
   it('WIRING: tools 266→269 (the trio), masters 43→44, the list door read-only + live', async () => {
-    expect(allTools.length).toBe(271)
+    expect(allTools.length).toBe(274)
     const create = getTool('create_expense_head')
     expect(create).toBeDefined()
     expect(create!.isWrite).toBe(true)
@@ -325,17 +325,17 @@ describe('Accounts M-05 (SPEC-M54) — expense heads', () => {
   })
 
   it('WIRING: PROMPT_VERSION m54 + the prompt lines + context_check pins', () => {
-    expect(PROMPT_VERSION).toBe('m55-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('create_expense_head')
     expect(prompt).toContain('never blocks') // the M54 doctrine rides the body; the version comment is M55's now
     expect(prompt).toContain('post_shift_wages') // M55 L-06 rides the version comment
     expect(prompt).toContain('PO + production + expenses')
     const cc = src('scripts/context_check.sh')
-    expect(cc).toContain('"271"')
+    expect(cc).toContain('"274"')
     expect(cc).toContain('"92"')
     expect(cc).toContain('"44"')
-    expect(cc).toContain('m55-2026-09-08')
+    expect(cc).toContain('m56-2026-09-08')
     const schema = src('prisma/schema.prisma')
     expect(schema).toContain('model ExpenseHead')
     expect(schema).toContain('headId    String?')

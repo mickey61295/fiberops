@@ -74,6 +74,8 @@ export const REGISTER_FILTER_KEYS = [
   'variant',
   // SPEC-M43 PRG-01 — the order register's trade-type filter
   'orderType',
+  // SPEC-M56 PAY-08 (PDC-05) — the PDC register's direction filter (in | out)
+  'direction',
   'q',
 ] as const
 

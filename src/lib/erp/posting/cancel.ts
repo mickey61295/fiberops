@@ -116,9 +116,38 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
   const pay = await db.payment.findUnique({ where: { voucherNo: args.voucherNo } })
   if (!pay) return { ok: false, error: `Payment ${args.voucherNo} not found` }
   if (pay.status !== 'active') return { ok: false, error: `Payment ${args.voucherNo} is already cancelled` }
+  return buildPaymentCancelPlan(pay, args)
+}
+
+/** The payment row fields the cancel core reads (SPEC-M56 PDC-04: the bounce
+ * door passes the row it already guarded; the structural type keeps the core
+ * decoupled from the Prisma client type). */
+export interface PaymentCancelRow {
+  id: string
+  voucherNo: string
+  partyId: string
+  direction: string
+  amount: number
+  finYear: string
+  reference: string | null
+  chequeStatus: string | null
+}
+
+/** SPEC-M56 (PDC-04) — the SHARED payment-cancel core. The plain PAY-06 door
+ * and the cheque-bounce door use the SAME machinery (CN- contra with legs +
+ * FKs swapped, allocations reversedAt, invoice/bill statuses re-derived) —
+ * the bounce adds ONLY the chequeStatus stamp + its narration/tags, inside
+ * the same transaction. Plain path: byte-identical to the pre-M56 door (the
+ * M40 pins hold). */
+export async function buildPaymentCancelPlan(
+  pay: PaymentCancelRow,
+  args: { reason?: string },
+  opts: { chequeBounce?: boolean } = {},
+): Promise<DocPlanResult> {
+  const bounce = !!opts.chequeBounce
   const contraNo = `CN-${pay.voucherNo}`
   const contraExists = await db.journal.findUnique({ where: { voucherNo: contraNo } })
-  if (contraExists) return { ok: false, error: `Contra ${contraNo} already exists — ${args.voucherNo} is already reversed` }
+  if (contraExists) return { ok: false, error: `Contra ${contraNo} already exists — ${pay.voucherNo} is already reversed` }
   const allocs = await db.paymentAllocation.findMany({ where: { paymentId: pay.id, reversedAt: null } })
   const allocated = round2(allocs.reduce((s, a) => s + a.amount, 0))
   const invoiceIds = [...new Set(allocs.map((a) => a.invoiceId).filter(Boolean) as string[])]
@@ -147,40 +176,52 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
     contraCreditId = pay.direction === 'in' ? cashLeg.id : controlLeg.id
   }
 
+  const narration = bounce
+    ? `Contra: cheque BOUNCED ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`
+    : `Contra: cancel ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`
+  const cancelData = bounce
+    ? { status: 'cancelled', cancelledAt: new Date(), chequeStatus: 'bounced' }
+    : { status: 'cancelled', cancelledAt: new Date() }
+
   return {
     ok: true,
-    text: `Proposed cancellation of payment ${args.voucherNo} (₹${pay.amount}${allocated > 0 ? `, ₹${allocated} allocated` : ''}) — contra ${contraNo} mirrors the legs.`,
-    summary: `Cancel payment ${args.voucherNo} | ${party?.name ?? 'party'} | ₹${pay.amount} ${pay.direction === 'in' ? 'receipt' : 'payment'}${allocated > 0 ? ` | reverses ₹${allocated} of allocations` : ' | no allocations (pure on-account)'}`,
+    text: bounce
+      ? `Proposed BOUNCE of cheque ${pay.reference ?? pay.voucherNo} (${pay.voucherNo}, ₹${pay.amount}${allocated > 0 ? `, ₹${allocated} allocated` : ''}) — contra ${contraNo} mirrors the legs and the cheque is stamped bounced.`
+      : `Proposed cancellation of payment ${pay.voucherNo} (₹${pay.amount}${allocated > 0 ? `, ₹${allocated} allocated` : ''}) — contra ${contraNo} mirrors the legs.`,
+    summary: bounce
+      ? `Bounce cheque ${pay.voucherNo} | ${party?.name ?? 'party'} | ₹${pay.amount} ${pay.direction === 'in' ? 'receipt' : 'payment'}${allocated > 0 ? ` | reverses ₹${allocated} of allocations` : ' | no allocations (pure on-account)'} · CHEQUE BOUNCED`
+      : `Cancel payment ${pay.voucherNo} | ${party?.name ?? 'party'} | ₹${pay.amount} ${pay.direction === 'in' ? 'receipt' : 'payment'}${allocated > 0 ? ` | reverses ₹${allocated} of allocations` : ' | no allocations (pure on-account)'}`,
     creates: [
       {
         table: 'journal',
         data: {
           voucherNo: contraNo, voucherType: 'contra', partyId: pay.partyId, date: new Date(), finYear: pay.finYear,
           debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, debitAccountId: contraDebitId, creditAccountId: contraCreditId, amount: pay.amount,
-          narration: `Contra: cancel ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
+          narration,
         },
       },
     ],
     updates: [
-      { table: 'payment', id: pay.id, data: { status: 'cancelled', cancelledAt: new Date() } },
+      { table: 'payment', id: pay.id, data: cancelData },
       { table: 'paymentAllocation', id: '<allocs>', data: { reversedAt: new Date() } },
       ...invoiceIds.map((id) => ({ table: 'salesInvoice', id, data: { status: 're-derives (issued/partial)' } })),
       ...billIds.map((id) => ({ table: 'supplierBill', id, data: { status: 're-derives (passed/partial)' } })),
     ],
     sideEffects: [
       `Contra journal ${contraNo} mirrors the original legs (audit preserved — nothing is deleted)`,
+      ...(bounce ? [`Cheque ${pay.reference ?? pay.voucherNo} stamped BOUNCED — it leaves the /accounts/pdc PDC register (the journey is over)`, `The party's outstanding RE-OPENS — the money never arrived`] : []),
       ...(allocated > 0 ? [`₹${allocated} of allocations reverse — invoice/bill statuses re-derive from Σ active allocations`] : []),
       ...(invoiceIds.length || billIds.length ? ['Party ledger AR/AP re-opens for the affected documents'] : []),
       ...(journal ? [`Companion journal ${journal.voucherNo} stays (its contra ${contraNo} is the reversal)`] : []),
     ],
     async commit() {
       return await db.$transaction(async (tx) => {
-        await tx.payment.update({ where: { id: pay.id }, data: { status: 'cancelled', cancelledAt: new Date() } })
+        await tx.payment.update({ where: { id: pay.id }, data: cancelData })
         await tx.journal.create({
           data: {
             voucherNo: contraNo, voucherType: 'contra', partyId: pay.partyId, date: new Date(), finYear: pay.finYear,
             debitAccount: contraDebitAccount, creditAccount: contraCreditAccount, debitAccountId: contraDebitId, creditAccountId: contraCreditId, amount: pay.amount,
-            narration: `Contra: cancel ${pay.voucherNo}${args.reason ? ' — ' + args.reason : ''}`,
+            narration,
           },
         })
         if (allocs.length) {
@@ -189,7 +230,7 @@ export async function planCancelPayment(args: CancelPaymentInput): Promise<DocPl
         const statuses: Record<string, string> = {}
         for (const id of invoiceIds) statuses[`INV:${id}`] = await recomputeInvoiceStatus(tx, id)
         for (const id of billIds) statuses[`SB:${id}`] = await recomputeBillStatus(tx, id)
-        return { id: pay.id, voucherNo: pay.voucherNo, status: 'cancelled', contra: contraNo, reversed: allocated, statuses }
+        return { id: pay.id, voucherNo: pay.voucherNo, status: 'cancelled', contra: contraNo, reversed: allocated, statuses, ...(bounce ? { chequeStatus: 'bounced' as const } : {}) }
       })
     },
   }

@@ -1147,6 +1147,15 @@ model Payment {
   bankAccountId String?
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
   reference   String? // cheque/UTR no
+  // SPEC-M56 PAY-08 (§17-3, ADR-020) — the physical cheque journey. Applies
+  // ONLY to mode='cheque' (other modes stay null — honest: only cheques
+  // journey). The GL bank leg posts at voucher time (the M51 doctrine):
+  // 'cleared' is a physical confirmation stamp (no journal); 'bounced'
+  // rides the M40 CN- cancel machinery (allocations reverse, statuses
+  // re-derive) + this stamp, in one transaction.
+  chequeDate   DateTime? // the cheque's own (post-)date — future dates are PDCs
+  chequeStatus String? // null | issued | cleared | bounced
+  clearedAt    DateTime? // set when chequeStatus flips to 'cleared'
   notes       String?
   status      String    @default("active") // SPEC-M40 PAY-06 — active | cancelled (contra journal + allocations reversedAt)
   cancelledAt DateTime? // SPEC-M40 PAY-06

@@ -21,6 +21,9 @@ export interface RegisterQuery {
   /** CHAT-12 (Phase-6B Batch 2) — buyer id scope for the order register
    * (the agent's list_orders buyerId filter resolves to this). */
   buyerId?: string
+  /** SPEC-M56 PAY-08 (PDC-05) — direction select filter (in | out) for the
+   * PDC register (receipts from buyers vs payments to suppliers). */
+  direction?: string
   limit: number
   page: number
 }

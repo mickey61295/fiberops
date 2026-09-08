@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56'
 
 export interface MenuGroup {
   id: string
@@ -105,6 +105,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/accounts/day-book', // Day Book (M52 M-03) — day-book (RG: chronological GL vouchers, all types + statuses)
   '/accounts/cash-book', // Cash Book (M52 M-03) — cash-book (RG: the 1010 family, opening/closing + running)
   '/accounts/final-accounts', // Final Accounts (M52 M-03) — final-accounts (RG: P&L + balance sheet, Δ asserted)
+  '/accounts/pdc', // PDC / Cheques in Hand (M56 PAY-08) — pdc (RG: issued cheques, aging off the cheque date)
   '/costing/budget-vs-actual', // Budget vs Actual (M4 Wave B) — budget-vs-actual
   '/approvals/audit', // Approval Audit Trail (M4 Wave B) — approval-audit-trail
   '/orders/status', // Order Status Board (M4 Wave C) — order-status-board
@@ -1046,6 +1047,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmPaymentReg'],
     agentTools: ['record_payment'], pendingTools: [],
     agentPrompt: 'I want to record a payment or receipt',
+  },
+  {
+    id: 'pdc-register', label: 'PDC / Cheques in Hand', groupId: 'accounts', route: '/accounts/pdc', arch: 'RG', phase: 'M56',
+    description: 'Issued cheques not yet cleared or bounced — post-dated or not, aging off the cheque date.',
+    legacyForms: [],
+    agentTools: ['get_pdc_register'], pendingTools: [],
+    agentPrompt: 'Show me the cheques still out in the field',
   },
   {
     id: 'party-ledger', label: 'Party Ledger', groupId: 'accounts', route: '/accounts/party-ledger', arch: 'RG', phase: 'M4',

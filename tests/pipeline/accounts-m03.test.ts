@@ -328,7 +328,7 @@ describe('accounts-m03 — final accounts (FA-04)', () => {
 
 describe('accounts-m03 — wiring pins (FA-05)', () => {
   it('tools: 265 with the read-only report quartet (accounts domain, shaped schemas)', async () => {
-    expect(allTools.length).toBe(271)
+    expect(allTools.length).toBe(274)
     const tb = getTool('get_trial_balance')!
     expect(tb.isWrite).toBe(false)
     expect(tb.domain).toBe('accounts')
@@ -379,6 +379,6 @@ describe('accounts-m03 — wiring pins (FA-05)', () => {
     expect(src('src/lib/agent/tools.ts')).toContain("name: 'get_cash_book'")
     expect(src('src/lib/agent/tools.ts')).toContain("name: 'get_final_accounts'")
     expect(src('src/lib/agent/prompt.ts')).toContain('get_trial_balance')
-    expect(PROMPT_VERSION).toBe('m55-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
   })
 })

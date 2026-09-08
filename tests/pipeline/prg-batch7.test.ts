@@ -405,7 +405,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('the new tools are registered: 258 = 249 at M43 + the M44 CST quartet + the M45/M46 payroll quartet (side_quest)', () => {
-      expect(allTools.length).toBe(271) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
+      expect(allTools.length).toBe(274) // M44 CST // M45 L-01: +get_operator_statement // M46 L-02: +create/commit/get_payroll_runs // M48 L-03: +get_statutory_register
       expect(getTool('set_order_deliveries')?.isWrite).toBe(true)
       expect(getTool('set_order_deliveries')?.domain).toBe('orders')
       expect(getTool('correct_program_spec')?.isWrite).toBe(true)
@@ -421,7 +421,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('menu: 147 items, /programs/propose is LIVE with the propose tool door', () => {
-      expect(MENU_ITEMS.length).toBe(148) // M52 M-03 final-accounts quartet // M48 L-03 statutory (+ M46 L-02 payroll)
+      expect(MENU_ITEMS.length).toBe(149) // M52 M-03 final-accounts quartet // M48 L-03 statutory (+ M46 L-02 payroll)
       expect(LIVE_ROUTES.has('/programs/propose')).toBe(true)
       const item = MENU_ITEMS.find((i) => i.id === 'program-propose')
       expect(item?.agentTools).toContain('propose_program_requirements')
@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m55-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
-      expect(PROMPT_VERSION.startsWith('m55')).toBe(true) // M53 = M-04 Tally both sides (the export doctrine) on the M52 line
+      expect(PROMPT_VERSION).toBe('m56-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
+      expect(PROMPT_VERSION.startsWith('m56')).toBe(true) // M53 = M-04 Tally both sides (the export doctrine) on the M52 line
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

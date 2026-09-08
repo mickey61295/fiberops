@@ -65,6 +65,8 @@ export function parseRegisterQuery(
   if (keys.has('variant')) q.variant = val('variant')
   // SPEC-M43 PRG-01 — the orderType select filter (order register)
   if (keys.has('orderType')) q.orderType = val('orderType')
+  // SPEC-M56 PAY-08 (PDC-05) — the direction select filter (PDC register)
+  if (keys.has('direction')) q.direction = val('direction')
   if (keys.has('q')) q.q = val('q')
   return q
 }

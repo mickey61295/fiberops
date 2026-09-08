@@ -45,6 +45,7 @@ import { trialBalanceConfig } from './trial-balance' // SPEC-M52 M-03
 import { dayBookConfig } from './day-book' // SPEC-M52 M-03
 import { cashBookConfig } from './cash-book' // SPEC-M52 M-03
 import { finalAccountsConfig } from './final-accounts' // SPEC-M52 M-03
+import { pdcConfig } from './pdc' // SPEC-M56 (PAY-08, §17-3 ADR-020)
 
 export const REGISTER_CONFIGS: RegisterConfig[] = [
   stockLedgerConfig,
@@ -93,6 +94,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   dayBookConfig, // SPEC-M52 M-03 — the GL day-book
   cashBookConfig, // SPEC-M52 M-03 — the cash family book
   finalAccountsConfig, // SPEC-M52 M-03 — P&L + balance sheet
+  pdcConfig, // SPEC-M56 (PAY-08 §17-3) — cheques in hand, aging off the cheque date
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

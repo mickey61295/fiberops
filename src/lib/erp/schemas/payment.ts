@@ -4,6 +4,10 @@
 // SPEC-M51 M-02 (DE-01): bankAccountNo added — with a bank-ish mode it
 // resolves the GL cash leg to that bank's own account (via its glAccountCode
 // link); mode 'cash' ignores it (noted in the plan text, never silent).
+// SPEC-M56 PAY-08 (PDC-02): chequeDate added — the cheque's own (post-)
+// date, meaningful with mode='cheque' (future dates are PDCs; the register
+// ages off it). A date on a non-cheque mode is NAMED as ignored in the plan
+// side effects (the honest-nag pattern, never a refusal).
 import { z } from 'zod'
 
 export const PAYMENT_SCHEMA = z.object({
@@ -18,6 +22,7 @@ export const PAYMENT_SCHEMA = z.object({
   bankAccountNo: z.string().optional().describe('BankAccount accountNo — with a bank mode, the GL leg becomes that bank\'s linked account (its glAccountCode); unlinked banks fall back to Cash/Bank with a note'),
   reference: z.string().optional(),
   payDate: z.string().optional(),
+  chequeDate: z.string().optional().describe('Cheque date (ISO) — the cheque\'s own (post-)date; meaningful with mode=cheque (future = PDC, the /accounts/pdc register ages off it); ignored on other modes (named in the plan)'),
   notes: z.string().optional(),
 })
 

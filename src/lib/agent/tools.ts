@@ -24,6 +24,7 @@ import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
 import { queryShiftWages } from '@/lib/erp/registers/shift-wages' // SPEC-M55 (L-06)
+import { queryPdc } from '@/lib/erp/registers/pdc' // SPEC-M56 (PAY-08, §17-3 ADR-020)
 import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
 import { queryStatutoryRegister } from '@/lib/erp/registers/statutory' // SPEC-M48 L-03
@@ -104,7 +105,7 @@ import { PRODUCTION_BILL_SCHEMA } from '@/lib/erp/schemas/production-bill'
 import { ATTENDANCE_SCHEMA } from '@/lib/erp/schemas/attendance'
 import { WASTE_RECEIPT_SCHEMA } from '@/lib/erp/schemas/stock-adj'
 import { EINVOICE_SCHEMA, EINVOICE_CANCEL_SCHEMA } from '@/lib/erp/schemas/einvoice'
-import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA, CANCEL_PAYMENT_SCHEMA, CANCEL_JOURNAL_SCHEMA, CANCEL_DEBIT_NOTE_SCHEMA, CANCEL_EXPENSE_SCHEMA, CANCEL_BUDGET_SCHEMA } from '@/lib/erp/schemas/cancel'
+import { CANCEL_ORDER_SCHEMA, CANCEL_PO_SCHEMA, CANCEL_INVOICE_SCHEMA, CANCEL_PAYMENT_SCHEMA, CANCEL_JOURNAL_SCHEMA, CANCEL_DEBIT_NOTE_SCHEMA, CANCEL_EXPENSE_SCHEMA, CANCEL_BUDGET_SCHEMA, CHEQUE_CLEAR_SCHEMA, CHEQUE_BOUNCE_SCHEMA } from '@/lib/erp/schemas/cancel'
 import { planOrder } from '@/lib/erp/posting/order'
 import { planBom } from '@/lib/erp/posting/bom'
 import { planProgram } from '@/lib/erp/posting/program'
@@ -155,6 +156,7 @@ import { planAttendance } from '@/lib/erp/posting/attendance'
 import { planWasteReceipt } from '@/lib/erp/posting/stock-adj'
 import { planGenerateIrn, planCancelIrn } from '@/lib/erp/einvoice'
 import { planCancelOrder, planCancelPo, planCancelInvoice, planCancelPayment, planCancelJournal, planCancelDebitNote, planCancelExpense, planCancelBudget } from '@/lib/erp/posting/cancel'
+import { planChequeClear, planChequeBounce } from '@/lib/erp/posting/cheque' // SPEC-M56 (PAY-08, §17-3 ADR-020)
 
 export type ToolResult = {
   text?: string
@@ -1190,6 +1192,36 @@ const readTools: AgentTool[] = [
           date: r.date, code: r.code, shift: r.shift,
           orders: r.orders, operators: r.operators, entries: r.entries,
           qty: r.qty, piece: r.piece, shiftWages: r.shiftWages, bill: r.bill,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_pdc_register',
+    description: 'PDC / cheques-in-hand register (SPEC-M56 PAY-08): issued cheque-mode payments not yet cleared or bounced — voucherNo, direction (in/out), party, amount, cheque no, cheque date, type (PDC = post-dated at issue), due (due in N d / DUE TODAY / OVERDUE N d, aging off the cheque date). Totals carry the outstanding + OVERDUE amounts. Clear a cheque with post_cheque_clear; bounce one with post_cheque_bounce. Optional filters: q (party code/name), direction (in|out), from/to (ISO dates on the cheque date).',
+    domain: 'accounting',
+    isWrite: false,
+    schema: z.object({
+      q: z.string().optional().describe('Party code or name contains.'),
+      direction: z.string().optional().describe('in = receipts from buyers | out = payments to suppliers.'),
+      from: z.string().optional().describe('Cheque-date window start (ISO date).'),
+      to: z.string().optional().describe('Cheque-date window end (ISO date).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M56 PDC-05 register service — the same read
+      // path the /accounts/pdc screen uses.
+      const dir = args.direction === 'in' || args.direction === 'out' ? args.direction : undefined
+      const res = await queryPdc({
+        limit: 100, page: 1, q: args.q, direction: dir,
+        ...(args.from ? { from: new Date(args.from) } : {}),
+        ...(args.to ? { to: new Date(args.to) } : {}),
+      })
+      const overdue = (res.totals ?? []).find((t) => t.label === 'Overdue (₹)')?.value ?? 0
+      return {
+        text: `${res.count} cheque${res.count === 1 ? '' : 's'} in the field · ₹${Math.round(res.rows.reduce((s, r) => s + Number(r.amount ?? 0), 0)).toLocaleString('en-IN')} outstanding${Number(overdue) > 0 ? ` · ₹${Number(overdue).toLocaleString('en-IN')} OVERDUE` : ''}`,
+        json: res.rows.map((r) => ({
+          voucherNo: r.voucherNo, direction: r.direction, party: r.party, amount: r.amount,
+          reference: r.reference, payDate: r.payDate, chequeDate: r.chequeDate, type: r.type, due: r.due,
         })),
       }
     },
@@ -3475,6 +3507,21 @@ const writeTools: AgentTool[] = [
     'accounting',
     CANCEL_PAYMENT_SCHEMA,
     planCancelPayment,
+  ),
+  // ───────────── SPEC-M56 (PAY-08, §17-3 ADR-020) — the cheque lifecycle (+2) ─────────────
+  docTool(
+    'post_cheque_clear',
+    'Mark a cheque CLEARED — the bank confirmed it (SPEC-M56 PAY-08). Physical confirmation only: NO journal moves (the bank GL leg posted at voucher time), allocations and invoice/bill statuses untouched; the cheque leaves the /accounts/pdc register. Required: voucherNo (RCP-####/PMT-####, a cheque-mode payment). Optional: clearedOn (ISO date, default today), notes. Guards: non-cheque modes, already-cleared, bounced, cancelled payments all refuse with guidance.',
+    'accounting',
+    CHEQUE_CLEAR_SCHEMA,
+    planChequeClear,
+  ),
+  docTool(
+    'post_cheque_bounce',
+    'Bounce a cheque (SPEC-M56 PAY-08) — the money never arrived. Writes the CN-#### contra (legs swapped — the M40 cancel machinery), flips the payment to cancelled, reverses its PaymentAllocation rows, re-derives invoice/bill statuses, AND stamps chequeStatus=bounced — one transaction. The party outstanding re-opens; the cheque leaves the /accounts/pdc register. Required: voucherNo (RCP-####/PMT-####, a cheque-mode payment). Optional: reason (e.g. "insufficient funds" — rides the contra narration). Guards: non-cheque modes, cleared cheques, already-bounced, cancelled payments all refuse with guidance.',
+    'accounting',
+    CHEQUE_BOUNCE_SCHEMA,
+    planChequeBounce,
   ),
   docTool(
     'cancel_journal',
