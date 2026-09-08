@@ -10,8 +10,13 @@
  * wage already rides inside prodCost (amount IS the production cost), so the
  * `+ shiftWages` addend is DROPPED from `actual` — re-adding it would
  * double-count the wage once it stopped being a dead column. Identical
- * numbers on live data (shiftWages was always 0); L-06 reintroduces a real
- * shift-wage addend when it resolves the column.
+ * numbers on live data (shiftWages was always 0).
+ *
+ * SPEC-M55 (L-06) — the addend is REAL now: `shiftWages` reads the actual
+ * column (the post_shift_wages door writes it — wage-only rows carry
+ * amount 0, so prodCost cannot double-count them) and actual gains the
+ * `+ shiftWages` addend back. Identical numbers on pre-M55 data (the
+ * column was 0 everywhere). THE HFX-12 INTERIM IS RETIRED.
  */
 import { db } from '@/lib/db'
 import type { RegisterQuery, RegisterResult, RegisterRow } from './types'
@@ -55,13 +60,15 @@ export async function getOrderBudgetActual(orderId: string): Promise<OrderBudget
   const prodCost = prodEntries.reduce((s, e) => s + e.amount, 0)
   // SPEC-M54 M-05 (EH-03) — the expense addend (non-cancelled only).
   const expenseSpend = expenses.reduce((s, e) => s + e.amount, 0)
-  // HFX-12 — the piece-rate wage actually posted (shiftWages column is dead:
-  // no writer). Informational field: the wage rides inside prodCost above.
-  const shiftWages = prodEntries.reduce((s, e) => s + e.amount, 0)
+  // SPEC-M55 (L-06) — the REAL shift-wage addend: Σ the actual shiftWages
+  // column (the post_shift_wages door's wage-only rows). Piece wages stay
+  // inside prodCost; wage-only rows carry amount 0 — no double-count by
+  // construction. Pre-M55 data: 0 (the column had no writer).
+  const shiftWages = prodEntries.reduce((s, e) => s + e.shiftWages, 0)
   const explicitBudget = budgets.reduce((s, b) => s + b.amount, 0)
   const costBudget = costs.reduce((s, c) => s + c.totalCost, 0)
   const budgeted = explicitBudget > 0 ? explicitBudget : costBudget
-  const actual = poValue + prodCost + expenseSpend
+  const actual = poValue + prodCost + expenseSpend + shiftWages
   return {
     orderId: order.id,
     orderNo: order.orderNo,

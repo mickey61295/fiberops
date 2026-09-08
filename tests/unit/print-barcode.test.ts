@@ -212,7 +212,7 @@ describe('SPEC-M33 — bundle label fetchers (the sticker sheet)', () => {
     expect(tool).toBeDefined()
     expect(tool!.domain).toBe('cutting')
     expect(tool!.isWrite).toBe(false)
-    expect(allTools.length).toBe(269) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(271) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
     // resolves a real bundle by bundleNo (the scan reflex)
     const res = await tool!.execute({ bundle: `${CUT_NO}/B1` })
     expect(res.text).toContain(`${CUT_NO}/B1`)

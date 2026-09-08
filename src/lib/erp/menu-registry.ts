@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55'
 
 export interface MenuGroup {
   id: string
@@ -131,6 +131,7 @@ export const LIVE_ROUTES = new Set<string>([
   '/jobwork/pcs-return', // Jobwork Pcs Return (M5 Wave B) — jobwork-pcs-return (process_return GRN)
   '/costing/input', // Costing Input (M5 Wave B) — costing-input (variant of /costing/cost-sheet)
   '/hr/wages', // Production Wages (M5 Wave B) — production-wages (RG + wage-bill journal)
+  '/hr/shift-wages', // Shift Wages (M55 L-06) — shift-wages (RG: shift × day bill; the FrmProdShiftWagesReg port)
   '/hr/operator-statement', // Operator Statement (M45 L-01) — operator-statement (RG: earned − paid = owed)
   '/hr/payroll', // Payroll Runs (M46 L-02) — payroll (RG + create door, PR-#### cycle)
   '/hr/payroll/[id]', // Payroll run view (M46 L-02) — lines + commit + payslips
@@ -1174,6 +1175,14 @@ export const MENU_ITEMS: MenuItem[] = [
     agentTools: ['get_production_wages', 'create_journal'], pendingTools: [],
     agentPrompt: 'Show me production wages per operator',
     notes: 'RG family screen per SPEC-M5 §2 (arch upgraded DS→RG); wage bill posts a journal',
+  },
+  {
+    id: 'shift-wages', label: 'Shift Wages', groupId: 'hr', route: '/hr/shift-wages', arch: 'RG', phase: 'M55',
+    description: 'Per shift × day wage bill — piece earnings + posted shift wages.',
+    legacyForms: ['FrmProdShiftWagesReg'],
+    agentTools: ['get_shift_wages', 'post_shift_wages'], pendingTools: [],
+    agentPrompt: 'Show me the shift wages register — wage bill per shift',
+    notes: 'SPEC-M55 L-06 — the FrmProdShiftWagesReg port; shift-day grain; unassigned bucket is honest',
   },
   {
     id: 'operator-statement', label: 'Operator Statement', groupId: 'hr', route: '/hr/operator-statement', arch: 'RG', phase: 'M45',

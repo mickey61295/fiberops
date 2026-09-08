@@ -47,6 +47,7 @@ export const finishedGoodsConfig: DocConfig = {
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
     { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 2 },
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 }, // SPEC-M55 (L-06) — the attribution rides the extended schema
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },
@@ -79,6 +80,7 @@ export const operationEntryConfig: DocConfig = {
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
     { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 2 },
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 }, // SPEC-M55 (L-06) — the attribution rides the extended schema
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },
@@ -146,6 +148,7 @@ export const panelProductionConfig: DocConfig = {
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
     { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 2 },
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 }, // SPEC-M55 (L-06) — the attribution rides the extended schema
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },
@@ -186,6 +189,7 @@ export const panelExcessConfig: DocConfig = {
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
     { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 2 },
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 }, // SPEC-M55 (L-06) — the attribution rides the extended schema
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },
@@ -222,6 +226,7 @@ export const lineOutputConfig: DocConfig = {
     { name: 'styleNo', label: 'Style', type: 'picker', picker: 'style', colSpan: 1 },
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 }, // SPEC-M55 (L-06) — the attribution rides the extended schema
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },

@@ -296,7 +296,7 @@ describe('register services math (SPEC-M4 §5)', () => {
     expect(row!.reworkQty).toBe(REWORK_QTY)
     expect(row!.jobworkQty).toBe(JW_QTY)
     expect(row!.amount).toBe(PROD_AMT)
-    expect(row!.shiftWages).toBe(PROD_AMT) // HFX-12 — the wage actually posted (shiftWages column has no writer)
+    expect(row!.shiftWages).toBe(PROD_AMT + 50) // SPEC-M55 (L-06) — the total wage bill: piece 600 + the fixture's shiftWages 50ly posted (shiftWages column has no writer)
   })
 
   // ---- §5 row 11: jobwork register ----
@@ -354,8 +354,8 @@ describe('register services math (SPEC-M4 §5)', () => {
     expect(row!.budgeted).toBe(COST)
     expect(row!.poValue).toBe(BUDGET_PO_QTY * 50)
     expect(row!.prodCost).toBe(PROD_AMT)
-    expect(row!.actual).toBe(BUDGET_PO_QTY * 50 + PROD_AMT) // HFX-12 — no + shiftWages addend (double-count)
-    expect(row!.variance).toBe(COST - (BUDGET_PO_QTY * 50 + PROD_AMT))
+    expect(row!.actual).toBe(BUDGET_PO_QTY * 50 + PROD_AMT + 50) // SPEC-M55 (L-06) — + the fixture's shiftWages addend — no + shiftWages addend (double-count)
+    expect(row!.variance).toBe(COST - (BUDGET_PO_QTY * 50 + PROD_AMT + 50))
   })
 
   // ---- §5 row 16: approval audit ----
@@ -460,8 +460,8 @@ describe('register services math (SPEC-M4 §5)', () => {
     const res = await tool.execute({ orderNo: ORDER } as any)
     const json = res.json as any
     expect(json.budget.total).toBe(COST)
-    expect(json.actual.total).toBe(BUDGET_PO_QTY * 50 + PROD_AMT) // HFX-12
-    expect(json.variance).toBe(COST - (BUDGET_PO_QTY * 50 + PROD_AMT))
+    expect(json.actual.total).toBe(BUDGET_PO_QTY * 50 + PROD_AMT + 50) // SPEC-M55 (L-06): + shiftWages addendFX-12
+    expect(json.variance).toBe(COST - (BUDGET_PO_QTY * 50 + PROD_AMT + 50))
   })
 
   it('new tool pins: inhand / production / bills / order-status shapes', async () => {

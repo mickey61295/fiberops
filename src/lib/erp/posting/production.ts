@@ -10,7 +10,7 @@
 import { db } from '@/lib/db'
 import { postLedger } from './ledger'
 import type { DocPlanResult } from './types'
-import type { ProductionEntryInput, ReworkInput } from '../schemas/production'
+import type { ProductionEntryInput, ReworkInput, ShiftWagesInput } from '../schemas/production'
 import type { FinishedGoodsInput, OperationEntryInput, ScanBundleInput } from '../schemas/production-variants'
 import { dateOrIstToday, istToday } from '@/lib/erp/dates'
 
@@ -21,13 +21,17 @@ export async function planProductionEntry(args: ProductionEntryInput): Promise<D
   if (!dept) return { ok: false, error: `Dept ${args.deptCode} not found` }
   const operator = await db.employee.findUnique({ where: { code: args.operatorCode } })
   if (!operator) return { ok: false, error: `Operator ${args.operatorCode} not found` }
+  // SPEC-M55 (L-06) — the ADR-019-A attribution: resolve the shift when given
+  // (unknown shift = LOUD refusal, the unknown-deptCode discipline).
+  const shift = args.shiftCode ? await db.shift.findUnique({ where: { code: args.shiftCode } }) : null
+  if (args.shiftCode && !shift) return { ok: false, error: `Shift ${args.shiftCode} not found (create it in the Shift master first)` }
   const amount = args.qty * args.rate
   return {
     ok: true,
-    text: `Proposed production entry: ${args.qty} pcs by ${operator.name} on bundle ${args.bundleNo}, ₹${amount}.`,
-    summary: `Post production | order ${args.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}`,
-    creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo || order.styleId, qty: args.qty, rate: args.rate, amount, lineId: args.lineId } }],
-    sideEffects: ['WIP increases', 'Operator piece-rate earnings increase'],
+    text: `Proposed production entry: ${args.qty} pcs by ${operator.name} on bundle ${args.bundleNo}, ₹${amount}.${shift ? ` Shift: ${shift.name} [${shift.code}].` : ''}`,
+    summary: `Post production | order ${args.orderNo} | dept ${dept.code} | ${args.qty} pcs | bundle ${args.bundleNo} | operator ${operator.name} | ₹${amount}${shift ? ` | shift ${shift.code}` : ''}`,
+    creates: [{ table: 'productionEntry', data: { orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate), bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo || order.styleId, qty: args.qty, rate: args.rate, amount, lineId: args.lineId, ...(shift ? { shiftId: shift.id } : {}) } }],
+    sideEffects: ['WIP increases', 'Operator piece-rate earnings increase', ...(shift ? [`Entry attributed to shift ${shift.code} (the shift-wages register)`] : [])],
     async commit() {
       return await db.$transaction(async (tx) => {
         const e = await tx.productionEntry.create({
@@ -35,6 +39,7 @@ export async function planProductionEntry(args: ProductionEntryInput): Promise<D
             orderId: order.id, deptId: dept.id, prodDate: new Date(args.prodDate),
             bundleNo: args.bundleNo, operatorId: operator.id, styleNo: args.styleNo,
             qty: args.qty, rate: args.rate, amount, lineId: args.lineId,
+            ...(shift ? { shiftId: shift.id } : {}),
           },
         })
         // Industry chain: good output enters G2 (Finished Goods) — production_in.
@@ -159,4 +164,47 @@ export async function planLineOutput(args: LineOutputInput): Promise<DocPlanResu
     ...args,
     deptCode: args.deptCode?.trim() || 'D4',
   } as Parameters<typeof planProductionEntry>[0])
+}
+
+// ───────── SPEC-M55 (L-06) — the wage-only door (the legacy post_shift_wages port) ─────────
+
+/** Shift-level wage cost BEYOND piece rate (fixed shift staff, shift
+ *  incentives), booked against the order as a ProductionEntry: qty 0 (no G2
+ *  stock move, inert in every qty aggregation), amount 0 (prodCost cannot
+ *  double-count it — the HFX-12 warning honored by construction), shiftWages
+ *  = the posted wage, operatorId null (not operator-attributed). NO GL leg
+ *  at this door — the wage journal rides the M46 payroll / wage-bill flow,
+ *  exactly as piece entries do; the door is production-cost data and lands
+ *  in budget-vs-actual the moment it commits. */
+export async function planShiftWages(args: ShiftWagesInput): Promise<DocPlanResult> {
+  const order = await db.order.findUnique({ where: { orderNo: args.orderNo } })
+  if (!order) return { ok: false, error: `Order ${args.orderNo} not found` }
+  const dept = await db.department.findUnique({ where: { code: args.deptCode } })
+  if (!dept) return { ok: false, error: `Dept ${args.deptCode} not found` }
+  const shift = await db.shift.findUnique({ where: { code: args.shiftCode } })
+  if (!shift) return { ok: false, error: `Shift ${args.shiftCode} not found (create it in the Shift master first)` }
+  if (!(args.amount > 0)) return { ok: false, error: 'Amount must be positive' }
+  const prodDate = new Date(args.prodDate)
+  const data = {
+    orderId: order.id, deptId: dept.id, prodDate, shiftId: shift.id,
+    bundleNo: null, operatorId: null,
+    qty: 0, rate: 0, amount: 0, shiftWages: args.amount,
+  }
+  return {
+    ok: true,
+    text: `Proposed shift wage booking: ₹${args.amount} for shift ${shift.name} [${shift.code}] on ${args.prodDate}, order ${order.orderNo}, dept ${dept.code}. No GL leg at this door — the wage journal rides the payroll / wage-bill flow (same as piece entries).`,
+    summary: `Post shift wages | order ${order.orderNo} | dept ${dept.code} | shift ${shift.code} | ${args.prodDate} | ₹${args.amount}`,
+    creates: [{ table: 'productionEntry', data }],
+    sideEffects: [
+      'Order actual gains the shift-wage addend (budget-vs-actual)',
+      'Shift × date row appears in the shift-wages register',
+      'No stock move (qty 0) · no operator earnings (piece payroll untouched)',
+    ],
+    async commit() {
+      const e = await db.$transaction(async (tx) => {
+        return await tx.productionEntry.create({ data })
+      })
+      return { id: e.id }
+    },
+  }
 }

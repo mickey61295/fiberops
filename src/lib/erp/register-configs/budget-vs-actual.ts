@@ -5,7 +5,7 @@ import type { RegisterConfig } from './types'
 export const budgetVsActualConfig: RegisterConfig = {
   slug: 'budget-vs-actual',
   title: 'Budget vs Actual',
-  description: 'Per order: budgeted (cost sheets) vs actual (PO + production + expenses).',
+  description: 'Per order: budgeted (cost sheets) vs actual (PO + production + expenses + shift wages).',
   filters: [
     { key: 'order', label: 'Order', type: 'order', placeholder: 'e.g. SO-1001' },
   ],

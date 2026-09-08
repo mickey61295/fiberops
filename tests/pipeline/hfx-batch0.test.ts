@@ -312,7 +312,7 @@ describe('HFX Batch 0 — correctness one-liners', () => {
 
       const budget = await getOrderBudgetActual(orderId)
       expect(budget).toBeTruthy()
-      expect(budget!.shiftWages).toBe(120) // reads amount — the dead column is out
+      expect(budget!.shiftWages).toBe(0) // SPEC-M55 (L-06): the REAL column (no wage rows in this fixture) — the HFX-12 Σ amount stand-in retired column is out
       expect(budget!.actual).toBe(budget!.poValue + 120) // no double-count of the wage
     } finally {
       await db.productionEntry.deleteMany({ where: { orderId, deptId: dept.id } })

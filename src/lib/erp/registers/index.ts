@@ -27,6 +27,7 @@ import { queryApprovalAudit } from './approval-audit'
 import { queryRateConfirmation } from './rate-confirmation'
 import { queryPieceRates } from './piece-rates'
 import { queryWages } from './wages'
+import { queryShiftWages } from './shift-wages' // SPEC-M55 (L-06)
 import { queryProgramStatus } from './program-status'
 import { queryCurrentStock } from './current-stock'
 import { queryItemwiseStock } from './itemwise-stock'
@@ -70,6 +71,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'rate-confirmation': queryRateConfirmation,
   'piece-rate-confirmation': queryPieceRates,
   'production-wages': queryWages,
+  'shift-wages': queryShiftWages, // SPEC-M55 (L-06) — the FrmProdShiftWagesReg port
   'program-status': queryProgramStatus, // SPEC-M6 §7-C-2
   'current-stock': queryCurrentStock, // SPEC-M6 §7-C-3
   'yarn-stock': queryStockLedger, // SPEC-M19 §1-B — preset day-book over the ledger service

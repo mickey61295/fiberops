@@ -489,12 +489,13 @@ export async function queryDailyPnl(q: RegisterQuery): Promise<RegisterResult> {
   for (const e of entries) {
     const key = `${e.deptId}:${day(e.prodDate)}`
     const sortKey = e.prodDate.getTime()
-    // HFX-12 — produced: the entry's qty at the ORDER's contract rate
-    // (revenue-side valuation), piece-rate amount as cost-basis fallback;
-    // wages: the piece-rate wage actually posted (amount).
+    // HFX-12 → SPEC-M55 (L-06) — produced: the entry's qty at the ORDER's
+    // contract rate (revenue-side valuation), piece-rate amount as
+    // cost-basis fallback; wages: the TOTAL wage bill (piece amount + the
+    // real shiftWages column — identical pre-M55 where it was 0).
     const rate = contractRateOf((e as any).order ?? null)
     const producedValue = rate !== null ? e.qty * rate : e.amount
-    const wageValue = e.amount
+    const wageValue = e.amount + e.shiftWages
     const acc = agg.get(key)
     if (acc) {
       acc.qty = (acc.qty as number) + e.qty

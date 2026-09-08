@@ -23,6 +23,7 @@ import { queryLots } from '@/lib/erp/registers/lots'
 import { queryRateConfirmation } from '@/lib/erp/registers/rate-confirmation'
 import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
+import { queryShiftWages } from '@/lib/erp/registers/shift-wages' // SPEC-M55 (L-06)
 import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
 import { queryStatutoryRegister } from '@/lib/erp/registers/statutory' // SPEC-M48 L-03
@@ -65,7 +66,7 @@ import { GRN_SCHEMA } from '@/lib/erp/schemas/grn'
 import { JOBWORK_OUT_SCHEMA, JOBWORK_IN_SCHEMA, JOBWORK_BILL_SCHEMA } from '@/lib/erp/schemas/jobwork'
 import { CUT_ORDER_SCHEMA } from '@/lib/erp/schemas/cut'
 import { LINE_ISSUE_SCHEMA } from '@/lib/erp/schemas/line-issue'
-import { PRODUCTION_ENTRY_SCHEMA, REWORK_SCHEMA } from '@/lib/erp/schemas/production'
+import { PRODUCTION_ENTRY_SCHEMA, REWORK_SCHEMA, SHIFT_WAGES_SCHEMA } from '@/lib/erp/schemas/production'
 import { FINISHED_GOODS_SCHEMA, OPERATION_ENTRY_SCHEMA, SCAN_BUNDLE_SCHEMA } from '@/lib/erp/schemas/production-variants'
 import { LINE_TRANSFER_SCHEMA } from '@/lib/erp/schemas/line-transfer'
 import { JOBWORK_PCS_RETURN_SCHEMA } from '@/lib/erp/schemas/grn-variants'
@@ -119,7 +120,7 @@ import { SUPPLIER_BILL_SCHEMA, BILL_PASS_SCHEMA } from '@/lib/erp/schemas/suppli
 import { planSupplierBill, planBillPass } from '@/lib/erp/posting/supplier-bill' // SPEC-M40 PAY-03/04
 import { planCutOrder } from '@/lib/erp/posting/cut'
 import { planLineIssue } from '@/lib/erp/posting/line-issue'
-import { planProductionEntry, planReworkEntry, planFinishedGoods, planOperationEntry, planScanBundle } from '@/lib/erp/posting/production'
+import { planProductionEntry, planReworkEntry, planFinishedGoods, planOperationEntry, planScanBundle, planShiftWages } from '@/lib/erp/posting/production'
 import { planLineTransfer } from '@/lib/erp/posting/line-transfer'
 import { planWagePayment } from '@/lib/erp/posting/payment'
 import { planRejection } from '@/lib/erp/posting/rejection'
@@ -785,7 +786,7 @@ const readTools: AgentTool[] = [
   },
   {
     name: 'get_budget_vs_actual',
-    description: 'Get budget vs actual for one order by orderNo: PO commitments + production cost + expenses vs budget. Use to see whether an order is running over budget.',
+    description: 'Get budget vs actual for one order by orderNo: PO commitments + production cost + expenses + shift wages vs budget. Use to see whether an order is running over budget.',
     domain: 'costing',
     isWrite: false,
     schema: z.object({ orderNo: z.string() }),
@@ -799,7 +800,7 @@ const readTools: AgentTool[] = [
       const r = await getOrderBudgetActual(order.id)
       if (!r) return { text: `Order ${args.orderNo} not found` }
       return {
-        text: `${args.orderNo}: budgeted=${r.budgeted}, actual=${r.actual} (PO ${r.poValue} + production ${r.prodCost} + expenses ${r.expenseSpend}), variance=${r.variance}`,
+        text: `${args.orderNo}: budgeted=${r.budgeted}, actual=${r.actual} (PO ${r.poValue} + production ${r.prodCost} + expenses ${r.expenseSpend} + shift wages ${r.shiftWages}), variance=${r.variance}`,
         json: {
           orderNo: args.orderNo,
           budget: { total: r.budgeted, poBudget: r.poValue, prodBudget: r.prodCost },
@@ -1159,6 +1160,36 @@ const readTools: AgentTool[] = [
           operator: r.operator, code: r.code, dept: r.dept,
           orders: r.orders, entries: r.entries, qty: r.qty,
           rate: r.rate, amount: r.amount,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_shift_wages',
+    description: 'Shift wages register (per shift × day wage bill): date, shift, entries, piece qty, piece wages (Σ amount — operator earnings), shift wages (Σ posted shift-level wage — post_shift_wages), total bill, operator/order counts. Unattributed entries land in the unassigned bucket. Optional filters: order (orderNo), q (dept code/name), from/to (ISO dates by production date).',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      order: z.string().optional(),
+      q: z.string().optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+    }),
+    async execute(args) {
+      // Delegates to the shared register service (SPEC-M55 L-06) — the same
+      // read path the /hr/shift-wages screen uses.
+      const res = await queryShiftWages({
+        limit: 100, page: 1, order: args.order, q: args.q,
+        ...(args.from ? { from: new Date(args.from) } : {}),
+        ...(args.to ? { to: new Date(args.to) } : {}),
+      })
+      const bill = (res.totals ?? []).find((t) => t.label.startsWith('Total bill'))?.value ?? 0
+      return {
+        text: `${res.count} shift-days · ₹${Math.round(Number(bill)).toLocaleString('en-IN')} total wage bill`,
+        json: res.rows.map((r) => ({
+          date: r.date, code: r.code, shift: r.shift,
+          orders: r.orders, operators: r.operators, entries: r.entries,
+          qty: r.qty, piece: r.piece, shiftWages: r.shiftWages, bill: r.bill,
         })),
       }
     },
@@ -2172,10 +2203,18 @@ const docTools: AgentTool[] = [
   ),
   docTool(
     'post_production_entry',
-    'Post a production entry. Required: orderNo, deptCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: styleNo, colourName, sizeName, lineId.',
+    'Post a production entry. Required: orderNo, deptCode, prodDate, bundleNo, operatorCode, qty, rate. Optional: styleNo, colourName, sizeName, lineId, shiftCode (attributes the entry to a shift — the shift-wages register; unknown shift is refused).',
     'production',
     PRODUCTION_ENTRY_SCHEMA,
     planProductionEntry,
+  ),
+  // SPEC-M55 (L-06) — the wage-only door (the legacy post_shift_wages port)
+  docTool(
+    'post_shift_wages',
+    'Post shift-level wage cost beyond piece rate (fixed shift staff, shift incentives) against an order — the legacy post_shift_wages door. Books a wage-only production row: qty 0 (no stock move), operator-neutral (piece payroll untouched), shiftWages = amount. Budget-vs-actual gains it as a separate addend (production cost keeps the piece wages — nothing double-counts). No GL leg at this door: the wage journal rides the payroll / wage-bill flow. Required: orderNo, deptCode, shiftCode, prodDate, amount (> 0). Optional: notes.',
+    'production',
+    SHIFT_WAGES_SCHEMA,
+    planShiftWages,
   ),
   // ── M5 Wave A (SPEC-M5 §8) ──
   docTool(

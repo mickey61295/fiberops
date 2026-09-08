@@ -28,7 +28,10 @@ export const productionConfig: DocConfig = {
     { name: 'styleNo', label: 'Style', type: 'picker', picker: 'style', colSpan: 1 },
     { name: 'colourName', label: 'Colour', type: 'picker', picker: 'colour', pickerValueField: 'name', colSpan: 1 },
     { name: 'sizeName', label: 'Size', type: 'picker', picker: 'size', colSpan: 1 },
-    { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 2 },
+    { name: 'lineId', label: 'Line', type: 'picker', picker: 'line', pickerValueField: 'id', colSpan: 1 },
+    // SPEC-M55 (L-06) — the ADR-019-A attribution: optional shift picker
+    // (unknown shift refuses at plan time; unset lands 'unassigned').
+    { name: 'shiftCode', label: 'Shift', type: 'picker', picker: 'shift', colSpan: 1 },
   ],
   listColumns: [
     { name: 'orderNo', label: 'Order' },

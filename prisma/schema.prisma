@@ -676,6 +676,11 @@ model ProductionEntry {
   amount          Float      @default(0)
   shiftWages      Float      @default(0)
   lineId          String?
+  // SPEC-M55 (L-06) — the ADR-019-A link: which shift this entry rode under.
+  // Nullable: pre-M55 rows land in the register's 'unassigned' bucket (never
+  // a fabricated shift); wage-only rows REQUIRE it (the door validates).
+  shiftId         String?
+  shift           Shift?     @relation(fields: [shiftId], references: [id])
   // Stage pipeline (Phase 2): source/target buckets for the PCS ledger
   targetStageId   String?
   sourceStageId   String?
@@ -1367,6 +1372,7 @@ model Shift {
   hours     Float    @default(8)
   createdAt DateTime @default(now())
   attendance Attendance[] // SPEC-M20
+  productionEntries ProductionEntry[] // SPEC-M55 (L-06) — the ADR-019-A link
 }
 
 // ============== ATTENDANCE (SPEC-M20, gap-audit Gap D) ==============

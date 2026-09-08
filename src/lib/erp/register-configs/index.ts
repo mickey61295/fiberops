@@ -25,6 +25,7 @@ import { approvalAuditConfig } from './approval-audit'
 import { rateConfirmationConfig } from './rate-confirmation'
 import { pieceRateConfirmationConfig } from './piece-rate-confirmation'
 import { productionWagesConfig } from './wages'
+import { shiftWagesConfig } from './shift-wages' // SPEC-M55 (L-06)
 import { programStatusConfig, currentStockConfig } from './m6-wave-c'
 import {
   yarnStockConfig, fabricStockConfig, accStockConfig, generalStockConfig,
@@ -68,6 +69,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   rateConfirmationConfig,
   pieceRateConfirmationConfig,
   productionWagesConfig,
+  shiftWagesConfig, // SPEC-M55 (L-06) — the FrmProdShiftWagesReg port
   programStatusConfig, // SPEC-M6 §7-C-2
   currentStockConfig, // SPEC-M6 §7-C-3
   yarnStockConfig, // SPEC-M19 §1-B

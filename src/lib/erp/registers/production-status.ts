@@ -38,7 +38,7 @@ export async function queryProductionStatus(q: RegisterQuery): Promise<RegisterR
     db.productionEntry.groupBy({
       by: ['orderId', 'deptId'],
       where: entryWhere,
-      _sum: { qty: true, amount: true }, // HFX-12 — shiftWages dropped: dead column, no writer
+      _sum: { qty: true, amount: true, shiftWages: true }, // SPEC-M55 (L-06) — the real column joins the sum
       _count: { _all: true },
       orderBy: [{ orderId: 'asc' }],
       take: q.limit,
@@ -89,7 +89,7 @@ export async function queryProductionStatus(q: RegisterQuery): Promise<RegisterR
       reworkQty: reworkMap.get(`${g.orderId}:${g.deptId}`) ?? 0,
       jobworkQty: jobworkByOrder.get(g.orderId) ?? 0,
       amount: g._sum.amount ?? 0,
-      shiftWages: g._sum.amount ?? 0, // HFX-12 — the wage actually posted (field name frozen: tool json)
+      shiftWages: (g._sum.amount ?? 0) + (g._sum.shiftWages ?? 0), // SPEC-M55 (L-06) — the total wage bill: piece + shift (field name frozen: tool json; identical pre-M55 where the column was 0)
     }
   })
 
