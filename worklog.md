@@ -2352,3 +2352,23 @@ Stage Summary:
 - Counts: tools 269, masters 44, models 92, menu 147, routes 183; PROMPT_VERSION m54-2026-09-07; 1599 vitest (77 files); MANUAL-TESTING v1.7 (137 cases); STATE #59.
 - 3 local commits pending push (4a1e7d4 SPEC-M54 + 84ddfdf feat + 0333e6a docs v1.8) — PAT re-supply needed (protocol: inline URL only, full-history token audit, ls-remote verify, worklog push-entry).
 - Remaining queue: L-06 shiftWages (ADR-019 owner decision — the last Module L item); owner decisions open: §17-1 backup target, §17-2 G3 yard, §17-3 PDC lifecycle, §17-4 Tally XML, §17-5 multi-style, §17-6 cumulative DC, §17-7 SalesInvoiceLine, §17-8 final-accounts scope confirm; side_quest retirement (6c1be98) — owner call.
+---
+Task ID: m54-push
+Agent: main (Super Z)
+Task: Push the M54 batch (SPEC-M54 + the M54 feat + MANUAL-TESTING v1.8 + the m54 worklog entry) to origin/main with the user's re-supplied PAT.
+
+Work Log:
+- Orientation: the handoff summary was STALE — the repo had advanced past it (M53 M-04 Tally both-sides SHIPPED AND PUSHED at 5814579/a5ab29e; M54 M-05 expense heads SHIPPED locally, 4 commits pending PAT). Real task = the push.
+- GREMLIN #6 caught by the PRE-PUSH context_check (not the summary's claimed 606/606): commit 6eaa272 (the docs worklog commit) had swept the phantom-deleted src/app/api/upload/route.ts into itself — diffstat showed -83 lines of live route code inside a docs commit (the M54 session's Gremlin #5 'restored' the file, but the deletion re-landed in the final commit sweep).
+- Fix BEFORE push: git checkout 0333e6a -- src/app/api/upload/route.ts + git commit --amend --no-edit → 07683de (now truly docs-only: worklog.md +28, zero code deletions; 6eaa272 never touched the remote).
+- Second drift (environment, not repo): download/ was wiped between sessions (gitignored runtime dir) → m10 routing eval report missing → regenerated via node scripts/eval_routing.mjs --static (static mode rewrites the report's static section, fresh-clone safe) → PASS (m54, registry 261, promptVersion m54-2026-09-07).
+- Post-fix gates on the pushed tree: context_check 606/606 NO DRIFT (the 3 mismatches: m7-waveB 8→7 count, the MISSING upload file, the m10 report — ALL resolved).
+- Pre-push token audit: full-history pickaxe (-S, all refs) + worktree grep + .pat-token file check = ZERO occurrences.
+- Push: origin/main a5ab29e..07683de (4 commits: 4a1e7d4 SPEC-M54 + 84ddfdf feat M54 (44 files) + 0333e6a MANUAL-TESTING v1.8 + 07683de worklog).
+- Post-push verification: ls-remote + fetch → local main == origin/main == 07683de56ea6883221b1cd75440f43f08f45baa0 · ahead-count 0 · working tree clean · token re-audit ZERO occurrences.
+- PAT protocol honored: inline URL only, never stored anywhere, audited before AND after.
+
+Stage Summary:
+- M54 M-05 (the LAST Module M item) IS ON REMOTE MAIN — MODULE M COMPLETE on the remote: M50 CoA · M51 double-entry · M52 reports · M53 Tally both-sides · M54 expense heads.
+- Repo fully synced: zero local commits pending; dev server on :3000 (login 200); context 606/606 NO DRIFT; eval m54 static PASS.
+- Remaining queue: L-06 shiftWages — BLOCKED on the ADR-019 owner decision; open owner decisions §17-1 backup target, §17-2 G3 yard, §17-3 PDC lifecycle, §17-4 Tally XML option.
