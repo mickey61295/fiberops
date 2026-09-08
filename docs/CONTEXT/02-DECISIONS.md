@@ -260,3 +260,59 @@ the recommended default. The decision:
 Consequence: the remediation §13 queues are ALL EMPTY (Module M + Module L
 complete); what remains is owner-decision territory (§17-1..§17-4). Test
 surface: hr-l06.test.ts 14/14 · route_smoke_m55 26/26 · 1618/1618 vitest.
+
+## ADR-020 — §17-3 resolved: the cheque/PDC lifecycle ships now (M56 PAY-08)
+
+Date: 2026-09-08 · Status: accepted · Spec: SPEC-M56 (PAY-08, remediation §7)
+
+M41 parked PAY-08 "explicitly deferred per §17-3" (recorded, no dead
+columns — the honest state until an owner call). The owner's standing
+"continue" directive (2026-09-08, after the four open decisions were
+surfaced in the queue report) delegated the recommended default, exactly
+the ADR-019-A precedent. The decision: **full lifecycle now** — and the
+shape:
+
+- **`chequeStatus` is a PHYSICAL layer, never a GL layer** (null | issued |
+  cleared | bounced, cheque-mode payments only). The bank GL leg posts at
+  voucher time (the M51 doctrine — the voucher IS the money-document):
+  clearing is a confirmation stamp (no journal — the money moved once, at
+  the voucher); bouncing is the M40 cancel (the CN- contra IS the
+  reversal: allocations reverse, statuses re-derive) plus the stamp, all
+  in one transaction.
+- **The PDC register is a VIEW**, not a document family: issued + active
+  cheques, the PDC badge for post-dated ones, aging off the cheque's own
+  date. Pre-M56 cheque rows are honestly absent — their journey was
+  untracked, and the register never fabricates history.
+- **No silent transitions**: non-cheque modes, already-cleared,
+  already-bounced, cancelled payments, unknown vouchers — every guard
+  refuses loudly with named guidance.
+
+Consequence: the last specified-but-unshipped FR in the remediation spec
+is gone; the §13 queues stay ALL EMPTY. Test surface: pay-pdc.test.ts
+13/13 · route_smoke_m56 26/26 · 1636/1636 vitest.
+
+## ADR-021 — §17-4 resolved: the Tally export STAYS JSON
+
+Date: 2026-09-08 · Status: accepted
+
+The M53 export is doctrine-complete (both sides, counted once, GST split
+ledgers, honest warnings — the JSON mirrors the GL; a full-window Tally
+import converges to GL truth). Adding a Tally XML format would claim
+"Tally-importable" with NO in-repo Tally instance to verify the claim
+against — the honest-claims rule forbids shipping unverifiable import
+formats. JSON stands as the canonical export. The XML door re-opens the
+day the owner provides a verification plan (a Tally instance to import
+into + acceptance criteria). Recorded in the prompt's §Accounting line.
+
+## ADR-022 — §17-2 erratum: G3 'Jobworker Yard' was resolved in M39
+
+Date: 2026-09-08 · Status: accepted (erratum — no code changed)
+
+The §17 queue lists that kept naming "§17-2 G3 yard" as OPEN were stale
+prose, carried forward entry-to-entry after M52. The record: SPEC-M39
+JWL-08 states "DECISION (per §17-2): **WIRE G3** as the WIP-at-jobworker
+godown" and it SHIPPED — `posting/jobwork.ts` writes G1 OUT + G3 IN on the
+JW- out (partyId = jobworker), GAN acceptance and DC returns post G3 OUT,
+WIP at the jobworker is queryable stock. The STATE open-decisions section
+and this register are corrected in the M56 round. Lesson recorded: queue
+lists are claims; the spec + the code are the truth.

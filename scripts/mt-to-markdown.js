@@ -14,7 +14,7 @@ const out = [];
 out.push("# FiberOps ERP — Manual Testing Guide");
 out.push("");
 out.push("> Start-to-end application walkthrough and order-flow end-to-end test plan.");
-out.push("> Version 1.9 · 2026-09-08 · Build under test: `main @ 68c5034` (M55 shift wages — the LAST Module L item: the remediation §13 queues are now ALL EMPTY; v1.9 adds the shift-wages cases HR-12..14 — the FrmProdShiftWagesReg register port (shift × day bill, the unassigned bucket), THE WAGE DOOR + THE BUDGET ADDEND (post_shift_wages: wage-only rows beyond piece rate, the four-way actual), and THE ATTRIBUTION DOOR (the Shift picker on the production form, unknown-shift refusals)) · Environment: development (`http://localhost:3000`)");
+out.push("> Version 1.10 · 2026-09-08 · Build under test: `main @ 359ae5e` (M56 the cheque/PDC lifecycle — decision §17-3 RESOLVED (ADR-020): the remediation queues are empty and §17-2/§17-4 are recorded; v1.10 adds the cheque-lifecycle cases AC-25..28 — THE PDC REGISTER (/accounts/pdc: issued cheques, the PDC badge, aging off the cheque date), THE ISSUE DOOR (cheque-mode payments stamp issued + the POST-DATED plan line + the honest-nag), THE CLEAR DOOR (post_cheque_clear — the physical confirmation stamp, NO journal), and THE BOUNCE DOOR + THE REMIT-TO STRIP (post_cheque_bounce — the CN- reversal + allocations re-derive; the print strip prefers the BankAccount master)) · Environment: development (`http://localhost:3000`)");
 out.push("> Companion .docx: `download/FiberOps-Manual-Testing-Guide.docx` (same content).");
 out.push("");
 
