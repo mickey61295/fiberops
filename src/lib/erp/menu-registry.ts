@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M47'
 
 export interface MenuGroup {
   id: string
@@ -177,6 +177,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/admin/menu-rights', // Menu Rights (M6 Wave B) — menu-rights (rights matrix)
   '/admin/options', // Options & Settings (M6 Wave B) — options-settings (AppOption master)
   '/admin/settings', // Feature Flags (M11) — feature-flags (LLD-07 registry board over setFlag)
+  '/admin/statutory', // Statutory Rates (M47 L-03) — statutory-rates (stat:* registry board over setStatutory)
+  '/hr/statutory', // Statutory register (M47 L-03) — statutory (RG + challan csv)
   '/orders/enquiry', // Order Enquiry (M6 Wave C) — order-enquiry (ALIAS of order-register)
   '/programs/status', // Program Status (M6 Wave C) — program-status (RG)
   '/inventory/stock', // Current Stock (M6 Wave C) — stock-view (RG)
@@ -1155,6 +1157,14 @@ export const MENU_ITEMS: MenuItem[] = [
     notes: 'SPEC-M46 L-02 — the run (PR-####) + payslip (NON_CONFIG print door); L-05 payout fields on the employee master (UAN/aadhaar masked). The operator statement stays L-01-frozen (piece-rate reconciliation)',
   },
   {
+    id: 'statutory', label: 'Statutory (PF/ESI/PT/LWF)', groupId: 'hr', route: '/hr/statutory', arch: 'RG', phase: 'M47',
+    description: 'Per committed payroll line: PF/ESI/PT/LWF legs, employee deduction, net — with the per-head challan CSV export.',
+    legacyForms: [],
+    agentTools: ['get_statutory_register'], pendingTools: [],
+    agentPrompt: 'Show the statutory register for PF',
+    notes: 'SPEC-M47 L-03 — rates at /admin/statutory (stat:* AppOption registry); employee legs post at run commit (Dr Wage Payable / Cr head Payable, partySide debit); employer legs are register data',
+  },
+  {
     id: 'wage-payments', label: 'Wage Payments', groupId: 'hr', route: '/hr/wage-payments', arch: 'DS', phase: 'M5',
     description: 'Pay wages; settlements per employee/unit.',
     legacyForms: ['FrmPaymentReg_Wages'],
@@ -1300,6 +1310,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['frmOptionsFlags'],
     agentTools: ['list_app_options'], pendingTools: [],
     notes: '28-flag registry board (SPEC-M11): grouped toggles + effect notes + reset-to-default; writes ride POST /api/config → setFlag (admin-only, registry drift-safe); flag:* rows outside the registry render read-only',
+  },
+  {
+    id: 'statutory-rates', label: 'Statutory Rates', groupId: 'masters-admin', route: '/admin/statutory', arch: 'ST', phase: 'M47',
+    description: 'PF/ESI/PT/LWF rates + thresholds — applied at payroll plan time and frozen onto run lines.',
+    legacyForms: [],
+    agentTools: [], pendingTools: [],
+    notes: 'SPEC-M47 L-03 — stat:* AppOption registry board (setStatutory, admin-only, drift-safe); employer legs register-only; the statutory register lives at /hr/statutory',
   },
   {
     id: 'audit-log', label: 'Audit Log', groupId: 'masters-admin', route: '/admin/audit', arch: 'RG', phase: 'M15',

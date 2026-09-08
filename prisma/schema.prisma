@@ -228,6 +228,7 @@ model Employee {
   phone             String?
   uan               String? // Universal Account Number (PF)
   aadhaar           String? // masked on every surface
+  esiNo             String? // SPEC-M47 L-03 — ESI IP number (register + challan export; operational id, not masked)
   payrollLines      PayrollLine[]
 }
 
@@ -589,7 +590,23 @@ model PayrollLine {
   qty        Int? // piece mode: pcs produced in window
   earned     Float @default(0)
   advances   Float @default(0) // out-payments to the employee-party, payDate window
-  net        Float @default(0) // earned − advances (negative = recoverable, honest)
+  net        Float @default(0) // earned − advances − statDeduction (negative = recoverable, honest)
+  // SPEC-M47 L-03 — statutory legs, FROZEN AT PLAN TIME (rates as configured
+  // when the run was drafted; a later rate change never moves a drafted line).
+  // All default 0: a zero-config / disabled-heads run is M46-identical.
+  pfWages    Float @default(0) // PF wage base (ceiling-capped)
+  pfEe       Float @default(0) // employee PF share (deducted)
+  pfEr       Float @default(0) // employer PF share (register data — NOT posted)
+  pfEps      Float @default(0) //   EPS carve-out of pfEr
+  pfEpf      Float @default(0) //   EPF remainder of pfEr
+  pfEdli     Float @default(0) //   EDLI charge (employer)
+  pfAdmin    Float @default(0) //   PF admin charge (employer)
+  esiEe      Float @default(0) // employee ESI share (deducted)
+  esiEr      Float @default(0) // employer ESI share (register data — NOT posted)
+  ptAmt      Float @default(0) // professional tax (deducted)
+  lwfEe      Float @default(0) // employee LWF (deducted)
+  lwfEr      Float @default(0) // employer LWF (register data — NOT posted)
+  statDeduction Float @default(0) // pfEe + esiEe + ptAmt + lwfEe — the employee's legs
 
   @@unique([runId, employeeId])
 }
@@ -819,6 +836,12 @@ model Journal {
   voucherType   String // receipt | payment | contra | journal
   partyId       String?
   party         Party?   @relation(fields: [partyId], references: [id])
+  // SPEC-M47 L-03 — which leg the party account sits on: 'debit' | 'credit'.
+  // NULL = the legacy credit-assumption (every pre-M47 row): the party-ledger
+  // journals term counts null + 'credit' as party-credited, 'debit' as the
+  // party debited (a wage-deduction leg reduces what we owe — the M45
+  // unsigned-sum formula would have counted it the WRONG way).
+  partySide     String?
   date          DateTime @default(now())
   finYear       String
   debitAccount  String

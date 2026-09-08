@@ -97,6 +97,7 @@ const LABELS: Record<string, string> = {
   post_attendance: 'Post attendance',
   list_attendance: 'Attendance day-book',
   get_payroll_runs: 'Payroll runs',
+  get_statutory_register: 'Statutory register',
 }
 
 /** The operator-facing label for a tool name. */

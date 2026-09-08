@@ -25,6 +25,7 @@ import { queryPieceRates } from '@/lib/erp/registers/piece-rates'
 import { queryWages } from '@/lib/erp/registers/wages'
 import { queryOperatorStatement } from '@/lib/erp/registers/operator-statement' // SPEC-M45 L-01
 import { queryPayrollRuns } from '@/lib/erp/registers/payroll' // SPEC-M46 L-02
+import { queryStatutoryRegister } from '@/lib/erp/registers/statutory' // SPEC-M47 L-03
 import { queryAttendance } from '@/lib/erp/registers/attendance'
 import { queryIoHistory } from '@/lib/erp/registers/io-history'
 import { queryProductionStatus } from '@/lib/erp/registers/production-status'
@@ -1187,6 +1188,40 @@ const readTools: AgentTool[] = [
           runNo: r.runNo, mode: r.mode, period: r.period, lines: r.lines,
           earned: r.earned, advances: r.advances, net: r.net, status: r.status, committed: r.committed,
           view: `/hr/payroll/${r.id}`,
+        })),
+      }
+    },
+  },
+  {
+    name: 'get_statutory_register',
+    description: 'Statutory register (PF/ESI/PT/LWF) per COMMITTED payroll line: employee + employer legs, deduction, net — with UAN/ESI no for the challan export. Optional filters: head (pf|esi|pt|lwf), q (employee/run no), from/to (run period window). Rates are owner-configured at /admin/statutory; employee legs post at run commit (Dr Wage Payable / Cr head Payable).',
+    domain: 'hr',
+    isWrite: false,
+    schema: z.object({
+      head: z.enum(['pf', 'esi', 'pt', 'lwf']).optional().describe('Filter to one statutory head (rows with that head nonzero).'),
+      q: z.string().optional().describe('Employee code/name or run no contains.'),
+      from: z.string().optional().describe('ISO date — run period window start (overlap).'),
+      to: z.string().optional().describe('ISO date — run period window end (overlap).'),
+      take: z.number().optional().describe('Max rows (default 20, cap 100).'),
+    }),
+    async execute(args) {
+      // Delegates to the SPEC-M47 L-03 register service — the same read path
+      // the /hr/statutory screen + csv/challan export use.
+      const res = await queryStatutoryRegister({
+        variant: args.head, q: args.q,
+        ...(args.from ? { from: new Date(args.from) } : {}),
+        ...(args.to ? { to: new Date(args.to) } : {}),
+        limit: Math.max(1, Math.min(100, Math.floor(args.take ?? 20))), page: 1,
+      })
+      const deduction = (res.totals ?? []).find((t) => t.label === 'Deduction ₹')?.value ?? 0
+      const truncated = res.count > (res.rows as any[]).length
+      return {
+        text: `${res.count} committed statutory lines — employee deduction ₹${Math.round(Number(deduction)).toLocaleString('en-IN')}${truncated ? ` (showing first ${(res.rows as any[]).length})` : ''}`,
+        json: res.rows.map((r) => ({
+          run: r.run, period: r.period, employee: r.employee, uan: r.uan, esiNo: r.esiNo,
+          gross: r.gross, pfEe: r.pfEe, pfEr: r.pfEr, esiEe: r.esiEe, esiEr: r.esiEr,
+          pt: r.pt, lwfEe: r.lwfEe, deduction: r.deduction, net: r.net,
+          view: `/hr/statutory?q=${encodeURIComponent(String(r.run))}`,
         })),
       }
     },

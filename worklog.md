@@ -2009,3 +2009,43 @@ Stage Summary:
 - M46 SHIPPED (local): the payroll run + payslip — attendance×dailyWage ('half' = 0.5) and piece earnings both flow through ONE auditable document, advances net against earned, commit posts per-line wage journals with partyIds, and the payslip prints with L-05 payout fields masked where sensitive.
 - Module L remaining: L-03 statutory, L-04 attendance depth, L-06 shiftWages (ADR-019). Phase-6B: 8 of 11 batches done.
 - PUSH PENDING: 6 local commits (m44 + m45 + m46) — PAT re-supply required.
+
+---
+Task ID: push-side-quest
+Agent: main (Super Z)
+Task: PAT re-supplied via chat — push all pending local work to a NEW remote branch `side_quest` (user instruction; main was NOT pushed).
+
+Work Log:
+- Recovered context: git status showed main ahead of origin/main by 5 commits (8410188 SPEC-M44 · a7d8dd1 M44 · 439bcad SPEC-M45 · 87a4a3b M45 · 6c1be98 M46 — the worklog's "6" included the M46 spec which shipped inside 6c1be98).
+- Pre-push gremlin sweep (PITFALLS #39/#48 protocol): working tree had `src/app/api/upload/route.ts` deleted AGAIN (uncommitted) — restored via `git checkout -- <path>` before any git operation; NO `git add -A` used, so the deletion never entered any commit. Tree clean after.
+- Created local branch `side_quest` at main tip 6c1be98 → pushed via inline PAT URL (token NOT persisted in any tracked file, NOT written to .git/config, NOT logged here).
+- Verified: `git ls-remote` shows refs/heads/side_quest = 6c1be986b9e83fe89f499e842f0b74e10348d8c1, matching local. Remote suggests PR at github.com/mickey61295/fiberops/pull/new/side_quest.
+- Restored `.pat-token` (sandbox reset had wiped it; line 84 of .gitignore covers it — `git check-ignore` verified) so future sessions can push without re-supply.
+- Switched back to `main` for continued Module K/L/M development; local side_quest kept (== main).
+
+Stage Summary:
+- ALL pending work (M44 FY hotfix + M45 wage reconciliation + M46 payroll/payslip, 5 commits) now on remote branch `side_quest`. origin/main still at 6946379 — main intentionally NOT pushed per user instruction.
+- Local state: on main, tree clean, .pat-token available. Next: continue Module L (L-03/L-04/L-06), Module K costing, or Module M final accounts; owner decisions PAY-08/PRC-09/PRG-02 still open.
+
+---
+Task ID: m47-l03
+Agent: main (Super Z)
+Task: Ship SPEC-M47 — Module L Batch 3: statutory payroll (L-03, Phase-6B remediation spec §12), continuing from the verified M46 boundary (after first repairing a rogue auto-commit that had shipped the upload-route gremlin deletion).
+
+Work Log:
+- Session-start protocol (PITFALLS #49, NEW): git status showed main ahead by 6 — a rogue commit d1325e1 (bare-UUID message, owner credentials, an IDE/sync `git add -A` sweep) had SHIPPED the gremlin deletion of src/app/api/upload/route.ts + an uncommitted worklog.md. Repaired: git reset 6c1be98 (mixed — worklog returns uncommitted), git checkout -- <route> (restored), NEVER add -A (the #39 lesson, third confirmation). Sandbox casualties regenerated (eval report via eval_routing.mjs --static; OPS-01 via backup_db.py) → context_check 606/606 NO DRIFT at the M46 boundary; upload-route test 7/7.
+- Scoped SPEC-M47 from remediation spec §12 L-03 (PF/ESI/PT/LWF configurable rates on the run; deductions computed; statutory registers + challan data export). L-04/L-06/Module-M-CoA documented OUT. Spec-first: docs/CONTEXT/specs/SPEC-M47.md frozen before code.
+- CRITICAL DESIGN (the party-ledger sign): the M45 journals term is an UNSIGNED sum — a deduction journal (Dr Wage Payable) would have counted the WRONG way. Fix: Journal.partySide debit|credit (null = legacy credit-assumption — byte-identical for every pre-M47 row); the journals term nets sides in BOTH party-ledger queries (json SHAPE unchanged); wage journals stamp 'credit', statutory deduction journals stamp 'debit'.
+- Schema: PayrollLine +13 statutory columns (pfWages, pfEe/pfEr/pfEps/pfEpf/pfEdli/pfAdmin, esiEe/esiEr, ptAmt, lwfEe/lwfEr, statDeduction — all default 0) + Employee.esiNo + Journal.partySide. db push + WAL checkpointed (PITFALLS #47) + prisma generate.
+- statutory.ts (the flags.ts pattern, AppOption `stat:*`, 17 defs — every head DISABLED by default ⇒ zero-config = M46-identical, pinned): getStatutory (idempotent seed, OUTSIDE txs), getStatutoryPure (INV-04 pure read for planPayrollRun), setStatutory (drift-safe validate+persist), statRegistry.
+- planPayrollRun: statutory computed + FROZEN at plan (PF needs UAN + ceiling cap; ESI gross ≤ threshold; PT single slab above threshold × distinct calendar months; LWF flat × months; net = earned − advances − statDeduction); unenrolled-PF/over-threshold-ESI NAMED in the plan text; conditional statutory sideEffects (zero-config keeps M46 text EXACT).
+- planPayrollRunCommit: wage journals per line UNCHANGED + partySide 'credit'; NEW per-line-per-head deduction journals (Dr Wage Payable / Cr PF|ESI|PT|LWF Payable, partySide 'debit', V-#### minted in-tx); employer contributions register-only (honest sideEffect: post manually when remitting, Module M CoA formalizes).
+- Surfaces: /hr/statutory register (committed-only, variant=pf|esi|pt|lwf, q, from/to run-period window, 15 columns incl. UAN/esiNo + PF ER breakdown) + registers/statutory.ts + register-config + csv twin = THE CHALLAN EXPORT (head-specific shapes: pf → UAN/pfWages/EE/ER/EPS/EPF/EDLI/admin; esi → IP No) + get_statutory_register tool (tools 253→254) + /admin/statutory rates board (4 head cards, toggles, per-field notes, server action → setStatutory, drift rows read-only; menu 142→144 via statutory + statutory-rates; LIVE_ROUTES 178→180) + run view conditional statutory columns + journals audit naming deduction legs + payslip conditional deduction rows + employer note + PROMPT_VERSION m47-2026-09-08.
+- Tests: payroll-l03.test.ts NEW 25/25 — zero-config regression (M46-identical plan), THE STATUTORY WALKTHROUGH (2.5 days × ₹500 → PF 150/ESI 9/PT 208/LWF 20 → deduction 387 → net 863 → credit wage journal + 4 debit deduction journals → ledger totalJournal 863 → pay_wages 863 → BALANCE EXACTLY 0 → payslip rows + employer note), applicability matrix (no-UAN named / ESI over-threshold named / PT boundary = / ceiling cap 15000 / multi-month ×2), the side-aware legacy pin (null = credit, debit nets positive), register committed-only + variant/q/window + challan columns, config round-trip (unknown + negative rejected; pure read never writes), wiring/source pins. Inherited pins bumped same-commit via scripts/patch_m47_pins.py (tools 253→254 ×15 files, menu 142→144 ×4, PROMPT_VERSION ×5 + prefix pin, register slug list + statutory → 41 configs).
+- Gates: 1429/1429 vitest (70 files) · tsc src 0 · eval --static PASS (m47, registry 246) · context_check 606→613/613 NO DRIFT (8 new M47 pins, 5 bumped) · route_smoke_m47 NEW 49/49 LIVE (register + columns + csv + 4 challan shapes + filters + /admin/statutory + the seeded committed-run walkthrough E005 statutory 432 → net 1168 + 5 journals (1 credit + 4 debit) + payslip rows + unknown 404 + future-window empty state + FULL revert) · browser E2E: PF armed through the /admin/statutory FORM (DB-verified stat:pf.enabled=true) → PR-0001 through the /hr/payroll FORM (E005 2 days × ₹800 → statutory 192 → net 1,408) → committed through the run view → DB-verified V-0001 partySide 'credit' Dr Staff Salaries ₹1,600 + V-0002 partySide 'debit' Dr Wage Payable / Cr PF Payable ₹192 → /hr/statutory row (UAN 100999888777 + esiNo + PF 192) → payslip print (Less: PF + NET PAYABLE ₹1,408 + employer contributions ₹208) → ZERO console errors → fully reverted (screenshots download/m47-statutory-register.png, m47-payroll-run-view.png, m47-payslip-print.png, m47-statutory-rates.png).
+- Docs: SPEC-M47 frozen; STATE #51 + header; PITFALLS #49 (the owner-credential UUID auto-commit — session-start protocol upgraded to `git log --oneline origin/main..HEAD` FIRST + `git ls-tree HEAD <path>`); context_check +8 pins; this entry.
+
+Stage Summary:
+- M47 SHIPPED (local): statutory payroll computed on the run and frozen at plan; employee deduction legs post with the partySide sign fix so the ledger still closes to EXACTLY 0 with statutory; registers + per-head challan CSV; rates owner-managed at /admin/statutory (all heads off by default — M46-identical until armed).
+- Module L remaining: L-04 attendance depth (cross-midnight, OT, leave model), L-06 shiftWages (ADR-019). Phase-6B: 9 of 11 batches done.
+- 7 local commits pending (m44+m45+m46+m47); .pat-token available; side_quest carries the first 6 on the remote.

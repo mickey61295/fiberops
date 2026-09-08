@@ -405,7 +405,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('the new tools are registered: 253 = 250 at M45 + the payroll trio (M46 L-02)', () => {
-      expect(allTools.length).toBe(253)
+      expect(allTools.length).toBe(254)
       expect(getTool('set_order_deliveries')?.isWrite).toBe(true)
       expect(getTool('set_order_deliveries')?.domain).toBe('orders')
       expect(getTool('correct_program_spec')?.isWrite).toBe(true)
@@ -421,7 +421,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('menu: 142 items, /programs/propose is LIVE with the propose tool door', () => {
-      expect(MENU_ITEMS.length).toBe(142) // M46 L-02 payroll
+      expect(MENU_ITEMS.length).toBe(144) // M47 L-03 statutory ×2 // M46 L-02 payroll
       expect(LIVE_ROUTES.has('/programs/propose')).toBe(true)
       const item = MENU_ITEMS.find((i) => i.id === 'program-propose')
       expect(item?.agentTools).toContain('propose_program_requirements')
@@ -452,8 +452,8 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('PROMPT_VERSION is bumped and the prompt teaches the proposal reflex', () => {
-      expect(PROMPT_VERSION).toBe('m46-2026-09-03')
-      expect(PROMPT_VERSION.startsWith('m46')).toBe(true) // M45 L-01 superseded the m43 line
+      expect(PROMPT_VERSION).toBe('m47-2026-09-08')
+      expect(PROMPT_VERSION.startsWith('m47')).toBe(true) // M47 L-03 superseded the m46 line
     })
 
     it('planOrder reads the multi-style flag OUTSIDE any transaction (the getFlag pure-read contract, PITFALLS #45)', () => {

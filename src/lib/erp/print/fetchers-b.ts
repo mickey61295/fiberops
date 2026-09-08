@@ -871,6 +871,12 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
       rows: [
         ['Earnings', basis, inr(line.earned)],
         ['Less: advances paid in period', 'payments to employee-party', inr(-line.advances)],
+        // SPEC-M47 L-03 — the statutory deduction rows render ONLY when the
+        // leg is nonzero (zero-config payslips stay M46-identical)
+        ...(line.pfEe > 0 ? [['Less: PF (employee share)', `12% style rate on PF wages ${inr(line.pfWages)}`, inr(-line.pfEe)] as [string, string, string]] : []),
+        ...(line.esiEe > 0 ? [['Less: ESI (employee share)', 'gross within the ESI threshold', inr(-line.esiEe)] as [string, string, string]] : []),
+        ...(line.ptAmt > 0 ? [['Less: professional tax', 'monthly slab × months in window', inr(-line.ptAmt)] as [string, string, string]] : []),
+        ...(line.lwfEe > 0 ? [['Less: LWF (employee share)', 'per month in window', inr(-line.lwfEe)] as [string, string, string]] : []),
       ],
     },
     totals: [['NET PAYABLE', inr(line.net)]],
@@ -879,6 +885,12 @@ export async function fetchPayslipPrint(idOrNo: string): Promise<PrintDoc | null
     notes: [
       ...(payTo.length ? payTo : []),
       'Earnings are credited to the Wage Payable ledger by the run commit (wage journals reference this run).',
+      ...(line.statDeduction > 0
+        ? [`Statutory deductions ${inr(line.statDeduction)} were posted at commit (Dr Wage Payable / Cr PF|ESI|PT|LWF Payable) — remitted to the authorities, not paid to the employee.`]
+        : []),
+      ...((line.pfEr + line.pfEdli + line.pfAdmin + line.esiEr + line.lwfEr) > 0
+        ? [`Employer contributions: PF ${inr(line.pfEr + line.pfEdli + line.pfAdmin)} (EPS + EPF + EDLI + admin), ESI ${inr(line.esiEr)}, LWF ${inr(line.lwfEr)} — remitted separately, NOT deducted from this payslip.`]
+        : []),
       ...(line.net < 0 ? ['Net is negative — advance recovery; nothing is payable this period.'] : []),
       ...(run.mode === 'piece'
         ? ['Piece earnings are the same production-entry ground truth as the operator statement (L-01).']

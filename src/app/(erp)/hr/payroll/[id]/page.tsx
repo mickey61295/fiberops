@@ -45,6 +45,10 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
   const totalEarned = run.lines.reduce((s, l) => s + l.earned, 0)
   const totalAdvances = run.lines.reduce((s, l) => s + l.advances, 0)
   const totalNet = run.lines.reduce((s, l) => s + l.net, 0)
+  const totalStat = run.lines.reduce((s, l) => s + l.statDeduction, 0)
+  // SPEC-M47 L-03 — the statutory columns render ONLY when the run has any
+  // statutory legs (zero-config runs keep the M46 layout)
+  const hasStat = run.lines.some((l) => l.statDeduction > 0 || l.pfEr > 0 || l.esiEr > 0 || l.lwfEr > 0)
   const period = `${run.from.toISOString().slice(0, 10)} → ${run.to.toISOString().slice(0, 10)}`
 
   return (
@@ -61,7 +65,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
         </div>
         <p className="text-sm text-slate-500 mt-0.5">
           {run.mode === 'piece' ? 'Piece — Σ production-entry earnings' : 'Daily — weighted attendance × dailyWage'} · {period} · {run.lines.length} line{run.lines.length === 1 ? '' : 's'} ·
-          earned ₹{Math.round(totalEarned).toLocaleString('en-IN')} · advances ₹{Math.round(totalAdvances).toLocaleString('en-IN')} · net ₹{Math.round(totalNet).toLocaleString('en-IN')}
+          earned ₹{Math.round(totalEarned).toLocaleString('en-IN')} · advances ₹{Math.round(totalAdvances).toLocaleString('en-IN')}{hasStat ? ` · statutory ₹${Math.round(totalStat).toLocaleString('en-IN')}` : ''} · net ₹{Math.round(totalNet).toLocaleString('en-IN')}
           {run.committedAt ? ` · committed ${run.committedAt.toISOString().slice(0, 10)}` : ''}
         </p>
         {run.notes && <p className="text-xs text-slate-400 mt-1">{run.notes}</p>}
@@ -94,8 +98,8 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-slate-50/80">
-              {['Employee', 'Dept', 'Basis', 'Party', 'Earned ₹', 'Advances ₹', 'Net ₹', 'Payslip'].map((h) => (
-                <th key={h} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${['Earned ₹', 'Advances ₹', 'Net ₹'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
+              {[...['Employee', 'Dept', 'Basis', 'Party', 'Earned ₹', 'Advances ₹'], ...(hasStat ? ['PF ₹', 'ESI ₹', 'PT ₹', 'LWF ₹', 'Deduction ₹'] : []), 'Net ₹', 'Payslip'].map((h) => (
+                <th key={h} className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 ${['Earned ₹', 'Advances ₹', 'PF ₹', 'ESI ₹', 'PT ₹', 'LWF ₹', 'Deduction ₹', 'Net ₹'].includes(h) ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -115,6 +119,15 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{l.partyId ? (partyCodeById.get(l.partyId) ?? '—') : '—'}</td>
                 <td className="px-3 py-2 text-right font-mono">{l.earned.toLocaleString('en-IN')}</td>
                 <td className="px-3 py-2 text-right font-mono text-slate-500">{l.advances ? l.advances.toLocaleString('en-IN') : '—'}</td>
+                {hasStat ? (
+                  <>
+                    <td className="px-3 py-2 text-right font-mono text-slate-500">{l.pfEe ? l.pfEe.toLocaleString('en-IN') : '—'}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-500">{l.esiEe ? l.esiEe.toLocaleString('en-IN') : '—'}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-500">{l.ptAmt ? l.ptAmt.toLocaleString('en-IN') : '—'}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-500">{l.lwfEe ? l.lwfEe.toLocaleString('en-IN') : '—'}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-600">{l.statDeduction ? l.statDeduction.toLocaleString('en-IN') : '—'}</td>
+                  </>
+                ) : null}
                 <td className={`px-3 py-2 text-right font-mono font-medium ${l.net < 0 ? 'text-red-600' : ''}`}>{l.net.toLocaleString('en-IN')}{l.net < 0 ? ' (recoverable)' : ''}</td>
                 <td className="px-3 py-2">
                   {run.status === 'committed' ? (
@@ -131,6 +144,12 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
               <td className="px-3 py-2" colSpan={4}>Totals — {run.lines.length} lines</td>
               <td className="px-3 py-2 text-right font-mono">{Math.round(totalEarned).toLocaleString('en-IN')}</td>
               <td className="px-3 py-2 text-right font-mono text-slate-500">{Math.round(totalAdvances).toLocaleString('en-IN')}</td>
+              {hasStat ? (
+                <>
+                  <td className="px-3 py-2" colSpan={4} />
+                  <td className="px-3 py-2 text-right font-mono text-slate-600">{Math.round(totalStat).toLocaleString('en-IN')}</td>
+                </>
+              ) : null}
               <td className="px-3 py-2 text-right font-mono">{Math.round(totalNet).toLocaleString('en-IN')}</td>
               <td />
             </tr>
@@ -141,7 +160,7 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
       {journals.length > 0 && (
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
           <div className="border-b bg-slate-50/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Posted wage journals ({journals.length}) — Dr {run.mode === 'piece' ? 'Production Wages' : 'Staff Salaries'} / Cr Wage Payable
+            Posted journals ({journals.length}) — wage (Dr {run.mode === 'piece' ? 'Production Wages' : 'Staff Salaries'} / Cr Wage Payable){hasStat ? ' + statutory deduction (Dr Wage Payable / Cr PF|ESI|PT|LWF Payable)' : ''}
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -167,10 +186,11 @@ export default async function PayrollRunPage({ params }: { params: Promise<{ id:
       )}
 
       <p className="text-xs text-slate-400">
-        Lines froze at run creation (employee, party, days/qty, money) — later attendance or payment edits do not move a drafted run.
+        Lines froze at run creation (employee, party, days/qty, money, statutory legs) — later attendance, payment or rate edits do not move a drafted run.
         {run.status === 'committed'
-          ? ' Pay the net via Wage Payments (pay_wages) — the employee-party ledger closes to exactly 0.'
+          ? ` Pay the net via Wage Payments (pay_wages) — the employee-party ledger closes to exactly 0${hasStat ? ' (the statutory deduction legs already debited the Wage Payable side)' : ''}.`
           : ' Committing posts the wage journals and makes the run terminal.'}
+        {hasStat ? ' Employer contributions (PF employer/EPS/EDLI/admin, ESI employer, LWF employer) are register data — see /hr/statutory.' : ''}
       </p>
     </div>
   )

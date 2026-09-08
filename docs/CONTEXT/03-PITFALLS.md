@@ -607,3 +607,32 @@ renders only the ACTIVE group's items — assert group-local pages (orderwise la
   `node scripts/eval_routing.mjs --static`, which writes a static-only report). Treat
   "X local artifacts missing" after any reset as EXPECTED, fix by regeneration, and
   never "fix" the pin to 0 to make the check pass.
+
+
+## #49 — M47 session start: the upload-route gremlin arrived COMMITTED, by an owner-credential auto-commit (the d1325e1 UUID sweep)
+
+`src/app/api/upload/route.ts` has now vanished FOUR times (worklog m44
+orientation, M18-C's convergence commit, M45's commit, and now this). What was
+new this time: the deletion arrived ALREADY COMMITTED on local main as
+`d1325e1` — message a bare UUID (`8bb3d5cf-5f01-41a0-a102-2621cc61c8de`),
+author the repo OWNER (Maheshbabu Jeyaraj), i.e. some IDE/sync checkpoint
+tool had run `git add -A` on the working tree between sessions and swept the
+gremlin's deletion + an uncommitted worklog.md into a commit. It was NOT
+pushed (origin untouched — the side_quest push had gone out from the clean
+tip 6c1be98 before it).
+
+LESSONS:
+1. **Session-start protocol upgraded**: `git status` alone is no longer
+   enough — a committed deletion shows NOTHING in status. Run
+   `git log --oneline origin/main..HEAD` FIRST and treat any commit whose
+   message is not a milestone-shaped message as suspect; `git ls-tree HEAD
+   <path>` (not status) is the truth for the gremlin file.
+2. Repair: `git reset <last-milestone-sha>` (mixed — the worklog changes
+   return to the working tree uncommitted, where they belong), then
+   `git checkout -- <path>` to restore the gremlin file. The dropped commit
+   stays recoverable via reflog (~90 days).
+3. NEVER use `git add -A` / `git add .` in this repo (the #39 lesson — this
+   is its third confirmation). Milestone commits list files explicitly.
+4. The sandbox reset ALSO wiped download/ (eval report) + db/backups (OPS-01)
+   — both regenerate: `node scripts/eval_routing.mjs --static` +
+   `python3 scripts/backup_db.py` (the M46 casualty list, now routine).

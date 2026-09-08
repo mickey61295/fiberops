@@ -464,7 +464,7 @@ describe('L-02 register + wiring', () => {
   })
 
   it('PROMPT_VERSION bumped + the HR line carries the payroll run', () => {
-    expect(PROMPT_VERSION).toBe('m46-2026-09-03')
+    expect(PROMPT_VERSION).toBe('m47-2026-09-08')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('create_payroll_run')
     expect(prompt).toContain('commit_payroll_run')

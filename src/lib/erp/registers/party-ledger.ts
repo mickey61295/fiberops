@@ -45,7 +45,11 @@ export async function getPartyLedgerSummary(partyId: string): Promise<PartyLedge
   ])
   const totalBilled = invoices.reduce((s, i) => s + i.billAmount, 0)
   const totalDebit = debitNotes.reduce((s, d) => s + d.amount, 0)
-  const totalJournal = journals.reduce((s, j) => s + j.amount, 0)
+  // SPEC-M47 L-03 — SIDE-AWARE: partySide 'debit' rows (the statutory
+  // deduction legs, Dr Wage Payable / Cr PF|ESI|PT|LWF Payable) count as the
+  // party DEBITED (we owe LESS); null + 'credit' keep the M45 credit-
+  // assumption byte-identically (every pre-M47 row is null).
+  const totalJournal = journals.reduce((s, j) => s + (j.partySide === 'debit' ? -j.amount : j.amount), 0)
   const totalReceived = payments.filter((p) => p.direction === 'in').reduce((s, p) => s + p.amount, 0)
   const totalPaid = payments.filter((p) => p.direction === 'out').reduce((s, p) => s + p.amount, 0)
   const balance = party.openingBalance + totalBilled - totalDebit - totalJournal - totalReceived + totalPaid
@@ -83,7 +87,7 @@ export async function queryPartyLedger(q: RegisterQuery): Promise<RegisterResult
   // HFX-03 — cancelled invoices excluded here too (see getPartyLedgerSummary).
   const [invoices, journals, debitNotes, payments] = await Promise.all([
     db.salesInvoice.findMany({ where: { partyId: { in: partyIds }, status: { not: 'cancelled' } }, select: { partyId: true, billAmount: true } }),
-    db.journal.findMany({ where: { partyId: { in: partyIds }, voucherType: { in: ['journal', 'contra'] } }, select: { partyId: true, amount: true } }),
+    db.journal.findMany({ where: { partyId: { in: partyIds }, voucherType: { in: ['journal', 'contra'] } }, select: { partyId: true, amount: true, partySide: true } }),
     db.debitNote.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true } }),
     db.payment.findMany({ where: { partyId: { in: partyIds } }, select: { partyId: true, amount: true, direction: true } }),
   ])
@@ -96,7 +100,8 @@ export async function queryPartyLedger(q: RegisterQuery): Promise<RegisterResult
   for (const j of journals) {
     if (!j.partyId) continue
     const a = (agg.get(j.partyId) ?? { billed: 0, debit: 0, journals: 0, received: 0, paid: 0 })
-    a.journals += j.amount; agg.set(j.partyId, a)
+    // SPEC-M47 L-03 — side-aware (see getPartyLedger above)
+    a.journals += j.partySide === 'debit' ? -j.amount : j.amount; agg.set(j.partyId, a)
   }
   for (const d of debitNotes) {
     if (!d.partyId) continue
