@@ -2462,3 +2462,22 @@ Stage Summary:
 - Repo fully synced at zero deviation. The PAT was audited ZERO before AND after both pushes — it exists only in the user's message and the transient command line, never on disk, never in any ref.
 - Remaining queue: §17-1 backup DESTINATION — the owner's infrastructure call, the ONLY open item in the entire project; no implementable code decision remains.
 - Protocol re-confirmed (4th stale handoff in a row): verify HEAD/origin with git before believing any summary; phantom-deletion check before every commit; docs commits get diffstat scrutiny; inline-URL push + fetch + anonymous ls-remote = the verification triple.
+
+---
+Task ID: terminal-closure
+Agent: main (Super Z)
+Task: The owner's post-push "Continue" with the queue at §17-1-only — the terminal closure round: gremlin round 5 caught/restored, the wiped runtime artifacts regenerated, the gates re-verified, and the §17-1 ask sharpened to its final single-value form.
+
+Work Log:
+- Resume triage: the 5th handoff — the summary was CURRENT for the first time (86935ff, zero deviation, remote LIVE-verified == local == 86935ff, ahead 0). The §13/§17 queues confirmed at the §17-1-only state (STATE #61's corrected open-decisions section; SPEC-M56:155).
+- GREMLIN ROUND 5 (the phantom upload-route deletion, unstaged): caught by the session-start git status check, restored via git restore — blob 6dd2b31e identical to remote, tree clean, zero commits affected. The 5th occurrence; the pre-commit status check remains non-negotiable.
+- Environment: the known inter-session wipes recurred — download/ (eval report) and db/backups/ (OPS-01 snapshots) both empty. Regenerated: (a) OPS-01 REAL snapshot custom-20260910-130825.db (3.4 MB, integrity_check ok, restore-verify PASSED — core tables read: Order=209, StockLedger=1183, CurrentStock=588, AuditLog=21, Party=26); (b) the m10 routing eval report via eval_routing.mjs --static → PASS (entries=50, domains=16, registry-tools=266, promptVersion m56-2026-09-08).
+- Gates re-verified on the restored tree: context_check 606/606 NO DRIFT (the /api/upload EXISTS check green — the gremlin-5 restore validated by the gate itself).
+- §17-1 fact base confirmed: the M37 mechanism is 100% shipped — VACUUM INTO snapshot + integrity + 7d/30d rotation + the off-box rsync hook reading the ops.backup.rsync_target AppOption (seeded, currently EMPTY — verified in the live DB) + install_backup_cron.sh + recovery_drill.sh. The ONLY missing piece is the destination VALUE (user@host:/path) — owner infrastructure, not delegatable (SPEC-M56:155).
+- The final ask to the owner, sharpened: §17-1 needs ONE value — either set it at /masters (group: ops, 'Off-box backup rsync target') on the deployment box, or supply it here and it gets set + LIVE-verified (the next backup run rsyncs + reports). No code remains to write in this project.
+
+Stage Summary:
+- TERMINAL STATE VERIFIED: remote main == local == 86935ff (zero deviation), tree clean, gates green (context 606/606 NO DRIFT, eval static PASS m56/266), OPS-01 posture restored (snapshot + restore-verify), runtime artifacts regenerated.
+- THE PROJECT IS DONE except one owner value: §17-1's rsync target. Every code path, tool, test (1636/1636), register, doc twin, and ADR is shipped and on remote main.
+- This closure commit is docs-only (worklog.md append, explicit pathspec) — pending PAT push per the standing protocol.
+- Protocol ledger: gremlin #5 (upload route) now 5 occurrences across sessions — always caught by the session-start status check, never once committed.
