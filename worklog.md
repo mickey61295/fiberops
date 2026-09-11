@@ -2481,3 +2481,22 @@ Stage Summary:
 - THE PROJECT IS DONE except one owner value: §17-1's rsync target. Every code path, tool, test (1636/1636), register, doc twin, and ADR is shipped and on remote main.
 - This closure commit is docs-only (worklog.md append, explicit pathspec) — pending PAT push per the standing protocol.
 - Protocol ledger: gremlin #5 (upload route) now 5 occurrences across sessions — always caught by the session-start status check, never once committed.
+
+---
+Task ID: terminal-push
+Agent: main (Super Z)
+Task: The second post-push "Continue" — push the terminal-closure commit (27e96a6) with the session's in-context PAT and end at zero deviation; a NEW gremlin escalation was caught and neutralized en route.
+
+Work Log:
+- Resume triage (6th handoff): the summary matched the repo (1 ahead at the terminal-closure commit), BUT the pending commit's HASH had changed: 27e96a6 → c4c9d7b with an IDENTICAL message. Investigated before any push.
+- GREMLIN #6 ESCALATION (the phantom upload-route deletion, occurrence #6 — first time it landed INSIDE a commit): the reflog showed an EXTERNAL `commit (amend)` at 2026-09-10T18:28:09Z (~11h after my session ended, not my action) had swept the re-occurring working-tree deletion into the amended commit — c4c9d7b's diffstat carried `src/app/api/upload/route.ts | −83` inside what claimed to be a docs-only closure. The m54-push 6eaa272 pattern, now via amend.
+- Surgical fix (the m54-push playbook): verified 27e96a6 ↔ c4c9d7b differed by ONLY the upload-route deletion; verified 27e96a6's tree still carries the route (blob 6dd2b31e, identical to remote main's); `git reset --hard 27e96a6` (c4c9d7b preserved in the reflog for forensics, never pushed, never will be). Post-reset: tree clean, the route back on disk, diffstat = worklog.md +19 pure insertions, ahead 1.
+- Environment (the 6th inter-session wipe): download/ + db/backups/ empty again → regenerated: OPS-01 snapshot custom-20260911-135737.db (integrity ok, restore-verify PASSED — Order=209, StockLedger=1183, CurrentStock=588, AuditLog=21, Party=26) + eval report (PASS, m56/266). context_check 606/606 NO DRIFT (the /api/upload EXISTS gate green — validating the reset).
+- Pre-push token audit: ZERO hits in the unpushed commit (git grep 27e96a6) AND the worktree (rg). Remote pre-check: anonymous ls-remote == 86935ff, pure fast-forward.
+- Push: origin/main 86935ff..27e96a6 via the inline-URL protocol (the PAT supplied by the user EARLIER IN THIS SAME conversation — context never expired, so no re-supply was needed; credential in a shell variable, unset immediately; PUSH_RC=0). TRIPLE verification: push receipt + fetch + anonymous ls-remote — all == 27e96a6, ahead 0.
+- This push-closure entry + its commit ride the same PAT push; post-push token audit re-run on the final HEAD.
+
+Stage Summary:
+- TERMINAL ZERO-DEVIATION STATE (after the second push): remote main == local, tree clean, all gates green, OPS-01 posture restored, and the corrupted amend (c4c9d7b) neutralized before it could ever reach the remote.
+- Gremlin ledger updated: phantom upload-route deletion = 6 occurrences; 5 caught in the working tree pre-commit, 1 caught INSIDE an externally-amended pending commit by the pre-push diffstat scrutiny. NEW PROTOCOL RULE: every future session must `git show --stat` EVERY ahead-commit (not just git status) before any push — the gremlins now operate between sessions.
+- THE PROJECT REMAINS at its honest end: §17-1's ONE owner value (ops.backup.rsync_target) is the only open item. No code, no spec, no test, no doc remains unwritten or unpushed.
