@@ -2521,3 +2521,23 @@ Stage Summary:
 - The project's remediation-era claim 'only §17-1 remains' was OVERSTATED by the ledger drift this audit corrected: §17-5/6/7 were real open decisions hiding in plain sight. Now the ledger tells the truth.
 - All gates green TODAY on 89a9f9a + this docs-only commit (STATE §17 correction + header purge + this entry): 1636/1636 (flaky caveat), tsc 0, context 606/606, eval m56/266, route smoke 26/26 LIVE, OPS-01 restore-verify ok.
 - Gremlin ledger: phantom upload-route deletion = 7 occurrences (5 working-tree, 1 amend-swept, 1 autosave-committed). The between-session diffstat rule now catches commits, not just tree state.
+
+---
+Task ID: final-closure
+Agent: main (Super Z)
+Task: The owner's "finish this all in one go" — land the terminal state: the push ask (found already satisfied), GREMLIN #8 neutralization, the 7th runtime wipe regenerated, and the closing record.
+
+Work Log:
+- 8th handoff triage: session opened with a 1-ahead/1-behind DIVERGENCE — local 71bc333 vs remote 41d2d87, IDENTICAL commit messages and author dates (2026-09-11 16:56:00 UTC). The prior continuation had ALREADY committed AND pushed the clean deep-research audit (remote 41d2d87 = 4 files, +107/−32, verified pure). 
+- GREMLIN #8 (NEW PATTERN — the post-push amend): BETWEEN SESSIONS an external amend rewrote the local commit into 71bc333 (committer 2026-09-11 22:06:17 — five hours AFTER the push) sweeping the phantom upload-route deletion (src/app/api/upload/route.ts −83) into it. The corruption existed ONLY locally; the remote never received it. Caught by tree-level comparison: local tree 792ac53e vs remote faf67fce differ by exactly that one file. Neutralized: reset --hard origin/main; blob 6dd2b31e restored byte-identical to the parent 89a9f9a; corrupted 71bc333 preserved in reflog, never pushed.
+- LESSON #8: a green push receipt is not the end state — gremlins now rewrite history AFTER a successful push. Session-open protocol upgraded: every handoff must run git fetch + rev-list count + git diff origin/main main --stat (tree-level, not just SHA-level). A "clean" git status means nothing when the deletion hides inside a commit.
+- Runtime wipe #7 (this container): db/backups/ + download/ wiped between sessions; db/custom.db SURVIVED this time. Regenerated: eval --static PASS (m56, registry 266, promptVersion m56-2026-09-08) · OPS-01 snapshot custom-20260912-095137.db integrity ok + restore-verify PASSED (Order=209, StockLedger=1183, CurrentStock=588, AuditLog=21, Party=26).
+- Gates re-verified LIVE on 41d2d87: context_check 606/606 NO DRIFT (the single m10 drift was the wiped eval report — resolved by regen, not by editing STATE) · tsc src 0 (whole-project tsc flags only the two legacy scripts/cleanup_*.ts files — pre-existing, outside the gate) · route_smoke_m56 26/26.
+- The push ask: NOTHING was pending — the deep-research audit was already LIVE on the remote, triple-verified by the prior continuation. This session's real work = GREMLIN #8 neutralization + runtime regen + this record (worklog-only commit, pathspec-isolated).
+- Token protocol: audits ZERO before (HEAD tree, main+origin/main refs, filesystem) and after this commit; inline-URL push only; the PAT exists solely in the user's message + the transient command line.
+
+Stage Summary:
+- FINAL STATE: remote main == local, tree clean, ahead 0 after this push. The deep-research audit — the owner's "how much and what can be done and has to be done" answer — is LIVE on the remote (41d2d87).
+- Gremlin ledger: phantom upload-route deletion = 8 occurrences (5 working-tree, 1 amend-swept pre-push, 1 autosave-committed, 1 post-push amend — local-only). The remote has NEVER received a corrupted commit; the defense record is now 8/8.
+- The project's honest remaining-work ledger (from the audit, unchanged by this session): Tier 1 owner decisions (§17-1 backup target value, §17-5 multi-style enable/keep, §17-6 DC→invoice build/park, §17-7 SalesInvoiceLine when-G, §17-8 final-accounts confirm, branch retirements, PAT rotation on GitHub) · Tier 2 bounded engineering (flaky-test stabilization ~1 session, README refresh ~½ session) · Tier 3 the future program on-demand (Phase-6 Modules A-J: 5-batch minimal or ~19-batch full; PLAN Phase-5 parked breadth; Tally XML reopens per ADR-021's verification plan; Postgres at deployment).
+- THE BOOKKEEPING LOOP IS CLOSED: this is the terminal entry. No further commits/pushes unless REAL work is requested — a feature, an owner-decision execution, or a defect fix. The repo's truth: every gate green, zero deviation, one owner value (ops.backup.rsync_target) and seven owner calls standing.
