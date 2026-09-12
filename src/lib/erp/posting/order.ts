@@ -5,7 +5,8 @@
 // planOrder — ADR-001.
 // SPEC-M43 PRG-01/02 (additive): buyerPoRef/orderType/deliveries[] pass
 // through into the same commit; per-line styleNo resolves flag-gated
-// (multi_style_orders, default OFF — §17-5 stays the owner's decision).
+// (multi_style_orders, default OFF — ADR-023: single-style is the decided
+// default; the owner flips the flag + runs the regression pass to enable).
 
 import { db } from '@/lib/db'
 import { activeFinYear } from '../numbering'

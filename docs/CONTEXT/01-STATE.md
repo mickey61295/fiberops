@@ -3,7 +3,7 @@
 > Updated every commit. Numbers below are **claims**; `scripts/context_check.sh`
 > is the **verifier**. On conflict: trust the script, fix this file, log drift in 03-PITFALLS.
 
-Last verified: 2026-09-11 (session: deep-research — the terminal audit: gates re-verified LIVE (vitest 1636/1636 with a flake caveat — 4-5 M54-era tests fail in ~2 of 5 full-suite runs, 16/16 in isolation; cross-file interference suspected, stabilization queued; tsc src 0; context_check 606/606 NO DRIFT; eval m56/266 PASS; route_smoke_m56 26/26 LIVE; OPS-01 restore-verify ok) · the §17 ledger CORRECTED (§17-5/6/7 restored to the open list — no ADRs existed, dropped silently by the M55/M56-era rewrites; §17-8 marked resolved-by-construction; §17-2/3/4 confirmed via ADR-022/020/021) · Phase-6 Modules A-J confirmed as the unbuilt future program (PHASE-6.md: full ~19 batches / minimal path 5 batches, §14)).
+Last verified: 2026-09-12 (session: finish-it-all — the FLAKY TESTS FIXED: root cause = doc-parity-m5d.test.ts leaked its expense companions (JV-EXP-#### journals) into the shared test DB — deleting only the Expense rows left the companions behind, and when vitest's fs-discovery order put m5d before accounts-m02/m05, their AUTO-NUMBERED expenses picked EXP-0001, hit the leaked JV-EXP-0001 in the companion-exists check, and refused — the exact 4 failing EH-02 cases; fix = m5d now tracks expNos and deletes the JV-/CN-JV- companions (fy-hotfix-m44 got the same one-line companion fix, same leak class); PROVEN STABLE: 5/5 full-suite runs 1636/1636 green after (was ~2/5 failing), post-run test.db residue ZERO · §17 CLOSED: ADR-023 (multi-style stays OFF — single-style decided default, one-flag reversible), ADR-024 (cumulative DC→invoice PARKED — re-entry needs a fresh SPEC citing real usage), ADR-025 (final-accounts minimal set CONFIRMED as delivered by M50–M54) — the §17-5/6/8 calls delegated by the owner's 'finish it all'; §17-1 (one owner value) + §17-7 (gated on Module G) remain the only open items · README refreshed to the truth (274 tools / 92 models / 1636 tests / 185 routes — was claiming 90 tools / 15 tests) · gates LIVE: vitest 1636/1636 ×5, tsc src 0, context_check 606/606 NO DRIFT, eval m56/266, route_smoke_m56 26/26, OPS-01 restore-verify ok).
 
 
 
@@ -236,37 +236,29 @@ DELETED in M1: `src/app/page.tsx` (view-switcher), `src/components/erp/sidebar.t
 
 ## Open decisions awaiting user
 
-> Corrected 2026-09-11 (the deep-research audit): the M55/M56-era rewrite of
-> this section had dropped §17-5/6/7/8 without ADRs — the spec's §17 list
-> (PHASE-6B-REMEDIATION-SPEC.md §17) is the truth; every item is now accounted
-> for below.
+> Corrected 2026-09-11 (the deep-research audit) and CLOSED 2026-09-12
+> (the owner's "finish it all" delegated the §17-5/6/8 calls — ADR-023/024/025;
+> the ADR-020 delegation pattern, conservative + reversible defaults).
 
 1. **Backup off-box target** (§17-1, OPS-01): the M37 mechanism (nightly
    VACUUM INTO + rotation + restore-verify + the off-box rsync/rclone hook +
    cron installer) awaits a DESTINATION only the owner can provide — it
    cannot be delegated or invented.
-2. **Multi-style orders** (§17-5, PRG-02): the mechanism shipped flag-gated in
-   M43 (`multi_style_orders`, default OFF — single-style behavior
-   byte-identical, differing line style refuses LOUDLY naming the flag); the
-   owner decides enable-vs-keep. No ADR exists.
-3. **Cumulative DC→invoice** (§17-6, PRC-09, legacy frmDelCumInv): DEFERRED
-   at M41 (no dead columns — the despatchId/allocation linkage was never
-   added); build or park. No ADR exists.
-4. **SalesInvoiceLine prerequisite** (§17-7, AM-1): the lines model gates
+2. **SalesInvoiceLine prerequisite** (§17-7, AM-1): the lines model gates
    Phase-6 Module G's FR-G2 (GSTR-1 payload builder); only matters when
-   Module G starts. No ADR exists.
-5. **Final-accounts scope** (§17-8, Module M): delivered in substance by
-   M50–M54 (CoA + double-entry + TB/day-book reports + Tally JSON + expense
-   heads — the minimal set the spec named); resolved-by-construction, pending
-   the owner's explicit confirm.
-6. **Branch retirement** (owner call): side_quest (+1 docs-only commit ahead,
+   Module G starts — parked with a trigger, correctly.
+3. **Branch retirement** (owner call): side_quest (+1 docs-only commit ahead,
    zero code), m18c-alt (+1), m9-wave-a-alt (+2), p0-reflex-pack-alt (+1),
    real-main (+0, fully merged) — and remote-only qol1-m30-alt +
    agent/order-program-flow.
 
 RESOLVED (recorded for traceability): §17-2 G3 wired in M39 (ADR-022, the
 erratum that corrected the stale queue lists) · §17-3 cheque/PDC lifecycle
-shipped in M56 (ADR-020) · §17-4 Tally stays JSON (ADR-021).
+shipped in M56 (ADR-020) · §17-4 Tally stays JSON (ADR-021) · §17-5
+multi-style orders stay OFF — single-style default, one-flag reversible
+(ADR-023, 2026-09-12) · §17-6 cumulative DC→invoice PARKED — re-entry needs
+a fresh SPEC citing real usage (ADR-024, 2026-09-12) · §17-8 final-accounts
+minimal set CONFIRMED as delivered by M50–M54 (ADR-025, 2026-09-12).
 
 ## Next actions (in order)
 

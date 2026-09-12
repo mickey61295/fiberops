@@ -316,3 +316,58 @@ JW- out (partyId = jobworker), GAN acceptance and DC returns post G3 OUT,
 WIP at the jobworker is queryable stock. The STATE open-decisions section
 and this register are corrected in the M56 round. Lesson recorded: queue
 lists are claims; the spec + the code are the truth.
+
+## ADR-023 — §17-5 resolved: multi-style orders stay OFF (single-style default)
+
+Date: 2026-09-12 · Status: accepted (delegated — the owner's "finish it
+all", 2026-09-12; the ADR-020 delegation pattern)
+
+The M43 mechanism ships complete and flag-gated OFF
+(`multi_style_orders`, module category, default false): OFF + a differing
+line style refuses LOUDLY naming the flag (the agent self-corrects into
+separate orders); ON stores per-line styleIds; the line grid carries the
+Style picker; `proposeProgramRequirements` is per-style honest either way.
+The call: **keep single-style orders as the default.** Rationale: the
+legacy Joms/Fiberpro order form was single-style per order — the Tirupur
+workflow (one style, one program, one BOM per order) matches it; enabling
+changes order semantics for every future order with no live-data demand
+recorded since M43; and the per-DC/per-style reads are already honest
+under both modes. Reversible by design: the owner enables with one flag
+flip (`setFlag('multi_style_orders', true)`) + a regression pass — the
+prg-batch7 guard tests pin BOTH modes. Overriding this ADR is a one-line
+owner instruction; no code is stranded either way.
+
+## ADR-024 — §17-6 resolved: cumulative DC→invoice is PARKED (PRC-09)
+
+Date: 2026-09-12 · Status: accepted (delegated — the owner's "finish it
+all", 2026-09-12)
+
+PRC-09 (the legacy frmDelCumInv port — one invoice spanning multiple
+despatch DCs) was deferred at M41 with NO dead columns (the
+despatchId/allocation linkage was never added). The call: **PARK it.**
+Rationale: the per-DC invoice path already covers the dispatch→invoice
+flow end to end; no demand has been recorded since M41; and building the
+cumulative path honestly is a full money batch (schema linkage + posting
++ allocation derivation + register/tests/docs) — the kind of spend that
+needs a live workflow pulling for it, not a default. Re-entry: a fresh
+SPEC citing real usage (the owner naming the multi-DC invoices they want
+consolidated) reopens the build; nothing in the codebase claims or
+half-implements it (the honest-claims rule).
+
+## ADR-025 — §17-8 resolved: the final-accounts minimal set is CONFIRMED as delivered
+
+Date: 2026-09-12 · Status: accepted (delegated — the owner's "finish it
+all", 2026-09-12)
+
+The remediation spec §17-8 asked the owner to confirm the minimal
+final-accounts set — CoA + trial balance + day-book/cash-book, matching
+the legacy FrmPLReg "DECIDE" disposition. Confirmed: that set is the
+target, and the repo DELIVERS it in full — M50 (the 20-row CoA + the
+resolver + GL journals), M51 (double-entry companions + the mode-aware
+cash leg), M52 (FA-01 trial balance, FA-02 day-book, FA-03 cash-book via
+CoA topology, FA-04 the pl|bs final-accounts variants, FA-05 wiring), M53
+(Tally JSON both sides), M54 (expense heads + the budget addend). The
+delivered set EXCEEDS the minimal ask (the P&L/balance-sheet closure
+screens ride the same ΣDr==ΣCr doctrine). Scope note: statutory formats
+(e-format filing, audited statements) remain out of scope — the export
+doctrine (ADR-021) governs any future format claims.
