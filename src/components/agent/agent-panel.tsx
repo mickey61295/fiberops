@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff, RotateCcw, Copy, Eye, Printer, Square } from 'lucide-react'
+import { Sparkles, Send, X, Check, AlertCircle, Loader2, ChevronDown, ChevronRight, Database, Wrench, Paperclip, FileText, ArrowRight, Mic, MicOff, RotateCcw, Copy, Eye, Printer, Square, History, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 // HFX-15 (Phase-6B Batch 0) — assistant text renders as Markdown (+ GFM for
 // the pipe tables the ingestion prompt asks the model to emit). The old
@@ -16,6 +16,13 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 // HFX-16 — per-step narration segments (pure helpers, unit-tested)
+// SPEC-M58 — one history list row (the /api/agent/history contract)
+interface HistoryRow {
+  id: string
+  title: string
+  updatedAt: string
+  messageCount: number
+}
 import { appendDelta, mergeNarration, type NarrationSegments } from '@/lib/agent/narration'
 // CHAT-05 (Phase-6B Batch 2) — plan contents table for approval cards
 import { planDisplay } from '@/lib/agent/plan-display'
@@ -119,6 +126,15 @@ function isApprovalPhrase(text: string): 'approve' | 'reject' | null {
 }
 
 export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: AgentPanelProps) {
+  // SPEC-M58 (ADR-026 Batch 1) — the conversation this panel instance is
+  // driving. A REF, not state: it never renders (zero hydration surface);
+  // rotated on New chat / resume / delete-of-current. Sent with every POST;
+  // the route persists each completed turn under it (best-effort).
+  const sessionRef = useRef('')
+  // SPEC-M58 — the history drawer (list + resume + delete)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historySessions, setHistorySessions] = useState<HistoryRow[]>([])
+  const [historyBusy, setHistoryBusy] = useState(false)
   const router = useRouter()
   // CHAT-03 — screen-aware suggestions: the panel knows WHICH screen the
   // operator came from; the menu registry's 76 authored agentPrompts finally
@@ -407,6 +423,10 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               role: m.role,
               content: m.text,
             })),
+          // SPEC-M58 — the conversation this turn belongs to (the server
+          // persists the prompt + assistant texts under it at finish,
+          // best-effort — a history failure never kills the turn).
+          sessionId: sessionRef.current || undefined,
           // CHAT-02 — the screen the operator is on (menu title + docNo are
           // resolved server-side; the [CONTEXT] line replaces the prompt's
           // stale hardcoded FY/godowns and makes screen-scoped answers work).
@@ -620,6 +640,106 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
     }
   }
 
+  // SPEC-M58 — lazy client-only conversation id (crypto is browser-only;
+  // the ref stays empty through SSR/hydration, so no mismatch surface).
+  useEffect(() => {
+    if (!sessionRef.current) sessionRef.current = crypto.randomUUID()
+  }, [])
+
+  // SPEC-M58 — the history drawer's data doors (all owner-scoped server-side)
+  async function loadHistory() {
+    setHistoryBusy(true)
+    try {
+      const res = await fetch('/api/agent/history')
+      if (res.status === 401) {
+        toast.error('Session expired — redirecting to login')
+        window.location.href = '/login'
+        return
+      }
+      const data = (await res.json().catch(() => ({ sessions: [] }))) as { sessions?: HistoryRow[] }
+      setHistorySessions(Array.isArray(data.sessions) ? data.sessions : [])
+    } catch {
+      toast.error('Could not load history')
+    } finally {
+      setHistoryBusy(false)
+    }
+  }
+
+  function openHistory() {
+    setHistoryOpen(true)
+    loadHistory()
+  }
+
+  function newChat() {
+    if (streaming) {
+      toast.error('Wait for the current turn to finish')
+      return
+    }
+    setMessages([])
+    setPendingApprovals({})
+    setExpandedResults({})
+    setStreamError(null)
+    setAttachedFile(null)
+    sessionRef.current = crypto.randomUUID()
+    setHistoryOpen(false)
+  }
+
+  async function resumeSession(id: string) {
+    if (streaming) {
+      toast.error('Wait for the current turn to finish')
+      return
+    }
+    try {
+      const res = await fetch(`/api/agent/history/${id}`)
+      if (res.status === 401) {
+        window.location.href = '/login'
+        return
+      }
+      if (!res.ok) {
+        toast.error('Conversation not found')
+        return
+      }
+      const data = (await res.json()) as {
+        messages?: { role: 'user' | 'assistant'; content: string }[]
+      }
+      const msgs: ChatMessage[] = (data.messages || [])
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+          id: crypto.randomUUID(),
+          role: m.role,
+          text: String(m.content ?? ''),
+          toolCalls: [],
+        }))
+      setMessages(msgs)
+      sessionRef.current = id // continue THIS conversation
+      setHistoryOpen(false)
+    } catch {
+      toast.error('Could not load the conversation')
+    }
+  }
+
+  async function deleteSession(id: string) {
+    try {
+      const res = await fetch(`/api/agent/history/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        toast.error('Could not delete the conversation')
+        return
+      }
+      setHistorySessions((prev) => prev.filter((s) => s.id !== id))
+      if (sessionRef.current === id) sessionRef.current = crypto.randomUUID()
+    } catch {
+      toast.error('Could not delete the conversation')
+    }
+  }
+
+  function relTime(iso: string): string {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+    if (s < 60) return 'just now'
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`
+    return `${Math.floor(s / 86400)}d ago`
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
@@ -636,6 +756,18 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               </Badge>
             )}
           </SheetTitle>
+          {/* SPEC-M58 — conversation controls: past conversations (resume /
+              delete) + new chat (rotates the session id). mr-8 clears the
+              SheetPrimitive X that ui/sheet.tsx pins at top-4 right-4 —
+              these are NOT close affordances (HFX-19 keeps exactly one). */}
+          <div className="flex items-center gap-1 mr-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="Past conversations" onClick={openHistory} data-testid="history-button">
+              <History className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" title="New chat" onClick={newChat} data-testid="new-chat-button">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
           {/* HFX-19 (Phase-6B Batch 0) — exactly ONE close affordance: the
               SheetPrimitive.Close X that ui/sheet.tsx renders for every sheet
               (top-4 right-4). The panel's own duplicate X button is GONE —
@@ -644,6 +776,47 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
 
         <ScrollArea className="flex-1 min-h-0">
           <div className="p-4 space-y-4" ref={scrollRef}>
+            {/* SPEC-M58 — the history drawer: renders INSIDE the scroll area
+                (no portal/z-index fights with the Sheet); pushes messages
+                down while open — honest and visible. */}
+            {historyOpen && (
+              <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden" data-testid="chat-history">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100 bg-slate-50">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Past conversations</span>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Close history" onClick={() => setHistoryOpen(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                  {historyBusy ? (
+                    <div className="px-3 py-4 text-sm text-slate-500 flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+                    </div>
+                  ) : historySessions.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-slate-500">
+                      No past conversations yet — they are saved automatically as you chat.
+                    </div>
+                  ) : (
+                    historySessions.map((s) => (
+                      <div key={s.id} className="group flex items-center gap-2 px-3 py-2 hover:bg-slate-50">
+                        <button type="button" className="flex-1 min-w-0 text-left" onClick={() => resumeSession(s.id)} title="Open this conversation">
+                          <div className="text-sm text-slate-800 truncate">{s.title}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {s.messageCount} messages · {relTime(s.updatedAt)}
+                          </div>
+                        </button>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-slate-300 hover:text-red-600"
+                          title="Delete this conversation" onClick={() => deleteSession(s.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
             {messages.length === 0 && (
               <div className="space-y-4">
                 <div className="text-sm text-slate-600 bg-slate-50 rounded-lg p-4 border border-slate-200">

@@ -10,6 +10,9 @@ import { normalizeArgs, parseWithCoercion } from '@/lib/agent/parse-with-coercio
 // CHAT-02 (Phase-6B Batch 2) — the dynamic context line: today IST, user,
 // activeFinYear(), active screen + docNo, godown roster.
 import { buildDynamicContext } from '@/lib/agent/context'
+// SPEC-M58 (ADR-026 Batch 1) — best-effort conversation persistence. NEVER
+// throws into the turn: the caller wraps it in .catch(() => null).
+import { persistTurnHistory } from '@/lib/agent/history'
 import { db } from '@/lib/db'
 import { requireApiSession } from '@/lib/auth/api-guard'
 
@@ -159,6 +162,16 @@ export async function POST(req: Request) {
         const lastUser = [...incoming].reverse().find((m) => m.role === 'user')
         const userText =
           typeof lastUser?.content === 'string' ? lastUser.content : ''
+        // SPEC-M58 — the panel-generated conversation id (crypto.randomUUID,
+        // client-side). Optional + untrusted: validated shape, no assumptions.
+        const sessionId =
+          typeof body.sessionId === 'string' &&
+          body.sessionId.length >= 8 && body.sessionId.length <= 64
+            ? body.sessionId
+            : undefined
+        // SPEC-M58 — collect the turn's assistant texts (multiple steps may
+        // each produce one); persisted under the session at finish.
+        const assistantTexts: string[] = []
 
         const cfg = await loadZaiConfig()
         if (!cfg) {
@@ -264,6 +277,7 @@ export async function POST(req: Request) {
           // 1. History: text content (streamed above)
           if (msg.content) {
             messages.push({ role: 'assistant', content: msg.content })
+            assistantTexts.push(msg.content) // SPEC-M58 — persist at finish
           }
 
           // 2. Process tool calls
@@ -430,6 +444,13 @@ export async function POST(req: Request) {
             error: `Step budget exhausted (${MAX_STEPS} steps) — the task stopped mid-way. Ask me to continue with the remaining part.`,
           })
         }
+        // SPEC-M58 — persist the completed turn (user prompt + assistant
+        // texts) under the conversation. Best-effort by contract: a history
+        // failure NEVER surfaces to the operator or kills the turn (the
+        // AgentTurn .catch precedent).
+        await persistTurnHistory(sessionId, actor.userId, userText, assistantTexts)
+          .catch(() => null)
+
         send({ type: 'finish' })
       } catch (err: any) {
         console.error('[/api/agent] error:', err)

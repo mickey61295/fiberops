@@ -1588,3 +1588,33 @@ model AuditLog {
   @@index([createdAt])
   @@index([entity])
 }
+
+
+// ============== CHAT HISTORY (SPEC-M58, ADR-026 Batch 1) ==============
+// The agent panel's conversations, persisted server-side. AgentTurn (above)
+// stays the untouched approval/audit ledger — it only records TOOL-CALLING
+// turns; a pure-text answer writes no row there. These two models capture
+// the user-facing conversation: every completed turn persists the user
+// prompt + the turn's assistant texts under a client-generated sessionId.
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  userId    String
+  title     String        @default("(no title)")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String // 'user' | 'assistant'
+  content   String
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId])
+}

@@ -206,7 +206,7 @@ describe('SPEC-M24 §3 — agent-panel wiring source pins', () => {
         const p = join(d, e.name)
         if (e.isDirectory()) walk(p)
         else if (/\.(tsx?|mjs)$/.test(e.name)) {
-          if (p.endsWith('agent-panel.tsx') || p.endsWith('voice.ts')) continue
+          if (p.endsWith('agent-panel.tsx') || p.endsWith('voice.ts') || p.endsWith('profile-voice-prefs.tsx')) continue // M57: the profile prefs card — constants + storage keys only, still ONE voice surface
           if (readFileSync(p, 'utf8').includes('@/lib/agent/voice')) offenders.push(p)
         }
       }

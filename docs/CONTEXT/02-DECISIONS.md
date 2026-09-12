@@ -371,3 +371,50 @@ delivered set EXCEEDS the minimal ask (the P&L/balance-sheet closure
 screens ride the same ΣDr==ΣCr doctrine). Scope note: statutory formats
 (e-format filing, audited statements) remain out of scope — the export
 doctrine (ADR-021) governs any future format claims.
+
+## ADR-026 — Phase-6 minimal path launched; milestone numbering re-baselined at M57
+
+Date: 2026-09-12 · Status: accepted (delegated — the owner's standing
+"finish it all" + "start with whatever you feel must be done first" +
+"continue", 2026-09-12)
+
+The Phase-6 PRD (docs/PRD/PHASE-6.md, §14.2) defines the value-first
+minimal path: five batches, ≈30 milestones. The owner's directive pattern
+across the finish-it-all closure — delegate, expect conservative +
+reversible defaults — is applied to the launch itself: **Batch 1 starts
+now** (the owner-complaints batch: profile, chat history, admin hub),
+Batches 2–5 follow one per session unless redirected.
+
+**Numbering**: the PRD's roadmap numbered its milestones M36–M149 against
+its 2026-08-30 baseline (M1–M35). History has since consumed M36–M56 for
+the Phase-6B remediation program (HFX hotfixes, LLD/QoL/HFX-ANT/PRG/PAY
+remediation, the accounts money batches M50–M54, M55 payroll, M56
+cheque/PDC). Phase-6 work therefore continues at **M57+**; the PRD's
+milestone NUMBERS are superseded while its module CONTENT (A–J) remains
+the blueprint. No PRD edit is made — this ADR is the re-baseline record.
+
+**Batch 1 scope, re-baselined against the post-6B codebase** (the 2026-08
+owner-complaints evidence, PRD §17): the PRD's P0 batch was "defect queue
++ profile + chat history" — the defect queue is DONE by definition (6B
+closed every queue), chat-text rendering was fixed in HFX-14 (real
+streaming), so the remaining P0 truth is: **M57 the profile screen**
+(FR-A1 scoped to today: no invites/sessions tables yet), **M58 chat
+history** (conversations persisted + resumable — the panel currently holds
+them in React state only; a refresh loses everything), **M59 the admin
+hub** (FR-B1 scoped to today: cards for the six live admin surfaces; four
+existing breadcrumbs already link /admin, which is a 404 — a live defect).
+Auth hardening (lockout/audit/invites) stays Batch 2, the admin depth
+(roles/matrix/audit v2) stays Batch 3 — unchanged from the PRD's minimal
+path.
+
+**Design stances for Batch 1** (conservative + reversible):
+- Chat history rides TWO NEW additive models (ChatSession/ChatMessage) —
+  AgentTurn stays the untouched approval/audit ledger (its write-path
+  contract and tests are frozen); a pure-text turn writes no AgentTurn row
+  today, so history cannot piggyback on it.
+- No new agent tools (the profile name door and history browsing are
+  user-self-service, not agent domains — the two-doors principle does not
+  apply to a user's own profile/chat).
+- /profile is a utility page (topbar chip, no menu item — the /parity
+  precedent); /admin registers as a masters-admin menu item (it is the
+  group's operational front door and fixes the dead breadcrumb links).

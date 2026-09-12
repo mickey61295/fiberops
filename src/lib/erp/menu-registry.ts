@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56' | 'M57' | 'M58' | 'M59'
 
 export interface MenuGroup {
   id: string
@@ -246,6 +246,9 @@ export const LIVE_ROUTES = new Set<string>([
   '/dispatch/register', // Despatch Register (M41 PRC-05) — despatch-register (RG day-book + aging + gate-pass join)
   '/procurement/po/amendments', // PO Amendments (M41 PRC-02) — po-amendments (planPoAmend form door)
   '/procurement/purchase-return', // Purchase Return (M41 PRC-03) — purchase-return (PRN-#### doc screen)
+  // SPEC-M57/M59 (ADR-026 Batch 1) — profile + admin hub
+  '/profile', // My Profile (M57) — utility page (topbar chip), not a menu item — the /parity precedent
+  '/admin', // Admin Hub (M59) — admin-hub (the masters-admin front door; fixes the dead breadcrumb links)
 ])
 
 // ---------------------------------------------------------------------------
@@ -1320,7 +1323,14 @@ export const MENU_ITEMS: MenuItem[] = [
     notes: 'Tiles + 14-day production bars, all from REPORT_SERVICES (SPEC-M6 §4)',
   },
 
-  // ---- masters-admin (6) ----
+  // ---- masters-admin (7) ----
+  {
+    id: 'admin-hub', label: 'Admin Hub', groupId: 'masters-admin', route: '/admin', arch: 'ST', phase: 'M57',
+    description: 'The admin front door: live cards for users, rights, options, flags, company, audit + the Phase-6 roadmap strip.',
+    legacyForms: [],
+    agentTools: [], pendingTools: [],
+    notes: 'SPEC-M59 (ADR-026 Batch 1): FR-B1 scoped to today — six live cards with DB health lines; fixes the dead /admin breadcrumb links (4 screens linked a 404); planned surfaces (roles/matrix, number series, FY close, controls, locks, print templates, login audit) render honestly as planned',
+  },
   {
     id: 'masters', label: 'All Masters (~40 entities)', groupId: 'masters-admin', route: '/masters', arch: 'MT', phase: 'M2',
     description: 'Party, buyer, style, fabric, yarn, accessory, godown, dept, employee, colour, size, UOM, dia, lot, season + 25 more — one MasterTable engine.',

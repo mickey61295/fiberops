@@ -2578,3 +2578,22 @@ Stage Summary:
 - FINAL STATE: remote main == local == 8dc08de + this record, tree clean, ahead 0 after push. Tier 2 EMPTY (flaky stabilized and 7×-proven; README truthful), §17 FULLY ACCOUNTED (2/3/4/5/6/8 resolved via ADR-020..025; §17-1 one owner value; §17-7 gated on Module G).
 - Gremlin ledger: 8 occurrences, defense 8/8, no new entry this handoff.
 - The project stands at its honest end: 274 tools, 1636 tests stable across 7 independent full runs, every gate green, zero deviation, every claim documented.
+
+---
+Task ID: p6a-batch1
+Agent: main (Super Z)
+Task: The owner's "continue" after the §17-1 explanation (no second machine offered — the field honestly stays empty/local-only) — per the standing directive pattern and my offer to "say the word to start Phase-6": launch the Phase-6 minimal path (ADR-026) and ship Batch 1, the owner-complaints batch re-baselined against the post-6B codebase.
+
+Work Log:
+- 10th handoff triage (tree-level): remote == local == c28d175, ahead 0, tree diff empty, upload-route blob 6dd2b31e intact — NO gremlin #9; runtime assets SURVIVED (both snapshots + eval report).
+- ADR-026 (02-DECISIONS.md): the Phase-6 minimal path launch + the milestone numbering re-baseline — the PRD's M36–M149 roadmap was superseded by the 6B remediation history (M36–M56 consumed); Phase-6 continues at M57+ with the PRD's module content as the blueprint. Batch 1 re-baselined: the PRD's P0 (defect queue + profile + chat history) minus what 6B already delivered (the queue, chat rendering) = M57 profile + M58 chat history + M59 admin hub (the hub pulled forward from Batch 3 because four breadcrumbs already linked the /admin 404 — a live defect).
+- M57 SHIPPED: /profile (server page: avatar, member-since, last-login, menu-access lines; ProfileNameForm → PATCH /api/auth/profile (session-guarded, zod 2–60, the narrow door — email/role stay admin-owned); the M18 ChangePasswordButton reused verbatim; ProfileVoicePrefs reading-writing the SAME localStorage keys the panel uses) + the topbar chip is now a Link (was inert text).
+- M58 SHIPPED: ChatSession/ChatMessage additive models (92→94; db push + generate + dev-server restart — PITFALLS #50 honored; AgentTurn UNTOUCHED); the agent route stamps sessionId + persists the turn's user/assistant texts at finish (best-effort .catch null); /api/agent/history (list) + [id] (get/delete, 404-for-unknown-AND-foreign anti-enumeration, cascade); the panel: sessionRef (hydration-safe), New chat, the history drawer (list/resume/delete — resume CONTINUES the same session).
+- M59 SHIPPED: /admin hub (six live cards with real DB health lines + the honest Phase-6 roadmap strip) — fixes the dead breadcrumb links; menu item admin-hub (masters-admin, rights-gated).
+- Bugs caught by my own gates en route: the duplicated SheetHeader close in the panel (tsc JSX error — my edit, fixed); db.company hallucination in the hub (no such model — activeFinYear instead); 3 consequence-pins updated (m55 context pins, prg-batch7 menu, voice single-surface allowlist + the profile prefs card); the smoke script's bad-variable collision fixed pre-run.
+- Pin/counters sweep: context_check.sh 92→94 models, 36→38 views, 29→30 menu tests, 5→6 auth API, 149→150 menu, 185→187 routes; menu-registry.test ×3 pins; STATE entry 62 + header + README numbers (94 models / 1653 tests / 81 files / 187 routes).
+
+Stage Summary:
+- GATES ALL GREEN: vitest 1653/1653 (81 files; was 1636/79 — +5 profile, +10 chat-history, +1 admin-hub block, +1 parityStats line) · tsc src 0 · context_check 606/606 NO DRIFT · eval --static PASS (m56, registry 266 — no new tools by design: profile + own-chat are user-self-service, not agent domains) · route_smoke_m57 NEW 39/39 LIVE · OPS-01 custom-20260912-221422.db restore-verify PASSED.
+- The minimal path stands: Batch 1 DONE (M57/M58/M59); next in order — Batch 2 auth hardening (lockout, login audit, forgot/reset, idle logout), Batch 3 admin depth (roles CRUD, permission matrix, audit v2), Batch 4 personalization (saved filters, columns, global search), Batch 5 AQL+DHU.
+- §17-1 honestly unchanged: no second machine was offered in the owner's reply — local-only backups stand (the field stays ready; the mechanism was demonstrated live last session on a DB copy).

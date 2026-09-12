@@ -5,7 +5,7 @@ A production-shaped rebuild of the legacy **Joms/Fiberpro** Tirupur knitwear job
 ## What it is
 
 - **ERP core**: orders, BOM, procurement (PO/GRN), inventory (multi-godown stock ledger), cutting, production programs, jobwork, despatch, commercial (invoices/debit notes/journals/payments/cheques), costing, HR (attendance/OT/payroll/shift wages), approvals, masters.
-- **AI Agent Harness** ("Fiberpro Agent"): a GLM tool-calling agent with **274 tools** over a 92-model schema (44 master configs). Writes follow a **plan → approve → commit** loop — the agent proposes, a human approves, the tool's `commit()` persists inside a transaction. Every write door is idempotency-guarded (double-click posts exactly once) and lands in the audit log.
+- **AI Agent Harness** ("Fiberpro Agent"): a GLM tool-calling agent with **274 tools** over a 94-model schema (44 master configs). Writes follow a **plan → approve → commit** loop — the agent proposes, a human approves, the tool's `commit()` persists inside a transaction. Every write door is idempotency-guarded (double-click posts exactly once) and lands in the audit log.
 - **Industry chain, end to end**: the Tirupur knitwear job-work pipeline is first-class —
   `order → BOM → program → PO → GRN → jobwork-out → jobwork-in → cut → issue-to-line → production → rework/rejection → despatch → invoice → cost sheet → collection`
   Every stage moves the **stock ledger** and nets into `CurrentStock` buckets. `suggest_next_step` inspects any order and returns the next stage with a pre-filled tool-args skeleton, so the agent never leaves the user at a dead end after `create_order`.
@@ -35,18 +35,18 @@ Open the app, and in the agent chat:
 npx vitest run
 ```
 
-**1636 tests across 79 files** — the full industry chain with stock-ledger assertions at every hop, doc parity (every write op produces identical rows through the agent door and the form door), master parity (all 44 masters), the money batches (payments, payroll, cheque/PDC), the accounts modules (CoA, party ledger, budget, Tally export), register services, report services, and the ops/idempotency/audit contracts. The suite runs on a disposable copy of the database — it never touches production data.
+**1653 tests across 81 files** — the full industry chain with stock-ledger assertions at every hop, doc parity (every write op produces identical rows through the agent door and the form door), master parity (all 44 masters), the money batches (payments, payroll, cheque/PDC), the accounts modules (CoA, party ledger, budget, Tally export), register services, report services, and the ops/idempotency/audit contracts. The suite runs on a disposable copy of the database — it never touches production data.
 
 ## Repo layout
 
 ```
-prisma/            schema (92 models: Order, Program, LineIssue, Payment (+chequeStatus lifecycle), ...)
+prisma/            schema (94 models: Order, Program, LineIssue, Payment (+chequeStatus lifecycle), ...)
 src/lib/agent/     tool registry (tools.ts, 274 tools), prompt, document extraction
 src/lib/erp/        numbering, enums, movement matrix, posting engine (45 posting services),
                    master configs, doc configs, register configs + services, CoA, audit
-src/app/           185 routes — pages, form doors, registers, agent SSE loop, upload
+src/app/           187 routes — pages, form doors, registers, agent SSE loop, upload
 docs/CONTEXT/      STATE, PITFALLS, DECISIONS (ADR ledger), specs (SPEC-M1..M56)
-tests/             pipeline (79 files) + unit
+tests/             pipeline (81 files) + unit
 scripts/           backup_db.py, recovery_drill.sh, context_check.sh, eval_routing.mjs,
                    route smoke per batch, verification tooling
 db/                SQLite database + backups

@@ -28,8 +28,8 @@ import { APPROVAL_KINDS } from '../../src/lib/erp/approval-kinds'
 const ERP_DIR = path.resolve(__dirname, '../../src/app/(erp)')
 
 describe('menu registry — frozen contract (SPEC-M1)', () => {
-  it('has exactly 141 items (113 parity + M40 supplier-bill + M41 PRC ×3 + M42 INV ×2 + M43 PRG program-propose + M45 L-01 operator-statement + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement)', () => {
-    expect(MENU_ITEMS.length).toBe(149) // M52 M-03: +trial-balance +day-book +cash-book +final-accounts // M48 L-03: +statutory // M46 L-02: +payroll // M45 L-01: +operator-statement (M43 PRG: +program-propose; M42 INV: +stock-take +waste-percent)
+  it('has exactly 141 items (113 parity + M40 supplier-bill + M41 PRC ×3 + M42 INV ×2 + M43 PRG program-propose + M45 L-01 operator-statement + M9 live-tracker + M11 feature-flags + M19 ×13 + tally + M13 digest + M15 audit + M39 jobworker-statement + M59 admin-hub)', () => {
+    expect(MENU_ITEMS.length).toBe(150) // M59: +admin-hub (ADR-026 Batch 1 — the /admin front door) // M52 M-03: +trial-balance +day-book +cash-book +final-accounts // M48 L-03: +statutory // M46 L-02: +payroll // M45 L-01: +operator-statement (M43 PRG: +program-propose; M42 INV: +stock-take +waste-percent)
   })
 
   it('has exactly 17 groups', () => {
@@ -89,6 +89,19 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(fs.existsSync(path.join(ERP_DIR, '../../app/api/tracker/route.ts'))).toBe(true)
   })
 
+  it('M59: admin-hub item — masters-admin group, live, page on disk (SPEC-M59, ADR-026)', () => {
+    const item = findItemById('admin-hub') as MenuItem
+    expect(item.groupId).toBe('masters-admin')
+    expect(item.route).toBe('/admin')
+    expect(LIVE_ROUTES.has('/admin')).toBe(true)
+    expect(isLive(item)).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'admin/page.tsx'))).toBe(true)
+    // /profile rides along (M57): live utility page, deliberately NOT a menu item
+    expect(LIVE_ROUTES.has('/profile')).toBe(true)
+    expect(fs.existsSync(path.join(ERP_DIR, 'profile/page.tsx'))).toBe(true)
+    expect(MENU_ITEMS.some((i) => i.route === '/profile')).toBe(false)
+  })
+
   it('M11: feature-flags item — masters-admin group, live, page on disk, list_app_options door (SPEC-M11 C4)', () => {
     const item = findItemById('feature-flags') as MenuItem
     expect(item.groupId).toBe('masters-admin')
@@ -102,10 +115,10 @@ describe('menu registry — frozen contract (SPEC-M1)', () => {
     expect(findGroupForPath('/admin/settings')?.id).toBe('masters-admin')
   })
 
-  it('parityStats: 141/141 live after M21 (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit + M41 ×3 + M42 ×2 + M43 ×1 + M45 ×1)', () => {
+  it('parityStats: 150/150 live (M59 admin-hub added (113 parity M6 + live-tracker + feature-flags + 13 registers + tally + digest + audit + M41 ×3 + M42 ×2 + M43 ×1 + M45 ×1)', () => {
     const s = parityStats()
-    expect(s.totalItems).toBe(149)
-    expect(s.liveItems).toBe(149)
+    expect(s.totalItems).toBe(150)
+    expect(s.liveItems).toBe(150)
     expect(s.comingItems).toBe(0)
     expect(s.liveGroups).toBe(17)
     expect(s.legacyLive).toBeGreaterThan(0)

@@ -286,13 +286,13 @@ describe('L-06 wiring pins', () => {
     expect(prompt).toContain('get_shift_wages')
   })
 
-  it('context_check pins: 274 / 149 / 185 / m56', () => {
+  it('context_check pins: 274 / 150 / 187 / m56 (M57/M59: /profile + /admin)', () => {
     const cc = src('scripts/context_check.sh')
     expect(cc).toContain('"274"')
-    expect(cc).toContain('"149"')
-    expect(cc).toContain('"185"')
+    expect(cc).toContain('"150"')
+    expect(cc).toContain('"187"')
     expect(cc).toContain('m56-2026-09-08')
-    expect(MENU_ITEMS.length).toBe(149)
+    expect(MENU_ITEMS.length).toBe(150)
   })
 
   it('schema: shiftId + the Shift back-relation (ADR-019-A)', () => {

@@ -72,12 +72,16 @@ export function Topbar({
       </div>
       <div className="flex items-center gap-2">
         {user && (
-          <div className="hidden sm:flex items-center gap-1.5 mr-1" title={user.email}>
+          <Link
+            href="/profile"
+            title={`My profile (${user.email})`}
+            className="hidden sm:flex items-center gap-1.5 mr-1 rounded-md px-1.5 py-1 hover:bg-slate-100 transition-colors"
+          >
             <span className="text-sm font-medium text-slate-700 truncate max-w-[140px]">{user.name}</span>
             <span className="text-[10px] uppercase tracking-wide text-slate-500 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
               {user.role}
             </span>
-          </div>
+          </Link>
         )}
         <Button variant="ghost" size="sm" onClick={onRefresh} title="Refresh data">
           <RefreshCw className="h-4 w-4" />

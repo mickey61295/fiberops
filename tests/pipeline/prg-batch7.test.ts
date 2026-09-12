@@ -421,7 +421,7 @@ describe('PRG Batch 7 — SPEC-M43 program-flow revival', () => {
     })
 
     it('menu: 147 items, /programs/propose is LIVE with the propose tool door', () => {
-      expect(MENU_ITEMS.length).toBe(149) // M52 M-03 final-accounts quartet // M48 L-03 statutory (+ M46 L-02 payroll)
+      expect(MENU_ITEMS.length).toBe(150) // M59: +admin-hub // M52 M-03 final-accounts quartet // M48 L-03 statutory (+ M46 L-02 payroll)
       expect(LIVE_ROUTES.has('/programs/propose')).toBe(true)
       const item = MENU_ITEMS.find((i) => i.id === 'program-propose')
       expect(item?.agentTools).toContain('propose_program_requirements')
