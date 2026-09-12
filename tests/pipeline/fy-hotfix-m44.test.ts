@@ -35,6 +35,10 @@ afterAll(async () => {
   // test's finally, re-asserted here defensively)
   const exp = await db.expense.findUnique({ where: { expNo: EXP_NO } })
   if (exp) {
+    // companion FIRST (the doc-parity-m5d flake class): the expense door
+    // commits `JV-{expNo}` alongside the row — byte-identical means the
+    // journal goes too, not just the Expense
+    await db.journal.deleteMany({ where: { voucherNo: { in: [`JV-${EXP_NO}`, `CN-JV-${EXP_NO}`] } } }).catch(() => {})
     await db.auditLog.deleteMany({ where: { entity: 'expense', entityId: exp.id } })
     await db.expense.delete({ where: { id: exp.id } })
   }

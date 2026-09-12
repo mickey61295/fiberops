@@ -74,6 +74,15 @@ describe('M5 Wave D doc parity (SPEC-M5 §12-1, §12-5)', () => {
   const packIds: string[] = []
   const labIds: string[] = []
   const expIds: string[] = []
+  // FLAKE FIX (accounts-m05 EH-02, ~2/5 runs): the expense door writes a
+  // companion journal `JV-{expNo}` in the SAME commit — deleting only the
+  // Expense rows leaks the companions into the shared test DB. When the
+  // discovery order puts this file before accounts-m02/accounts-m05 (vitest
+  // lists files in fs order, not alphabetical), their AUTO-NUMBERED expenses
+  // pick EXP-0001 (first gap — the Expense row is gone), hit the leaked
+  // JV-EXP-0001 in the companion-exists check, and LOUDLY refuse — failing
+  // every auto-numbered EH-02 case. Track the numbers, delete the companions.
+  const expNos: string[] = []
   const jwIds: string[] = []
   const journalIds: string[] = []
   const prodIds: string[] = []
@@ -235,6 +244,7 @@ describe('M5 Wave D doc parity (SPEC-M5 §12-1, §12-5)', () => {
     const a = await agentDoor('create_expense', { ...base, expNo: `M5D-EXP-A-${TS}` })
     const b = await formDoor(planExpense, base)
     expIds.push(a.id, b.id)
+    expNos.push(String(a.expNo), String(b.expNo)) // companions must revert too
     const [rA, rB] = await Promise.all([
       db.expense.findUnique({ where: { id: a.id } }),
       db.expense.findUnique({ where: { id: b.id } }),
@@ -398,6 +408,9 @@ describe('M5 Wave D doc parity (SPEC-M5 §12-1, §12-5)', () => {
     await sw(db.stockLedger.deleteMany({ where: { docNo: { startsWith: 'RSP-' }, lotId: { in: [fixtureLotId, ...newLotIds] } } }))
     await sw(db.currentStock.deleteMany({ where: { lotId: { in: [fixtureLotId, ...newLotIds] } } }))
     await sw(db.lot.deleteMany({ where: { id: { in: [fixtureLotId, ...newLotIds] } } }))
+    // expense companions FIRST (JV- + CN-JV- — the flake root cause; see the
+    // expNos note above), then the rows themselves
+    await sw(db.journal.deleteMany({ where: { voucherNo: { in: [...expNos.map((e) => `JV-${e}`), ...expNos.map((e) => `CN-JV-${e}`)] } } }))
     await sw(db.expense.deleteMany({ where: { id: { in: expIds } } }))
     await sw(db.labTest.deleteMany({ where: { id: { in: labIds } } }))
     for (const pid of packIds) {
