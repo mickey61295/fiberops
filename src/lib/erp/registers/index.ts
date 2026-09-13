@@ -39,6 +39,7 @@ import { queryPoRegister } from './po-register'
 import { querySupplierHistory } from './supplier-history'
 import { queryClosingStock } from './closing-stock'
 import { queryAuditLog } from './audit-log'
+import { queryLoginAudit } from './login-audit' // SPEC-M60 FR-A7
 import { queryAttendance } from './attendance'
 import { queryDespatchRegister } from './despatch' // SPEC-M41 PRC-05
 import { queryWastePercent } from './waste-percent' // SPEC-M42 INV-05
@@ -88,6 +89,7 @@ export const REGISTER_SERVICES: Record<string, (q: RegisterQuery) => Promise<Reg
   'supplier-history': querySupplierHistory, // SPEC-M19 §2 Wave B
   'closing-stock': queryClosingStock, // SPEC-M19 §4 Wave D
   'audit-log': queryAuditLog, // SPEC-M9 §9 M15 — admin audit viewer
+  'login-audit': queryLoginAudit, // SPEC-M60 FR-A7 — admin login/session audit viewer
   'attendance': queryAttendance, // SPEC-M20 (Gap D) — attendance day-book
   'despatch-register': queryDespatchRegister, // SPEC-M41 (Phase-6B Batch 5) PRC-05 — despatch day-book
   'waste-percent': queryWastePercent, // SPEC-M42 (Phase-6B Batch 6) INV-05 — waste % KPI

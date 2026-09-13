@@ -15,14 +15,18 @@ import { signRightsToken, RIGHTS_COOKIE } from './rights'
 
 export async function setLoginCookies(
   res: NextResponse,
-  user: { id: string; role: string; userGroupId?: string | null },
+  user: { id: string; role: string; userGroupId?: string | null; tokenVersion?: number },
 ): Promise<void> {
   const group = user.userGroupId
     ? await db.userGroup.findUnique({ where: { id: user.userGroupId }, select: { rights: true } })
     : null
   const rights = Array.isArray(group?.rights) ? (group!.rights as string[]) : []
 
-  const token = await createSessionToken(user.id)
+  // M60 FR-A8: the session token carries the user's tokenVersion at issue
+  // time (a later bump — password change/reset, sign-out-all — makes every
+  // previously issued cookie fail the node-side version compare).
+  const tv = user.tokenVersion ?? 0
+  const token = await createSessionToken(user.id, tv)
   const rightsToken = await signRightsToken(user.role, rights)
   const opts = {
     httpOnly: true,

@@ -37,6 +37,7 @@ import {
 } from './wave-b'
 import { closingStockConfig } from './closing-stock'
 import { auditLogConfig } from './audit-log'
+import { loginAuditConfig } from './login-audit' // SPEC-M60 FR-A7
 import { attendanceConfig } from './attendance'
 import { despatchRegisterConfig } from './despatch-register' // SPEC-M41 PRC-05
 import { wastePercentConfig } from './waste-percent' // SPEC-M42 INV-05
@@ -95,6 +96,7 @@ export const REGISTER_CONFIGS: RegisterConfig[] = [
   cashBookConfig, // SPEC-M52 M-03 — the cash family book
   finalAccountsConfig, // SPEC-M52 M-03 — P&L + balance sheet
   pdcConfig, // SPEC-M56 (PAY-08 §17-3) — cheques in hand, aging off the cheque date
+  loginAuditConfig, // SPEC-M60 FR-A7 — the login/session audit register
 ]
 
 export function getRegisterConfig(slug: string): RegisterConfig | undefined {

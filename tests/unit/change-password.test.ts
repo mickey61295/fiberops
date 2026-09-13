@@ -39,7 +39,12 @@ function req(body: unknown): Request {
 }
 
 async function login() {
-  cookieStore[SESSION_COOKIE] = await createSessionToken(userId)
+  // M60 FR-A8: mint at the user's CURRENT tokenVersion — a password change
+  // bumps it, and a cookie minted before the bump is revoked (the real
+  // change-password response re-issues the cookie; the mocked store here
+  // re-mints instead).
+  const row = await db.user.findUnique({ where: { id: userId }, select: { tokenVersion: true } })
+  cookieStore[SESSION_COOKIE] = await createSessionToken(userId, row?.tokenVersion ?? 0)
 }
 
 afterAll(async () => {

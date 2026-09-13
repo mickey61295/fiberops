@@ -34,8 +34,11 @@ export const config = {
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value
-  const userId = await verifySessionToken(token)
-  if (!userId) {
+  // M60: verifySessionToken now returns {userId, tv} (legacy 3-part tokens
+  // verify as tv=0) — the edge only checks validity; the tokenVersion
+  // revocation compare lives in the node-side getSessionUser DB re-check.
+  const session = await verifySessionToken(token)
+  if (!session) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
     url.search = `next=${encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)}`

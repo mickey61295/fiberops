@@ -58,7 +58,11 @@ function req(body: unknown): Request {
 }
 
 async function loginAs(id: string) {
-  cookieStore[SESSION_COOKIE] = await createSessionToken(id)
+  // M60 FR-A8: mint at the user's CURRENT tokenVersion — a password set/clear
+  // bumps it, and a cookie minted before the bump is revoked (the self-set
+  // response re-issues the cookie; the mocked store here re-mints instead).
+  const row = await db.user.findUnique({ where: { id }, select: { tokenVersion: true } })
+  cookieStore[SESSION_COOKIE] = await createSessionToken(id, row?.tokenVersion ?? 0)
 }
 
 describe('POST /api/auth/admin/set-password (SPEC-M7 Wave C)', () => {

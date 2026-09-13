@@ -12,16 +12,50 @@ datasource db {
 
 // ============== ORG / SECURITY ==============
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String
-  role         String     @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
-  userGroupId  String? // ADR-016 (M6-B): the group whose rights matrix applies
-  userGroup    UserGroup? @relation(fields: [userGroupId], references: [id])
-  active       Boolean    @default(true)
-  passwordHash String? // ADR-017 (M7-A): scrypt$<salt>$<hash>; null = cannot log in yet
-  lastLoginAt  DateTime? // ADR-017 (M7-A): set on each successful login
-  createdAt    DateTime   @default(now())
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  role          String     @default("admin") // admin | merchandiser | storekeeper | accountant | production_mgr | hr | cutting_mgr
+  userGroupId   String? // ADR-016 (M6-B): the group whose rights matrix applies
+  userGroup     UserGroup? @relation(fields: [userGroupId], references: [id])
+  active        Boolean    @default(true)
+  passwordHash  String? // ADR-017 (M7-A): scrypt$<salt>$<hash>; null = cannot log in yet
+  lastLoginAt   DateTime? // ADR-017 (M7-A): set on each successful login
+  tokenVersion  Int        @default(0) // M60 FR-A8: bump to revoke every live session token (SPEC-M60 §2)
+  createdAt     DateTime   @default(now())
+}
+
+// M60 FR-A6 (SPEC-M60) — the lockout ledger, keyed on the email STRING so
+// unknown emails lock identically (the anti-enumeration rule). Queried by
+// email+at within the 45-min horizon; the fail/locked rows are DELETABLE by
+// the admin clear (LoginAudit keeps the story).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  userId    String?
+  ip        String   @default("unknown")
+  userAgent String   @default("unknown")
+  outcome   String // success | fail | locked
+  at        DateTime @default(now())
+
+  @@index([email, at])
+}
+
+// M60 FR-A7 (SPEC-M60) — the login/session audit trail: every login
+// (success/fail), locked attempt, logout, password set/clear, lockout clear,
+// and sessions-cleared event. Read side: /admin/login-audit register + csv.
+model LoginAudit {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  event     String // login | login_fail | login_locked | logout | lockout_clear | password_set | password_clear | sessions_cleared
+  ip        String   @default("unknown")
+  userAgent String   @default("unknown")
+  detail    String?
+  at        DateTime @default(now())
+
+  @@index([email, at])
+  @@index([event, at])
 }
 
 model AgentTurn {

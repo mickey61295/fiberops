@@ -9,13 +9,14 @@
  * from the topbar chip.
  */
 import Link from 'next/link'
-import { KeyRound, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react'
+import { KeyRound, MonitorSmartphone, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-react'
 import { db } from '@/lib/db'
 import { getSessionUser } from '@/lib/auth/current-user'
 import { MENU_GROUPS } from '@/lib/erp/menu-registry'
 import { ChangePasswordButton } from '@/components/erp/change-password'
 import { ProfileNameForm } from '@/components/erp/profile-name-form'
 import { ProfileVoicePrefs } from '@/components/erp/profile-voice-prefs'
+import { SignOutAllButton } from '@/components/erp/profile-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,6 +118,21 @@ export default async function ProfilePage() {
             </p>
           </div>
           <ChangePasswordButton />
+        </div>
+      </section>
+
+      {/* sessions (M60 FR-A8) */}
+      <section className="bg-white border border-slate-200 rounded-lg p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+              <MonitorSmartphone className="h-4 w-4 text-slate-400" /> Sessions
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Sign out on every other device (a stolen or forgotten login dies at its next request). This session stays signed in.
+            </p>
+          </div>
+          <SignOutAllButton />
         </div>
       </section>
 

@@ -65,14 +65,15 @@ const ROUTE_BY_SLUG: Record<string, string> = {
   'final-accounts': '/accounts/final-accounts', // SPEC-M52 M-03
   'shift-wages': '/hr/shift-wages', // SPEC-M55 L-06
   'pdc': '/accounts/pdc', // SPEC-M56 PAY-08
+  'login-audit': '/admin/login-audit', // SPEC-M60 FR-A7
 }
 
 describe('register-configs — SPEC-M4 §4 contracts', () => {
-  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement + M46 payroll + M48 statutory + M52 final-accounts quartet + M55 shift-wages + M56 pdc: exactly the 47 register configs (order-status board is not a RegisterScreen)', () => {
+  it('Wave A+B set + M5 Waves A/B + M6 Wave C + M19 Waves A/B/D + M15 audit + M39 jobworker-statement + M42 waste-percent + M45 operator-statement + M46 payroll + M48 statutory + M52 final-accounts quartet + M55 shift-wages + M56 pdc + M60 login-audit: exactly the 48 register configs (order-status board is not a RegisterScreen)', () => {
     expect(REGISTER_CONFIGS.map((c) => c.slug).sort()).toEqual([
       'acc-stock', 'approval-audit', 'attendance', 'audit-log', 'bills-register', 'budget-vs-actual', 'cash-book', 'closing-stock', 'current-stock', 'cutting-register', 'daily-in-out', 'day-book', 'despatch-register',
       'fabric-stock', 'final-accounts', 'general-stock', 'inhand-orders', 'io-history', 'itemwise-stock', 'jobwork-register', 'jobworker-statement',
-      'line-issue-register', 'lot-tracking', 'operator-statement', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'payroll', 'pcs-stock', 'pdc',
+      'line-issue-register', 'login-audit', 'lot-tracking', 'operator-statement', 'order-register', 'orderwise-pcs', 'party-balance', 'party-ledger', 'payroll', 'pcs-stock', 'pdc',
       'piece-rate-confirmation', 'po-register', 'production-status', 'production-wages', 'program-status',
       'rate-confirmation', 'shift-wages', 'statutory', 'stock-ledger', 'stock-register', 'supplier-bills', 'supplier-history', 'supplier-pending',
       'trial-balance', 'waste-percent', 'yarn-stock',
@@ -108,6 +109,14 @@ describe('register-configs — SPEC-M4 §4 contracts', () => {
       })
 
       it('every declared agentTool exists in the tools registry', () => {
+        // SPEC-M60: login-audit is admin-UI-first by design (ADR-026 Batch-2
+        // scoping — no new agent doors this milestone; the login-audit agent
+        // door rides Batch 3's admin-depth tool set). Every OTHER register
+        // keeps the >=1 read-tool contract.
+        if (config.slug === 'login-audit') {
+          expect(config.agentTools).toEqual([])
+          return
+        }
         expect(config.agentTools.length).toBeGreaterThan(0)
         for (const t of config.agentTools) {
           const tool = getTool(t)

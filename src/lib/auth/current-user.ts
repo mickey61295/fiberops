@@ -26,20 +26,25 @@ export type SessionUser = {
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value
-  const userId = await verifySessionToken(token)
-  if (!userId) return null
+  const session = await verifySessionToken(token)
+  if (!session) return null
   const user = await db.user.findUnique({
-    where: { id: userId },
+    where: { id: session.userId },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
       active: true,
+      tokenVersion: true,
       userGroup: { select: { rights: true } },
     },
   })
   if (!user || !user.active) return null
+  // M60 FR-A8 (SPEC-M60 §2): a cookie issued before the last tokenVersion
+  // bump is a revoked session — stolen/other-device cookies die at the next
+  // request. tv === the DB value for every freshly issued cookie.
+  if (user.tokenVersion > session.tv) return null
   const rights = Array.isArray(user.userGroup?.rights) ? (user.userGroup!.rights as string[]) : null
   return { id: user.id, name: user.name, email: user.email, role: user.role, rights }
 }

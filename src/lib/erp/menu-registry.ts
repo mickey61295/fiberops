@@ -15,7 +15,7 @@
 import { countableLegacyForms } from './legacy-aliases'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
-export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56' | 'M57' | 'M58' | 'M59'
+export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56' | 'M57' | 'M58' | 'M59' | 'M60'
 
 export interface MenuGroup {
   id: string
@@ -234,6 +234,8 @@ export const LIVE_ROUTES = new Set<string>([
   '/notifications/digest', // Daily Digest (M13) — daily-digest (approvals + low stock + gate, webhook channels)
   // M15 (SPEC-M9 §9) — engine-level audit trail
   '/admin/audit', // Audit Log (M15) — audit-log (admin viewer over the runCommit trail)
+  // M60 (SPEC-M60 FR-A7) — login/session audit register
+  '/admin/login-audit', // Login Audit (M60) — login-audit (admin viewer over the auth-event trail)
   // M20 (gap-audit P3, Gap D) — attendance
   '/hr/attendance', // Attendance (M20) — attendance (day-book; posted via post_attendance agent tool)
   // M21 (gap-audit P3) — waste receipt
@@ -1379,6 +1381,13 @@ export const MENU_ITEMS: MenuItem[] = [
     legacyForms: ['FrmAuditTrail'],
     agentTools: ['get_approval_audit'], pendingTools: [],
     notes: 'SPEC-M9 §9 M15: AuditLog rows written by the runCommit executor at every commit door (agent approve + form actions); admin role door',
+  },
+  {
+    id: 'login-audit', label: 'Login Audit', groupId: 'masters-admin', route: '/admin/login-audit', arch: 'RG', phase: 'M60',
+    description: 'Every auth event — logins, failures, lockouts, password changes — plus the currently-locked strip with the admin clear.',
+    legacyForms: [],
+    agentTools: [], pendingTools: [],
+    notes: 'SPEC-M60 FR-A7: LoginAudit rows written by the auth doors; LoginAttempt is the lockout ledger (FR-A6); admin role door',
   },
 ]
 

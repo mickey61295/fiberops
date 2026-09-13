@@ -21,6 +21,8 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { requireApiSession } from '@/lib/auth/api-guard'
 import { hashPassword } from '@/lib/auth/password'
+import { setLoginCookies } from '@/lib/auth/login-cookies'
+import { clientIp, recordLoginAudit, userAgentOf } from '@/lib/auth/security'
 
 export const runtime = 'nodejs'
 
@@ -62,11 +64,38 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    await db.user.update({ where: { id: userId }, data: { passwordHash: null } })
+    // M60 FR-A8: clearing also revokes the target's live sessions.
+    await db.user.update({ where: { id: userId }, data: { passwordHash: null, tokenVersion: { increment: 1 } } })
+    await recordLoginAudit({
+      userId: target.id,
+      email: target.email,
+      event: 'password_clear',
+      ip: clientIp(req),
+      userAgent: userAgentOf(req),
+      detail: `cleared by admin ${guard.user.email}`,
+    })
     return NextResponse.json({ ok: true, user: target, passwordHash: null })
   }
 
   const passwordHash = await hashPassword(password!)
-  await db.user.update({ where: { id: userId }, data: { passwordHash } })
-  return NextResponse.json({ ok: true, user: target, passwordHash: 'set' })
+  // M60 FR-A8: setting a password revokes the target's live sessions (the
+  // admin's OWN session is a different user — unaffected). EXCEPT the
+  // self-set case (the change-password parity): the setter stays signed in
+  // via the re-issued cookie.
+  const updated = await db.user.update({
+    where: { id: userId },
+    data: { passwordHash, tokenVersion: { increment: 1 } },
+    select: { id: true, role: true, tokenVersion: true, userGroupId: true },
+  })
+  await recordLoginAudit({
+    userId: target.id,
+    email: target.email,
+    event: 'password_set',
+    ip: clientIp(req),
+    userAgent: userAgentOf(req),
+    detail: `set by admin ${guard.user.email}${target.id === guard.user.id ? ' (self — session re-issued)' : ''}`,
+  })
+  const res = NextResponse.json({ ok: true, user: target, passwordHash: 'set' })
+  if (target.id === guard.user.id) await setLoginCookies(res, updated)
+  return res
 }

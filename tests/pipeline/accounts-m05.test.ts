@@ -333,7 +333,7 @@ describe('Accounts M-05 (SPEC-M54) — expense heads', () => {
     expect(prompt).toContain('PO + production + expenses')
     const cc = src('scripts/context_check.sh')
     expect(cc).toContain('"274"')
-    expect(cc).toContain('"94"')
+    expect(cc).toContain('"96"')
     expect(cc).toContain('"44"')
     expect(cc).toContain('m56-2026-09-08')
     const schema = src('prisma/schema.prisma')

@@ -4,7 +4,9 @@
  * and imports this file). Web Crypto (`globalThis.crypto.subtle`) is available
  * in both the Edge and the Node runtimes.
  *
- * Token format: `b64url(userId).expMs.b64url(hmacSha256(userId + '.' + expMs))`
+ * Token format: `b64url(userId).expMs.tv.b64url(hmacSha256(userId + '.' + expMs + '.' + tv))`
+ * (M60 FR-A8 added the tokenVersion field). LEGACY 3-part tokens without tv
+ * verify as tv=0 (zero deploy disruption — a bump immediately outranks them).
  * Cookie: `fo_session`, httpOnly, sameSite=lax, path=/, 7-day TTL.
  *
  * AUTH_SECRET comes from env; the dev fallback keeps local/vitest deterministic
@@ -15,6 +17,11 @@ const decoder = new TextDecoder()
 
 export const SESSION_COOKIE = 'fo_session'
 export const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
+
+/** A verified session token's payload (M60: carries the tokenVersion at
+ *  issue time — the node-side DB re-check compares it against
+ *  User.tokenVersion to revoke bumped sessions). */
+export type VerifiedSession = { userId: string; tv: number }
 
 function secretString(): string {
   return process.env.AUTH_SECRET || 'fiberops-dev-secret-change-me'
@@ -56,26 +63,39 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
-export async function createSessionToken(userId: string, ttlSeconds: number = SESSION_TTL_SECONDS): Promise<string> {
+export async function createSessionToken(
+  userId: string,
+  tv: number = 0,
+  ttlSeconds: number = SESSION_TTL_SECONDS,
+): Promise<string> {
   const expMs = Date.now() + ttlSeconds * 1000
-  const payload = `${b64url(encoder.encode(userId))}.${expMs}`
+  const payload = `${b64url(encoder.encode(userId))}.${expMs}.${tv}`
   return `${payload}.${await sign(payload)}`
 }
 
-/** Verify a session token → the userId, or null when invalid/tampered/expired. */
-export async function verifySessionToken(token: string | null | undefined): Promise<string | null> {
+/** Verify a session token → {userId, tv}, or null when invalid/tampered/expired.
+ * Accepts BOTH formats: the M60 4-part token (uid.expMs.tv.sig) and the legacy
+ * 3-part token (uid.expMs.sig → tv 0). */
+export async function verifySessionToken(
+  token: string | null | undefined,
+): Promise<VerifiedSession | null> {
   if (!token) return null
   const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const [uidB64, expStr, sig] = parts
-  if (!/^\d+$/.test(expStr) || !uidB64 || !sig) return null
+  if (parts.length !== 4 && parts.length !== 3) return null
+  const isLegacy = parts.length === 3
+  const [uidB64, expStr, maybeTv, maybeSig] = parts
+  const tvStr = isLegacy ? '0' : maybeTv
+  const sig = isLegacy ? maybeTv : maybeSig // 3-part: [uid, exp, sig]; 4-part: [uid, exp, tv, sig]
+  if (!/^\d+$/.test(expStr) || !/^\d+$/.test(tvStr) || !uidB64 || !sig) return null
   const expMs = Number(expStr)
+  const tv = Number(tvStr)
   if (expMs <= Date.now()) return null
-  const expected = await sign(`${uidB64}.${expStr}`)
+  const payload = isLegacy ? `${uidB64}.${expStr}` : `${uidB64}.${expStr}.${tvStr}`
+  const expected = await sign(payload)
   if (!safeEqual(expected, sig)) return null
   try {
     const userId = decoder.decode(fromB64url(uidB64))
-    return userId.length > 0 ? userId : null
+    return userId.length > 0 ? { userId, tv } : null
   } catch {
     return null
   }

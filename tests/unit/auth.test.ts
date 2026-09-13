@@ -49,26 +49,31 @@ describe('password (scrypt, SPEC-M7 §3)', () => {
   })
 })
 
-describe('session token (HMAC-SHA256, SPEC-M7 §3)', () => {
-  it('create → verify round trip returns the userId', async () => {
+describe('session token (HMAC-SHA256, SPEC-M7 §3 + M60 FR-A8 tv)', () => {
+  it('create → verify round trip returns {userId, tv} (M60 4-part format)', async () => {
     const token = await createSessionToken('user-abc-123')
-    expect(token.split('.')).toHaveLength(3)
-    expect(await verifySessionToken(token)).toBe('user-abc-123')
+    expect(token.split('.')).toHaveLength(4)
+    expect(await verifySessionToken(token)).toEqual({ userId: 'user-abc-123', tv: 0 })
+    const tokenV7 = await createSessionToken('user-abc-123', 7)
+    expect(await verifySessionToken(tokenV7)).toEqual({ userId: 'user-abc-123', tv: 7 })
   })
 
   it('tampered payload rejects', async () => {
     const token = await createSessionToken('user-abc-123')
-    const [uid, exp, sig] = token.split('.')
-    // swap the userId b64 for a different one, keep exp+sig
-    const forged = `${btoa('user-xyz-999').replace(/=+$/, '')}.${exp}.${sig}`
+    const [uid, exp, tv, sig] = token.split('.')
+    // swap the userId b64 for a different one, keep exp+tv+sig
+    const forged = `${btoa('user-xyz-999').replace(/=+$/, '')}.${exp}.${tv}.${sig}`
     expect(await verifySessionToken(forged)).toBeNull()
     // and a flipped signature
-    const flipped = `${uid}.${exp}.${sig.slice(0, -2)}${sig.slice(-2) === 'AA' ? 'BB' : 'AA'}`
+    const flipped = `${uid}.${exp}.${tv}.${sig.slice(0, -2)}${sig.slice(-2) === 'AA' ? 'BB' : 'AA'}`
     expect(await verifySessionToken(flipped)).toBeNull()
+    // a bumped tv with the OLD sig (the revocation attack): verify must reject
+    const tvForged = `${uid}.${exp}.${String(Number(tv) + 1)}.${sig}`
+    expect(await verifySessionToken(tvForged)).toBeNull()
   })
 
   it('expired token rejects', async () => {
-    const token = await createSessionToken('user-old', -10) // expired 10s ago
+    const token = await createSessionToken('user-old', 0, -10) // tv 0, expired 10s ago (M60 arg order)
     expect(await verifySessionToken(token)).toBeNull()
   })
 

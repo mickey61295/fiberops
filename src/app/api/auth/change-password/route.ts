@@ -17,6 +17,8 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { requireApiSession } from '@/lib/auth/api-guard'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
+import { setLoginCookies } from '@/lib/auth/login-cookies'
+import { clientIp, recordLoginAudit, userAgentOf } from '@/lib/auth/security'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +55,22 @@ export async function POST(req: NextRequest) {
   }
 
   const passwordHash = await hashPassword(newPassword)
-  await db.user.update({ where: { id: user.id }, data: { passwordHash } })
-  return NextResponse.json({ ok: true, email: user.email, passwordHash: 'set' })
+  // M60 FR-A8: bump tokenVersion → every OTHER device's cookie dies at its
+  // next request; THIS session stays signed in via the re-issued cookie.
+  const updated = await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash, tokenVersion: { increment: 1 } },
+    select: { id: true, role: true, tokenVersion: true, userGroupId: true },
+  })
+  const res = NextResponse.json({ ok: true, email: user.email, passwordHash: 'set' })
+  await setLoginCookies(res, updated)
+  await recordLoginAudit({
+    userId: user.id,
+    email: user.email,
+    event: 'password_set',
+    ip: clientIp(req),
+    userAgent: userAgentOf(req),
+    detail: 'self change — other sessions revoked',
+  })
+  return res
 }
