@@ -645,4 +645,33 @@ server is already running, RESTART the server before any LIVE gate
 (route smoke / browser E2E). The vitest suite is immune (workers import the
 freshly generated client at boot). A live surface showing "missing" for a
 column the DB provably has (check with a raw prisma script first) is this
-pitfall, not a rendering bug.
+pitfall, not a rendering bug. (Re-confirmed at the 11th handoff: a server
+that predates even a `git reset --hard` serves the stale tree's client —
+route_smoke_m57 went 34/39 until the restart, then 39/39.)
+
+## #51 — M57-59 (p6a-batch1): a pin sweep that lands AFTER the gate run ships a red tree — value-search the consumers, re-run the suite after the LAST edit
+
+The batch-1 session updated `scripts/context_check.sh` counts (models
+92→94, views 36→38, menu tests 29→30, auth API 5→6, menu 149→150, routes
+185→187) and the consequence-pins it knew about (m55 context pins,
+prg-batch7 menu, voice allowlist) — then reported "gates: 1653/1653
+vitest". But `tests/pipeline/accounts-m05.test.ts:336` pins
+`expect(cc).toContain('"92"')` — a consequence-pin nobody remembered lives
+in an ACCOUNTS test file. `git show a2e3938 --stat -- tests/pipeline/
+accounts-m05.test.ts` is empty: the file was never swept. The suite must
+have run BEFORE the final sweep edit — the pushed tree was red
+(1 failed / 1653, deterministic; 15 passed + 1 failed in isolation).
+
+**The rules**:
+1. A count that changes in one checked-in file is a VALUE — search every
+   consumer by the value itself (`rg "'\"92\"'" tests/ src/ scripts/`), not
+   by guessing which files pin it. Consequence-pins hide in files unrelated
+   to the feature that changed the count (an accounts test pinning the
+   context script's model count).
+2. The full-suite gate is only valid if it runs AFTER the LAST content edit
+   of the session — a sweep edit made after the green run invalidates the
+   run. Cheap insurance: one final `npx vitest run` right before the commit
+   (52s at 1653 tests — the cheapest gate there is).
+3. Every new session's independent battery is not ceremony — it is the only
+   mechanism that detects a previous session's stale gate claim. Trust no
+   inherited "green"; re-run.
