@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
       text: extracted.text,
     })
   } catch (err: any) {
+    console.error('[/api/upload] error:', err)
     return NextResponse.json({ ok: false, error: err?.message || 'Upload failed' }, { status: 500 })
   }
 }

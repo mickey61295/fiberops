@@ -1658,7 +1658,7 @@ const readTools: AgentTool[] = [
 
   // ───────────── DOCUMENT INGESTION TOOLS ─────────────
   // These let the agent read files the user uploaded via the chat panel
-  // (paperclip button → /api/upload → /home/z/my-project/upload/), extract
+  // (paperclip button → /api/upload → UPLOAD_DIR), extract
   // their text, and then create ERP records via the normal create_* tools.
 
   {

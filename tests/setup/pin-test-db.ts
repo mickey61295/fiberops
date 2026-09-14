@@ -14,6 +14,8 @@
  * never custom.db.
  */
 
-const TEST_DB_FILE = '/home/z/my-project/db/test.db'
+import path from 'node:path'
+
+const TEST_DB_FILE = path.join(process.cwd(), 'db', 'test.db').replace(/\\/g, '/')
 
 process.env.DATABASE_URL = `file:${TEST_DB_FILE}`

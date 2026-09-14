@@ -12,9 +12,11 @@
  * for the workers is tests/setup/pin-test-db.ts (setupFiles).
  */
 import { rmSync, copyFileSync, existsSync } from 'node:fs'
+import path from 'node:path'
 
-const SRC = '/home/z/my-project/db/custom.db'
-const DST = '/home/z/my-project/db/test.db'
+const DB_DIR = path.join(process.cwd(), 'db')
+const SRC = path.join(DB_DIR, 'custom.db')
+const DST = path.join(DB_DIR, 'test.db')
 
 export default function globalSetup() {
   for (const f of [DST, `${DST}-journal`, `${DST}-wal`, `${DST}-shm`]) {

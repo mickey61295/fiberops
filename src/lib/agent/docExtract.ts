@@ -5,14 +5,47 @@
 //  - TXT/CSV/MD/JSON/TSV → read directly
 // Path traversal is blocked: only plain file names inside UPLOAD_DIR are allowed.
 
-import { promises as fs } from 'fs'
+import { promises as fs, existsSync, readdirSync } from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 
 const execFileAsync = promisify(execFile)
 
-export const UPLOAD_DIR = '/home/z/my-project/upload'
+// pdftotext resolution: PDFTOTEXT_PATH wins, then PATH, and on Windows a
+// winget-installed poppler (whose PATH entry only reaches NEW terminals —
+// a long-running dev server otherwise spawns ENOENT).
+let cachedPdftotext: string | null = null
+function resolvePdftotext(): string {
+  if (cachedPdftotext) return cachedPdftotext
+  const explicit = (process.env.PDFTOTEXT_PATH || '').trim()
+  if (explicit) return (cachedPdftotext = explicit)
+  const exe = process.platform === 'win32' ? 'pdftotext.exe' : 'pdftotext'
+  if (process.platform === 'win32') {
+    const base = path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages')
+    try {
+      const pkg = readdirSync(base).find((d) => d.startsWith('oschwartz10612.Poppler_'))
+      if (pkg) {
+        const pkgDir = path.join(base, pkg)
+        const rel = readdirSync(pkgDir).find((d) => d.startsWith('poppler-'))
+        if (rel) {
+          const found = path.join(pkgDir, rel, 'Library', 'bin', exe)
+          if (existsSync(found)) return (cachedPdftotext = found)
+        }
+      }
+    } catch {
+      /* no winget poppler — fall through to PATH */
+    }
+  }
+  return (cachedPdftotext = exe)
+}
+
+// Uploads land in the project-root `upload/` dir by default (gitignored);
+// deployments that mount a volume elsewhere set UPLOAD_DIR. The old
+// '/home/z/my-project/upload' sandbox path stranded files on
+// C:\home\z\... on Windows and never matched the repo's ./upload/.
+export const UPLOAD_DIR =
+  (process.env.UPLOAD_DIR || '').trim() || path.join(process.cwd(), 'upload')
 
 const TEXT_EXTS = ['.txt', '.csv', '.md', '.json', '.tsv', '.log']
 const PDF_EXTS = ['.pdf']
@@ -68,7 +101,7 @@ export async function extractDocument(fileName: string, maxChars = 50000) {
   let text = ''
   if (PDF_EXTS.includes(ext)) {
     try {
-      const { stdout } = await execFileAsync('pdftotext', ['-enc', 'UTF-8', full, '-'], {
+      const { stdout } = await execFileAsync(resolvePdftotext(), ['-enc', 'UTF-8', full, '-'], {
         maxBuffer: 20 * 1024 * 1024,
       })
       text = stdout

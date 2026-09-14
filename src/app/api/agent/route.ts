@@ -195,7 +195,16 @@ export async function POST(req: Request) {
         const client = new OpenAI({
           baseURL: llm.baseUrl,
           apiKey: llm.apiKey,
-          defaultHeaders: llm.headers,
+          defaultHeaders: {
+            ...llm.headers,
+            // OMNI-2 — OpenCode Go (via omniroute) REJECTS requests that
+            // lack a per-conversation `x-opencode-session` (400
+            // MissingSessionID: "cannot be routed efficiently" — it drives
+            // routing affinity + prompt caching). The panel already mints
+            // one UUID per conversation (body.sessionId, reused on resume),
+            // so just forward it on every turn.
+            ...(sessionId ? { 'x-opencode-session': sessionId } : {}),
+          },
         })
 
         const tools = buildToolSpecs()
