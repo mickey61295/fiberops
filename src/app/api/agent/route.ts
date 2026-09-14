@@ -13,6 +13,10 @@ import { buildDynamicContext } from '@/lib/agent/context'
 // SPEC-M58 (ADR-026 Batch 1) — best-effort conversation persistence. NEVER
 // throws into the turn: the caller wraps it in .catch(() => null).
 import { persistTurnHistory } from '@/lib/agent/history'
+// OMNI-1 (omniroute integration) — env-only LLM endpoint + model
+// resolution: AGENT_LLM_BASE_URL / AGENT_LLM_MODEL / AGENT_LLM_API_KEY.
+// No UI, no admin page — ops changes these ONLY through env.
+import { resolveLlmEndpoint } from '@/lib/agent/llm-config'
 import { db } from '@/lib/db'
 import { requireApiSession } from '@/lib/auth/api-guard'
 
@@ -174,21 +178,24 @@ export async function POST(req: Request) {
         const assistantTexts: string[] = []
 
         const cfg = await loadZaiConfig()
-        if (!cfg) {
-          send({ type: 'error', error: 'ZAI config not found' })
+        // OMNI-1 — one resolver, both worlds: the built-in .z-ai-config
+        // gateway (Z identity headers, default model) OR an env-pinned
+        // OpenAI-compatible endpoint (omniroute share, keyless). Null only
+        // when neither exists.
+        const llm = resolveLlmEndpoint(cfg)
+        if (!llm) {
+          send({
+            type: 'error',
+            error: 'LLM endpoint not configured — set AGENT_LLM_BASE_URL/AGENT_LLM_MODEL env vars or provide .z-ai-config',
+          })
           safeClose()
           return
         }
 
         const client = new OpenAI({
-          baseURL: cfg.baseUrl,
-          apiKey: cfg.apiKey,
-          defaultHeaders: {
-            'X-Z-AI-From': 'Z',
-            ...(cfg.chatId ? { 'X-Chat-Id': cfg.chatId } : {}),
-            ...(cfg.userId ? { 'X-User-Id': cfg.userId } : {}),
-            ...(cfg.token ? { 'X-Token': cfg.token } : {}),
-          },
+          baseURL: llm.baseUrl,
+          apiKey: llm.apiKey,
+          defaultHeaders: llm.headers,
         })
 
         const tools = buildToolSpecs()
@@ -231,7 +238,10 @@ export async function POST(req: Request) {
           // arrive, and tool_call fragments are stitched by index across
           // chunks (id / function.name / function.arguments arrive split).
           const completion = await client.chat.completions.create({
-            model: 'glm-4.6',
+            // OMNI-1 — the model id is now env-driven (AGENT_LLM_MODEL),
+            // defaulting to 'glm-4.6' on the built-in gateway. The omniroute
+            // deployment pins opencode-go/deepseek-v4.1-flash via .env.
+            model: llm.model,
             messages: messages as any,
             tools: tools as any,
             tool_choice: 'auto',
