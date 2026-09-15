@@ -98,7 +98,9 @@ describe('E-10.2 — hidden narrowing ([]/null = all, ADR-018)', () => {
 
   it('the route layer narrows the manifest (source contract)', () => {
     const route = read('src/app/api/agent/route.ts')
-    expect(route).toContain('buildToolSpecs(allowed)')
+    // SPEC-M61 H2 — the signature grew the screen pathname (E-1 tiering);
+    // rights narrowing still composes inside buildToolSpecs.
+    expect(route).toContain('buildToolSpecs(allowed, screenPath)')
     expect(route).toContain("import { hasRequiredRight, manifestVisible, requiredRightOf, allowedRightsSet, areaLabelFor } from '@/lib/agent/tool-rights'")
     expect(route).toContain('.filter((t) => manifestVisible(t, allowed))')
   })

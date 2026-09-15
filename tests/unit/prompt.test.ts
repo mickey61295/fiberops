@@ -77,7 +77,7 @@ describe('SPEC-M10 — the versioned agent system prompt', () => {
 
 describe('SPEC-M10 §2-C3 — tool description floor', () => {
   it('every registered tool description is concrete (≥ 40 chars)', () => {
-    expect(allTools.length).toBe(274) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
+    expect(allTools.length).toBe(275) // M47 MERGE: 253 (M44 CST +create/update/list_cost_component +get_order_cost) + M45 L-01 +get_operator_statement + M46 L-02 +create/commit_payroll_run +get_payroll_runs + M48 L-03 +get_statutory_register
     const short = allTools.filter((t) => t.description.length < 40)
     expect(short.map((t) => `${t.name} (${t.description.length})`)).toEqual([])
   })
@@ -128,6 +128,28 @@ describe('SPEC-M61 E-2 — the capability protocol and prompt/description contra
   })
 
   it('E-2.6: PROMPT_VERSION moved to the m61 line', () => {
-    expect(PROMPT_VERSION).toMatch(/^m61-/)
+    expect(PROMPT_VERSION).toMatch(/^m61(\.\d+)?-/)
+  })
+
+  it('E-2.1 (H2): rule 5 now names list_tools — the check-before-claiming door', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      'if you cannot see a tool, call list_tools before answering',
+    )
+  })
+
+  it('E-2.2 (H2): the bulk rule is pinned verbatim (heuristic 8)', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      '"For each", "all", "every" are ONE instruction: batch the independent calls in a single step, then summarize them as one packet awaiting approval.',
+    )
+  })
+
+  it('E-2.3 (H2): the honesty rule is pinned (absence is not proof)', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      'Absence of a tool in your current list is not proof it does not exist — check before claiming',
+    )
+  })
+
+  it('E-2.6 (H2): the version carries the H2 rev', () => {
+    expect(PROMPT_VERSION).toBe('m61.2-2026-09-15')
   })
 })

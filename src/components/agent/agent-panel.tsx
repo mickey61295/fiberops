@@ -170,6 +170,11 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
   const [copiedId, setCopiedId] = useState<string | null>(null)
   // SPEC-M10 C2 — the active system-prompt version, streamed on the start event
   const [promptVersion, setPromptVersion] = useState<string | null>(null)
+  // SPEC-M61 E-13 (H2) — the RESOLVED model id streamed on the SSE `start`
+  // event (route sends llm.model). The badge renders the truth and HIDES
+  // when absent — the old hardcoded model-name badge is dead (the endpoint
+  // is env-pinned; a display string must never guess it).
+  const [modelId, setModelId] = useState<string | null>(null)
   // SPEC-M24 — voice entry: mic session state (browser SpeechRecognition, en-IN/ta-IN)
   const [listening, setListening] = useState(false)
   const [voiceLang, setVoiceLang] = useState(DEFAULT_VOICE_LANG)
@@ -490,6 +495,8 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
             case 'start': {
               // SPEC-M10 C2 — stamp the active prompt version for the operator
               setPromptVersion(payload.promptVersion || null)
+              // SPEC-M61 E-13 — the resolved model id (truthful badge)
+              setModelId(payload.model || null)
               break
             }
             // CHAT-12 — the protocol's bookkeeping events are now explicitly
@@ -751,7 +758,14 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <span>Fiberpro Agent</span>
-            <Badge variant="secondary" className="text-[10px]">GLM-4.6</Badge>
+            {/* SPEC-M61 E-13 — the model badge renders the RESOLVED model id
+                from the start event; hidden when the stream hasn't sent one.
+                No hardcoded model strings anywhere. */}
+            {modelId && (
+              <Badge variant="secondary" className="text-[10px]" data-testid="model-badge">
+                {modelId}
+              </Badge>
+            )}
             {promptVersion && (
               <Badge variant="outline" className="text-[10px] font-mono text-slate-500" data-testid="prompt-version">
                 {promptVersion}

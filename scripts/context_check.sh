@@ -31,12 +31,12 @@ echo
 echo "[code metrics — reality]"
 # tools: inline `name:` entries + factory-built master CRUD tools (SPEC-M2 §7)
 # + docTool delegates over posting services (SPEC-M3 Wave A)
-INLINE_TOOLS=$(grep -cE "^    name: '[a-z_0-9]+'," src/lib/agent/tools.ts)
+INLINE_TOOLS=$(grep -cE "^ {2,4}name: '[a-z_0-9]+'," src/lib/agent/tools.ts)
 FACTORY_CREATE=$(grep -c "masterCreateTool('" src/lib/agent/tools.ts)
 FACTORY_UPDATE=$(grep -c "masterUpdateTool('" src/lib/agent/tools.ts)
 DOCTOOLS=$(grep -cE "^  docTool\($" src/lib/agent/tools.ts)
 TOOLS=$((INLINE_TOOLS + FACTORY_CREATE + FACTORY_UPDATE + DOCTOOLS))
-DOMAINS=$(grep -cE "^    domain: '" src/lib/agent/tools.ts)
+DOMAINS=$(grep -cE "^ {2,4}domain: '" src/lib/agent/tools.ts)
 MODELS=$(grep -c "^model " prisma/schema.prisma)
 VIEWS=$(ls src/components/erp/*.tsx 2>/dev/null | wc -l)
 ARCHETYPES=$(ls src/components/archetypes/*.tsx 2>/dev/null | wc -l)
@@ -79,7 +79,7 @@ echo "  api-routes: $APIS"
 
 echo
 echo "[vs STATE.md claims — hardcoded from last verified 2026-08-30 m15 session (audit trail; 130 items / 163 routes)]"
-check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn + M31 working-days + M33 get_bundle + M35 daily-digest + M39 JWL ×2 + M40 PAY ×6 + M41 PRC ×5 + M42 INV ×3 + M43 PRG ×3 + M44 CST ×4 + M45 L-01 operator-statement + M46 L-02 payroll trio + M48 L-03 statutory register + M50 M-01 account trio + M52 M-03 report quartet + M53 M-04 get_tally_export + M54 M-05 expense-head trio + M55 L-06 shift-wages pair + M56 PAY-08 cheque lifecycle trio)" "274" "$TOOLS"
+check "agent tools (inline+factory+docTool + M9 get_live_activity + M19-C ×33 + M20 attendance ×2 + M21 waste + M23 e-invoice + M26 cancel-irn + M31 working-days + M33 get_bundle + M35 daily-digest + M39 JWL ×2 + M40 PAY ×6 + M41 PRC ×5 + M42 INV ×3 + M43 PRG ×3 + M44 CST ×4 + M45 L-01 operator-statement + M46 L-02 payroll trio + M48 L-03 statutory register + M50 M-01 account trio + M52 M-03 report quartet + M53 M-04 get_tally_export + M54 M-05 expense-head trio + M55 L-06 shift-wages pair + M56 PAY-08 cheque lifecycle trio + M61 H2 list_tools meta-tool)" "275" "$TOOLS"
 check "domain markers (inline + 2 factories)" "$((INLINE_TOOLS + 2))" "$DOMAINS"
 check "factory create tools (+ SPEC-M54 M-05 expense-head)"       "44"      "$FACTORY_CREATE"
 check "factory update tools (+ SPEC-M54 M-05 expense-head)"       "44"      "$FACTORY_UPDATE"
@@ -133,8 +133,8 @@ check "m10 route imports the prompt module (versioned prompt in use)" "1" "$(gre
 check "m10 route stamps promptVersion (SSE start + AgentTurn rows)" "2" "$(grep -c 'promptVersion: PROMPT_VERSION' src/app/api/agent/route.ts)"
 check "m10 AgentTurn.promptVersion column in schema" "1" "$(grep -c 'promptVersion String?' prisma/schema.prisma)"
 check "m10 routing eval script" "1" "$(ls scripts/eval_routing.mjs 2>/dev/null | wc -l)"
-check "m10 golden routing set entries (52 prompts, 16 domains — 50 M10 + 2 SPEC-M61 E-8.1 safety rows)" "52" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
-check "m10 prompt unit tests (15 — M10 10 + SPEC-M61 E-2 contract 5)" "15" "$(grep -c '^  it(' tests/unit/prompt.test.ts)"
+check "m10 golden routing set entries (57 prompts, 16 domains — 50 M10 + 7 SPEC-M61 E-8.1 safety rows: H1 taken-code/duplicate + H2 update-by-name/bulk/absence-probe/delete-ask/injection)" "57" "$(grep -c "expectedTool: '" scripts/eval_routing.mjs)"
+check "m10 prompt unit tests (19 — M10 10 + SPEC-M61 E-2 contract 5 + H2 honesty rules 4)" "19" "$(grep -c '^  it(' tests/unit/prompt.test.ts)"
 check "m10 routing eval report exists" "1" "$(ls download/eval-routing-report.json 2>/dev/null | wc -l)"
 check "m11+m13 flag registry defs (28 LLD-07 + 4 notification + M41 po_appr + M42 INV ×5 + M43 multi_style_orders)" "39" "$(grep -c "name: '" src/lib/erp/flags.ts)"
 check "m11 POST /api/config admin door (set-password pattern)" "1" "$(grep -c 'export async function POST' src/app/api/config/route.ts)"
@@ -165,7 +165,7 @@ check "qol1 D-2 malformed-JSON guard in the loop (error tool-result fed back)" "
 check "qol1 D-1b approve validates before execute (coerced.value)" "1" "$(grep -c 'await t.execute(coerced.value, actor)' src/app/api/agent/approve/route.ts)"
 check "qol1 no inline coercion duplicate left in route.ts" "0" "$(grep -cE '^function (normalizeArgs|parseWithCoercion)\(' src/app/api/agent/route.ts)"
 check "qol1 ghost tool gone (accept_supplier_bill absent from the prompt)" "0" "$(grep -c 'accept_supplier_bill' src/lib/agent/prompt.ts)"
-check "m61 PROMPT_VERSION (SPEC-M61 H1: E-2.1 never-claim-absence rule + honest plan failures — taken codes refused, duplicate names warn)" "1" "$(grep -c "PROMPT_VERSION = 'm61-2026-09-15'" src/lib/agent/prompt.ts)"
+check "m61 PROMPT_VERSION (SPEC-M61 H2 on the m61 line: E-1 tiers + list_tools + E-2.2 bulk + E-2.3 honesty + E-13 badge)" "1" "$(grep -c "PROMPT_VERSION = 'm61.2-2026-09-15'" src/lib/agent/prompt.ts)"
 check "m44 FY single-source (zero frozen '26-27' in the posting layer)" "0" "$(grep -rc "'26-27'" src/lib/erp/posting/*.ts 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')"
 check "m44 fy-hotfix test file (11 tests)" "11" "$(grep -c '^  it(' tests/pipeline/fy-hotfix-m44.test.ts 2>/dev/null)"
 check "qol1 SPEC-QoL1 doc + prompt-sync probe" "2" "$(ls docs/CONTEXT/specs/SPEC-QoL1.md scripts/qol_prompt_sync.mjs 2>/dev/null | wc -l)"

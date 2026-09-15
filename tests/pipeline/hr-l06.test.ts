@@ -271,7 +271,7 @@ describe('L-06 the shift-wages register: shift × day grain', () => {
     const read = getTool('get_shift_wages')
     expect(read).toBeTruthy()
     expect((read as any).isWrite).toBe(false)
-    expect(allTools.length).toBe(274)
+    expect(allTools.length).toBe(275)
   })
 })
 
@@ -280,18 +280,18 @@ describe('L-06 the shift-wages register: shift × day grain', () => {
 // ─────────────────────────────────────────────────────────────
 describe('L-06 wiring pins', () => {
   it('PROMPT_VERSION m55 + the prompt names both tools', () => {
-    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
+    expect(PROMPT_VERSION).toBe('m61.2-2026-09-15')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('post_shift_wages')
     expect(prompt).toContain('get_shift_wages')
   })
 
-  it('context_check pins: 274 / 151 / 188 / m56 (M57/M59: /profile + /admin; M60: login-audit)', () => {
+  it('context_check pins: 275 / 151 / 188 / m61.2 (M57/M59: /profile + /admin; M60: login-audit)', () => {
     const cc = src('scripts/context_check.sh')
-    expect(cc).toContain('"274"')
+    expect(cc).toContain('"275"')
     expect(cc).toContain('"151"') // M60: +login-audit (menu 150→151)
     expect(cc).toContain('"188"') // M60: +/admin/login-audit (routes 187→188)
-    expect(cc).toContain('m61-2026-09-15')
+    expect(cc).toContain('m61.2-2026-09-15')
     expect(MENU_ITEMS.length).toBe(151)
   })
 

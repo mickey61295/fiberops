@@ -13,6 +13,7 @@
  */
 
 import { countableLegacyForms } from './legacy-aliases'
+import { MASTER_CONFIGS } from './master-configs'
 
 export type Archetype = 'DB' | 'MT' | 'DS' | 'RG' | 'IN' | 'RH' | 'ST' | 'LT'
 export type Phase = 'M1' | 'M2' | 'M3' | 'M4' | 'M5' | 'M6' | 'M9' | 'M11' | 'M13' | 'M15' | 'M19' | 'M20' | 'M21' | 'M38' | 'M39' | 'M40' | 'M41' | 'M42' | 'M43' | 'M44' | 'M45' | 'M46' | 'M48' | 'M52' | 'M55' | 'M56' | 'M57' | 'M58' | 'M59' | 'M60'
@@ -298,13 +299,17 @@ const MASTER_FORMS = [
   'frmBuyerPLReport', 'frmDeptGroup', 'frmFCRmaster', 'frmFcymaster', 'frmFomGrp', 'frmSizeGroup',
 ]
 
-// The 21 live master create_* tools (STATE: tool inventory).
-const MASTER_CREATE_TOOLS = [
-  'create_party', 'create_buyer', 'create_style', 'create_fabric', 'create_yarn', 'create_accessory',
-  'create_godown', 'create_department', 'create_employee', 'create_colour', 'create_size', 'create_uom',
-  'create_dia', 'create_lot', 'create_season', 'create_merchandiser', 'create_exporter', 'create_fin_year',
-  'create_line', 'create_size_group', 'create_bom',
-]
+// SPEC-M61 E-1.1 (H2) — the masters item's tool doors are the GENERATED
+// family: every master-config create/update/list door + the batch
+// create_sizes, replacing the hardcoded 21-create + 4-update short list.
+// The screen tier (tool-tiers.ts) exposes the domain family wholesale, so
+// the menu item claims it truthfully; every name is config-derived (the
+// master-parity discipline — no hand-maintained inventory to drift).
+const MASTER_FAMILY_TOOLS: string[] = Array.from(
+  new Set(
+    MASTER_CONFIGS.flatMap((c) => [c.createTool, c.updateTool, c.listTool]).concat(['create_sizes']),
+  ),
+).sort()
 
 // ---------------------------------------------------------------------------
 // ITEMS (132 — 113 parity + M9 live-tracker + M11 feature-flags + M19 ×13 registers + tally + M13 digest + M15 audit + M20 attendance + M21 waste-receipt) — SPEC-M1 §5.2
@@ -1337,7 +1342,7 @@ export const MENU_ITEMS: MenuItem[] = [
     id: 'masters', label: 'All Masters (~40 entities)', groupId: 'masters-admin', route: '/masters', arch: 'MT', phase: 'M2',
     description: 'Party, buyer, style, fabric, yarn, accessory, godown, dept, employee, colour, size, UOM, dia, lot, season + 25 more — one MasterTable engine.',
     legacyForms: MASTER_FORMS,
-    agentTools: MASTER_CREATE_TOOLS.concat(['update_party', 'update_buyer', 'update_style', 'update_employee']), pendingTools: [],
+    agentTools: MASTER_FAMILY_TOOLS, pendingTools: [],
   },
   {
     id: 'users-groups', label: 'Users & Groups', groupId: 'masters-admin', route: '/admin/users', arch: 'ST', phase: 'M6',

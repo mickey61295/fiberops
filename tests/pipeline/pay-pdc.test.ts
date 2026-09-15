@@ -366,7 +366,7 @@ describe('M56 PAY-08 — the cheque/PDC lifecycle (SPEC-M56, §17-3 ADR-020)', (
     expect(CHEQUE_CLEAR_SCHEMA.shape.clearedOn).toBeDefined()
     expect(CHEQUE_BOUNCE_SCHEMA.shape.reason).toBeDefined()
     // the prompt + version
-    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
+    expect(PROMPT_VERSION).toBe('m61.2-2026-09-15')
     expect(src(AGENT_DIR, 'prompt.ts')).toContain('post_cheque_bounce')
     // source mirrors — the lifecycle doctrine is commented where it lives
     expect(src(ERP_DIR, 'posting/payment.ts')).toContain('chequeStatus')

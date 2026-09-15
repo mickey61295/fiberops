@@ -1,13 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
-import { allTools, getTool } from '@/lib/agent/tools'
+import { getTool } from '@/lib/agent/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT } from '@/lib/agent/prompt'
 // SPEC-M61 E-10 (H1) — rights-aware manifest + dispatch re-check.
 // The manifest is NEVER trusted: route.ts re-checks requiredRight before
 // execute() (E-10.3), denial becomes an error tool result with the plain
 // C-10.1 copy, logged for E-9.3.
 import { hasRequiredRight, manifestVisible, requiredRightOf, allowedRightsSet, areaLabelFor } from '@/lib/agent/tool-rights'
+// SPEC-M61 E-1 (H2) — tool tiering: the manifest carries core + screen
+// tiers (deterministic, prompt-cache stable); everything else stays
+// discoverable via the list_tools meta-tool. AGENT_TOOLS_FULL=1 rolls the
+// whole behavior back (E-1.5). Tiering composes AFTER rights narrowing
+// (E-10.2) — a tiered-in tool the caller lacks rights for is still hidden.
+import { selectTools } from '@/lib/agent/tool-tiers'
 import { c10_1NotPermitted } from '@/lib/agent/copy'
 // qol1-reconcile (SPEC-QoL1 D-1) — the canonical coercion stack, shared by
 // BOTH doors (this proposal door AND /api/agent/approve). The M36-era inline
@@ -113,14 +119,16 @@ async function loadZaiConfig(): Promise<any | null> {
   }
 }
 
-function buildToolSpecs(allowed: Set<string>) {
+function buildToolSpecs(allowed: Set<string>, pathname?: string) {
   // OpenAI function-calling schema — convert Zod schemas to JSON Schema.
   // Strip the $schema key which OpenAI doesn't accept.
-  // SPEC-M61 E-10.2 — hidden narrowing: the manifest carries ONLY the tools
-  // the caller may use (the same principle MCP gateways apply to
+  // SPEC-M61 E-10.2 (H1) — hidden narrowing: the manifest carries ONLY the
+  // tools the caller may use (the same principle MCP gateways apply to
   // tools/list). []/null rights (ADR-018) → allowedRightsSet() = all groups,
   // so the legacy behavior is unchanged for unrestricted users.
-  return allTools
+  // SPEC-M61 E-1.1 (H2) — the manifest is also TIERED (core + screen
+  // family, selectTools); AGENT_TOOLS_FULL=1 restores all-tools wholesale.
+  return selectTools(pathname)
     .filter((t) => manifestVisible(t, allowed))
     .map((t) => {
       const jsonSchema = zodToJsonSchema(t.schema as any, 'parameters') as any
@@ -148,6 +156,13 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       let step = 0
+      // SPEC-M61 E-1.4 (H2) — hidden-tool miss telemetry (log-only, feeds
+      // E-9.3): every list_tools call records its query; the NEXT tool call
+      // in the turn is checked against the result set. inResult=false means
+      // tiering hid a tool the model needed — the metric that tells us if
+      // tiering is too aggressive (spec: "This is the metric that tells us
+      // if tiering is too aggressive").
+      let listToolsProbe: { query: string; names: string[] } | null = null
       // SSE disconnect guard: when the browser navigates away / aborts the
       // fetch mid-stream, the controller is CLOSED and every enqueue/close
       // throws ("Controller is already closed") — found by the M12 E2E suite
@@ -222,7 +237,11 @@ export async function POST(req: Request) {
         // SPEC-M61 E-10.2 — the caller's rights snapshot (fresh from the DB
         // via getSessionUser: role + UserGroup.rights; []/null/admin → all).
         const allowed = allowedRightsSet(guard.user.role, guard.user.rights)
-        const tools = buildToolSpecs(allowed)
+        // SPEC-M61 E-1.1 — the caller's screen drives the screen tier (the
+        // panel sends { pathname }; doc routes resolve to their parent item).
+        const screenPath =
+          typeof body.screen?.pathname === 'string' ? body.screen.pathname : undefined
+        const tools = buildToolSpecs(allowed, screenPath)
         // CHAT-02 (Phase-6B Batch 2, SPEC-M38 §1) — the brain used to get
         // SYSTEM_PROMPT + verbatim history and NOTHING else: no date, no user,
         // no FY, no screen (route.ts:231-239 was context-blind while the prompt
@@ -245,8 +264,11 @@ export async function POST(req: Request) {
             })),
         ]
 
-        // SPEC-M10 C2: every stream opens with the active prompt version
-        send({ type: 'start', promptVersion: PROMPT_VERSION })
+        // SPEC-M10 C2: every stream opens with the active prompt version.
+        // SPEC-M61 E-13 (H2) — the SSE start event carries the RESOLVED model
+        // id (llm.model) so the panel badge renders the truth, never a
+        // hardcoded string; the badge hides when absent.
+        send({ type: 'start', promptVersion: PROMPT_VERSION, model: llm.model })
 
         // Manual agent loop
         let exhaustedSteps = false // CHAT-12 — visible MAX_STEPS exhaustion
@@ -379,6 +401,15 @@ export async function POST(req: Request) {
               isWrite: t?.isWrite ?? false,
             })
 
+            // SPEC-M61 E-1.4 — the first tool call AFTER a list_tools call is
+            // the miss check (then the probe is spent; one check per lookup).
+            if (listToolsProbe && toolName !== 'list_tools') {
+              console.log(
+                `[agent-tools] E-1.4 hidden-tool miss: query="${listToolsProbe.query}" next=${toolName} inResult=${listToolsProbe.names.includes(toolName)}`,
+              )
+              listToolsProbe = null
+            }
+
             let result: any
             // CHAT-06 — the AgentTurn row id rides the tool-call-end event so
             // the panel's Approve posts { turnId }: the route then executes the
@@ -443,6 +474,15 @@ export async function POST(req: Request) {
                     result = { error: err.message || String(err) }
                   }
                 }
+              }
+            }
+
+            // SPEC-M61 E-1.4 — capture the list_tools result set for the
+            // next-call miss check (names come from result.json rows).
+            if (toolName === 'list_tools' && Array.isArray(result?.json)) {
+              listToolsProbe = {
+                query: String(args?.query ?? args?.domain ?? ''),
+                names: result.json.map((r: any) => r?.name).filter(Boolean),
               }
             }
 

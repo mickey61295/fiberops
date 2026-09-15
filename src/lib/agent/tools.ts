@@ -2535,7 +2535,7 @@ const masterCreateTools: AgentTool[] = [
 
 const masterUpdateTools: AgentTool[] = [
   masterUpdateTool('party', 'Update an existing party master by code. All fields optional; only provided fields are updated.'),
-  masterUpdateTool('buyer', 'Update an existing buyer by code. All fields optional; only provided fields are updated.'),
+  masterUpdateTool('buyer', 'Update an existing buyer by code. Fields: name, dept, merchandiser — all optional; only provided fields are updated (e.g. adding or changing the merchandiser on the buyer record).'),
   masterUpdateTool('style', 'Update an existing style by styleNo. All fields optional; only provided fields are updated (buyerCode resolves the buyer by code or name).'),
   masterUpdateTool('yarn', 'Update an existing yarn by code. All fields optional; only provided fields are updated.'),
   masterUpdateTool('fabric', 'Update an existing fabric by code. All fields optional; only provided fields are updated.'),
@@ -3750,8 +3750,127 @@ const writeTools: AgentTool[] = [
   ),
 ]
 
+// ───────────── SPEC-M61 E-1.2 (H2) — the list_tools meta-tool ─────────────
+// The discovery door that makes "Let me check…" real: BM25 over
+// name+description of EVERY registered tool, excluding itself, top 20.
+// Read-only, domain 'meta' (requiredRight null — reads stay universal,
+// tool-rights.ts). Tiering (E-1.1) hides most schemas from the manifest;
+// this tool is the honest answer to "does the capability exist?" and the
+// model-side existence check the prompt's E-2.1/E-2.3 rules demand.
 
-export const allTools: AgentTool[] = [...readTools, ...writeTools]
+/** Tokenize for BM25: lowercase, non-alphanumeric splits, drop 1-char noise. */
+function tokenizeToolText(s: string): string[] {
+  return s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1)
+}
+
+interface ToolSearchDoc {
+  name: string
+  description: string
+  domain: string
+  tokens: string[]
+  len: number
+}
+
+/** Lazily-built search corpus (built once per process; allTools is final). */
+let toolSearchIndex: ToolSearchDoc[] | null = null
+function toolSearchDocs(): ToolSearchDoc[] {
+  if (!toolSearchIndex) {
+    toolSearchIndex = allTools
+      .filter((t) => t.name !== 'list_tools') // E-1.2: excludes itself
+      .map((t) => {
+        const tokens = tokenizeToolText(
+          `${t.name.replace(/_/g, ' ')} ${t.description}`,
+        )
+        return { name: t.name, description: t.description, domain: t.domain, tokens, len: tokens.length }
+      })
+  }
+  return toolSearchIndex
+}
+
+/**
+ * BM25 (k1=1.5, b=0.75) over the tool corpus. An empty query ranks
+ * alphabetically (deterministic; a bare "what's available" browse). A
+ * `domain` filter narrows the corpus BEFORE scoring so domain-scoped
+ * queries rank within their family.
+ */
+export function searchTools(
+  query: string | undefined,
+  domain?: string,
+): { name: string; description: string; domain: string }[] {
+  const docs = toolSearchDocs().filter((d) => !domain || d.domain === domain)
+  const q = tokenizeToolText(query || '')
+  if (!q.length) {
+    return docs
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 20)
+      .map(({ name, description, domain: d }) => ({ name, description, domain: d }))
+  }
+  const N = docs.length
+  const avgLen = docs.reduce((s, d) => s + d.len, 0) / (N || 1)
+  const k1 = 1.5
+  const b = 0.75
+  // document frequency per query term
+  const df = new Map<string, number>()
+  for (const term of new Set(q)) {
+    df.set(term, docs.filter((d) => d.tokens.includes(term)).length)
+  }
+  const scored = docs.map((d) => {
+    let score = 0
+    for (const term of new Set(q)) {
+      const tf = d.tokens.filter((t) => t === term).length
+      if (!tf) continue
+      const n = df.get(term) || 0
+      const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5))
+      score += idf * ((tf * (k1 + 1)) / (tf + k1 * (1 - b + (b * d.len) / avgLen)))
+    }
+    return { doc: d, score }
+  })
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.doc.name.localeCompare(b.doc.name))
+    .slice(0, 20)
+    .map(({ doc }) => ({ name: doc.name, description: doc.description, domain: doc.domain }))
+}
+
+const listToolsTool: AgentTool = {
+  name: 'list_tools',
+  description:
+    'Discover the full tool catalog of this ERP agent — every capability door, searchable by keyword or domain. Call this BEFORE telling the operator a capability does not exist, and whenever the tool you need is not in your current tool list: if a matching tool appears here, the capability exists and can be proposed. Returns the top 20 matches with name, description and domain.',
+  domain: 'meta',
+  isWrite: false,
+  schema: z.object({
+    query: z
+      .string()
+      .optional()
+      .describe(
+        'free-text keywords to search for, e.g. "merchandiser", "cheque bounce", "godown transfer"',
+      ),
+    domain: z
+      .string()
+      .optional()
+      .describe(
+        'optional domain filter: orders, procurement, inventory, cutting, production, jobwork, dispatch, accounting, costing, hr, masters, workflow, reports, documents, meta',
+      ),
+  }),
+  async execute(args) {
+    const rows = searchTools(args.query, args.domain)
+    const total = toolSearchDocs().length
+    const head =
+      rows.length === 0
+        ? `These are all the tools for this — no match in ${total} tools. Try different keywords, or ask without a domain filter.`
+        : `These are all the tools for this — ${rows.length} of ${total} tools${args.query ? ` matching "${args.query}"` : ''}${args.domain ? ` in domain ${args.domain}` : ''}:`
+    const lines = rows.map(
+      (r) => `- ${r.name} (${r.domain}): ${r.description}`,
+    )
+    return {
+      text: [head, ...lines].join('\n'),
+      json: rows,
+    }
+  },
+}
+
+export const allTools: AgentTool[] = [...readTools, ...writeTools, listToolsTool]
 
 export function getTool(name: string): AgentTool | undefined {
   return allTools.find((t) => t.name === name)
