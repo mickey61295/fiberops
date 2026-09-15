@@ -19,6 +19,7 @@ export const buyerConfig: MasterConfig = {
     { name: 'dept', label: 'Dept', type: 'text', description: 'Buyer department (e.g. Kids, Mens)' },
     { name: 'merchandiser', label: 'Merchandiser', type: 'text', description: 'Merchandiser name (free text)' },
   ],
+  duplicateKeyFields: ['name'], // SPEC-M61 E-3.2 — the incident entity
   createTool: 'create_buyer', updateTool: 'update_buyer', listTool: 'list_buyers',
   legacyForms: ['FRMBUYER', 'FrmMasBuyerDept'],
 }

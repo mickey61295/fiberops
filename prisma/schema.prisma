@@ -69,6 +69,12 @@ model AgentTurn {
   approvedAt DateTime?
   userId     String // plain string (auth out of scope for v1; would be FK to User.id in prod)
   promptVersion String? // SPEC-M10 — the system-prompt version that drove this turn (observability; nullable for pre-M10 rows)
+  // SPEC-M61 H1 (E-3.3) — the warnings the card SHOWED, stored with the plan
+  // so "I didn't know" is never true (O-2.4). Json on SQLite = JSONB storage.
+  warnings   Json? // array of { type, band?, field, value, existingCode, existingName, message }
+  // SPEC-M61 H1 (E-10.4) — proposer === decider on decided turns: self-approval
+  // is ALLOWED (the owner is the compensating control) but never silent.
+  selfApproved Boolean?
   createdAt  DateTime  @default(now())
   @@index([createdAt])
 }

@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+// SPEC-M61 E-11 (decision 7.12) — mount the sonner Toaster: 23 components
+// toast through sonner but NO renderer was ever mounted, so error feedback
+// on the paths M61 hardens (upload, approve, expiry) was invisible. All new
+// M61 feedback uses sonner; the radix toaster below stays until legacy
+// call-sites migrate.
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,6 +53,7 @@ export default function RootLayout({
       >
         {children}
         <Toaster />
+        <SonnerToaster richColors position="top-center" closeButton />
       </body>
     </html>
   );

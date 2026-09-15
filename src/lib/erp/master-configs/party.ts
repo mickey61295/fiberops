@@ -37,6 +37,7 @@ export const partyConfig: MasterConfig = {
     { name: 'email', label: 'Email', type: 'text' },
     { name: 'openingBalance', label: 'Opening balance (₹)', type: 'number', defaultValue: 0 },
   ],
+  duplicateKeyFields: ['name'], // SPEC-M61 E-3.2
   createTool: 'create_party', updateTool: 'update_party', listTool: 'list_parties',
   legacyForms: ['FrmPartyMaster', 'FrmPartyBlnc', 'FrmPartyBalanceRegister'],
 }

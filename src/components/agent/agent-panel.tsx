@@ -26,6 +26,8 @@ interface HistoryRow {
 import { appendDelta, mergeNarration, type NarrationSegments } from '@/lib/agent/narration'
 // CHAT-05 (Phase-6B Batch 2) — plan contents table for approval cards
 import { planDisplay } from '@/lib/agent/plan-display'
+// SPEC-M61 §2.6/§7.5 — the frozen copy deck (duplicate-warning labels)
+import { C_2_6_APPROVE, C_2_6_CREATE_DUPLICATE } from '@/lib/agent/copy'
 // CHAT-12 — humanized tool labels (chips read like actions, not identifiers)
 import { toolLabel, toolTitle } from '@/lib/agent/tool-labels'
 // CHAT-03 — screen-aware suggestions from the menu registry
@@ -1081,9 +1083,25 @@ export function AgentPanel({ open, onOpenChange, onCommitted, seedPrompt }: Agen
                                       </ul>
                                     </div>
                                   )}
+                                  {/* SPEC-M61 O-2.2/E-3.3(e) — plan warnings on the
+                                      card: amber band, plain copy, BEFORE the
+                                      buttons. Warnings never block (O-2.4) —
+                                      the operator decides with eyes open. */}
+                                  {result.plan.warnings?.length > 0 && (
+                                    <div data-testid="plan-warnings" className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1.5 space-y-1">
+                                      {result.plan.warnings.map((w: { type: string; band?: string; message: string }, idx: number) => (
+                                        <div key={idx} className="flex items-start gap-1.5 text-[11px] text-amber-900" data-testid={w.band === 'A' ? 'plan-warning-duplicate' : 'plan-warning-similar'}>
+                                          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                                          <span className="break-words">{w.message}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   <div className="flex gap-2">
+                                    {/* O-2.2 — a Band-A duplicate warning changes the
+                                        primary label to the honest action. */}
                                     <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(tc.toolCallId)}>
-                                      <Check className="h-3 w-3 mr-1" /> Approve &amp; Commit
+                                      <Check className="h-3 w-3 mr-1" /> {result.plan.warnings?.some((w: { type: string; band?: string }) => w.type === 'duplicate' && w.band === 'A') ? C_2_6_CREATE_DUPLICATE : C_2_6_APPROVE}
                                     </Button>
                                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => reject(tc.toolCallId)}>
                                       <X className="h-3 w-3 mr-1" /> Reject

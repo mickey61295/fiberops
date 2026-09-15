@@ -169,9 +169,13 @@ export type ToolResult = {
   plan?: {
     summary: string
     creates?: Array<{ table: string; data: any }>
-    updates?: Array<{ table: string; id: string; data: any }>
+    updates?: Array<{ table: string; id: string; data: any; before?: Record<string, unknown> }>
     sideEffects?: string[]
     approvalId?: string
+    /** SPEC-M61 E-3.3 — duplicate warnings ride the plan: tool result text
+     * (a), the tool-call-end stream (b), AgentTurn.warnings (c), recomputed
+     * at approve-time (d), rendered on the card (e). */
+    warnings?: Array<{ type: string; band?: string; field?: string; value?: string; existingCode?: string; existingName?: string; message: string }>
   }
   // For commit step: actually persist
   commit?: () => Promise<any>
@@ -2432,11 +2436,17 @@ function masterCreateTool(slug: string, description: string): AgentTool {
       // CHAT-08 — error field on master-plan failures (truthful badges)
       if (!plan.ok) return { text: plan.errors.join('; '), error: plan.errors.join('; ') }
       return {
-        text: plan.summary,
+        // SPEC-M61 E-3.3(a) — warnings ride the result text the model sees
+        // (and the plan JSON below), so the duplicate is narrated, not
+        // silently planned.
+        text: plan.warnings?.length
+          ? `${plan.summary} — ${plan.warnings.map((w) => w.message).join(' ')}`
+          : plan.summary,
         plan: {
           summary: plan.summary,
           creates: plan.creates ? [plan.creates] : undefined,
           sideEffects: plan.sideEffects,
+          ...(plan.warnings?.length ? { warnings: plan.warnings } : {}),
         },
         commit: plan.commit,
       }
@@ -2460,6 +2470,8 @@ function masterUpdateTool(slug: string, description: string): AgentTool {
         text: plan.summary,
         plan: {
           summary: plan.summary,
+          // E-3.6 — before-values ride the update rows: the card renders
+          // "old → new" without a second query.
           updates: plan.updates ? [plan.updates] : undefined,
           sideEffects: plan.sideEffects,
         },
@@ -2470,20 +2482,20 @@ function masterUpdateTool(slug: string, description: string): AgentTool {
 }
 
 const masterCreateTools: AgentTool[] = [
-  masterCreateTool('party', 'Create a party master (customer / supplier / both / employee). code is optional — auto-assigned PRT-#### if omitted or taken. Required: name, partyType (supplier|customer|both|employee — employee-type parties receive wage payouts). Optional: gstin, pan, address, city, state, phone, email, openingBalance.'),
-  masterCreateTool('buyer', 'Create a buyer master (the customer department / brand). code is optional — auto-assigned B-#### if omitted or taken. Required: name. Optional: dept, merchandiser.'),
-  masterCreateTool('style', 'Create a style master. styleNo is optional — auto-assigned STY-#### if omitted or taken. Required: description. Optional: buyerCode, category (woven|knit), sam, hsn.'),
-  masterCreateTool('yarn', 'Create a yarn master. code is optional — auto-assigned Y-#### if omitted or taken. Required: count, uomCode. Optional: blend, rate.'),
-  masterCreateTool('fabric', 'Create a fabric master. code is optional — auto-assigned F-#### if omitted or taken. Required: uomCode. Optional: construction, gsm, width, diaValue (creates Dia if missing), rate.'),
-  masterCreateTool('accessory', 'Create an accessory master (zipper, button, label, etc). code is optional — auto-assigned A-#### if omitted or taken. Required: name, uomCode. Optional: category, rate.'),
-  masterCreateTool('godown', 'Create a godown (warehouse). code is optional — auto-assigned G#### if omitted or taken. Required: name. Optional: location.'),
-  masterCreateTool('department', 'Create a department / process. code is optional — auto-assigned D#### if omitted or taken. Required: name. Optional: orderSno, isProcess.'),
-  masterCreateTool('employee', 'Create an employee master. code is optional — auto-assigned EMP-#### if omitted or taken. Required: name. Optional: deptCode, role (operator|supervisor|helper|staff), pieceRate, dailyWage, active, joiningDate, designation, phone, bankName, ifsc, accountNo, upi, uan, aadhaar (payout fields — UAN/aadhaar print MASKED on payslips).'),
+  masterCreateTool('party', 'Create a party master (customer / supplier / both / employee). code is optional — auto-assigned PRT-#### when omitted. An explicitly given code that is taken is refused. Required: name, partyType (supplier|customer|both|employee — employee-type parties receive wage payouts). Optional: gstin, pan, address, city, state, phone, email, openingBalance.'),
+  masterCreateTool('buyer', 'Create a buyer master (the customer department / brand). code is optional — auto-assigned B-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: dept, merchandiser.'),
+  masterCreateTool('style', 'Create a style master. styleNo is optional — auto-assigned STY-#### when omitted. An explicitly given code that is taken is refused. Required: description. Optional: buyerCode, category (woven|knit), sam, hsn.'),
+  masterCreateTool('yarn', 'Create a yarn master. code is optional — auto-assigned Y-#### when omitted. An explicitly given code that is taken is refused. Required: count, uomCode. Optional: blend, rate.'),
+  masterCreateTool('fabric', 'Create a fabric master. code is optional — auto-assigned F-#### when omitted. An explicitly given code that is taken is refused. Required: uomCode. Optional: construction, gsm, width, diaValue (creates Dia if missing), rate.'),
+  masterCreateTool('accessory', 'Create an accessory master (zipper, button, label, etc). code is optional — auto-assigned A-#### when omitted. An explicitly given code that is taken is refused. Required: name, uomCode. Optional: category, rate.'),
+  masterCreateTool('godown', 'Create a godown (warehouse). code is optional — auto-assigned G#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: location.'),
+  masterCreateTool('department', 'Create a department / process. code is optional — auto-assigned D#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: orderSno, isProcess.'),
+  masterCreateTool('employee', 'Create an employee master. code is optional — auto-assigned EMP-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: deptCode, role (operator|supervisor|helper|staff), pieceRate, dailyWage, active, joiningDate, designation, phone, bankName, ifsc, accountNo, upi, uan, aadhaar (payout fields — UAN/aadhaar print MASKED on payslips).'),
   masterCreateTool('colour', 'Create a colour master. Required: name, code (e.g. RED, BLK, NAV). If colour exists, returns it.'),
   masterCreateTool('size', 'Create a size master. Required: name (e.g. S, M, L, XL, 32, 34). Optional: sort order.'),
   masterCreateTool('uom', 'Create a unit of measure master. Required: name (KGS, MTR, PCS, BAG), code (matching). If exists, returns it.'),
   masterCreateTool('dia', 'Create a dia (machine diameter) master. Required: value (e.g. "30", "34"). If exists, returns it.'),
-  masterCreateTool('lot', 'Create a lot master. lotNo is optional — auto-assigned LOT-#### if omitted or taken. Optional: partyCode.'),
+  masterCreateTool('lot', 'Create a lot master. lotNo is optional — auto-assigned LOT-#### when omitted. An explicitly given code that is taken is refused. Optional: partyCode.'),
   masterCreateTool('season', 'Create a season master. Required: code, name. Optional: startDate, endDate.'),
   masterCreateTool('merchandiser', 'Create a merchandiser master. Required: name. Optional: email, phone.'),
   masterCreateTool('exporter', 'Create an exporter master (the exporting entity). Required: code, name. Optional: iec, gstin.'),
@@ -2494,7 +2506,7 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('component', 'Create a component master. Required: name (e.g. Self Fabric, Contrast Panel).'),
   masterCreateTool('design', 'Create a design master. Required: code, name.'),
   masterCreateTool('govt-holiday', 'Create a government holiday. Required: date (ISO), name.'),
-  masterCreateTool('shift', 'Create a shift master (SPEC-M5 §7-D-32). code is optional — auto-assigned SH-## if omitted or taken. Required: name, fromTime (HH:MM), toTime (HH:MM). Optional: hours (default 8).'),
+  masterCreateTool('shift', 'Create a shift master (SPEC-M5 §7-D-32). code is optional — auto-assigned SH-## when omitted. An explicitly given code that is taken is refused. Required: name, fromTime (HH:MM), toTime (HH:MM). Optional: hours (default 8).'),
   // SPEC-M6 Wave B (ADR-016 + ERRATUM #1)
   masterCreateTool('user', 'Create a user (SPEC-M6 §7-B). Required: email (login), name. Optional: role (admin|merchandiser|storekeeper|accountant|production_mgr|hr|cutting_mgr), userGroup (group name), active.'),
   masterCreateTool('user-group', 'Create a user group (SPEC-M6 §7-B). Required: name. Menu rights are set via /admin/menu-rights ([] = all menus).'),
@@ -2502,23 +2514,23 @@ const masterCreateTools: AgentTool[] = [
   masterCreateTool('hsn', 'Create an HSN code with its GST rate (SPEC-M6 §7-D). Required: code (e.g. 61091000), description. Optional: gstRate (default 5), hsnType (goods|service).'),
   masterCreateTool('test-parameter', 'Create a lab test parameter (SPEC-M6 §7-D). Required: code (e.g. GSM), name. Optional: stage (knit|dye|print|sew|final), method, unit (gsm|%|mm).'),
   // SPEC-M19 §3 Wave C (ADR-019) — masters completion
-  masterCreateTool('bank', 'Create a bank master. code is optional — auto-assigned BK-#### if omitted or taken. Required: name (e.g. HDFC Bank).'),
-  masterCreateTool('bank-account', 'Create a company bank account. accountNo is optional — auto-assigned ACC-#### if omitted or taken. Required: bankCode (bank code or name). Optional: branch, ifsc, accountType (current|savings|cc|od), upi, active.'),
-  masterCreateTool('mill', 'Create a knitting/dyeing mill master. code is optional — auto-assigned MIL-#### if omitted or taken. Required: name. Optional: city, gstin, notes.'),
-  masterCreateTool('machine-category', 'Create a machine category master. code is optional — auto-assigned MC-#### if omitted or taken. Required: name (e.g. Circular Knitting, Flat Lock).'),
-  masterCreateTool('machine', 'Create a machine master. code is optional — auto-assigned MCH-#### if omitted or taken. Required: name. Optional: machineCategoryCode, capacityPcsPerHour, notes.'),
-  masterCreateTool('state', 'Create a state master (GST place-of-supply). code is optional — auto-assigned ST-#### if omitted or taken. Required: name. Optional: gstCode (first 2 GSTIN digits, e.g. 33 = Tamil Nadu).'),
-  masterCreateTool('shade', 'Create a shade master (shade ≠ colour in dyeing: colour family × depth). code is optional — auto-assigned SHD-#### if omitted or taken. Required: name. Optional: notes.'),
-  masterCreateTool('thread-type', 'Create a sewing thread type master. code is optional — auto-assigned THR-#### if omitted or taken. Required: name. Optional: notes.'),
-  masterCreateTool('count-group', 'Create a yarn count group master. code is optional — auto-assigned CG-#### if omitted or taken. Required: name. Optional: notes (counts in this group, e.g. 30s–40s).'),
-  masterCreateTool('range-group', 'Create a size-range group master. code is optional — auto-assigned RG-#### if omitted or taken. Required: name.'),
-  masterCreateTool('size-range', 'Create a size range pack (export packing, e.g. "104-110"). code is optional — auto-assigned RNG-#### if omitted or taken. Required: name. Optional: rangeGroupCode, sizes (CSV of size names).'),
+  masterCreateTool('bank', 'Create a bank master. code is optional — auto-assigned BK-#### when omitted. An explicitly given code that is taken is refused. Required: name (e.g. HDFC Bank).'),
+  masterCreateTool('bank-account', 'Create a company bank account. accountNo is optional — auto-assigned ACC-#### when omitted. An explicitly given code that is taken is refused. Required: bankCode (bank code or name). Optional: branch, ifsc, accountType (current|savings|cc|od), upi, active.'),
+  masterCreateTool('mill', 'Create a knitting/dyeing mill master. code is optional — auto-assigned MIL-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: city, gstin, notes.'),
+  masterCreateTool('machine-category', 'Create a machine category master. code is optional — auto-assigned MC-#### when omitted. An explicitly given code that is taken is refused. Required: name (e.g. Circular Knitting, Flat Lock).'),
+  masterCreateTool('machine', 'Create a machine master. code is optional — auto-assigned MCH-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: machineCategoryCode, capacityPcsPerHour, notes.'),
+  masterCreateTool('state', 'Create a state master (GST place-of-supply). code is optional — auto-assigned ST-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: gstCode (first 2 GSTIN digits, e.g. 33 = Tamil Nadu).'),
+  masterCreateTool('shade', 'Create a shade master (shade ≠ colour in dyeing: colour family × depth). code is optional — auto-assigned SHD-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: notes.'),
+  masterCreateTool('thread-type', 'Create a sewing thread type master. code is optional — auto-assigned THR-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: notes.'),
+  masterCreateTool('count-group', 'Create a yarn count group master. code is optional — auto-assigned CG-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: notes (counts in this group, e.g. 30s–40s).'),
+  masterCreateTool('range-group', 'Create a size-range group master. code is optional — auto-assigned RG-#### when omitted. An explicitly given code that is taken is refused. Required: name.'),
+  masterCreateTool('size-range', 'Create a size range pack (export packing, e.g. "104-110"). code is optional — auto-assigned RNG-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: rangeGroupCode, sizes (CSV of size names).'),
   // SPEC-M44 CST-01 — the cost component library (Module K)
-  masterCreateTool('cost-component', 'Create a cost component (the costing library — legacy FrmPreCostingCompMas). code is optional — auto-assigned CC-#### if omitted or taken. Required: name. Optional: category (fabric|trim|cm|washing|packing|overhead|other — the cost-sheet head it quotes into, default other), unit (display text, e.g. per kg), rate (the quoted ₹), active (default true).'),
+  masterCreateTool('cost-component', 'Create a cost component (the costing library — legacy FrmPreCostingCompMas). code is optional — auto-assigned CC-#### when omitted. An explicitly given code that is taken is refused. Required: name. Optional: category (fabric|trim|cm|washing|packing|overhead|other — the cost-sheet head it quotes into, default other), unit (display text, e.g. per kg), rate (the quoted ₹), active (default true).'),
   // SPEC-M50 M-01 — the chart of accounts (Module M)
-  masterCreateTool('account', 'Create a chart-of-accounts account. code is optional — auto-assigned ACC-#### if omitted or taken (the seeded standard tree uses numeric codes: 1010 Cash/Bank, 1110 Sundry Debtors, 2100 Sundry Creditors, 2200 Wage Payable, 4010 Sales, 5010 Production Wages, 5110 Staff Salaries, 9000 Suspense Account). Required: name, type (asset|liability|income|expense|equity). Optional: parentCode (an account code or name), active (default true). Journal legs resolve by exact name OR code — create the account here FIRST, then create_journal.'),
+  masterCreateTool('account', 'Create a chart-of-accounts account. code is optional — auto-assigned ACC-#### when omitted. An explicitly given code that is taken is refused (the seeded standard tree uses numeric codes: 1010 Cash/Bank, 1110 Sundry Debtors, 2100 Sundry Creditors, 2200 Wage Payable, 4010 Sales, 5010 Production Wages, 5110 Staff Salaries, 9000 Suspense Account). Required: name, type (asset|liability|income|expense|equity). Optional: parentCode (an account code or name), active (default true). Journal legs resolve by exact name OR code — create the account here FIRST, then create_journal.'),
   // SPEC-M54 M-05 (EH-01) — the expense heads (legacy FrmMasExpenses port)
-  masterCreateTool('expense-head', 'Create an expense head (legacy FrmMasExpenses). code is optional — auto-assigned EXH-#### if omitted or taken. Required: name (unique — the natural key create_expense resolves by exact name or code), category (fixed|stylewise|general|transport|other — expenses under the head store it; stylewise requires the order on the expense door). Optional: glAccount (the default GL debit leg — an exact Account name or code, e.g. 5020 Freight; a stale value falls back to the category default with a note, never blocks), active (default true — inactive heads refuse new expenses).'),
+  masterCreateTool('expense-head', 'Create an expense head (legacy FrmMasExpenses). code is optional — auto-assigned EXH-#### when omitted. An explicitly given code that is taken is refused. Required: name (unique — the natural key create_expense resolves by exact name or code), category (fixed|stylewise|general|transport|other — expenses under the head store it; stylewise requires the order on the expense door). Optional: glAccount (the default GL debit leg — an exact Account name or code, e.g. 5020 Freight; a stale value falls back to the category default with a note, never blocks), active (default true — inactive heads refuse new expenses).'),
 ]
 
 const masterUpdateTools: AgentTool[] = [
@@ -3383,7 +3395,7 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_pcs_despatch',
-    'Despatch finished goods (pieces) to a buyer. dcNo is optional — auto-assigned DC-#### if omitted or taken. Required: orderNo, totalPcs. Optional: buyerCode (defaults from order), vehicleNo, courierName, lines (array of {styleNo, colourName, sizeName, qty, rate}).',
+    'Despatch finished goods (pieces) to a buyer. dcNo is optional — auto-assigned DC-#### when omitted. An explicitly given code that is taken is refused. Required: orderNo, totalPcs. Optional: buyerCode (defaults from order), vehicleNo, courierName, lines (array of {styleNo, colourName, sizeName, qty, rate}).',
     'orders',
     DESPATCH_SCHEMA,
     planPcsDespatch,
@@ -3438,14 +3450,14 @@ const writeTools: AgentTool[] = [
   ),
   docTool(
     'create_debit_note',
-    'Raise a debit note against a party — a DEDUCTION from the buyer\'s outstanding (the bills register + party ledger net it). noteNo is optional — auto-assigned DN-#### if omitted or taken. Required: noteType (acc|fabric|yarn|pcs|comm), partyCode, amount. Optional: reason, date, debitAccount (GL debit leg — exact account name or code, default Sales [4010]). SPEC-M51: also writes the companion journal JV-DN-#### — Dr debitAccount / Cr the party-type control (Sundry Debtors [1110] for customers); cancel via cancel_debit_note flips both + a CN- contra.',
+    'Raise a debit note against a party — a DEDUCTION from the buyer\'s outstanding (the bills register + party ledger net it). noteNo is optional — auto-assigned DN-#### when omitted. An explicitly given code that is taken is refused. Required: noteType (acc|fabric|yarn|pcs|comm), partyCode, amount. Optional: reason, date, debitAccount (GL debit leg — exact account name or code, default Sales [4010]). SPEC-M51: also writes the companion journal JV-DN-#### — Dr debitAccount / Cr the party-type control (Sundry Debtors [1110] for customers); cancel via cancel_debit_note flips both + a CN- contra.',
     'accounting',
     DEBIT_NOTE_SCHEMA,
     planDebitNote,
   ),
   docTool(
     'create_journal',
-    'Post a journal voucher (receipt | payment | contra | journal). voucherNo is optional — auto-assigned V-#### if omitted or taken. Required: voucherType, debitAccount, creditAccount, amount. Optional: partyCode, narration, date. SPEC-M50: debitAccount/creditAccount resolve against the chart of accounts by EXACT name or code (e.g. "Production Wages" or "5010", "Wage Payable" or "2200") — unknown legs are REFUSED; create the account first (create_account) or browse the chart (list_accounts). Payment/receipt/payroll/production-bill vouchers resolve their legs automatically.',
+    'Post a journal voucher (receipt | payment | contra | journal). voucherNo is optional — auto-assigned V-#### when omitted. An explicitly given code that is taken is refused. Required: voucherType, debitAccount, creditAccount, amount. Optional: partyCode, narration, date. SPEC-M50: debitAccount/creditAccount resolve against the chart of accounts by EXACT name or code (e.g. "Production Wages" or "5010", "Wage Payable" or "2200") — unknown legs are REFUSED; create the account first (create_account) or browse the chart (list_accounts). Payment/receipt/payroll/production-bill vouchers resolve their legs automatically.',
     'accounting',
     JOURNAL_SCHEMA,
     planJournal,

@@ -445,7 +445,7 @@ describe('SPEC-M50 — the TB substrate + wiring pins', () => {
   })
 
   it('PROMPT_VERSION m51 + the accounts line names the CoA doors', () => {
-    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('chart of accounts')
     expect(prompt).toContain('create_account')

@@ -35,7 +35,7 @@ Open the app, and in the agent chat:
 npx vitest run
 ```
 
-**1687 tests across 83 files** — the full industry chain with stock-ledger assertions at every hop, doc parity (every write op produces identical rows through the agent door and the form door), master parity (all 44 masters), the money batches (payments, payroll, cheque/PDC), the accounts modules (CoA, party ledger, budget, Tally export), register services, report services, and the ops/idempotency/audit contracts — plus the M60 auth-hardening suite (login lockout arithmetic, the audit ledgers, session revocation) and the OMNI-1 env-driven LLM endpoint contract (omniroute integration). The suite runs on a disposable copy of the database — it never touches production data.
+**1736 tests across 87 files** — the full industry chain with stock-ledger assertions at every hop, doc parity (every write op produces identical rows through the agent door and the form door), master parity (all 44 masters), the money batches (payments, payroll, cheque/PDC), the accounts modules (CoA, party ledger, budget, Tally export), register services, report services, and the ops/idempotency/audit contracts — plus the M60 auth-hardening suite (login lockout arithmetic, the audit ledgers, session revocation), the OMNI-1 env-driven LLM endpoint contract (omniroute integration), and the SPEC-M61 H1 agent-harness safety suite (taken-code refusal, two-band duplicate warnings, rights-aware tool authorization, the frozen copy deck, the golden buyer-incident replay). The suite runs on a disposable copy of the database — it never touches production data.
 
 ## Repo layout
 
@@ -45,8 +45,8 @@ src/lib/agent/     tool registry (tools.ts, 274 tools), prompt, document extract
 src/lib/erp/        numbering, enums, movement matrix, posting engine (45 posting services),
                    master configs, doc configs, register configs + services, CoA, audit
 src/app/           188 routes — pages, form doors, registers, agent SSE loop, upload
-docs/CONTEXT/      STATE, PITFALLS, DECISIONS (ADR ledger), specs (SPEC-M1..M60)
-tests/             pipeline + unit (83 files)
+docs/CONTEXT/      STATE, PITFALLS, DECISIONS (ADR ledger), specs (SPEC-M1..M63)
+tests/             pipeline + unit (87 files)
 scripts/           backup_db.py, recovery_drill.sh, context_check.sh, eval_routing.mjs,
                    route smoke per batch, verification tooling
 db/                SQLite database + backups

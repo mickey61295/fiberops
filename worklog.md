@@ -2656,3 +2656,52 @@ Stage Summary:
 - 5 NUANCES FOR THE FREEZE (spec-absorbed): (a) UNIQUE_TITLE_ENTITIES already HARD-FAILS duplicate titles for 8 entities — E-3.2's warn-don't-block must NOT soften them; the duplicateKeyFields warning surface applies to entities NOT in the set (buyer/party/employee/style), and §7-2's real question is "warn (proposed) vs move buyer/party into the hard-fail set (like colour)"; (b) E-3.1 changes the masters FORM door too — the form's error rendering must present the refusal message cleanly (implementation detail, test in the form door too); (c) voice-approve currently targets the last pending card silently — edge-28/29 fix belongs in H1's approve-path hardening, not H3; (d) the 5 most-used reads for E-1.1's core tier need an AgentTurn frequency query before naming (the hfx-20-local branch carries scripts/measure-tool-surface.ts, the schema-surface measurement, ready to reuse for tier sizing); (e) prompt-cache stability (E-1.3) requires the tier arrays sorted deterministically — today's buildToolSpecs is stable (allTools order), so tiering just needs a defined order rule.
 - FEASIBILITY: all waves buildable with current primitives (no schema migrations beyond additive AgentTurn columns; no new tables; E-6.2 pending endpoint is a query; E-4.2 approve-all is a client loop over the existing approve route). H1 is hours-scale as claimed.
 - NOT DONE (awaiting freeze): no implementation started — the spec is DRAFT with §7's seven owner decisions open (expiry window, duplicate policy, packet semantics, money-line placement, Tamil copy, waiting-list location, eval rows).
+
+---
+Task ID: docs-r2
+Agent: main (Super Z)
+Task: Pull aa12604 "Doxs: Upgradation paths" (reset --hard to remote per owner instruction; stray local deletion of api/upload/route.ts discarded), read the 8 new/changed docs, verify claims against the tree, present findings.
+
+Work Log:
+- Reset local to origin/main aa12604 (local was 35e0c1e = previous remote tip; HFX-20 chain already on remote; no stash/untracked).
+- Read: prod-readiness-cleanup.md (448L), SPEC-M61 Rev2 diff (+342/-39), SPEC-M62 (427L, R2-1..14), SPEC-M63-mobile 5 files (R2-1..13).
+- Verified 20+ claims: ignoreBuildErrors:true + reactStrictMode:false; NO error/global-error/not-found/loading.tsx; NO /api/health; /api/seed shells `cd /home/z/my-project && bunx tsx` (session+admin guarded, still dev-only); db/custom.db TRACKED in git; two lockfiles; package name nextjs_tailwind_shadcn_ts 0.2.1, no typecheck/test scripts, start=bun+tee; 0 imports of next-auth/@ai-sdk/*/ai/z-ai-web-dev-sdk/uuid/docx/next-intl in src; sonner 23 call-sites vs radix-only Toaster at layout.tsx:49 (toasts invisible — confirmed); GLM-4.6 hardcoded at agent-panel.tsx:752; phrase guard gap confirmed at ~370-383 (any pending + phrase → most-recent resolve); MENU_GROUPS:259; SessionUser.rights exists (string[]|null) — E-10 primitive ready; 191 pages / 72 API routes / 96 models all match; StockLedger:466/CurrentStock:530/PackingList:1318/cartonNo:1340; CutBundle bundleNo+barcode @unique; qr.ts+barcode.ts exist; prisma 6.11.1; 38 scripts with hardcoded /home/z; ParityFooter wired app-shell:96; /api/tracker + /api/live-tracker both live; PLAN.md root; worklog split 472K vs 8K.
+- NUANCE FOUND: SSE start event (route.ts:234) carries promptVersion ONLY — E-13's "start event carries the model" is the TO-BUILD state, not current; llm.model lives at the completions call (:253). One-line add in route.ts + panel render.
+- STALE COUNTER: M62 §10 "models +7" predates R2-1 (Carton/CartonItem withdrawn → CartonLabel) + R2-7 (PrintJob) + BundleStage projection — real count ~+8/+9; pin at impl time.
+
+Stage Summary:
+- Doc set = upgrade roadmap: M61 FROZEN Rev2 (all 14 decisions locked, owner delegated) → implementable now; M62 DRAFT (6+4 owner decisions); M63 DRAFT (6 decisions; depends M62 Q1 + M61 H1-H3); cleanup PROPOSED (C0-C4, 10 decisions, C0 blockers before any real user).
+- Cross-doc hazards flagged: next-intl must NOT be Knip-removed (M61 §7.5 lands it at H5); M62 §6 model table superseded by R2-1; three parallel tracks share nav/layout/print surfaces — coordinate counters.
+- No implementation started this session (research + findings presentation only).
+
+---
+Task ID: m61-h1
+Agent: main (Super Z)
+Task: Implement SPEC-M61 H1 (Safety wave) — E-3 preflight/warnings/copy, E-2.1/E-2.4 prompt + contract tests, description hygiene, E-10 tool authorization, E-11 sonner toaster. Owner instruction: "continue with the best option" after the docs analysis.
+
+Work Log:
+- Read the full frozen SPEC-M61 Rev2 (only the diff was known before): E-3, §2.5 data model, §2.6 copy deck, §3 test specs, §5 H1 exit criteria.
+- Schema: AgentTurn +warnings Json? +selfApproved Boolean? (db push + generate + PRAGMA table_info verified).
+- NEW src/lib/agent/copy.ts — the frozen §2.6 copy deck (C-1.x..C-10.x + en-IN formatters + the Band-B similar-note).
+- NEW src/lib/erp/dedupe.ts — normalizeName (legal-suffix strip; dots/apostrophes = decorative joins; industry words NOT stripped), trigramSimilarity (Dice), jaroWinkler, isFuzzyDuplicate (≥0.85 ∨ ≥0.90).
+- NEW src/lib/agent/tool-rights.ts — DOMAIN_RIGHT (15 domains → MENU_GROUPS), create_bill_pass→accounts override, requiredRightOf, isMoneyClass, allowedRightsSet (reuses computeAllowedGroupIds, ADR-018), manifestVisible, mayApproveMoneyClass, areaLabelFor, writeToolsWithoutRights (the mapping gate).
+- master-service.ts — E-3.1 taken-code REFUSAL (the renumber branch dies; exact message with owner + both choices); E-3.2 two-band duplicate scan (500-row bound, Band A global precedence over Band B, warn never block, UNIQUE_TITLE_ENTITIES untouched); E-3.6 before-values on updates; MasterPlan.warnings + PlanWarning type.
+- types.ts + buyer/party/style/employee configs — duplicateKeyFields declared.
+- tools.ts — masterCreateTool propagates warnings (text + plan), masterUpdateTool propagates before, E-3.7 sweep (28 "if omitted or taken" → "when omitted. An explicitly given code that is taken is refused"), ToolResult.plan grows warnings + before.
+- prompt.ts — §7 rules 5+6 (E-2.1 adapted for H1: no list_tools reference yet — it lands in H2; referencing a nonexistent tool would violate the honesty rule the spec exists for), §8 masters-refusal line, PROMPT_VERSION m61-2026-09-15.
+- route.ts — buildToolSpecs(allowed) manifest narrowing (E-10.2), dispatch re-check with C-10.1 + [agent-authz] telemetry (E-10.3), AgentTurn.warnings persisted (E-3.3c), toolOutput.warnings explicit (E-3.3a).
+- approve/route.ts — approval-time rights re-check + money-class eligibility (403, C-10.1, logged), selfApproved = turn.userId === actor.userId, warnings recomputed + persisted at decision time (E-3.3d).
+- layout.tsx — sonner Toaster mounted (E-11; radix stays for legacy).
+- agent-panel.tsx — amber warnings band (data-testid=plan-warnings) + "Create duplicate anyway" primary label on Band A; plan-display.ts renders old → new.
+- eval_routing.mjs — 5 sandbox paths → process.cwd(); GOLDEN +rows 51 (taken-code, expectOutput "is already taken by") & 52 (duplicate, "already exists"); expectOutput scoring; static 52 PASS.
+- Tests: NEW harness-plan-preflight (13), harness-authz (15), harness-copy (11), harness-threads (6, the golden incident replay); prompt.test +5; master-parity +1; chat-batch2 +2.
+- Pin sweeps: PROMPT_VERSION m56→m61 across 15 test files (PITFALLS #51 discipline) + context_check.sh 3 pins + prg-batch7 startsWith.
+- Bugfixes en route: fieldLabel is lowercase (test finds 'dept' not 'Dept'); normalizeName dot-join ('L.P.P.' → 'lpp'); the harness-authz mapping gate CAUGHT the missing 'dispatch' domain (create_dc/deliver_dc/clear_gate_entry) — added to DOMAIN_RIGHT; custom.db M2E govt-holiday residue deleted (TS-luck date collision — pre-existing flake, verified via git stash isolation); db/backups snapshot regenerated (OPS-01 environment green again).
+- Gates: vitest 1736/1736 (87 files) · tsc src 0 · context_check 606/606 NO DRIFT · eval --static PASS (m61, 52 entries).
+- CORRECTION to the docs-r2 entry: "HFX-20 chain already on remote" was WRONG — remote never received it (user's aa12604 sits directly on 35e0c1e); the work lives ONLY on branch hfx-20-local (7af72ee). Reapply/rebase after the M61 waves per the recorded plan (both touch agent-panel.tsx).
+
+Stage Summary:
+- H1 exit criteria ALL green: taken code refused in both doors; duplicate warning visible on the card; golden incident replay passes at planner level; eval rows 3-4 (taken-code + duplicate) green in static mode with expectOutput assertions for the owner's full run; rights-hidden manifest + dispatch denial verified; toasts render.
+- Counters: 274 tools (unchanged — list_tools is H2) / 96 models / 1736 tests (87 files) / 188 routes / menu 151; PROMPT m61-2026-09-15.
+- Deferred (named): E-10.5 packet row filter rides H4; E-12/E-13 are H2/H3; tiers + list_tools are H2; the FULL LLM routing eval needs a live server (owner-run on next boot — the m61 prompt change requires it per SPEC-M10).
+- Next: H2 (E-1 tiers + list_tools + E-13 model badge) → H3 (durability + E-12) → H4 (packets/documents + E-10.5) → H5. HFX-20 rebase queued after the M61 waves.

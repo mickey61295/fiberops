@@ -27,6 +27,7 @@ export const styleConfig: MasterConfig = {
     { name: 'sam', label: 'SAM (minutes)', type: 'number', description: 'Standard Allowed Minutes' },
     { name: 'hsn', label: 'HSN', type: 'text', description: 'HSN code for invoices' },
   ],
+  duplicateKeyFields: ['description'], // SPEC-M61 E-3.2 — description is the style's natural key
   createTool: 'create_style', updateTool: 'update_style', listTool: 'list_styles',
   legacyForms: ['FrmStyleMaster'],
 }

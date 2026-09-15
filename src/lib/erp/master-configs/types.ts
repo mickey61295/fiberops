@@ -68,6 +68,11 @@ export interface MasterConfig {
   listColumns: MasterListColumn[]
   /** create/edit form AND generated tool schema */
   fields: MasterField[]
+  /** SPEC-M61 E-3.2 — natural-key fields checked for duplicates at create
+   * time (two bands, §7.2: normalized-exact warns amber; fuzzy notes softer).
+   * Warn, never block — entities in the service's UNIQUE_TITLE_ENTITIES set
+   * keep their hard-fail and must NOT appear here. */
+  duplicateKeyFields?: string[]
   createTool: string
   updateTool: string
   listTool: string

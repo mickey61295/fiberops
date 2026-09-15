@@ -121,6 +121,38 @@ describe('CHAT-05 — plan contents table', () => {
     expect(formatMoney(450000)).toBe('₹4,50,000')
     expect(formatMoney(10000000)).toBe('₹1,00,00,000')
   })
+
+  // SPEC-M61 E-3.3 — warnings pass through the whole pipeline: the panel
+  // renders them (source contract) and update rows render "old → new"
+  it('M61: update rows render old → new when before-values ride the plan (E-3.6)', () => {
+    const disp = planDisplay({
+      updates: [
+        {
+          table: 'buyer',
+          id: 'cuid-b',
+          data: { merchandiser: 'Priya Sharma', dept: 'Mens' },
+          before: { merchandiser: null, dept: 'Old Dept' },
+        },
+      ],
+    })
+    expect(disp.label).toBe('Buyer')
+    const merchRow = disp.rows.find((r) => r.field === 'merchandiser')
+    expect(merchRow?.value).toBe('— → Priya Sharma')
+    const deptRow = disp.rows.find((r) => r.field === 'dept')
+    expect(deptRow?.value).toBe('Old Dept → Mens')
+  })
+
+  it('M61: the panel renders plan warnings + the honest primary label (source contract, E-3.3e)', () => {
+    const panel = read('src/components/agent/agent-panel.tsx')
+    expect(panel).toContain('data-testid="plan-warnings"')
+    expect(panel).toContain("C_2_6_CREATE_DUPLICATE : C_2_6_APPROVE")
+    // the route persists warnings on the turn (E-3.3c)
+    const route = read('src/app/api/agent/route.ts')
+    expect(route).toContain('...(result.plan?.warnings ? { warnings: result.plan.warnings } : {})')
+    // the approve door recomputes + persists them at decision time (E-3.3d)
+    const approve = read('src/app/api/agent/approve/route.ts')
+    expect(approve).toContain('...(result.plan?.warnings ? { warnings: result.plan.warnings } : {})')
+  })
 })
 
 describe('CHAT-06 — approve-by-id (TOCTOU kill)', () => {
@@ -356,7 +388,7 @@ describe('CHAT-11 — prompt formatting contract', () => {
 
   it('PROMPT_VERSION is bumped (m42 — the stock take/valuation rewrite)', () => {
     // qol1-reconcile: ghost-tool removal is a semantic prompt change → m39.1
-    expect(PROMPT_VERSION).toBe('m56-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
+    expect(PROMPT_VERSION).toBe('m61-2026-09-15') // M51 M-02 true double-entry posts on the M50 line
   })
 })
 

@@ -3,6 +3,12 @@ import OpenAI from 'openai'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { allTools, getTool } from '@/lib/agent/tools'
 import { PROMPT_VERSION, SYSTEM_PROMPT } from '@/lib/agent/prompt'
+// SPEC-M61 E-10 (H1) — rights-aware manifest + dispatch re-check.
+// The manifest is NEVER trusted: route.ts re-checks requiredRight before
+// execute() (E-10.3), denial becomes an error tool result with the plain
+// C-10.1 copy, logged for E-9.3.
+import { hasRequiredRight, manifestVisible, requiredRightOf, allowedRightsSet, areaLabelFor } from '@/lib/agent/tool-rights'
+import { c10_1NotPermitted } from '@/lib/agent/copy'
 // qol1-reconcile (SPEC-QoL1 D-1) — the canonical coercion stack, shared by
 // BOTH doors (this proposal door AND /api/agent/approve). The M36-era inline
 // duplicate lived here; it moved back to its designed home verbatim.
@@ -107,22 +113,28 @@ async function loadZaiConfig(): Promise<any | null> {
   }
 }
 
-function buildToolSpecs() {
+function buildToolSpecs(allowed: Set<string>) {
   // OpenAI function-calling schema — convert Zod schemas to JSON Schema.
   // Strip the $schema key which OpenAI doesn't accept.
-  return allTools.map((t) => {
-    const jsonSchema = zodToJsonSchema(t.schema as any, 'parameters') as any
-    // zod-to-json-schema adds $schema; OpenAI rejects it
-    if (jsonSchema.$schema) delete jsonSchema.$schema
-    return {
-      type: 'function' as const,
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: jsonSchema,
-      },
-    }
-  })
+  // SPEC-M61 E-10.2 — hidden narrowing: the manifest carries ONLY the tools
+  // the caller may use (the same principle MCP gateways apply to
+  // tools/list). []/null rights (ADR-018) → allowedRightsSet() = all groups,
+  // so the legacy behavior is unchanged for unrestricted users.
+  return allTools
+    .filter((t) => manifestVisible(t, allowed))
+    .map((t) => {
+      const jsonSchema = zodToJsonSchema(t.schema as any, 'parameters') as any
+      // zod-to-json-schema adds $schema; OpenAI rejects it
+      if (jsonSchema.$schema) delete jsonSchema.$schema
+      return {
+        type: 'function' as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: jsonSchema,
+        },
+      }
+    })
 }
 
 export async function POST(req: Request) {
@@ -207,7 +219,10 @@ export async function POST(req: Request) {
           },
         })
 
-        const tools = buildToolSpecs()
+        // SPEC-M61 E-10.2 — the caller's rights snapshot (fresh from the DB
+        // via getSessionUser: role + UserGroup.rights; []/null/admin → all).
+        const allowed = allowedRightsSet(guard.user.role, guard.user.rights)
+        const tools = buildToolSpecs(allowed)
         // CHAT-02 (Phase-6B Batch 2, SPEC-M38 §1) — the brain used to get
         // SYSTEM_PROMPT + verbatim history and NOTHING else: no date, no user,
         // no FY, no screen (route.ts:231-239 was context-blind while the prompt
@@ -382,33 +397,51 @@ export async function POST(req: Request) {
                   .join('; ')
                 result = { error: `Invalid arguments for ${toolName}: ${issues || parsed.error?.message || 'validation failed'}` }
               } else {
-                try {
-                  result = await t.execute(parsed.value, actor)
-                  // Persist audit log — SPEC-M7 Wave B: userId = the logged-in
-                  // user (was hardcoded 'admin'). CHAT-06: capture the row id.
-                  const turnRow = await db.agentTurn
-                    .create({
-                      data: {
-                        prompt: userText,
-                        plan: result.plan
-                          ? JSON.stringify(result.plan)
-                          : null,
-                        toolCalls: JSON.stringify([
-                          { name: toolName, args: parsed.value, isWrite: t.isWrite },
-                        ]),
-                        result: (
-                          result.text ||
-                          JSON.stringify(result.json || '')
-                        ).slice(0, 2000),
-                        approved: !t.isWrite,
-                        userId: actor.userId,
-                        promptVersion: PROMPT_VERSION, // SPEC-M10 C2 — version every turn
-                      },
-                    })
-                    .catch(() => null)
-                  turnId = turnRow?.id ?? null
-                } catch (err: any) {
-                  result = { error: err.message || String(err) }
+                // SPEC-M61 E-10.3 — dispatch re-check (never trust the
+                // manifest): a rights-narrowed tool reaching execute() is
+                // denied HERE as an error tool result with the plain C-10.1
+                // copy — the model reads it and tells the operator in
+                // plain words. Logged for E-9.3 (denial telemetry).
+                const right = requiredRightOf(t)
+                if (right && !hasRequiredRight(t, allowed)) {
+                  const denial = c10_1NotPermitted(areaLabelFor(right))
+                  console.warn(
+                    `[agent-authz] dispatch denial: tool=${toolName} right=${right} user=${actor.email}`,
+                  )
+                  result = { error: denial, text: denial }
+                } else {
+                  try {
+                    result = await t.execute(parsed.value, actor)
+                    // Persist audit log — SPEC-M7 Wave B: userId = the logged-in
+                    // user (was hardcoded 'admin'). CHAT-06: capture the row id.
+                    // SPEC-M61 E-3.3(c) — plan warnings (duplicates) persist on
+                    // the AgentTurn row so the decision's story keeps what the
+                    // card SHOWED (O-2.4: "I didn't know" is never true).
+                    const turnRow = await db.agentTurn
+                      .create({
+                        data: {
+                          prompt: userText,
+                          plan: result.plan
+                            ? JSON.stringify(result.plan)
+                            : null,
+                          toolCalls: JSON.stringify([
+                            { name: toolName, args: parsed.value, isWrite: t.isWrite },
+                          ]),
+                          result: (
+                            result.text ||
+                            JSON.stringify(result.json || '')
+                          ).slice(0, 2000),
+                          approved: !t.isWrite,
+                          userId: actor.userId,
+                          promptVersion: PROMPT_VERSION, // SPEC-M10 C2 — version every turn
+                          ...(result.plan?.warnings ? { warnings: result.plan.warnings } : {}),
+                        },
+                      })
+                      .catch(() => null)
+                    turnId = turnRow?.id ?? null
+                  } catch (err: any) {
+                    result = { error: err.message || String(err) }
+                  }
                 }
               }
             }
@@ -417,6 +450,9 @@ export async function POST(req: Request) {
               text: result.text,
               json: result.json,
               plan: result.plan,
+              // SPEC-M61 E-3.3(a) — warnings are an explicit field on the tool
+              // result the model reads (they also ride plan.warnings).
+              warnings: result.plan?.warnings ?? undefined,
               isWrite: result.isWrite ?? t?.isWrite,
               toolName,
               hasCommitFn: !!result.commit,

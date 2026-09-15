@@ -44,6 +44,7 @@ export const employeeConfig: MasterConfig = {
     { name: 'aadhaar', label: 'Aadhaar', type: 'text', description: '12-digit id — stored as given, PRINTED MASKED (XXXX-XXXX-4839) on the payslip' },
     { name: 'active', label: 'Active', type: 'checkbox', defaultValue: true },
   ],
+  duplicateKeyFields: ['name'], // SPEC-M61 E-3.2 — person names: normalized+fuzzy only (phonetics deferred, §8)
   createTool: 'create_employee', updateTool: 'update_employee', listTool: 'list_employees',
   legacyForms: ['FrmEmpmaster'],
 }

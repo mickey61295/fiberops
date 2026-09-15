@@ -379,6 +379,6 @@ describe('accounts-m03 — wiring pins (FA-05)', () => {
     expect(src('src/lib/agent/tools.ts')).toContain("name: 'get_cash_book'")
     expect(src('src/lib/agent/tools.ts')).toContain("name: 'get_final_accounts'")
     expect(src('src/lib/agent/prompt.ts')).toContain('get_trial_balance')
-    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
   })
 })

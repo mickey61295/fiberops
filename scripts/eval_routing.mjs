@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /* ========= M10 GOLDEN-SET ROUTING EVAL (SPEC-M10 §2-C4) =========
- * 50 prompts across all 16 domains; each asserts the expected tool appears
+ * 52 prompts across all 16 domains (50 M10 + 2 SPEC-M61 E-8.1 safety rows); each asserts the expected tool appears
  * in the agent's tool-call stream (set-membership across ALL steps — read-
  * before-write validation calls are fine and desired).
  *
  * MODES:
  *   --static   no LLM, no server: validates the golden-set STRUCTURE —
- *              50 entries, unique ids, 16 domains, every expectedTool
+ *              52 entries, unique ids, 16 domains, every expectedTool
  *              resolves against src/lib/agent/tools.ts SOURCE (inline
  *              `name:` + docTool first-arg + masterCreateTool/masterUpdateTool
  *              slug → create_/update_<slug_> — the drift-note-#3 rule).
@@ -23,12 +23,17 @@
  * Report: download/eval-routing-report.json
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 const BASE = 'http://localhost:3000'
-const TOOLS_TS = '/home/z/my-project/src/lib/agent/tools.ts'
-const PROMPT_TS = '/home/z/my-project/src/lib/agent/prompt.ts'
-const REPORT = '/home/z/my-project/download/eval-routing-report.json'
-const UPLOAD = '/home/z/my-project/upload'
+// SPEC-M61 E-8.1 — sandbox paths replaced with process.cwd()-relative
+// resolution (the same class as the test-setup fix): the gates must run on
+// the owner's machine, not only in the build sandbox.
+const ROOT = process.cwd()
+const TOOLS_TS = join(ROOT, 'src/lib/agent/tools.ts')
+const PROMPT_TS = join(ROOT, 'src/lib/agent/prompt.ts')
+const REPORT = join(ROOT, 'download/eval-routing-report.json')
+const UPLOAD = join(ROOT, 'upload')
 const STATIC = process.argv.includes('--static')
 const GATE_PCT = 90
 
@@ -89,6 +94,12 @@ const GOLDEN = [
   { id: 40, domain: 'masters', expectedTool: 'create_party', why: 'new party master', prompt: 'Create a new party master for Ganga Dyeing Works, a supplier in Tirupur with GSTIN 33ABCDE1234F1Z5.' },
   { id: 41, domain: 'masters', expectedTool: 'list_colours', why: 'colour master read', prompt: 'What colours do we have in the colour master?' },
   { id: 42, domain: 'masters', expectedTool: 'update_party', why: 'update-not-recreate (H6)', prompt: 'Update the party SUP001 XYZ Yarns — their phone number changed to 9876543210.' },
+  // SPEC-M61 E-8.1 (H1 rows — the incident's two safety doors). expectOutput
+  // asserts a stable substring of the tool-call-end output: taken-code → the
+  // E-3.1 refusal (the plan FAILS, never renumbers); duplicate-name → the
+  // E-3.2 warning rides the stream (tool result text + plan.warnings).
+  { id: 51, domain: 'masters', expectedTool: 'create_buyer', expectOutput: 'is already taken by', why: 'M61 E-3.1 — taken code is refused, not silently renumbered', prompt: 'Create a buyer with the exact code B001, named Eval Taken Code Probe.' },
+  { id: 52, domain: 'masters', expectedTool: 'create_buyer', expectOutput: 'already exists', why: 'M61 E-3.2 — duplicate name warns in the stream (seed: Acme Corp USA / B001)', prompt: 'Add a new buyer named Acme Corp USA to the master.' },
   // workflow (3)
   { id: 43, domain: 'workflow', expectedTool: 'get_pending_approvals', why: 'approval inbox read', prompt: 'Show me everything pending in the approval queue.' },
   { id: 44, domain: 'workflow', expectedTool: 'accept_grn', why: 'confusion pair B2 — quality sign-off on an EXISTING GRN (H5)', prompt: 'GRN-001 has passed quality inspection — accept it in the GRN acceptance queue.' },
@@ -125,7 +136,7 @@ function runStatic() {
   const registry = toolNamesFromSource()
   const version = promptVersionFromSource()
   const errors = []
-  if (GOLDEN.length !== 50) errors.push(`golden set has ${GOLDEN.length} entries, expected 50`)
+  if (GOLDEN.length !== 52) errors.push(`golden set has ${GOLDEN.length} entries, expected 52`)
   const ids = new Set(GOLDEN.map((g) => g.id))
   if (ids.size !== GOLDEN.length) errors.push('duplicate ids in golden set')
   const domains = new Set(GOLDEN.map((g) => g.domain))
@@ -198,7 +209,18 @@ async function runFull() {
     const events = await callAgent(cookie, g.prompt)
     if (events == null) return { ...g, calledTools: null, pass: null, skipped: true }
     const called = events.filter((e) => e.type === 'tool-call-start').map((e) => e.toolName)
-    return { ...g, calledTools: called, pass: called.includes(g.expectedTool) }
+    let pass = called.includes(g.expectedTool)
+    // SPEC-M61 E-8.1 — rows may pin a stable substring of the tool output
+    // (taken-code refusal text, duplicate warning text) so behavioral
+    // assertions, not just routing, gate the run.
+    if (pass && g.expectOutput) {
+      const outputs = events
+        .filter((e) => e.type === 'tool-call-end')
+        .map((e) => JSON.stringify(e.output ?? {}))
+        .join('\n')
+      pass = outputs.includes(g.expectOutput)
+    }
+    return { ...g, calledTools: called, pass }
   }
   for (const g of subset) {
     process.stdout.write(`  #${String(g.id).padStart(2, '0')} [${g.domain.padEnd(11)}] ${g.expectedTool.padEnd(24)} … `)
@@ -279,7 +301,7 @@ async function runFull() {
     })),
     results: merged,
   }
-  mkdirSync('/home/z/my-project/download', { recursive: true })
+  mkdirSync(join(ROOT, 'download'), { recursive: true })
   writeFileSync(REPORT, JSON.stringify(report, null, 2))
   console.log(`\n===== ROUTING EVAL COMPLETE =====`)
   console.log(`Overall: ${passedM}/${scoredM.length} prompts — accuracy ${accuracyM}% (gate: ≥ ${GATE_PCT}%)${skippedM ? ` · ${skippedM} skipped (rate-limited)` : ''}${only ? ' · subset merged into report' : ''}`)
@@ -295,7 +317,7 @@ const main = async () => {
   if (STATIC) {
     const st = runStatic()
     // also (re)write the report's static section so the artifact stays fresh
-    mkdirSync('/home/z/my-project/download', { recursive: true }) // fresh-clone safe (full mode mkdirs; static didn't)
+    mkdirSync(join(ROOT, 'download'), { recursive: true }) // fresh-clone safe (full mode mkdirs; static didn't)
     try {
       const prev = JSON.parse(readFileSync(REPORT, 'utf8'))
       // qol1-reconcile — keep the artifact's version honest (it used to carry

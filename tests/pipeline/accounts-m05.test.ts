@@ -325,7 +325,7 @@ describe('Accounts M-05 (SPEC-M54) — expense heads', () => {
   })
 
   it('WIRING: PROMPT_VERSION m54 + the prompt lines + context_check pins', () => {
-    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
     const prompt = src('src/lib/agent/prompt.ts')
     expect(prompt).toContain('create_expense_head')
     expect(prompt).toContain('never blocks') // the M54 doctrine rides the body; the version comment is M55's now
@@ -335,7 +335,7 @@ describe('Accounts M-05 (SPEC-M54) — expense heads', () => {
     expect(cc).toContain('"274"')
     expect(cc).toContain('"96"')
     expect(cc).toContain('"44"')
-    expect(cc).toContain('m56-2026-09-08')
+    expect(cc).toContain('m61-2026-09-15')
     const schema = src('prisma/schema.prisma')
     expect(schema).toContain('model ExpenseHead')
     expect(schema).toContain('headId    String?')

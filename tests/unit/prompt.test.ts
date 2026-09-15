@@ -89,3 +89,45 @@ describe('SPEC-M10 §2-C3 — tool description floor', () => {
     expect(ledger.description).toContain('PRT-####')
   })
 })
+
+describe('SPEC-M61 E-2 — the capability protocol and prompt/description contract', () => {
+  it('E-2.1: the never-claim-absence rule is pinned verbatim (safety rule 5)', () => {
+    expect(SYSTEM_PROMPT).toContain(
+      '**Never tell the operator that a capability does not exist.**',
+    )
+    expect(SYSTEM_PROMPT).toContain(
+      'A plan costs nothing until approved, so proposing is always safer than refusing',
+    )
+    expect(SYSTEM_PROMPT).toContain(
+      'If a capability is genuinely absent (e.g. delete), say so in one sentence and offer the nearest real alternative — never pretend the action was performed.',
+    )
+  })
+
+  it('E-2.1: honest plan failures rule 6 (taken codes / duplicate warnings relayed plainly)', () => {
+    expect(SYSTEM_PROMPT).toContain('**Plans are drafts, and drafts can fail honestly.**')
+    expect(SYSTEM_PROMPT).toContain('Never silently work around a refusal.')
+  })
+
+  it('E-2.4(a): no create_* description anywhere says "or taken"', () => {
+    for (const t of allTools) {
+      expect(t.description.includes('or taken'), `${t.name} still says "or taken"`).toBe(false)
+    }
+  })
+
+  it('E-2.4(b): every master updateTool appears in the registry AND the prompt names the family', () => {
+    // the prompt's masters enumeration (§1 Masters) carries the generic
+    // create/update/list sentence; every config's tools resolve in-register
+    expect(SYSTEM_PROMPT).toContain(
+      'Masters** — every create_<entity> / update_<entity> / list_<entity> tool',
+    )
+    expect(SYSTEM_PROMPT).toContain('UPDATING any existing master via its update_<entity> tool')
+    // registry resolution for the incident entity's full family
+    for (const name of ['create_buyer', 'update_buyer', 'list_buyers']) {
+      expect(allTools.find((t) => t.name === name), name).toBeTruthy()
+    }
+  })
+
+  it('E-2.6: PROMPT_VERSION moved to the m61 line', () => {
+    expect(PROMPT_VERSION).toMatch(/^m61-/)
+  })
+})

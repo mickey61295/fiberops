@@ -122,7 +122,7 @@ const MAX_LINES = 6
 
 export function planDisplay(plan: {
   creates?: { table: string; data: Record<string, unknown> }[]
-  updates?: { table: string; id: string; data: Record<string, unknown> }[]
+  updates?: { table: string; id: string; data: Record<string, unknown>; before?: Record<string, unknown> }[]
 }): PlanDisplay {
   const creates = plan.creates ?? []
   const updates = plan.updates ?? []
@@ -136,10 +136,20 @@ export function planDisplay(plan: {
       .slice(0, MAX_ROWS)
       .map(([k, v]) => ({ field: fieldLabel(k), value: formatValue(k, v) }))
   } else if (updates[0]) {
+    // SPEC-M61 E-3.6 — update rows render "old → new" when before-values
+    // ride the plan (O-2.6); missing/unset render as "—" → "— → new value".
+    const before = updates[0].before
     rows = Object.entries(updates[0].data)
       .filter(([k, v]) => !SKIP_FIELDS.test(k) && v !== null && v !== undefined && v !== '')
       .slice(0, MAX_ROWS)
-      .map(([k, v]) => ({ field: fieldLabel(k), value: formatValue(k, v) }))
+      .map(([k, v]) => {
+        const newVal = formatValue(k, v)
+        if (before && k in before) {
+          const oldVal = formatValue(k, before[k])
+          if (oldVal !== newVal) return { field: fieldLabel(k), value: `${oldVal} → ${newVal}` }
+        }
+        return { field: fieldLabel(k), value: newVal }
+      })
   }
 
   const lineRows = creates.slice(1)

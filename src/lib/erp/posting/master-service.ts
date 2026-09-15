@@ -10,6 +10,10 @@ import { db } from '@/lib/db'
 import { getMasterConfig, MASTER_CONFIGS } from '../master-configs'
 import { ensureEmployeeParty } from './employee-party' // SPEC-M45 L-01
 import type { MasterConfig, MasterField, MasterRow } from '../master-configs/types'
+// SPEC-M61 E-3.2 (§7.2) — two-band natural-key duplicate detection
+import { isFuzzyDuplicate, normalizeName } from '../dedupe'
+// SPEC-M61 §2.6/§7.5 — the frozen copy deck (C-2.1 / C-2.3 and friends)
+import { c2_1DuplicateWarning, duplicateSimilarNote } from '@/lib/agent/copy'
 
 // ---------------------------------------------------------------------------
 // Prisma mapping tables (SPEC-M2 §12 gotcha 1: delegates are first-letter
@@ -53,13 +57,31 @@ const UNIQUE_TITLE_ENTITIES = new Set([
   'expense-head', // SPEC-M54 M-05 (EH-01) — ExpenseHead.name is unique (the door's natural key)
 ])
 
+/** SPEC-M61 E-3.3 — a plan warning travels the whole pipeline: tool result
+ * text (a), tool-call-end stream (b), AgentTurn.warnings (c), recomputed at
+ * approve-time (d), rendered by the panel with the "Create duplicate anyway"
+ * primary label (e). Warnings never block by themselves (O-2.4). */
+export interface PlanWarning {
+  type: 'duplicate'
+  /** §7.2 band: A = normalized-exact (amber C-2.1), B = fuzzy (softer note). */
+  band: 'A' | 'B'
+  field: string
+  value: string
+  existingCode: string
+  existingName: string
+  /** Operator-facing message (the only words the user sees). */
+  message: string
+}
+
 export interface MasterPlan {
   ok: boolean
   errors: string[]
   summary: string
   creates?: { table: string; data: any }
-  updates?: { table: string; id: string; data: any }
+  updates?: { table: string; id: string; data: any; before?: Record<string, unknown> }
   sideEffects?: string[]
+  /** SPEC-M61 E-3.2/E-3.3 — duplicate warnings shown on the card + stored on the turn. */
+  warnings?: PlanWarning[]
   commit: () => Promise<{ id: string; code?: string; [k: string]: any }>
 }
 
@@ -348,7 +370,7 @@ export async function planMasterCreate(
     }
   }
 
-  // key: provided / duplicate / auto-assign
+  // key: provided / taken / auto-assign — SPEC-M61 E-3.1 (no silent renumber)
   let keyValue: string | undefined
   if (config.codeField) {
     const isDateKey = config.fields.find((f) => f.name === config.codeField)?.type === 'date'
@@ -359,9 +381,19 @@ export async function planMasterCreate(
       const exists = isDateKey
         ? null
         : await delegateOf(config).findUnique({ where: { [config.codeField]: desired } }).catch(() => null)
-      if (!exists) keyValue = desired
-      else if (config.codePrefix) keyValue = await nextAutoCode(config) // legacy: taken+prefix → next free
-      else return fail([`${config.singular} '${desired}' already exists`])
+      if (!exists) {
+        keyValue = desired
+      } else {
+        // E-3.1 — the incident's silent renumber (B-0001 asked, B-0003
+        // planned) is REFUSED: an explicitly provided taken code fails the
+        // plan with the owner named and both real choices. Auto-assignment
+        // still happens when the field was omitted (below, unchanged).
+        const owner =
+          exists[config.titleField] ?? exists[config.codeField] ?? 'another record'
+        return fail([
+          `${desired} is already taken by ${owner} — update that record or omit the code to get the next free one.`,
+        ])
+      }
     } else if (config.codePrefix) {
       keyValue = await nextAutoCode(config)
     }
@@ -384,6 +416,76 @@ export async function planMasterCreate(
       const end = new Date(d); end.setHours(23, 59, 59, 999)
       const dup = await delegateOf(config).findFirst({ where: { name: n, date: { gte: start, lte: end } } }).catch(() => null)
       if (dup) return fail([`Govt Holiday '${n}' on ${d.toISOString().slice(0, 10)} already exists`])
+    }
+  }
+
+  // SPEC-M61 E-3.2 (§7.2) — natural-key duplicate warning, two bands, warn
+  // never block. Applies ONLY to entities that declare duplicateKeyFields
+  // AND are not in UNIQUE_TITLE_ENTITIES (those hard-fail above — the
+  // warn-don't-block surface must not soften them).
+  const warnings: PlanWarning[] = []
+  if (config.duplicateKeyFields?.length && !UNIQUE_TITLE_ENTITIES.has(config.entity)) {
+    for (const field of config.duplicateKeyFields) {
+      const value = args[field]
+      if (value === undefined || value === null || String(value).trim() === '') continue
+      const wanted = String(value)
+      // bounded scan (first 500 rows per field — the spec's guard)
+      const codeKey = config.codeField ?? 'id'
+      let rows: any[] = []
+      try {
+        rows = await delegateOf(config).findMany({
+          select: { [codeKey]: true, [config.titleField]: true, [field]: true },
+          take: 500,
+        })
+      } catch {
+        rows = []
+      }
+      const normWanted = normalizeName(wanted)
+      // Pass 1 — Band A (normalized-exact) has global precedence: a later
+      // exact-normalized row must not be masked by an earlier fuzzy row.
+      let bandA: PlanWarning | null = null
+      for (const r of rows) {
+        const rv = r[field]
+        if (rv === undefined || rv === null) continue
+        const existing = String(rv)
+        if (!normWanted || normalizeName(existing) !== normWanted) continue
+        const code = String(r[codeKey] ?? r[config.titleField] ?? '?')
+        const name = String(r[config.titleField] ?? existing)
+        bandA = {
+          type: 'duplicate',
+          band: 'A',
+          field,
+          value: wanted,
+          existingCode: code,
+          existingName: name,
+          message: c2_1DuplicateWarning(config.singular.toLowerCase(), name, code),
+        }
+        break // one Band A hit per field is enough — the card names it
+      }
+      // Pass 2 — Band B (fuzzy) only when no Band A hit exists
+      let bandB: PlanWarning | null = null
+      if (!bandA) {
+        for (const r of rows) {
+          const rv = r[field]
+          if (rv === undefined || rv === null) continue
+          const existing = String(rv)
+          if (!isFuzzyDuplicate(wanted, existing)) continue
+          const code = String(r[codeKey] ?? r[config.titleField] ?? '?')
+          const name = String(r[config.titleField] ?? existing)
+          bandB = {
+            type: 'duplicate',
+            band: 'B',
+            field,
+            value: wanted,
+            existingCode: code,
+            existingName: name,
+            message: duplicateSimilarNote(config.singular.toLowerCase(), name, code),
+          }
+          break
+        }
+      }
+      if (bandA) warnings.push(bandA)
+      else if (bandB) warnings.push(bandB)
     }
   }
 
@@ -423,6 +525,7 @@ export async function planMasterCreate(
     summary,
     creates: { table: config.delegate, data },
     sideEffects,
+    ...(warnings.length ? { warnings } : {}),
     async commit() {
       const rec = await delegateOf(config).create({ data: { ...data } })
       // fin-year invariant (SPEC-M2 §6.8): exactly one active year
@@ -529,13 +632,17 @@ export async function planMasterUpdate(
   }
 
   const changed = Object.keys(patch)
+  // E-3.6 — before-values for every changed field so the card renders
+  // "old → new" without a second query; missing/unset render as "—".
+  const before: Record<string, unknown> = {}
+  for (const key of changed) before[key] = record[key]
   const summary = `Update ${config.singular} ${String(keyValue)} | fields: ${changed.join(', ')}`
 
   return {
     ok: true,
     errors: [],
     summary,
-    updates: { table: config.delegate, id: record.id, data: patch },
+    updates: { table: config.delegate, id: record.id, data: patch, before },
     sideEffects: [`${config.singular} master updated`],
     async commit() {
       await delegateOf(config).update({ where: { id: record.id }, data: patch })

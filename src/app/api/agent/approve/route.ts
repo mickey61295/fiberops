@@ -10,6 +10,22 @@ import { normalizeArgs, parseWithCoercion } from '@/lib/agent/parse-with-coercio
 import { requireApiSession } from '@/lib/auth/api-guard'
 import { runCommit } from '@/lib/erp/audit'
 import { docCta } from '@/lib/erp/doc-cta'
+// SPEC-M61 E-10.3/E-10.4 (H1) — approval-time re-checks. Rights may change
+// between proposal and approval, so the decision door re-derives the
+// approver's rights FRESH and re-checks both the tool's requiredRight and
+// money-class eligibility. Money-class approvals additionally require the
+// money right; selfApproved (proposer === decider) is recorded on every
+// decision — allowed (the owner is the compensating control), never silent.
+import {
+  allowedRightsSet,
+  areaLabelFor,
+  hasRequiredRight,
+  isMoneyClass,
+  mayApproveMoneyClass,
+  MONEY_RIGHT,
+  requiredRightOf,
+} from '@/lib/agent/tool-rights'
+import { c10_1NotPermitted } from '@/lib/agent/copy'
 
 // Approval endpoint — the client posts { turnId, idempotencyKey } (CHAT-06)
 // and we execute the STORED plan, or the legacy { toolName, args } pair.
@@ -61,7 +77,8 @@ export async function POST(req: Request) {
     // Resolve the tool + args: stored turn first (CHAT-06), legacy pair second.
     let effectiveToolName = toolName
     let effectiveArgs = args
-    let turn: { id: string; plan: string | null; toolCalls: string | null } | null = null
+    // SPEC-M61 E-10.4 — userId rides along: selfApproved = proposer === decider.
+    let turn: { id: string; userId: string; plan: string | null; toolCalls: string | null } | null = null
     if (typeof turnId === 'string' && turnId.trim()) {
       turn = await db.agentTurn.findUnique({ where: { id: turnId.trim() } })
       if (!turn) return Response.json({ error: 'Unknown turn — the conversation event expired. Ask the agent to re-plan.' }, { status: 404 })
@@ -80,6 +97,33 @@ export async function POST(req: Request) {
     const t = getTool(effectiveToolName)
     if (!t) return Response.json({ error: 'Unknown tool' }, { status: 400 })
     if (!t.isWrite) return Response.json({ error: 'Tool is read-only' }, { status: 400 })
+
+    // SPEC-M61 E-10.3 — the approval-time re-check (rights may have changed
+    // since the plan was proposed; never trust the proposal-time manifest).
+    // Denials are logged for E-9.3 and answered in plain copy (C-10.1).
+    const approverAllowed = allowedRightsSet(guard.user.role, guard.user.rights)
+    const neededRight = requiredRightOf(t)
+    if (neededRight && !hasRequiredRight(t, approverAllowed)) {
+      console.warn(
+        `[agent-authz] approval denial: tool=${effectiveToolName} right=${neededRight} user=${actor.email}`,
+      )
+      return Response.json(
+        { error: `${c10_1NotPermitted(areaLabelFor(neededRight))} Nothing was committed.` },
+        { status: 403 },
+      )
+    }
+    // E-10.4 — money-class approvals require the approver to hold the money
+    // right (segregation of duties on the agent path; self-approval stays
+    // possible for holders and is recorded below, visible, never silent).
+    if (isMoneyClass(t) && !mayApproveMoneyClass(t, approverAllowed)) {
+      console.warn(
+        `[agent-authz] money-class approval denial: tool=${effectiveToolName} right=${MONEY_RIGHT} user=${actor.email}`,
+      )
+      return Response.json(
+        { error: `${c10_1NotPermitted(areaLabelFor(MONEY_RIGHT))} Money approvals need the accounts right — nothing was committed.` },
+        { status: 403 },
+      )
+    }
 
     // qol1-reconcile D-1b — validate + coerce at the DOOR (both paths).
     // Identical inputs to the proposal door = identical plans to compare.
@@ -123,10 +167,19 @@ export async function POST(req: Request) {
     // CHAT-06: mark ONLY this turn approved (the old updateMany marked every
     // pending turn of the user — a stale plan from an earlier message would
     // silently look approved in the audit).
+    // SPEC-M61 E-3.3(d) — warnings are RECOMPUTED by the re-plan above and
+    // persisted at decision time, so a recorded warning can never be stale.
+    // E-10.4 — selfApproved (proposer === decider) recorded on every decision.
     if (turn) {
       await db.agentTurn.update({
         where: { id: turn.id },
-        data: { approved: true, approvedAt: new Date(), approvedBy: actor.email },
+        data: {
+          approved: true,
+          approvedAt: new Date(),
+          approvedBy: actor.email,
+          ...(result.plan?.warnings ? { warnings: result.plan.warnings } : {}),
+          selfApproved: turn.userId === actor.userId,
+        },
       })
     } else {
       await db.agentTurn.updateMany({

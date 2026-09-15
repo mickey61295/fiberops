@@ -449,7 +449,7 @@ describe('CST Batch 8 — SPEC-M44 Module K costing depth', () => {
     })
 
     it('PROMPT_VERSION + the costing prompt section (M44)', () => {
-      expect(PROMPT_VERSION).toBe('m56-2026-09-08') // M51 M-02 true double-entry posts on the M50 line
+      expect(PROMPT_VERSION).toBe('m61-2026-09-15') // M51 M-02 true double-entry posts on the M50 line
       const prompt = src('../agent/prompt.ts')
       expect(prompt).toContain('create_cost_component')
       expect(prompt).toContain('get_order_cost')

@@ -273,7 +273,28 @@ describe('master form↔agent parity (SPEC-M2 §11.2)', () => {
       expect(plan2.ok).toBe(false)
       const toolRes = await getTool('create_exporter')!.execute(dupInput)
       expect(toolRes.plan).toBeUndefined()
-      expect(toolRes.text).toMatch(/already exists/i)
+      expect(toolRes.text).toMatch(/already exists|already taken/i)
+    })
+
+    // SPEC-M61 E-3.1 — the taken-code refusal now applies to AUTO-CODE
+    // entities too (the silent renumber is gone, both doors)
+    it('taken code on an auto-code entity (buyer) is REFUSED, never renumbered (SPEC-M61 E-3.1)', async () => {
+      const cfg = getMasterConfig('buyer')!
+      const seed = await planMasterCreate(cfg, { name: `M61 Parity Refuse ${TS}` })
+      expect(seed.ok, seed.errors.join('; ')).toBe(true)
+      const committedSeed = await seed.commit()
+      await track('buyer', committedSeed.id)
+      const takenCode = String(committedSeed.code)
+      // form door: fails with the owner + both choices
+      const formPlan = await planMasterCreate(cfg, { name: `M61 Parity Dup ${TS}`, code: takenCode })
+      expect(formPlan.ok).toBe(false)
+      expect(formPlan.errors[0]).toBe(
+        `${takenCode} is already taken by M61 Parity Refuse ${TS} — update that record or omit the code to get the next free one.`,
+      )
+      // agent door: same refusal, no card
+      const toolRes = await getTool('create_buyer')!.execute({ name: `M61 Parity Dup ${TS}`, code: takenCode })
+      expect(toolRes.plan).toBeUndefined()
+      expect(String(toolRes.error)).toMatch(/is already taken by/)
     })
 
     it('fin-year active=true deactivates other years (service invariant §6.8)', async () => {

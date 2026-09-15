@@ -345,7 +345,7 @@ describe('accounts-m04 — wiring (TL-05)', () => {
   })
 
   it('prompt: PROMPT_VERSION m53 + the Tally line', () => {
-    expect(PROMPT_VERSION).toBe('m56-2026-09-08')
+    expect(PROMPT_VERSION).toBe('m61-2026-09-15')
     const p = src('src/lib/agent/prompt.ts')
     expect(p).toContain('get_tally_export')
     expect(p).toContain('SPEC-M53 Tally both sides')
@@ -367,6 +367,6 @@ describe('accounts-m04 — wiring (TL-05)', () => {
   it('context_check pins: tools 271 + the m55 version check', () => {
     const cc = src('scripts/context_check.sh')
     expect(cc).toContain('"274"')
-    expect(cc).toContain("m56-2026-09-08")
+    expect(cc).toContain("m61-2026-09-15")
   })
 })
