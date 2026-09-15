@@ -2705,3 +2705,17 @@ Stage Summary:
 - Counters: 274 tools (unchanged — list_tools is H2) / 96 models / 1736 tests (87 files) / 188 routes / menu 151; PROMPT m61-2026-09-15.
 - Deferred (named): E-10.5 packet row filter rides H4; E-12/E-13 are H2/H3; tiers + list_tools are H2; the FULL LLM routing eval needs a live server (owner-run on next boot — the m61 prompt change requires it per SPEC-M10).
 - Next: H2 (E-1 tiers + list_tools + E-13 model badge) → H3 (durability + E-12) → H4 (packets/documents + E-10.5) → H5. HFX-20 rebase queued after the M61 waves.
+
+---
+Task ID: m61-h1-push
+Agent: main (Super Z)
+Task: Push f8ae6d5 (SPEC-M61 H1) to origin/main.
+
+Work Log:
+- `git push origin main` → FATAL: "could not read Username for 'https://github.com': No such device or address".
+- Investigated: no credential helper configured (local or global), no ~/.git-credentials, no ~/.netrc, no gh CLI, no PAT in env. The remote URL is plain https://github.com/mickey61295/fiberops.git with NO embedded token.
+- ROOT CAUSE FOUND for the HFX-20 mystery: the previous session's "push (output obscured, success unverified)" almost certainly failed the SAME way — that is why the remote never received the HFX-20 chain and the user's aa12604 sits directly on 35e0c1e. "PAT configured in the remote" was true in an EARLIER sandbox generation, not this one.
+
+Stage Summary:
+- f8ae6d5 (M61 H1, all gates green) is committed LOCALLY on main on top of aa12604; HFX-20 remains safe on hfx-20-local (7af72ee).
+- PUSH BLOCKED: no credentials exist in this environment. The owner must either (a) provide a PAT (git remote set-url origin https://<PAT>@github.com/mickey61295/fiberops.git) or (b) push locally. NOTHING is lost — both commits are verified objects.
