@@ -2735,3 +2735,30 @@ Work Log:
 Stage Summary:
 - M61 H1 IS NOW ON THE REMOTE. The HFX-20 push mystery is fully closed (root cause was environment, not code): the aa12604 gap on remote main is healed.
 - Security note for owner: this PAT was pasted in chat — rotate it at https://github.com/settings/tokens after the session; use a fresh one for future pushes (same advice as push-1, still pending).
+
+---
+Task ID: m61-h2
+Agent: main (Super Z)
+Task: Implement SPEC-M61 H2 (Honesty wave) — E-1 tiers + list_tools + rollback lever, E-2.2/E-2.3 prompt rules, E-8.1 live rows, E-13 model badge. Session opened with the owner supplying a fresh PAT: the two stranded H1 commits were pushed FIRST (aa12604..8ba810d, receipt verified, one-shot URL), then H2 built on top.
+
+Work Log:
+- Extracted the exact H2 scope from the frozen spec: E-1.1-E-1.5, E-2.2/E-2.3 (+E-2.6 version bump), E-8.1 remaining rows, E-13; §3 test specs; §5 exit criteria.
+- Picked the five most-used reads from REAL AgentTurn frequency (scripts/tool_freq.js, 518 rows): list_styles 38 / list_buyers 36 / list_colours 34 / list_sizes 29 / list_parties 26 — the ingestion-phase lookups dominate, exactly the spec's intent.
+- NEW src/lib/agent/tool-tiers.ts — CORE_TOOLS (12), tieredTools(pathname) (core sorted + screen tier sorted, deduped), selectTools() with the AGENT_TOOLS_FULL=1 rollback lever. Screen tier = menu item agentTools ∪ the SELF-DERIVED domain family (every tool sharing a domain with the item's own tools — no maintained group map, drift-free). Doc routes resolve via the registry's dynamic '/orders/[id]' patterns (segment match), then the parent fallback.
+- tools.ts — NEW list_tools meta-tool (domain meta, isWrite false): searchTools BM25 (k1=1.5, b=0.75) over name+description, ≤20 rows, excludes itself, domain filter pre-narrows the corpus, empty query browses alphabetically; result text carries the frozen "These are all the tools for this" + count. update_buyer description grew the merchandiser field (the incident verb must be searchable). allTools 274 → 275.
+- menu-registry.ts — the masters item's agentTools = the GENERATED family (45 master-configs × create/update/list + create_sizes, sorted); MASTER_CREATE_TOOLS (the hardcoded 21+4) deleted. master-configs is type-only imports → no cycle, client-safe.
+- route.ts — buildToolSpecs(allowed, screenPath) composes tiering with rights narrowing; SSE start carries model: llm.model (E-13); E-1.4 hidden-tool miss telemetry: every list_tools call probes the NEXT tool call against its result set (log-only [agent-tools] line).
+- agent-panel.tsx — modelId state from the start event; data-testid="model-badge" renders the RESOLVED model, hides when absent; the hardcoded GLM-4.6 badge is dead.
+- prompt.ts — heuristic 8 (E-2.2 bulk verbatim), rule 5 names list_tools + E-2.3 honesty; PROMPT_VERSION m61.2-2026-09-15.
+- eval_routing.mjs — E-8.1 rows 53-57: update-by-name, bulk ask, absence probe (tiering hides thread types → list_tools MUST run), delete ask (expectText 'no way to delete', C-1.1), injection fixture (forbidTools: record_payment/create_journal/create_expense/pay_wages/commit_payroll_run; EVALSEC-INJECTED.txt seeded in full mode). Scorer grew expectText (assistant text-deltas) + forbidTools; static 52 → 57 with forbidTool registry validation.
+- Tests: NEW tests/unit/harness-tools.test.ts (20: tier composition, BM25 'merchandiser'→update_buyer, determinism, ordering, rollback lever, E-1.4/E-13 source contracts); prompt.test +4 (E-2.1-H2/E-2.2/E-2.3/E-2.6-H2 pins); harness-authz route pin updated to the grown signature.
+- Pin sweeps: 274→275 tool-count pins across 21 test files (they were MANY — chat-batch2 was only the known one; the first full-suite run surfaced all of them); m61→m61.2 version pins across 16 files; context_check.sh (tools 275, domain grep {2,4} space to catch the 2-space const, eval 57, prompt-tests 19, PROMPT_VERSION m61.2).
+- 01-STATE.md — new Last-verified entry with the full H2 story.
+- Gates: vitest 1760/1760 (88 files) · tsc src 0 · context_check 606/606 NO DRIFT · eval --static PASS (m61.2, 57 entries, 16 domains).
+
+Stage Summary:
+- H2 exit criteria: absence-claim eval row scored (the 0-occurrences gate itself runs live on owner boot per SPEC-M10 — static mode cannot run it); hidden-tool miss telemetry logging live; prompt-cache stability unchanged (deterministic per-screen arrays pinned by test).
+- Counters: 275 tools (+list_tools) / 96 models / 1760 tests (88 files) / 188 routes / menu 151; PROMPT m61.2-2026-09-15.
+- Design decision worth remembering: tier-hidden tools are NOT blocked at dispatch — a tool discovered via list_tools MUST be executable, else discovery would recreate the "I can't" dead end; rights still re-check (E-10.3).
+- Deferred (named): E-2.5 per-session absence-claim counter (not in H2's ship list; feeds H5 metrics); the harness-injection planner fixture deepens in H4; full LLM routing eval is owner-run on next boot.
+- Next: H3 (durability: E-6 lifecycle/pending endpoint/reject/resume/expiry/snooze/withdraw + E-7.3 compaction + E-12 phrase guard + D8 planHash) → H4 → H5; HFX-20 rebase still queued after the waves.
