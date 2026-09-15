@@ -1,6 +1,6 @@
 # SPEC-M61 — Agent Harness 1 (HARNESS-1): trust, durability & the operator experience
 
-Date: 2026-09-14 · Status: DRAFT (owner review pending freeze) · Milestone M61
+Date: 2026-09-14 · Status: FROZEN — Revision 2 (review feedback + final research folded; open decisions locked in §7) · Milestone M61
 Depends: SPEC-M10 (versioned prompt), SPEC-M38 (chat batch 2), SPEC-M58 (history),
 SPEC-M60 (session tv) · No new ERP modules — this spec changes how the agent
 behaves and what the operator sees, never what the ERP can do.
@@ -506,7 +506,8 @@ Each E-requirement is the implementation twin of the O-requirement(s) it names.
   - duplicate-name warning (assert the warning appears in the stream),
   - absence probe (assert the agent never claims "no such tool" — either it
     calls the tool or `list_tools`),
-  - injection document (assert no write plan originates from the injected text).
+  - injection document (assert no write plan originates from the injected text),
+  - delete ask (assert the honest answer C-1.1, not a false claim or an action).
   The script's hardcoded `/home/z/my-project` paths are replaced with
   `process.cwd()`-relative resolution (same class as the test-setup fix).
 - **E-8.2 Deterministic trajectory checks.** New `scripts/eval_trajectory.mjs`
@@ -550,23 +551,96 @@ Each E-requirement is the implementation twin of the O-requirement(s) it names.
 - **E-9.5 Trace export.** The turn ledger is exportable as JSON/CSV by the owner
   for incident reconstruction (O-8.2); no external service.
 
+#### E-10 Tool authorization — rights-aware manifests and dispatch (Revision 2; O-4.x)
+
+The current harness authenticates but never authorizes: `requireApiSession()`
+gives `{userId, email, name}` to every `execute()`, and `isWrite` is the only
+classification. A logged-in storekeeper can therefore propose (and personally
+approve) a payroll run or a payment. Human-in-the-loop mitigates but does not
+remove this: the requester and the approver are the same person (no
+segregation of duties on the agent path). This requirement closes the hole.
+
+- **E-10.1 Mapping.** Every tool declares `requiredRight` — a `MENU_GROUPS` id
+  (`menu-registry.ts:259`) — or `null` for meta/read doors. Initial mapping is
+  derived from the existing domain→group structure (`domain` field on tools +
+  the menu item's `groupId`); explicit overrides live next to the tool
+  definition. A unit test asserts every write tool has a non-null right.
+- **E-10.2 Hidden narrowing.** `buildToolSpecs()` filters the manifest by the
+  caller's rights snapshot (`getSessionUser().rights`; `[]`/null = all, the
+  ADR-018 back-compat rule). The agent never sees tools the user cannot use —
+  the same principle MCP gateways apply to `tools/list`.
+- **E-10.3 Dispatch re-check.** `route.ts` re-checks `requiredRight` before
+  `t.execute()` (never trust the manifest): denial becomes an error tool result
+  with the plain copy C-10.1, logged for E-9.3. Same check in
+  `/api/agent/approve` at decision time (rights may change between proposal and
+  approval).
+- **E-10.4 Money-class approval eligibility.** Money-class tools
+  (`record_payment`, `pay_wages`, `create_journal`, `cancel_*`,
+  `commit_payroll_run`, `create_bill_pass` — the accounting/HR domains) require
+  the approver to hold the money right. `selfApproved` (proposer === decider)
+  is recorded on every decision and surfaced in the audit register; it is
+  allowed (the owner/founder is the compensating control in a small firm —
+  PCAOB AS 2201.42-style alternative controls) but visible, never silent.
+- **E-10.5 Packets filter rows.** A packet only renders rows the requester may
+  propose; rows outside their rights show "Not permitted for your role"
+  (C-10.2), are unticked, and cannot be approved. No approve-all → error-chip
+  cascade.
+- **E-10.6 Dual control (deferred, named).** Requester ≠ approver for money
+  classes is a policy knob (`requireDualControl` per risk class), designed but
+  disabled in H1; enabling it is an owner decision in H5. The data model
+  already records proposer and decider separately.
+
+#### E-11 Feedback plumbing (Revision 2; O-2.x, O-3.x)
+
+All components toast via `sonner`, but only the radix `Toaster` is mounted
+(`src/app/layout.tsx:49`); `components/ui/sonner.tsx` is never rendered, so
+approval/drift/expiry toasts are currently invisible. Mount the sonner Toaster
+in the root layout; all new M61 feedback uses sonner; the radix toaster stays
+until legacy call-sites migrate. A test asserts the provider is mounted and one
+toast path renders.
+
+#### E-12 Approval-phrase guard (Revision 2; O-1.5)
+
+Typed "yes/ok/no" currently resolves the most recent pending plan whenever any
+plan is pending (`agent-panel.tsx:370-383`) — including when the operator is
+answering a clarifying question. Lock: interpret a phrase as approve/reject
+**only when exactly one plan is pending AND the last assistant turn actually
+produced a plan or explicitly asked for approval** (the turn's tool-call events
+carry this). Otherwise treat it as normal text; with 2+ plans pending, the
+agent asks which one (numbered). Bare "no" never rejects a plan by accident.
+
+#### E-13 Model display truthfulness (Revision 2; H-2 honesty)
+
+The panel badge hardcodes `GLM-4.6` (`agent-panel.tsx:752`) while the endpoint
+is env-pinned to `opencode-go/deepseek-v4.1-flash`. The SSE `start` event
+carries the resolved model (`llm.model`); the badge renders it, and hides when
+absent. No hardcoded model strings anywhere.
+
 ### 2.5 Data model (additive only)
 
 | Model | Field | Type | Notes |
 |---|---|---|---|
-| AgentTurn | status | String? | pending/approved/rejected/expired/superseded |
-| AgentTurn | decidedBy | String? | email |
+| AgentTurn | status | String? | pending/approved/rejected/expired/**withdrawn**/superseded |
+| AgentTurn | decidedBy | String? | email (approver/decider; proposer is `userId`) |
 | AgentTurn | decidedAt | DateTime? | |
-| AgentTurn | decisionNote | String? | reject reason |
-| AgentTurn | expiresAt | DateTime? | pending default +24h |
-| AgentTurn | supersededBy | String? | turn id |
-| AgentTurn | warnings | String? | JSON array (E-3.3) |
-| AgentTurn | sourceDocs | String? | JSON array of file names |
+| AgentTurn | decisionNote | String? | reject/withdraw reason |
+| AgentTurn | expiresAt | DateTime? | pending default +24h (Revision 2) |
+| AgentTurn | snoozeCount | Int? | default 0; max 3 extends (Revision 2) |
+| AgentTurn | extendedAt | DateTime? | last extend timestamp (Revision 2) |
+| AgentTurn | supersededBy | String? | turn id (drift re-plan / withdrawal) |
+| AgentTurn | withdrawnBy | String? | email (Revision 2) |
+| AgentTurn | withdrawnAt | DateTime? | (Revision 2) |
+| AgentTurn | warnings | Json? | array; Prisma 6.11 on SQLite stores JSONB — typed, not String (Revision 2) |
+| AgentTurn | sourceDocs | Json? | array of file names (Revision 2: Json) |
+| AgentTurn | planHash | String? | canonical hash of the plan as shown (Revision 2, D8) |
+| AgentTurn | selfApproved | Boolean? | proposer === decider (Revision 2, E-10.4) |
 | (no new tables) | | | pending list is a query on AgentTurn |
 
 Legacy rows: `status` derived on read (`approved ? 'approved' : 'pending'`),
 `expiresAt` null = never expires (pre-M61 rows only), so no backfill and no
-mass expiry of history.
+mass expiry of history. JSON note: Prisma's advanced JSON *filtering* is
+PG/MySQL-only — the H5 trust summary uses raw SQL (`json_each`/`json_extract`)
+or an app-side scan; a round-trip test pins the `Json` type.
 
 ### 2.6 Copy deck (exact strings — the only words operators see)
 
@@ -605,6 +679,11 @@ mass expiry of history.
 - **C-6.2 (worklist title):** "This job's progress".
 - **C-7.1 (audit line):** "Proposed by the agent · Approved by Priya Sharma ·
   14 Sep 14:32".
+- **C-10.1 (not permitted):** "Your role doesn't include <area> — ask an admin
+  if you need it."
+- **C-10.2 (packet row blocked):** "Not permitted for your role."
+- **C-3.5 (extend):** "Extended — expires tomorrow at <time>." / "Extended
+  3 times — ask me to prepare it again."
 - **Tone rules:** short sentences; Indian English; ₹ with lakh/crore grouping
   where natural; document numbers, not ids; never "tool", "JSON", "system",
   "error code". Voice (ta-IN/en-IN) reads the same strings.
@@ -660,9 +739,22 @@ All new tests are residue-free (afterAll removes fixtures) per house rules.
   "merchandiser" → `update_buyer`, excludes itself), E-1.3 determinism across
   calls, E-1.5 env rollback flag.
 - `tests/unit/agent-decisions.test.ts` (NEW) — E-6.x: approve sets status +
-  decidedBy; reject endpoint + reason; expiry transitions on read; double
-  approve replay; drift supersedes + supersededBy; pending GET filters user +
-  expiry; history endpoint returns pending cards; withdraw.
+  decidedBy; reject endpoint + reason; expiry transitions on read; extend 24h
+  (cap 3) bumps expiresAt/snoozeCount; double approve replay; drift supersedes +
+  supersededBy; pending GET filters user + expiry; history endpoint returns
+  pending cards; withdraw sets withdrawn + event; `selfApproved` recorded.
+- `tests/unit/harness-authz.test.ts` (NEW, Revision 2) — E-10: every write tool
+  declares a right; manifest hides rights the caller lacks (`[]`/null = all);
+  dispatch denies with C-10.1; approve re-checks; money-class approval requires
+  the money right; packet filters blocked rows (C-10.2); denial logged.
+- `tests/unit/harness-copy.test.ts` (NEW, Revision 2) — the copy module is
+  frozen, keys match §2.6, no lorem/partial strings; a money plan renders
+  C-2.4 with `en-IN` grouping; the model badge falls back to hidden without a
+  model id; the sonner Toaster provider is mounted (E-11).
+- `tests/unit/harness-phrase-guard.test.ts` (NEW, Revision 2) — E-12: "yes"
+  with two pending plans does not approve; "yes" after a clarifying question
+  does not approve; "yes" with exactly one pending plan produced by the last
+  assistant turn approves; bare "no" never rejects without the same guard.
 - `tests/pipeline/harness-threads.test.ts` (NEW) — E-8.3 golden threads,
   fixture #1 = the buyer incident (turns 1-4 verbatim); planner-level assertions
   (update not create; no absence claim path possible because the tool exists in
@@ -707,9 +799,9 @@ All new tests are residue-free (afterAll removes fixtures) per house rules.
 
 | Wave | Ships | Exit criteria |
 |---|---|---|
-| **H1 — Safety** | E-3 (preflight, warnings, copy), E-2.1/E-2.4 prompt + contract tests, description hygiene | taken code refused in both doors; duplicate warning visible on the card; golden incident replay at planner level passes; eval rows 3-4 green |
-| **H2 — Honesty** | E-1 (tiers, `list_tools`, rollback flag), E-2.2/E-2.3, E-8.1 live rows | absence-claim eval row 0 occurrences; hidden-tool miss telemetry logging; prompt cache stability unchanged |
-| **H3 — Durability** | E-6 (lifecycle, pending endpoint, reject, resume, badge, expiry, withdraw), E-7.3 compaction | pending survives reload/resume/restart; expiry/withdraw/reject all audited; badge accurate |
+| **H1 — Safety** | E-3 (preflight, warnings, copy), E-2.1/E-2.4 prompt + contract tests, description hygiene, **E-10 (tool authorization)**, **E-11 (sonner toaster)** | taken code refused in both doors; duplicate warning visible on the card; golden incident replay at planner level passes; eval rows 3-4 green; rights-hidden manifest + dispatch denial verified; toasts render |
+| **H2 — Honesty** | E-1 (tiers, `list_tools`, rollback flag), E-2.2/E-2.3, E-8.1 live rows, **E-13 (model badge)** | absence-claim eval row 0 occurrences; hidden-tool miss telemetry logging; prompt cache stability unchanged |
+| **H3 — Durability** | E-6 (lifecycle, pending endpoint, reject, resume, badge, expiry, **snooze**, withdraw), E-7.3 compaction, **E-12 (phrase guard)**, **D8 (planHash + transactional drift)** | pending survives reload/resume/restart; expiry/extend/withdraw/reject all audited; badge accurate; double-decide safe |
 | **H4 — Bulk + documents** | E-4 (packet card, approve-all), E-5 (spotlight, check table, provenance, injection fixture) | "each/all" produces one packet; injection fixture yields no writes; source lines on every document-derived plan |
 | **H5 — Improvement loop** | E-8.2 gate, E-9.2/9.3 metrics + thresholds, E-5.7/E-8.5 design | trajectory report in the session gate; monthly trust summary query works |
 | **H6 — Stretch** | dual-LLM quarantined extractor, server bulk endpoint, per-risk TTLs, external notifications | not committed to a milestone |
@@ -737,24 +829,169 @@ within 2 hours.
 
 ---
 
-## §7 Open questions (owner decisions before freeze)
+## §7 Decisions (locked, Revision 2 — owner delegated 2026-09-14)
 
-1. **Expiry window** — 24h uniform is proposed; should masters get 72h and
-   money actions 24h now, or later?
-2. **Duplicate policy** — warning + "Create duplicate anyway" is proposed
-   (warn, don't block). Some ERP shops would prefer a hard block on exact-name
-   duplicates. Which does the owner want for buyers/parties?
-3. **Packet semantics** — per-row commits (current design, partial success
-   possible) vs one all-or-nothing commit (new batch tool). Per-row is proposed
-   for H4.
-4. **Invoice/payment impact line** — should money actions always show the
-   ledger line, or only when the operator expands "details"? (Card crowding risk.)
-5. **Tamil copy** — the voice layer supports ta-IN; should the copy deck be
-   translated (at least the warning/error strings) and if so by whom?
-6. **Waiting list location** — in-panel only for H3, or also a strip on
-   /approvals in the same wave?
-7. **Eval rows** — confirm the six additions (E-8.1) are the right first set or
-   name more from the incident log.
+Each decision names the evidence base and the spec sections it changes. These
+are binding; open questions are closed.
+
+### 7.1 Expiry and snooze — 24h uniform + one-tap extend, capped
+
+**Decision:** every pending plan expires 24h after creation (uniform, lazy
+evaluation, E-6.3). The card offers **Extend 24h**; each extend bumps
+`expiresAt`, `extendedAt`, `snoozeCount`; **max 3 extends (96h total)**, after
+which the plan expires and must be re-prepared. The waiting list shows time
+left; the audit shows the extend count.
+**Why:** ServiceNow's approval engine documents the failure we must avoid — an
+approval with no due date waits forever; their remedy is a due date. Risk-based
+TTLs add UI/back-end complexity for a 40-user shop, and stale money plans are
+worse than expired ones. The cap converts endless snoozing into a re-plan with
+fresh numbers.
+
+### 7.2 Duplicate policy — block codes, warn names in two bands
+
+**Decision:** explicit codes that are taken **hard-fail** (E-3.1, both doors).
+Names **warn, never block**, in two bands: **Band A** normalized-exact (trim,
+case, punctuation, whitespace, legal suffixes) → the amber C-2.1 warning and
+the "Create duplicate anyway" primary label; **Band B** fuzzy (trigram ≥ 0.85
+or Jaro-Winkler ≥ 0.90) → a softer note ("There's a similar buyer
+'LPP S.A.' (B-0001) — same one?") with the "Update the existing one" action.
+Person-name matching (employees) is deferred to a dedicated pass with a
+labeled pair set built from real rows.
+**Why:** record-linkage research (fuzzy.direct threshold framework, Tamr
+blocking guidance) is clear that false positives are the damaging error for
+*automatic* actions but advisory warnings tolerate recall; two bands keep the
+amber warning credible. Indian-name phonetics (indicfuzz: AUC 0.987 vs 0.60
+for Jaro-Winkler alone) are real but out of scope for brand-name masters.
+
+### 7.3 Packet semantics — per-row commits, outcome table, chunked
+
+**Decision:** packets are convenience batches of independent writes; each row
+commits on its own with its own AgentTurn/idempotency key, results in the
+O-4.4 outcome table, partial failure named per row (E-4.5). Render up to 50
+rows per packet ("+N more" collapsed); beyond ~50, the agent chunks into
+multiple packets. Dependent multi-record writes (order + lines) remain one
+plan/one commit, never a packet.
+**Why:** Salesforce's composite API makes independent batches non-transactional
+by default and reserves `allOrNone` for dependent workflows; rolling back 49
+successful buyer updates because the 50th was locked is the exact enterprise
+anti-pattern.
+
+### 7.4 Money impact line — always visible
+
+**Decision:** money-class plans (payment, journal, invoice, expense) always
+render the ₹ amount + one-line ledger effect (C-2.4); no expand/collapse.
+**Why:** the approval packet literature (and any accountant) treats the
+before/after ledger effect as the core evidence; hiding it behind a toggle
+trades one line of vertical space for trust.
+
+### 7.5 Copy and i18n — typed module now, next-intl at H5, Tamil later
+
+**Decision:** the §2.6 copy deck lives in `src/lib/agent/copy.ts` as a frozen
+typed object (zero runtime, snapshot-tested). Full-app i18n via `next-intl`
+(existing dependency, currently unused; no `messages/` dir) lands at H5; then
+the copy module becomes `messages/en.json` keys with `messages/ta.json` added
+via professional translation. Tamil is **not** shipped in H1–H3.
+Number formatting is always explicit `en-IN` (the default-locale pitfall:
+Indian devices render ₹1,500,000 instead of ₹15,00,000); a CI key-completeness
+check arrives with next-intl.
+**Why:** next-intl's ICU MessageFormat is the documented choice for Indian
+plural/gender rules and RSC-first delivery, but wiring it app-wide is H5 work;
+the typed module is the exact seam it replaces, and it keeps M61 self-contained.
+
+### 7.6 Waiting list — in-panel for H3
+
+**Decision:** badge on the chat trigger (all screens) + in-panel waiting list
+in H3. `/approvals` integration is deferred (that route is the ERP
+approval-kinds WorkflowView — different domain, rights, and layout).
+**Why:** the smallest surface that satisfies "decisions outlive the tab";
+revisit when H5 metrics show missed decisions.
+
+### 7.7 Eval rows — seven additions, final list
+
+**Decision:** `eval_routing.mjs` gains rows: (1) update-by-name →
+`update_buyer`; (2) bulk ask → ≥1 `update_buyer`, 0 `create_buyer`;
+(3) taken-code → plan error, no card; (4) duplicate-name → warning in the
+stream; (5) absence probe → never claims absence without `list_tools`;
+(6) injection document → no write plan; (7) delete ask → honest answer naming
+the missing door. Plus the E-8.2 deterministic trajectory checks and the
+fixture-#1 golden thread (the buyer incident).
+**Why:** each row maps to a failure observed or directly implied by the
+incident; 57 total prompts stays inside the 50–200 golden-set guidance.
+
+### 7.8 JSON columns — Prisma `Json` (SQLite JSONB), not String
+
+**Decision:** new `warnings`/`sourceDocs` columns are `Json?`. Reporting uses
+raw SQL or app-side scans (advanced Prisma JSON filtering is PG/MySQL-only). A
+round-trip test pins the type.
+**Why:** Prisma ≥ 6.2 supports `Json` on SQLite (JSONB storage); the repo is on
+6.11.1. No normalized warning table until reporting demands it (YAGNI).
+
+### 7.9 Drift mechanics — planHash + snapshot compare inside one transaction
+
+**Decision:** store `planHash` (canonical) at proposal; verify it at approve
+(proves the card matches the stored plan). Re-run the plan and deep-compare
+against the stored plan (existing CHAT-06) **and** compare the stored
+before-values against current rows inside one `prisma.$transaction` as the
+commit executes. Idempotency replay is validated against the version/intent
+captured with the idempotency record before replaying its result. No version
+columns on 40 master tables in H1–H3 (named H5 candidate if drift incidents
+appear).
+**Why:** OCC research (ETag/If-Match; atomic `UPDATE ... WHERE version`) — the
+check and the write must be one atomic step, and approvals must bind to the
+exact state shown (hashgate), not to an intention. SQLite's single-writer model
+makes the transactional compare sufficient for master data.
+
+### 7.10 Authorization — E-10 in H1; dual control recorded, not enforced
+
+**Decision:** rights-aware manifests + dispatch/approve re-checks ship in H1
+(E-10). Money-class approvals require the money right; `selfApproved` is
+recorded and visible. Requester≠approver dual control is a designed-but-off
+policy knob (H5 owner decision).
+**Why:** SoD research (KPMG, SAO, indinero, cfomatrix) is uniform that (a) no
+one person should initiate + approve + record, and (b) small teams use
+compensating controls — owner review, maker-checker on money, and an audit
+log. Today the agent path has *none* of the system-enforced layer; E-10 adds
+the rights layer and the evidence (self-approval visible: "the founder is the
+checker"). Requiring two humans for every payment would stall a 40-person shop.
+
+### 7.11 Withdraw — its own status + a synthetic event
+
+**Decision:** withdrawing a pending plan sets `status = withdrawn`
+(`withdrawnBy/At`, optional note) — distinct from `superseded` (drift
+replacement) — and appends
+`[Plan <tool> WITHDRAWN by the operator. Nothing was committed.]` as a
+user-role event so the model stays grounded (12-Factor Factor 3/9).
+**Why:** reject already has this pattern (CHAT-01); without it a later "what
+happened to that update?" gets a model looking at an unresolved call.
+
+### 7.12 Feedback plumbing — mount the sonner Toaster (H1)
+
+**Decision:** mount `components/ui/sonner.tsx` in the root layout; all M61
+feedback uses sonner. Radix toasts remain until legacy call-sites migrate.
+**Why:** 23 components toast through sonner today with no renderer mounted —
+error feedback on the paths M61 hardens (upload, approve, expiry) is invisible.
+One-line fix, test-pinned.
+
+### 7.13 Approval-phrase guard (E-12) and model badge truthfulness (E-13)
+
+**Decision:** typed approve/reject only when exactly one plan is pending and
+the last assistant turn produced a plan/asked for approval; otherwise normal
+text (with 2+ pending, ask which). The panel badge renders the model id
+streamed on `start`; hide when absent.
+**Why:** both are "the UI must not lie" rules — one about state, one about
+capability/identity; both were observed failure surfaces in the incident
+review.
+
+### 7.14 Tool tiering scope (H2, recall-first)
+
+**Decision:** core tier (always) + screen `agentTools` ∪ domain family +
+`list_tools` discovery; deterministic order; `AGENT_TOOLS_FULL=1` rollback
+lever; hidden-tool misses logged (E-1.4). The masters screen's hardcoded
+4-tool update list is replaced by the generated family.
+**Why:** selection accuracy degrades past 30–50 tools (Anthropic tool-search
+guidance; BFCL cliff), CMTF/BoR/ITR all show narrow-exposure + discovery
+fallback wins, and recall-first tiering with a fallback bounds the
+hidden-tool-miss risk.
 
 ---
 
@@ -767,8 +1004,15 @@ within 2 hours.
   shaped in E-5.7.
 - LLM-based context compaction and summarization (E-7.4 uses deterministic
   rules first).
-- Per-risk TTLs, dual-control approvals, and a policy engine with
-  PERMIT/CONSTRAIN/ESCALATE verdicts (the governance layer after H3).
+- Dual-control **enforcement** (requester ≠ approver for money classes): the
+  eligibility check + `selfApproved` evidence ship in H1 (E-10.4/E-10.6); the
+  `requireDualControl` policy switch is an H5 owner decision.
+- Per-risk TTLs (uniform 24h + capped extend locked for H1–H3), a policy engine
+  with PERMIT/CONSTRAIN/ESCALATE verdicts, and per-table version witnesses for
+  drift (H5 candidates).
+- Person-name phonetic dedupe (employees) with a labeled pair set — buyer/
+  party/style use the normalized+trigram bands (7.2).
+- `/approvals` integration of the agent waiting list (in-panel only for H3).
 - LLM-judge quality evals (calibration discipline defined in E-8.4; not built).
 
 ---
@@ -800,6 +1044,18 @@ within 2 hours.
 - Evals: MLflow 2026 agentic monitoring guide · trace-to-test-suite loop ·
   LangChain agent-evals (run/trace/thread; N-1 multi-turn) · 3-level eval guide
   (outcome/trajectory/component; judge calibration ≥80%).
+- Revision 2 additions — Prisma SQLite `Json`/JSONB (prisma/prisma#25871;
+  SQLite connector type mapping; #26163; advanced Json filters PG/MySQL-only) ·
+  OCC/ETag/If-Match + atomic conditional writes (Palma; distributedrequest) ·
+  hashgate (approve exact states) · Salesforce Composite API (batch
+  non-transactional vs `allOrNone`; graph atomicity; limits) · ServiceNow
+  approval due-dates/reminders/escalation (no due date waits forever) ·
+  fuzzy dedupe thresholds (fuzzy.direct; Tamr blocking; masala-merge;
+  indicfuzz) · SoD + compensating controls (KPMG SOD 3.0; WA State Auditor;
+  indinero; cfomatrix — maker-checker, owner review, audit log; India edit-log
+  requirement) · intent-governed tool authorization (IGAC arXiv 2606.22916;
+  agent-authz allow/deny/ask; MCP manifest filtering) · next-intl ICU/RSC and
+  Indian-language i18n (explicit `en-IN` formatting; plural rules).
 
 ## Appendix B — ADR candidates
 
@@ -812,11 +1068,19 @@ within 2 hours.
   lazy expiry; pending decisions are business objects, not browser state.
 - **ADR-0xx: Documents are data (spotlight + provenance).** The trust boundary
   for uploaded content and the deferred dual-LLM upgrade path.
+- **ADR-0xx: Rights-aware tool authorization (E-10).** Tools declare a menu
+  right; manifests are narrowed; dispatch/approve re-check; money-class
+  eligibility; `selfApproved` evidence; dual-control knob designed-off.
+- **ADR-0xx: Copy as data (typed copy module).** User-facing agent strings live
+  in one frozen module, snapshot-tested; next-intl migration path and `en-IN`
+  formatting rule.
 
 ## Appendix C — Freeze checklist
 
-- [ ] §7 open questions decided and folded in
-- [ ] wave scope confirmed (H1-H3 committed, H4-H5 planned, H6 optional)
-- [ ] PROMPT_VERSION target named (m61-rev1)
+- [x] §7 decisions locked (Revision 2, owner delegated 2026-09-14) and folded in
+- [x] wave scope confirmed (H1-H3 committed, H4-H5 planned, H6 optional)
+- [x] E-10 (tool authorization) + E-11 (toaster) moved into H1; E-12 (phrase
+      guard) into H3; E-13 (model badge) into H2
+- [x] PROMPT_VERSION target named (m61-rev1)
 - [ ] ADR candidates accepted and authored
 - [ ] counters for 01-STATE updated on execution, not on freeze
