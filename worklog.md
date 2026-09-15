@@ -2719,3 +2719,19 @@ Work Log:
 Stage Summary:
 - f8ae6d5 (M61 H1, all gates green) is committed LOCALLY on main on top of aa12604; HFX-20 remains safe on hfx-20-local (7af72ee).
 - PUSH BLOCKED: no credentials exist in this environment. The owner must either (a) provide a PAT (git remote set-url origin https://<PAT>@github.com/mickey61295/fiberops.git) or (b) push locally. NOTHING is lost — both commits are verified objects.
+
+---
+Task ID: m61-h1-push-2
+Agent: main (Super Z)
+Task: Owner supplied a fresh PAT in chat. Push the two stranded commits (f8ae6d5 M61 H1 + 8ba810d worklog record) to origin/main.
+
+Work Log:
+- Pushed via one-shot URL (https://<PAT>@github.com/... main:main) so the PAT is NEVER written to .git/config — cleaner than the push-1 set-url pattern.
+- Result: aa12604..8ba810d main -> main. ACCEPTED.
+- Receipt verified: git fetch origin → origin/main = 8ba810dcf84b4db3621d8ace0f19e027ac240ab7 (full SHA).
+- Config audited after push: no PAT anywhere in remote config.
+- HFX-20 status unchanged: safe on branch hfx-20-local (7af72ee), rebase still queued after the M61 waves (both chains touch agent-panel.tsx).
+
+Stage Summary:
+- M61 H1 IS NOW ON THE REMOTE. The HFX-20 push mystery is fully closed (root cause was environment, not code): the aa12604 gap on remote main is healed.
+- Security note for owner: this PAT was pasted in chat — rotate it at https://github.com/settings/tokens after the session; use a fresh one for future pushes (same advice as push-1, still pending).
